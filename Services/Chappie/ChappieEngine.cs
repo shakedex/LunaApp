@@ -7,11 +7,13 @@ namespace LunaApp.Services.Chappie;
 /// Chappie Engine - Intelligent clip processing orchestrator.
 /// Tries each extractor in order until one successfully extracts metadata.
 /// Priority: Sony sidecar → ARRI ART CLI → LibVLC (fallback)
+/// Thumbnails: FFmpeg (if available) → LibVLC
 /// </summary>
 public sealed class ChappieEngine : IDisposable
 {
     private readonly List<IClipProcessor> _processors = [];
     private readonly LibVlcClipProcessor _libVlcFallback = new();
+    private readonly FfmpegThumbnailService _ffmpegThumbnails = new();
     private bool _disposed;
     
     public ChappieEngine()
@@ -157,24 +159,24 @@ public sealed class ChappieEngine : IDisposable
             await FillMissingMetadataAsync(clip, cancellationToken);
         }
         
-        // Extract thumbnails
+        // Extract thumbnails using FFmpeg first (fastest, best seeking), then LibVLC fallback
         if (extractThumbnails && clip.Duration > TimeSpan.Zero)
         {
             try
             {
                 Log.Debug("Extracting thumbnails for {FileName} (duration: {Duration})", fileName, clip.Duration);
                 
-                // Use the successful processor's thumbnail extraction (ARRI uses ART CLI)
-                // Fall back to LibVLC for other formats
-                if (successfulProcessor != null && successfulProcessor != _libVlcFallback)
+                // Try FFmpeg first - it can seek accurately in any codec
+                if (_ffmpegThumbnails.IsAvailable)
                 {
-                    clip.Thumbnails = await successfulProcessor.ExtractThumbnailsAsync(
+                    clip.Thumbnails = await _ffmpegThumbnails.ExtractThumbnailsAsync(
                         filePath, clip.Duration, thumbnailCount, thumbnailWidth, cancellationToken);
                 }
                 
-                // If processor didn't extract thumbnails, try LibVLC as fallback
+                // Fall back to LibVLC if FFmpeg failed or not available
                 if (clip.Thumbnails == null || clip.Thumbnails.Count == 0)
                 {
+                    Log.Debug("FFmpeg thumbnails unavailable, using LibVLC fallback for {FileName}", fileName);
                     clip.Thumbnails = await _libVlcFallback.ExtractThumbnailsAsync(
                         filePath, clip.Duration, thumbnailCount, thumbnailWidth, cancellationToken);
                 }

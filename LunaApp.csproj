@@ -31,6 +31,8 @@
   <ItemGroup>
     <!-- ARRI ART CLI binaries -->
     <None Include="tools\arri\**" CopyToOutputDirectory="PreserveNewest" LinkBase="tools\arri" />
+    <!-- FFmpeg native libraries -->
+    <None Include="tools\ffmpeg\**" CopyToOutputDirectory="PreserveNewest" LinkBase="tools\ffmpeg" />
   </ItemGroup>
 
   <ItemGroup>
@@ -47,11 +49,9 @@
     <!-- MVVM -->
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.1" />
     <PackageReference Include="LibVLCSharp" Version="3.9.5" />
-    <PackageReference Include="mpv" Version="0.28.2" />
-    <PackageReference Include="Sdcb.FFmpeg" Version="7.0.0" />
-    <PackageReference Include="Sdcb.FFmpeg.runtime.windows-x64" Version="7.1.0" />
     
-    <!-- Media Processing - FFmpeg with native binaries included -->
+    <!-- FFmpeg native bindings - 7.1 matches FFmpeg 7.x DLLs (avcodec-61) -->
+    <PackageReference Include="FFmpeg.AutoGen" Version="7.1.1" />
     
     <!-- Image Processing - all platforms -->
     <PackageReference Include="SkiaSharp" Version="3.119.3-preview.1.1" />
