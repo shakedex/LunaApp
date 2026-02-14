@@ -1,0 +1,203 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:LunaApp.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="600" d:DesignHeight="700"
+        x:Class="LunaApp.Views.SettingsWindow"
+        x:DataType="vm:SettingsViewModel"
+        Title="Luna Settings"
+        Width="600"
+        Height="700"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        Background="#0d1117">
+
+    <Design.DataContext>
+        <vm:SettingsViewModel/>
+    </Design.DataContext>
+
+    <Window.Styles>
+        <Style Selector="TextBlock">
+            <Setter Property="Foreground" Value="#e6edf3"/>
+        </Style>
+        
+        <Style Selector="TextBlock.label">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="#8b949e"/>
+            <Setter Property="Margin" Value="0,0,0,4"/>
+        </Style>
+        
+        <Style Selector="TextBox">
+            <Setter Property="Background" Value="#21262d"/>
+            <Setter Property="BorderBrush" Value="#30363d"/>
+            <Setter Property="Foreground" Value="#e6edf3"/>
+            <Setter Property="Padding" Value="12,10"/>
+            <Setter Property="CornerRadius" Value="6"/>
+        </Style>
+        
+        <Style Selector="TextBox:focus">
+            <Setter Property="BorderBrush" Value="#58a6ff"/>
+        </Style>
+        
+        <Style Selector="NumericUpDown">
+            <Setter Property="Background" Value="#21262d"/>
+            <Setter Property="BorderBrush" Value="#30363d"/>
+            <Setter Property="Foreground" Value="#e6edf3"/>
+        </Style>
+        
+        <Style Selector="CheckBox">
+            <Setter Property="Foreground" Value="#e6edf3"/>
+        </Style>
+        
+        <Style Selector="Button.primary">
+            <Setter Property="Background" Value="#238636"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Padding" Value="24,12"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.primary:pointerover">
+            <Setter Property="Background" Value="#2ea043"/>
+        </Style>
+        
+        <Style Selector="Button.secondary">
+            <Setter Property="Background" Value="#21262d"/>
+            <Setter Property="Foreground" Value="#e6edf3"/>
+            <Setter Property="Padding" Value="12,8"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="BorderBrush" Value="#30363d"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.secondary:pointerover">
+            <Setter Property="Background" Value="#30363d"/>
+        </Style>
+        
+        <Style Selector="Border.section">
+            <Setter Property="Background" Value="#161b22"/>
+            <Setter Property="BorderBrush" Value="#30363d"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="20"/>
+            <Setter Property="Margin" Value="0,0,0,16"/>
+        </Style>
+    </Window.Styles>
+
+    <Grid RowDefinitions="Auto,*,Auto">
+        
+        <!-- Header -->
+        <Border Grid.Row="0" Background="#161b22" BorderBrush="#30363d" BorderThickness="0,0,0,1" Padding="24,16">
+            <TextBlock Text="Settings" FontSize="20" FontWeight="Bold"/>
+        </Border>
+        
+        <!-- Content -->
+        <ScrollViewer Grid.Row="1" Padding="24">
+            <StackPanel Spacing="0">
+                
+                <!-- Branding Section -->
+                <Border Classes="section">
+                    <StackPanel Spacing="16">
+                        <TextBlock Text="Report Branding" FontSize="16" FontWeight="SemiBold"/>
+                        
+                        <!-- Logo -->
+                        <StackPanel Spacing="8">
+                            <TextBlock Classes="label" Text="Company Logo"/>
+                            <Grid ColumnDefinitions="Auto,*,Auto">
+                                <Border Grid.Column="0" 
+                                        Width="60" Height="60" 
+                                        CornerRadius="6"
+                                        Background="#21262d"
+                                        BorderBrush="#30363d"
+                                        BorderThickness="1"
+                                        Margin="0,0,12,0"
+                                        IsVisible="{Binding HasLogo}">
+                                    <Image Source="{Binding LogoPath}" Stretch="Uniform" Margin="8"/>
+                                </Border>
+                                <TextBlock Grid.Column="1" 
+                                           Text="{Binding LogoPath, FallbackValue='No logo selected'}"
+                                           Foreground="#8b949e"
+                                           VerticalAlignment="Center"
+                                           TextTrimming="CharacterEllipsis"/>
+                                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
+                                    <Button Classes="secondary" Command="{Binding BrowseLogoCommand}" Content="Browse"/>
+                                    <Button Classes="secondary" Command="{Binding ClearLogoCommand}" Content="Clear" IsVisible="{Binding HasLogo}"/>
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+                        
+                        <!-- Project Name -->
+                        <StackPanel Spacing="4">
+                            <TextBlock Classes="label" Text="Project Name"/>
+                            <TextBox Text="{Binding ProjectName}" Watermark="e.g., My Film Production"/>
+                        </StackPanel>
+                        
+                        <!-- Production Company -->
+                        <StackPanel Spacing="4">
+                            <TextBlock Classes="label" Text="Production Company"/>
+                            <TextBox Text="{Binding ProductionCompany}" Watermark="e.g., Acme Films"/>
+                        </StackPanel>
+                        
+                        <!-- Grid for DIT, Director, DP -->
+                        <Grid ColumnDefinitions="*,16,*,16,*">
+                            <StackPanel Grid.Column="0" Spacing="4">
+                                <TextBlock Classes="label" Text="DIT"/>
+                                <TextBox Text="{Binding DitName}" Watermark="Your name"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2" Spacing="4">
+                                <TextBlock Classes="label" Text="Director"/>
+                                <TextBox Text="{Binding Director}" Watermark="Director name"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="4" Spacing="4">
+                                <TextBlock Classes="label" Text="DP"/>
+                                <TextBox Text="{Binding Dp}" Watermark="DP name"/>
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+                
+                <!-- Output Section -->
+                <Border Classes="section">
+                    <StackPanel Spacing="16">
+                        <TextBlock Text="Output Settings" FontSize="16" FontWeight="SemiBold"/>
+                        
+                        <!-- Output Folder -->
+                        <StackPanel Spacing="4">
+                            <TextBlock Classes="label" Text="Report Output Folder"/>
+                            <Grid ColumnDefinitions="*,8,Auto">
+                                <TextBox Grid.Column="0" Text="{Binding OutputFolder}" IsReadOnly="True"/>
+                                <Button Grid.Column="2" Classes="secondary" Command="{Binding BrowseOutputFolderCommand}" Content="Browse"/>
+                            </Grid>
+                        </StackPanel>
+                        
+                        <!-- Thumbnails per clip -->
+                        <StackPanel Spacing="4">
+                            <TextBlock Classes="label" Text="Thumbnails per Clip"/>
+                            <NumericUpDown Value="{Binding ThumbnailsPerClip}" Minimum="0" Maximum="10" Width="120" HorizontalAlignment="Left"/>
+                            <TextBlock Text="Set to 0 to disable thumbnail generation" FontSize="11" Foreground="#6e7681"/>
+                        </StackPanel>
+                        
+                        <!-- Checkboxes -->
+                        <StackPanel Spacing="8" Margin="0,8,0,0">
+                            <CheckBox Content="Generate HTML reports by default" IsChecked="{Binding GenerateHtmlByDefault}"/>
+                            <CheckBox Content="Generate PDF reports by default" IsChecked="{Binding GeneratePdfByDefault}"/>
+                            <CheckBox Content="Open report when complete" IsChecked="{Binding OpenReportWhenDone}"/>
+                            <CheckBox Content="Group PDFs in separate folder" IsChecked="{Binding GroupPdfsInSeparateFolder}"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+                
+            </StackPanel>
+        </ScrollViewer>
+        
+        <!-- Footer -->
+        <Border Grid.Row="2" Background="#161b22" BorderBrush="#30363d" BorderThickness="0,1,0,0" Padding="24,16">
+            <Grid ColumnDefinitions="*,Auto,8,Auto">
+                <Button Grid.Column="1" Classes="secondary" Click="OnCancel" Content="Cancel"/>
+                <Button Grid.Column="3" Classes="primary" Command="{Binding SaveCommand}" Click="OnSave" Content="Save Settings"/>
+            </Grid>
+        </Border>
+    </Grid>
+
+</Window>

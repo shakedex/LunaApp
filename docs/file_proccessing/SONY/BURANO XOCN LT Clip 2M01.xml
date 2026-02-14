@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<NonRealTimeMeta lastUpdate="2024-11-25T11:28:22-08:00" xmlns="urn:schemas-professionalDisc:nonRealTimeMeta:ver.2.00" xmlns:lib="urn:schemas-professionalDisc:lib:ver.2.00">
+	<TargetMaterial umidRef="060A2B340101010501010D431300000093A98AB0AF3F4E98AEE5600AF59C66FD"/>
+	<Duration value="269"/>
+	<LtcChangeTable tcFps="24">
+		  <LtcChange frameCount="0" status="increment" value="03063012"/>
+		  <LtcChange frameCount="268" status="end" value="07173012"/>
+	</LtcChangeTable>
+	<CreationDate value="2024-10-24T20:28:24Z"/>
+	<LastUpdate value="2024-11-25T11:28:18-08:00"/>
+	<VideoFormat>
+		  <VideoRecPort port="MXF"/>
+		  <VideoFrame captureFps="24p" formatFps="24p" videoCodec="X-OCN_G_LT_6K_17:9"/>
+		  <VideoLayout aspectRatio="256:135" numOfVerticalLine="3192" pixel="6052" pixelAspect="1:1"/>
+	</VideoFormat>
+	<AudioFormat numOfChannel="4">
+		  <AudioRecPort audioCodec="LPCM24" port="MXF" samplingRate="48000" trackDst="CH1"/>
+		  <AudioRecPort audioCodec="LPCM24" port="MXF" samplingRate="48000" trackDst="CH2"/>
+		  <AudioRecPort audioCodec="LPCM24" port="MXF" samplingRate="48000" trackDst="CH3"/>
+		  <AudioRecPort audioCodec="LPCM24" port="MXF" samplingRate="48000" trackDst="CH4"/>
+	</AudioFormat>
+	<AcquisitionRecord>
+		  <Group name="LensUnitMetadataSet">
+			  <Item name="IrisFNumber" value="1.84"/>
+			  <Item name="IrisTNumber" value="1.92"/>
+			  <Item name="FocusPositionFromImagePlane" value="2.924m"/>
+			  <Item name="LensZoom35mmStillCameraEquivalent" value="57.00mm"/>
+			  <Item name="LensZoomActualFocalLength" value="50.00mm"/>
+			  <Item name="LensAttributes" value="2050.0212"/>
+		</Group>
+		  <Group name="CameraUnitMetadataSet">
+			  <Item name="AutoExposureMode" value="ManualExposureMode"/>
+			  <Item name="ExposureIndexOfPhotoMeter" value="800"/>
+			  <Item name="ExposureIndexOfPhotoMeter" value="800"/>
+			  <Item name="AutoFocusSensingAreaSetting" value="ManualFocusMode"/>
+			  <Item name="NeutralDensityFilterWheelSetting" value="4"/>
+			  <Item name="ImageSensorEffectiveWidth" value="33567"/>
+			  <Item name="ImageSensorEffectiveHeight" value="17704"/>
+			  <Item name="CaptureFrameRate" value="24"/>
+			  <Item name="ImageSensorReadoutMode" value="ProgressiveFrame"/>
+			  <Item name="ShutterSpeed_Angle" value="180.00deg"/>
+			  <Item name="ShutterSpeed_Time" value="20.83ms"/>
+			  <Item name="CameraMasterGainAdjustment" value="0.00db"/>
+			  <Item name="ISOSensitivity" value="800"/>
+			  <Item name="ISOSensitivity" value="800"/>
+			  <Item name="ElectricalExtenderMagnification" value="100%"/>
+			  <Item name="AutoWhiteBalanceMode" value="PresetWhiteBalanceSetup"/>
+			  <Item name="WhiteBalance" value="3600"/>
+			  <Item name="TintCorrection" value="0"/>
+			  <Item name="CaptureGammaEquation" value="scene-linear"/>
+			  <Item name="CameraAttributes" value="MPC-2610 1000389 Version1.10"/>
+		</Group>
+		  <Group name="SonyF65CameraMetadataSet">
+			  <Item name="EffectiveMarkerCoverage" value="5674/6052"/>
+			  <Item name="EffectiveMarkerAspectRatio" value="5674:3192"/>
+			  <Item name="ActiveAreaAspectRatio" value="6052:3192"/>
+			  <Item name="PixelAspectRatio" value="1:1"/>
+			  <Item name="CameraProcessDiscriminationCode" value="0C01h"/>
+			  <Item name="ImageOrientation" value="Normal"/>
+			  <Item name="RawBlackCodeValue" value="512"/>
+			  <Item name="RawGrayCodeValue" value="1504"/>
+			  <Item name="RawWhiteCodeValue" value="5472"/>
+			  <Item name="MonitoringBaseCurve" value="rec709"/>
+			  <Item name="GammaForLook" value="s-log3-cine"/>
+			  <Item name="ColorForLook" value="s-gamut3-cine"/>
+			  <Item name="PreCDLTransform" value="LUT:SL3SG3CtoTealOR_709.cube"/>
+			  <Item name="LookProcessBaked" value="false"/>
+			  <Item name="MonitoringCharacteristics" value="rec709"/>
+			  <Item name="MonitoringColorPrimaries" value="rec709"/>
+			  <Item name="MonitoringCodingEquations" value="rec709"/>
+			  <Item name="MonitoringDescriptions" value="LUT:SL3SG3CtoTealOR_709.cube"/>
+		</Group>
+		  <Group name="CameraPostureMetadataSet"/>
+	</AcquisitionRecord>
+</NonRealTimeMeta>

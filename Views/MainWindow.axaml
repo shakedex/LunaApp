@@ -1,0 +1,350 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:LunaApp.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:models="using:LunaApp.Models"
+        xmlns:services="using:LunaApp.Services"
+        mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="800"
+        x:Class="LunaApp.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Icon="/Assets/luna-logo.ico"
+        Title="Luna"
+        MinWidth="900"
+        MinHeight="600"
+        Background="#0d1117">
+
+    <Design.DataContext>
+        <vm:MainWindowViewModel/>
+    </Design.DataContext>
+
+    <Window.Styles>
+        <!-- Custom styles for Luna's dark theme -->
+        <Style Selector="TextBlock">
+            <Setter Property="Foreground" Value="#e6edf3"/>
+        </Style>
+        
+        <Style Selector="Button.primary">
+            <Setter Property="Background" Value="#238636"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Padding" Value="24,12"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.primary:pointerover">
+            <Setter Property="Background" Value="#2ea043"/>
+        </Style>
+        <Style Selector="Button.primary:disabled">
+            <Setter Property="Background" Value="#21262d"/>
+            <Setter Property="Foreground" Value="#6e7681"/>
+        </Style>
+        
+        <Style Selector="Button.secondary">
+            <Setter Property="Background" Value="#21262d"/>
+            <Setter Property="Foreground" Value="#e6edf3"/>
+            <Setter Property="Padding" Value="16,10"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="BorderBrush" Value="#30363d"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.secondary:pointerover">
+            <Setter Property="Background" Value="#30363d"/>
+        </Style>
+        
+        <!-- Drop zone styling -->
+        <Style Selector="Border.dropZone">
+            <Setter Property="Background" Value="#161b22"/>
+            <Setter Property="BorderBrush" Value="#30363d"/>
+            <Setter Property="BorderThickness" Value="2"/>
+            <Setter Property="CornerRadius" Value="12"/>
+        </Style>
+        <Style Selector="Border.dropZone:pointerover">
+            <Setter Property="BorderBrush" Value="#58a6ff"/>
+            <Setter Property="Background" Value="#0d1117"/>
+        </Style>
+        
+        <!-- Card styling -->
+        <Style Selector="Border.card">
+            <Setter Property="Background" Value="#161b22"/>
+            <Setter Property="BorderBrush" Value="#30363d"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+        </Style>
+        
+        <!-- Reel item styling -->
+        <Style Selector="Border.reelItem">
+            <Setter Property="Background" Value="#21262d"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="16"/>
+            <Setter Property="Margin" Value="0,0,0,8"/>
+        </Style>
+        
+        <!-- Clip item styling -->
+        <Style Selector="Border.clipItem">
+            <Setter Property="Background" Value="#161b22"/>
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="Padding" Value="12"/>
+            <Setter Property="Margin" Value="0,4"/>
+        </Style>
+    </Window.Styles>
+
+    <Grid RowDefinitions="Auto,*,Auto,Auto">
+        
+        <!-- Header -->
+        <Border Grid.Row="0" Background="#161b22" BorderBrush="#30363d" BorderThickness="0,0,0,1" Padding="24,16">
+            <Grid ColumnDefinitions="Auto,*,Auto">
+                <!-- Logo and title -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                    <Image Source="/Assets/luna-logo.webp" Width="36" Height="36" RenderOptions.BitmapInterpolationMode="HighQuality"/>
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="Luna" FontSize="20" FontWeight="Bold" Foreground="#e6edf3"/>
+                        <TextBlock Text="Camera Report Generator" FontSize="11" Foreground="#8b949e"/>
+                    </StackPanel>
+                </StackPanel>
+                
+                <!-- Header buttons -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
+                    <!-- DEV: Log viewer toggle button - for development/debugging stages -->
+                    <Button Classes="secondary" Command="{Binding ToggleLogViewerCommand}" VerticalAlignment="Center" ToolTip.Tip="Toggle Log Viewer (Dev)">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="&#xf15c;" FontFamily="Segoe MDL2 Assets" FontSize="14" Foreground="#8b949e" VerticalAlignment="Center"/>
+                            <TextBlock Text="Logs" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                    
+                    <!-- Settings button -->
+                    <Button Classes="secondary" Command="{Binding OpenSettingsCommand}" VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <PathIcon Data="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM2 12a10 10 0 1 1 20 0 10 10 0 0 1-20 0zm10-8a8 8 0 1 0 0 16 8 8 0 0 0 0-16z" 
+                                      Width="16" Height="16" Foreground="#8b949e"/>
+                            <TextBlock Text="Settings" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
+        
+        <!-- Main content -->
+        <Grid Grid.Row="1" Margin="24">
+            
+            <!-- Empty state: Drop zone -->
+            <Border Classes="dropZone" 
+                    IsVisible="{Binding !HasReels}"
+                    DragDrop.AllowDrop="True"
+                    Cursor="Hand">
+                <Grid>
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="16">
+                        <!-- Moon icon -->
+                        <Border Width="80" Height="80" CornerRadius="40" Background="#21262d" HorizontalAlignment="Center">
+                            <PathIcon Data="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z"
+                                      Width="40" Height="40" Foreground="#58a6ff"/>
+                        </Border>
+                        <TextBlock Text="Drop camera footage here" FontSize="20" FontWeight="SemiBold" Foreground="#e6edf3" HorizontalAlignment="Center"/>
+                        <TextBlock Text="or click to browse for a folder" FontSize="14" Foreground="#8b949e" HorizontalAlignment="Center"/>
+                        <Button Classes="secondary" Command="{Binding BrowseFolderCommand}" HorizontalAlignment="Center" Margin="0,8,0,0">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <PathIcon Data="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" 
+                                          Width="16" Height="16" Foreground="#8b949e"/>
+                                <TextBlock Text="Browse Folder" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </Grid>
+            </Border>
+            
+            <!-- Content: Reels list -->
+            <Grid IsVisible="{Binding HasReels}" ColumnDefinitions="*,320">
+                
+                <!-- Reels and clips -->
+                <ScrollViewer Grid.Column="0" Margin="0,0,16,0">
+                    <ItemsControl ItemsSource="{Binding Reels}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="models:CameraReel">
+                                <Border Classes="reelItem" Margin="0,0,0,16">
+                                    <StackPanel Spacing="12">
+                                        <!-- Reel header -->
+                                        <Grid ColumnDefinitions="Auto,*,Auto">
+                                            <Border Grid.Column="0" Background="#58a6ff" CornerRadius="4" Padding="12,6" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding DisplayLabel}" FontWeight="Bold" Foreground="#0d1117"/>
+                                            </Border>
+                                            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
+                                                <TextBlock Foreground="#8b949e">
+                                                    <Run Text="{Binding ClipCount}"/>
+                                                    <Run Text="clips"/>
+                                                </TextBlock>
+                                                <TextBlock Text="{Binding TotalDuration, StringFormat='{}{0:hh\\:mm\\:ss}'}" Foreground="#8b949e"/>
+                                            </StackPanel>
+                                        </Grid>
+                                        
+                                        <!-- Clips list -->
+                                        <ItemsControl ItemsSource="{Binding Clips}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="models:CameraClip">
+                                                    <Border Classes="clipItem">
+                                                        <Grid ColumnDefinitions="Auto,*,Auto">
+                                                            <!-- Thumbnails -->
+                                                            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="4" Margin="0,0,16,0">
+                                                                <ItemsControl ItemsSource="{Binding Thumbnails}">
+                                                                    <ItemsControl.ItemsPanel>
+                                                                        <ItemsPanelTemplate>
+                                                                            <StackPanel Orientation="Horizontal" Spacing="4"/>
+                                                                        </ItemsPanelTemplate>
+                                                                    </ItemsControl.ItemsPanel>
+                                                                    <ItemsControl.ItemTemplate>
+                                                                        <DataTemplate x:DataType="models:ThumbnailFrame">
+                                                                            <Border CornerRadius="2" ClipToBounds="True">
+                                                                                <!-- Placeholder for thumbnail - will be replaced with actual image -->
+                                                                                <Border Width="80" Height="45" Background="#30363d"/>
+                                                                            </Border>
+                                                                        </DataTemplate>
+                                                                    </ItemsControl.ItemTemplate>
+                                                                </ItemsControl>
+                                                            </StackPanel>
+                                                            
+                                                            <!-- Clip info -->
+                                                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="4">
+                                                                <TextBlock Text="{Binding FileName}" FontWeight="SemiBold" Foreground="#e6edf3"/>
+                                                                <StackPanel Orientation="Horizontal" Spacing="12">
+                                                                    <TextBlock Text="{Binding Resolution}" FontSize="12" Foreground="#8b949e"/>
+                                                                    <TextBlock Text="{Binding Codec}" FontSize="12" Foreground="#8b949e"/>
+                                                                    <TextBlock Text="{Binding DurationFormatted}" FontSize="12" Foreground="#8b949e"/>
+                                                                </StackPanel>
+                                                            </StackPanel>
+                                                            
+                                                            <!-- Timecode -->
+                                                            <TextBlock Grid.Column="2" Text="{Binding Timecode}" 
+                                                                       FontFamily="Consolas" FontSize="12" 
+                                                                       Foreground="#58a6ff" VerticalAlignment="Center"/>
+                                                        </Grid>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+                
+                <!-- Sidebar: Summary and actions -->
+                <Border Grid.Column="1" Classes="card" Padding="20">
+                    <StackPanel Spacing="20">
+                        <TextBlock Text="Report Summary" FontSize="16" FontWeight="SemiBold"/>
+                        
+                        <!-- Stats -->
+                        <StackPanel Spacing="12">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBlock Text="Reels" Foreground="#8b949e"/>
+                                <TextBlock Grid.Column="1" Text="{Binding ReelCount}" FontWeight="SemiBold"/>
+                            </Grid>
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBlock Text="Total Clips" Foreground="#8b949e"/>
+                                <TextBlock Grid.Column="1" Text="{Binding TotalClipCount}" FontWeight="SemiBold"/>
+                            </Grid>
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBlock Text="Total Duration" Foreground="#8b949e"/>
+                                <TextBlock Grid.Column="1" Text="{Binding TotalDuration, StringFormat='{}{0:hh\\:mm\\:ss}'}" FontWeight="SemiBold"/>
+                            </Grid>
+                        </StackPanel>
+                        
+                        <Border Height="1" Background="#30363d"/>
+                        
+                        <!-- Output options -->
+                        <StackPanel Spacing="8">
+                            <CheckBox Content="HTML Report" IsChecked="{Binding GenerateHtml}" Foreground="#e6edf3"/>
+                            <CheckBox Content="PDF Report" IsChecked="{Binding GeneratePdf}" Foreground="#e6edf3"/>
+                            <CheckBox Content="Open when complete" IsChecked="{Binding OpenWhenDone}" Foreground="#8b949e" FontSize="12"/>
+                        </StackPanel>
+                        
+                        <Border Height="1" Background="#30363d"/>
+                        
+                        <!-- Generate button -->
+                        <Button Classes="primary" 
+                                Command="{Binding GenerateReportsCommand}" 
+                                IsEnabled="{Binding CanGenerate}"
+                                HorizontalAlignment="Stretch"
+                                HorizontalContentAlignment="Center">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <PathIcon Data="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                                          Width="18" Height="18" Foreground="White"
+                                          IsVisible="{Binding !IsProcessing}"/>
+                                <TextBlock Text="{Binding GenerateButtonText}" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+                        
+                        <!-- Clear button -->
+                        <Button Classes="secondary" 
+                                Command="{Binding ClearCommand}" 
+                                HorizontalAlignment="Stretch"
+                                HorizontalContentAlignment="Center"
+                                IsVisible="{Binding HasReels}">
+                            <TextBlock Text="Clear &amp; Start Over"/>
+                        </Button>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Grid>
+        
+        <!-- DEV: Log viewer panel - for development/debugging stages -->
+        <Border Grid.Row="2" 
+                Background="#0d1117" 
+                BorderBrush="#30363d" 
+                BorderThickness="0,1,0,0"
+                Height="250"
+                IsVisible="{Binding IsLogViewerVisible}">
+            <Grid RowDefinitions="Auto,*">
+                <!-- Log viewer header -->
+                <Border Background="#161b22" Padding="12,8">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Text="Log Viewer (Development)" FontWeight="SemiBold" Foreground="#e6edf3" VerticalAlignment="Center"/>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                            <Button Classes="secondary" Command="{Binding ClearLogsCommand}" Padding="8,4">
+                                <TextBlock Text="Clear" FontSize="12"/>
+                            </Button>
+                            <Button Classes="secondary" Command="{Binding ToggleLogViewerCommand}" Padding="8,4">
+                                <TextBlock Text="X" FontSize="12" FontWeight="Bold" Foreground="#8b949e"/>
+                            </Button>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+                
+                <!-- Log entries - TextBox allows multi-line selection and copy -->
+                <TextBox Grid.Row="1" 
+                         Text="{Binding LogText}"
+                         IsReadOnly="True"
+                         AcceptsReturn="True"
+                         TextWrapping="Wrap"
+                         FontFamily="Consolas, Courier New, monospace"
+                         FontSize="11"
+                         Foreground="#8b949e"
+                         Background="Transparent"
+                         BorderThickness="0"
+                         Margin="8"
+                         CaretBrush="#58a6ff"
+                         SelectionBrush="#264f78"/>
+            </Grid>
+        </Border>
+        
+        <!-- Status bar -->
+        <Border Grid.Row="3" Background="#161b22" BorderBrush="#30363d" BorderThickness="0,1,0,0" Padding="24,12">
+            <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Text="{Binding StatusText}" Foreground="#8b949e" VerticalAlignment="Center"/>
+                
+                <!-- Progress bar -->
+                <ProgressBar Grid.Column="1" 
+                             Value="{Binding Progress}" 
+                             Maximum="100"
+                             Width="200"
+                             Height="4"
+                             IsVisible="{Binding IsProcessing}"
+                             Foreground="#58a6ff"
+                             Background="#21262d"/>
+            </Grid>
+        </Border>
+    </Grid>
+
+</Window>

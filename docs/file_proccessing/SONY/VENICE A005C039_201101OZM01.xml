@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<NonRealTimeMeta lastUpdate="2020-12-14T19:59:07-08:00" xmlns="urn:schemas-professionalDisc:nonRealTimeMeta:ver.2.00" xmlns:lib="urn:schemas-professionalDisc:lib:ver.2.00">
+	<TargetMaterial umidRef="060A2B340101010501010D4313000000D56C984EB5B1472BA17E0579BC3DC6AB"/>
+	<Duration value="79"/>
+	<LtcChangeTable tcFps="24">
+		  <LtcChange frameCount="0" status="increment" value="00595004"/>
+		  <LtcChange frameCount="78" status="end" value="06025104"/>
+	</LtcChangeTable>
+	<CreationDate value="2020-11-02T01:39:05Z"/>
+	<LastUpdate value="2020-12-14T19:59:01-08:00"/>
+	<VideoFormat>
+		  <VideoRecPort port="MXF"/>
+		  <VideoFrame captureFps="23.98p" formatFps="23.98p" videoCodec="F55_X-OCN_LT_6K_3:2"/>
+		  <VideoLayout aspectRatio="3:2" numOfVerticalLine="4032" pixel="6048" pixelAspect="1:1"/>
+	</VideoFormat>
+	<AudioFormat numOfChannel="4">
+		  <AudioRecPort audioCodec="LPCM24" port="MXF" samplingRate="48000" trackDst="CH1"/>
+		  <AudioRecPort audioCodec="LPCM24" port="MXF" samplingRate="48000" trackDst="CH2"/>
+		  <AudioRecPort audioCodec="LPCM24" port="MXF" samplingRate="48000" trackDst="CH3"/>
+		  <AudioRecPort audioCodec="LPCM24" port="MXF" samplingRate="48000" trackDst="CH4"/>
+	</AudioFormat>
+	<AcquisitionRecord>
+		  <Group name="LensUnitMetadataSet">
+			  <Item name="IrisFNumber" value="7.24"/>
+			  <Item name="IrisTNumber" value="7.77"/>
+			  <Item name="IrisRingPosition" value="32004"/>
+			  <Item name="FocusPositionFromImagePlane" value="3.958m"/>
+			  <Item name="FocusRingPosition" value="53639"/>
+			  <Item name="MacroSetting" value="OFF"/>
+			  <Item name="LensZoom35mmStillCameraEquivalent" value="86.00mm"/>
+			  <Item name="LensZoomActualFocalLength" value="86.00mm"/>
+			  <Item name="ZoomRingPosition" value="57736"/>
+			  <Item name="OpticalExtenderMagnification" value="100%"/>
+			  <Item name="LensAttributes" value="F08000183"/>
+		</Group>
+		  <Group name="CameraUnitMetadataSet">
+			  <Item name="AutoExposureMode" value="ManualExposureMode"/>
+			  <Item name="ExposureIndexOfPhotoMeter" value="500"/>
+			  <Item name="AutoFocusSensingAreaSetting" value="ManualFocusMode"/>
+			  <Item name="NeutralDensityFilterWheelSetting" value="1"/>
+			  <Item name="ImageSensorEffectiveWidth" value="35925"/>
+			  <Item name="ImageSensorEffectiveHeight" value="23950"/>
+			  <Item name="CaptureFrameRate" value="23.98"/>
+			  <Item name="ImageSensorReadoutMode" value="ProgressiveFrame"/>
+			  <Item name="ShutterSpeed_Angle" value="180.00deg"/>
+			  <Item name="ShutterSpeed_Time" value="20.83ms"/>
+			  <Item name="CameraMasterGainAdjustment" value="0.00db"/>
+			  <Item name="ISOSensitivity" value="500"/>
+			  <Item name="ElectricalExtenderMagnification" value="100%"/>
+			  <Item name="AutoWhiteBalanceMode" value="PresetWhiteBalanceSetup"/>
+			  <Item name="WhiteBalance" value="6300"/>
+			  <Item name="TintCorrection" value="0"/>
+			  <Item name="CaptureGammaEquation" value="scene-linear"/>
+			  <Item name="GammaForCDL" value="rec709"/>
+			  <Item name="CameraAttributes" value="MPC-3610 0010658 Version0.60"/>
+		</Group>
+		  <Group name="SonyF65CameraMetadataSet">
+			  <Item name="EffectiveMarkerCoverage" value="6048/6048"/>
+			  <Item name="EffectiveMarkerAspectRatio" value="6048:4032"/>
+			  <Item name="ActiveAreaAspectRatio" value="6048:4032"/>
+			  <Item name="PixelAspectRatio" value="1:1"/>
+			  <Item name="CameraProcessDiscriminationCode" value="0601h"/>
+			  <Item name="ImageOrientation" value="Normal"/>
+			  <Item name="RawBlackCodeValue" value="512"/>
+			  <Item name="RawGrayCodeValue" value="1504"/>
+			  <Item name="RawWhiteCodeValue" value="5472"/>
+			  <Item name="MonitoringBaseCurve" value="rec709"/>
+			  <Item name="GammaForLook" value="s-log3-cine"/>
+			  <Item name="ColorForLook" value="s-gamut3-cine"/>
+			  <Item name="PreCDLTransform" value="LUT:SL3SG3Ctos709.cube"/>
+			  <Item name="PostCDLTransform" value="none"/>
+			  <Item name="LookProcessBaked" value="false"/>
+			  <Item name="MonitoringCharacteristics" value="rec709"/>
+			  <Item name="MonitoringColorPrimaries" value="rec709"/>
+			  <Item name="MonitoringCodingEquations" value="rec709"/>
+			  <Item name="MonitoringDescriptions" value="LUT:SL3SG3Ctos709.cube"/>
+		</Group>
+		  <Group name="CameraPostureMetadataSet">
+			  <Item name="CameraTiltAngle" value="-2deg"/>
+			  <Item name="CameraRollAngle" value="-1.5deg"/>
+		</Group>
+	</AcquisitionRecord>
+	<ExtendedContents>
+		  <cdl:ColorCorrectionCollection xmlns:cdl="urn:ASC:CDL:v1.01">
+			  <cdl:ColorCorrection id=" ">
+				    <cdl:SOPNode>
+					    <cdl:Slope>1.0000 1.0000 1.0000</cdl:Slope>
+					    <cdl:Offset>0.0000 0.0000 0.0000</cdl:Offset>
+					    <cdl:Power>1.0000 1.0000 1.0000</cdl:Power>
+				</cdl:SOPNode>
+				    <cdl:SatNode>
+					    <cdl:Saturation>1.0000</cdl:Saturation>
+				</cdl:SatNode>
+			</cdl:ColorCorrection>
+		</cdl:ColorCorrectionCollection>
+	</ExtendedContents>
+</NonRealTimeMeta>
