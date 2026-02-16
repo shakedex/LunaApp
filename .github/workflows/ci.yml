@@ -35,11 +35,8 @@ jobs:
       - name: Restore dependencies
         run: dotnet restore LunaApp.csproj -r ${{ matrix.runtime }}
 
-      - name: Build application
-        run: dotnet build LunaApp.csproj -c Release -r ${{ matrix.runtime }} --no-restore
-
-      - name: Publish (validation only)
-        run: dotnet publish LunaApp.csproj -c Release -r ${{ matrix.runtime }} --self-contained --no-restore -o ./publish/${{ matrix.runtime }}
+      - name: Publish (self-contained + trimmed)
+        run: dotnet publish LunaApp.csproj -c Release -r ${{ matrix.runtime }} --self-contained true -o ./publish/${{ matrix.runtime }} /p:PublishTrimmed=true /p:TrimMode=partial
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4

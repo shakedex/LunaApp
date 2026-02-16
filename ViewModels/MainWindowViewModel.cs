@@ -53,6 +53,22 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty]
     private string _pendingFolderName = string.Empty;
     
+    // Update system properties
+    [ObservableProperty]
+    private bool _hasUpdateAvailable;
+    
+    [ObservableProperty]
+    private string _updateVersion = string.Empty;
+    
+    [ObservableProperty]
+    private int _updateDownloadProgress;
+    
+    [ObservableProperty]
+    private bool _isDownloadingUpdate;
+    
+    [ObservableProperty]
+    private bool _isUpdateReady;
+    
     // DEV: Reference to log entries for binding
     public ObservableCollection<LogEntry> LogEntries => InMemoryLogSink.Instance.LogEntries;
     
@@ -88,8 +104,48 @@ public partial class MainWindowViewModel : ViewModelBase
         // DEV: Subscribe to log collection changes to update combined text
         LogEntries.CollectionChanged += OnLogEntriesChanged;
         
+        // Subscribe to update service events (will be available after App initialization)
+        SubscribeToUpdateService();
+        
         // FFmpeg will auto-download on first use
         StatusText = "Ready - Drop camera footage to begin";
+    }
+    
+    private void SubscribeToUpdateService()
+    {
+        // Delay subscription since UpdateService is initialized after ViewModel
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            var updateService = App.UpdateService;
+            if (updateService == null) return;
+            
+            updateService.UpdateAvailable += (_, info) =>
+            {
+                HasUpdateAvailable = true;
+                UpdateVersion = info.TargetFullRelease.Version.ToString();
+                IsUpdateReady = false;
+                IsDownloadingUpdate = false;
+            };
+            
+            updateService.DevUpdateAvailable += (_, version) =>
+            {
+                HasUpdateAvailable = true;
+                UpdateVersion = version;
+                IsUpdateReady = false;
+                IsDownloadingUpdate = false;
+            };
+            
+            updateService.DownloadProgress += (_, progress) =>
+            {
+                UpdateDownloadProgress = progress;
+            };
+            
+            updateService.UpdateReady += (_, _) =>
+            {
+                IsDownloadingUpdate = false;
+                IsUpdateReady = true;
+            };
+        });
     }
     
     // DEV: Update combined log text when collection changes
@@ -332,6 +388,98 @@ public partial class MainWindowViewModel : ViewModelBase
     private void ClearLogs()
     {
         InMemoryLogSink.Instance.Clear();
+    }
+    
+    // ============ UPDATE COMMANDS ============
+    
+    [RelayCommand]
+    private async Task DownloadUpdateAsync()
+    {
+        if (App.UpdateService == null) return;
+        
+        try
+        {
+            IsDownloadingUpdate = true;
+            UpdateDownloadProgress = 0;
+            await App.UpdateService.DownloadUpdateAsync();
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to download update");
+            IsDownloadingUpdate = false;
+        }
+    }
+    
+    [RelayCommand]
+    private void ApplyUpdate()
+    {
+        App.UpdateService?.ApplyUpdateAndRestart();
+    }
+    
+    [RelayCommand]
+    private void DismissUpdate()
+    {
+        HasUpdateAvailable = false;
+        IsUpdateReady = false;
+        IsDownloadingUpdate = false;
+    }
+    
+    [RelayCommand]
+    private async Task CheckForUpdatesAsync()
+    {
+        if (App.UpdateService == null) return;
+        
+        try
+        {
+            StatusText = "Checking for updates...";
+            var hasUpdate = await App.UpdateService.CheckForUpdatesAsync();
+            StatusText = hasUpdate ? $"Update available: v{UpdateVersion}" : "You're up to date!";
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to check for updates");
+            StatusText = "Failed to check for updates";
+        }
+    }
+    
+    // ============ DEV TESTING COMMANDS ============
+    
+    [RelayCommand]
+    private void DevShowUpdateBanner()
+    {
+        App.UpdateService?.DevSimulateUpdateAvailable("99.0.0");
+    }
+    
+    [RelayCommand]
+    private void DevSimulateDownload()
+    {
+        IsDownloadingUpdate = true;
+        UpdateDownloadProgress = 0;
+        
+        // Simulate progress over time
+        _ = Task.Run(async () =>
+        {
+            for (int i = 0; i <= 100; i += 10)
+            {
+                await Task.Delay(200);
+                Avalonia.Threading.Dispatcher.UIThread.Post(() => UpdateDownloadProgress = i);
+            }
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                IsDownloadingUpdate = false;
+                IsUpdateReady = true;
+            });
+        });
+    }
+    
+    [RelayCommand]
+    private void DevResetUpdateState()
+    {
+        HasUpdateAvailable = false;
+        IsDownloadingUpdate = false;
+        IsUpdateReady = false;
+        UpdateDownloadProgress = 0;
+        UpdateVersion = string.Empty;
     }
     
     /// <summary>

@@ -7,11 +7,17 @@ using Avalonia.Markup.Xaml;
 using LunaApp.Services;
 using LunaApp.ViewModels;
 using LunaApp.Views;
+using Serilog;
 
 namespace LunaApp;
 
 public partial class App : Application
 {
+    /// <summary>
+    /// Global update service instance for checking and applying updates.
+    /// </summary>
+    public static UpdateService? UpdateService { get; private set; }
+    
     public override void Initialize()
     {
         AvaloniaXamlLoader.Load(this);
@@ -34,6 +40,24 @@ public partial class App : Application
         
         // DEV: Mark log sink ready now that UI thread is available
         InMemoryLogSink.Instance.MarkUiReady();
+        
+        // Initialize update service and check for updates in background
+        InitializeUpdatesAsync();
+    }
+    
+    private async void InitializeUpdatesAsync()
+    {
+        UpdateService = new UpdateService();
+        
+        try
+        {
+            // Check for updates silently on startup
+            await UpdateService.CheckForUpdatesAsync();
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Update check failed on startup");
+        }
     }
 
     private void DisableAvaloniaDataAnnotationValidation()

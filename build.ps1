@@ -51,11 +51,13 @@ if (Test-Path $OutputDir) {
 
 # Restore dependencies
 Write-Host "Restoring dependencies..." -ForegroundColor Yellow
-dotnet restore
+foreach ($rid in $RuntimesToBuild) {
+    dotnet restore LunaApp.csproj -r $rid
+}
 
 # Build the application
 Write-Host "Building application..." -ForegroundColor Yellow
-dotnet build -c $Configuration /p:Version=$Version
+dotnet build LunaApp.csproj -c $Configuration /p:Version=$Version
 
 foreach ($rid in $RuntimesToBuild) {
     Write-Host ""
@@ -63,9 +65,18 @@ foreach ($rid in $RuntimesToBuild) {
     
     $publishPath = "$OutputDir\$rid"
     
-    # Publish self-contained
-    Write-Host "Publishing for $rid..." -ForegroundColor Yellow
-    dotnet publish -c $Configuration -r $rid --self-contained -o $publishPath /p:Version=$Version /p:PublishSingleFile=false
+    # Publish self-contained with trimming
+    Write-Host "Publishing for $rid (self-contained + trimmed)..." -ForegroundColor Yellow
+    dotnet publish LunaApp.csproj -c $Configuration -r $rid --self-contained true -o $publishPath /p:Version=$Version /p:PublishTrimmed=true /p:TrimMode=partial /p:PublishSingleFile=false
+    
+    # Verify runtime is bundled
+    $runtimeDll = Join-Path $publishPath "System.Private.CoreLib.dll"
+    if (Test-Path $runtimeDll) {
+        Write-Host "✓ .NET runtime bundled successfully" -ForegroundColor Green
+    } else {
+        Write-Error "✗ Runtime NOT bundled - self-contained build failed!"
+        exit 1
+    }
     
     # Determine main executable name
     if ($rid.StartsWith("win")) {

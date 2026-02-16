@@ -2,6 +2,8 @@
 
 Luna is a camera report generator for DITs. This guide covers installation on Windows and macOS.
 
+> **Note:** Luna is self-contained and includes the .NET runtime. No additional software installation is required.
+
 ## System Requirements
 
 | Platform | Minimum Version | Architecture |

@@ -5,6 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:models="using:LunaApp.Models"
         xmlns:services="using:LunaApp.Services"
+        xmlns:mi="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
         mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="800"
         x:Class="LunaApp.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
@@ -54,6 +55,29 @@
             <Setter Property="Background" Value="#30363d"/>
         </Style>
         
+        <!-- Update button styling (white background, blue text) -->
+        <Style Selector="Button.updateBtn">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.updateBtn:pointerover">
+            <Setter Property="Background" Value="#dbeafe"/>
+        </Style>
+        <Style Selector="Button.updateBtn TextBlock">
+            <Setter Property="Foreground" Value="#1f6feb"/>
+        </Style>
+        <Style Selector="Button.updateBtn:pointerover TextBlock">
+            <Setter Property="Foreground" Value="#1f6feb"/>
+        </Style>
+        <Style Selector="Button.updateBtn mi|MaterialIcon">
+            <Setter Property="Foreground" Value="#1f6feb"/>
+        </Style>
+        <Style Selector="Button.updateBtn:pointerover mi|MaterialIcon">
+            <Setter Property="Foreground" Value="#1f6feb"/>
+        </Style>
+        
         <!-- Drop zone styling -->
         <Style Selector="Border.dropZone">
             <Setter Property="Background" Value="#161b22"/>
@@ -91,7 +115,7 @@
         </Style>
     </Window.Styles>
 
-    <Grid RowDefinitions="Auto,*,Auto,Auto">
+    <Grid RowDefinitions="Auto,Auto,*,Auto,Auto">
         
         <!-- Header -->
         <Border Grid.Row="0" Background="#161b22" BorderBrush="#30363d" BorderThickness="0,0,0,1" Padding="24,16">
@@ -107,19 +131,18 @@
                 
                 <!-- Header buttons -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
-                    <!-- DEV: Log viewer toggle button - for development/debugging stages -->
-                    <Button Classes="secondary" Command="{Binding ToggleLogViewerCommand}" VerticalAlignment="Center" ToolTip.Tip="Toggle Log Viewer (Dev)">
+                    <!-- DEV: Development tools toggle button -->
+                    <Button Classes="secondary" Command="{Binding ToggleLogViewerCommand}" VerticalAlignment="Center" ToolTip.Tip="Toggle Developer Tools">
                         <StackPanel Orientation="Horizontal" Spacing="8">
-                            <TextBlock Text="&#xf15c;" FontFamily="Segoe MDL2 Assets" FontSize="14" Foreground="#8b949e" VerticalAlignment="Center"/>
-                            <TextBlock Text="Logs" VerticalAlignment="Center"/>
+                            <mi:MaterialIcon Kind="Wrench" Width="16" Height="16" Foreground="#8b949e"/>
+                            <TextBlock Text="Dev" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
                     
                     <!-- Settings button -->
                     <Button Classes="secondary" Command="{Binding OpenSettingsCommand}" VerticalAlignment="Center">
                         <StackPanel Orientation="Horizontal" Spacing="8">
-                            <PathIcon Data="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM2 12a10 10 0 1 1 20 0 10 10 0 0 1-20 0zm10-8a8 8 0 1 0 0 16 8 8 0 0 0 0-16z" 
-                                      Width="16" Height="16" Foreground="#8b949e"/>
+                            <mi:MaterialIcon Kind="Cog" Width="16" Height="16" Foreground="#8b949e"/>
                             <TextBlock Text="Settings" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
@@ -127,8 +150,67 @@
             </Grid>
         </Border>
         
+        <!-- Update banner - shows when update is available -->
+        <Border Grid.Row="1" 
+                Background="#1f6feb" 
+                Padding="16,12"
+                IsVisible="{Binding HasUpdateAvailable}">
+            <Grid ColumnDefinitions="Auto,*,Auto">
+                <!-- Update icon and message -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                    <mi:MaterialIcon Kind="Update" Width="20" Height="20" Foreground="White"/>
+                    <TextBlock Foreground="White" VerticalAlignment="Center">
+                        <Run Text="Update available:"/>
+                        <Run Text="{Binding UpdateVersion}" FontWeight="Bold"/>
+                    </TextBlock>
+                </StackPanel>
+                
+                <!-- Progress bar during download -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center" 
+                            IsVisible="{Binding IsDownloadingUpdate}" Margin="24,0">
+                    <ProgressBar Value="{Binding UpdateDownloadProgress}" Maximum="100" 
+                                 Width="200" Height="6" Foreground="White" Background="#3d7fe8"
+                                 CornerRadius="3"/>
+                    <TextBlock Text="{Binding UpdateDownloadProgress, StringFormat='{}{0}%'}" 
+                               Foreground="White" FontSize="12" Margin="8,0,0,0" VerticalAlignment="Center"/>
+                </StackPanel>
+                
+                <!-- Action buttons -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
+                    <!-- Download button (hidden when downloading or when update is ready) -->
+                    <Button Classes="updateBtn" 
+                            Command="{Binding DownloadUpdateCommand}" 
+                            IsVisible="{Binding !IsUpdateReady}"
+                            IsEnabled="{Binding !IsDownloadingUpdate}">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <mi:MaterialIcon Kind="Download" Width="14" Height="14"/>
+                            <TextBlock Text="Download" FontWeight="SemiBold"/>
+                        </StackPanel>
+                    </Button>
+                    
+                    <!-- Restart button (shown after download) -->
+                    <Button Command="{Binding ApplyUpdateCommand}" 
+                            IsVisible="{Binding IsUpdateReady}"
+                            Background="#238636" Foreground="White" Padding="12,6"
+                            CornerRadius="4">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <mi:MaterialIcon Kind="Restart" Width="14" Height="14" Foreground="White"/>
+                            <TextBlock Text="Restart Now" FontWeight="SemiBold"/>
+                        </StackPanel>
+                    </Button>
+                    
+                    <!-- Dismiss button -->
+                    <Button Command="{Binding DismissUpdateCommand}" 
+                            Background="Transparent" Foreground="White" Padding="8,6"
+                            ToolTip.Tip="Remind me later">
+                        <TextBlock Text="X" FontWeight="Bold"/>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
+        
         <!-- Main content -->
-        <Grid Grid.Row="1" Margin="24">
+        <Grid Grid.Row="2" Margin="24">
             
             <!-- Empty state: Drop zone (only when no folder selected and not processing) -->
             <Border Classes="dropZone" 
@@ -138,15 +220,13 @@
                 <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="16">
                     <!-- Moon icon -->
                     <Border Width="80" Height="80" CornerRadius="40" Background="#21262d" HorizontalAlignment="Center">
-                        <PathIcon Data="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z"
-                                  Width="40" Height="40" Foreground="#58a6ff"/>
+                        <mi:MaterialIcon Kind="MoonWaningCrescent" Width="40" Height="40" Foreground="#58a6ff"/>
                     </Border>
                     <TextBlock Text="Drop camera footage here" FontSize="20" FontWeight="SemiBold" Foreground="#e6edf3" HorizontalAlignment="Center"/>
                     <TextBlock Text="or click to browse for a folder" FontSize="14" Foreground="#8b949e" HorizontalAlignment="Center"/>
                     <Button Classes="secondary" Command="{Binding BrowseFolderCommand}" HorizontalAlignment="Center" Margin="0,8,0,0">
                         <StackPanel Orientation="Horizontal" Spacing="8">
-                            <PathIcon Data="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" 
-                                      Width="16" Height="16" Foreground="#8b949e"/>
+                            <mi:MaterialIcon Kind="FolderOpen" Width="16" Height="16" Foreground="#8b949e"/>
                             <TextBlock Text="Browse Folder" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
@@ -160,8 +240,7 @@
                 <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="24">
                     <!-- Folder icon with checkmark -->
                     <Border Width="100" Height="100" CornerRadius="50" Background="#21262d" HorizontalAlignment="Center">
-                        <PathIcon Data="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z"
-                                  Width="48" Height="48" Foreground="#58a6ff"/>
+                        <mi:MaterialIcon Kind="FolderOpen" Width="48" Height="48" Foreground="#58a6ff"/>
                     </Border>
                     
                     <!-- Folder name and clip count -->
@@ -184,8 +263,7 @@
                         </Button>
                         <Button Classes="primary" Command="{Binding StartProcessingCommand}" Padding="32,14">
                             <StackPanel Orientation="Horizontal" Spacing="10">
-                                <PathIcon Data="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                                          Width="20" Height="20" Foreground="White"/>
+                                <mi:MaterialIcon Kind="CheckCircle" Width="20" Height="20" Foreground="White"/>
                                 <TextBlock Text="Create Report" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center"/>
                             </StackPanel>
                         </Button>
@@ -237,8 +315,7 @@
                                                                 <!-- Fallback: Video icon when no thumbnail -->
                                                                 <Border Width="80" Height="45" Background="#30363d" CornerRadius="2"
                                                                         IsVisible="{Binding !HasThumbnail}">
-                                                                    <PathIcon Data="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z"
-                                                                              Width="24" Height="24" Foreground="#6e7681"/>
+                                                                    <mi:MaterialIcon Kind="Video" Width="24" Height="24" Foreground="#6e7681"/>
                                                                 </Border>
                                                             </Grid>
                                                             
@@ -307,8 +384,7 @@
                                 HorizontalAlignment="Stretch"
                                 HorizontalContentAlignment="Center">
                             <StackPanel Orientation="Horizontal" Spacing="8">
-                                <PathIcon Data="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                                          Width="18" Height="18" Foreground="White"
+                                <mi:MaterialIcon Kind="CheckCircle" Width="18" Height="18" Foreground="White"
                                           IsVisible="{Binding !IsProcessing}"/>
                                 <TextBlock Text="{Binding GenerateButtonText}" VerticalAlignment="Center"/>
                             </StackPanel>
@@ -336,8 +412,7 @@
                     <Grid Width="120" Height="120" HorizontalAlignment="Center">
                         <Border Width="120" Height="120" CornerRadius="60" BorderBrush="#21262d" BorderThickness="4"/>
                         <Border Width="80" Height="80" CornerRadius="40" Background="#161b22" HorizontalAlignment="Center" VerticalAlignment="Center">
-                            <PathIcon Data="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z"
-                                      Width="40" Height="40" Foreground="#58a6ff"/>
+                            <mi:MaterialIcon Kind="MoonWaningCrescent" Width="40" Height="40" Foreground="#58a6ff"/>
                         </Border>
                     </Grid>
                     
@@ -364,21 +439,21 @@
             </Border>
         </Grid>
         
-        <!-- DEV: Log viewer panel - for development/debugging stages -->
-        <Border Grid.Row="2" 
+        <!-- DEV: Developer Tools panel -->
+        <Border Grid.Row="3" 
                 Background="#0d1117" 
                 BorderBrush="#30363d" 
                 BorderThickness="0,1,0,0"
-                Height="250"
+                Height="300"
                 IsVisible="{Binding IsLogViewerVisible}">
-            <Grid RowDefinitions="Auto,*">
-                <!-- Log viewer header -->
-                <Border Background="#161b22" Padding="12,8">
+            <Grid RowDefinitions="Auto,Auto,*">
+                <!-- Panel header -->
+                <Border Grid.Row="0" Background="#161b22" Padding="12,8">
                     <Grid ColumnDefinitions="*,Auto">
-                        <TextBlock Text="Log Viewer (Development)" FontWeight="SemiBold" Foreground="#e6edf3" VerticalAlignment="Center"/>
+                        <TextBlock Text="Developer Tools" FontWeight="SemiBold" Foreground="#e6edf3" VerticalAlignment="Center"/>
                         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
                             <Button Classes="secondary" Command="{Binding ClearLogsCommand}" Padding="8,4">
-                                <TextBlock Text="Clear" FontSize="12"/>
+                                <TextBlock Text="Clear Logs" FontSize="12"/>
                             </Button>
                             <Button Classes="secondary" Command="{Binding ToggleLogViewerCommand}" Padding="8,4">
                                 <TextBlock Text="X" FontSize="12" FontWeight="Bold" Foreground="#8b949e"/>
@@ -387,8 +462,28 @@
                     </Grid>
                 </Border>
                 
+                <!-- Dev testing buttons -->
+                <Border Grid.Row="1" Background="#161b22" Padding="12,8" BorderBrush="#30363d" BorderThickness="0,1,0,1">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock Text="Update Testing:" Foreground="#8b949e" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <Button Classes="secondary" Command="{Binding DevShowUpdateBannerCommand}" Padding="10,6">
+                            <TextBlock Text="Show Update Banner" FontSize="11"/>
+                        </Button>
+                        <Button Classes="secondary" Command="{Binding DevSimulateDownloadCommand}" Padding="10,6">
+                            <TextBlock Text="Simulate Download" FontSize="11"/>
+                        </Button>
+                        <Button Classes="secondary" Command="{Binding DevResetUpdateStateCommand}" Padding="10,6">
+                            <TextBlock Text="Reset State" FontSize="11"/>
+                        </Button>
+                        <Border Width="1" Background="#30363d" Margin="8,0"/>
+                        <Button Classes="secondary" Command="{Binding CheckForUpdatesCommand}" Padding="10,6">
+                            <TextBlock Text="Check for Updates (Real)" FontSize="11"/>
+                        </Button>
+                    </StackPanel>
+                </Border>
+                
                 <!-- Log entries - TextBox allows multi-line selection and copy -->
-                <TextBox Grid.Row="1" 
+                <TextBox Grid.Row="2" 
                          Text="{Binding LogText}"
                          IsReadOnly="True"
                          AcceptsReturn="True"
@@ -405,7 +500,7 @@
         </Border>
         
         <!-- Status bar -->
-        <Border Grid.Row="3" Background="#161b22" BorderBrush="#30363d" BorderThickness="0,1,0,0" Padding="24,12">
+        <Border Grid.Row="4" Background="#161b22" BorderBrush="#30363d" BorderThickness="0,1,0,0" Padding="24,12">
             <Grid ColumnDefinitions="*,Auto">
                 <TextBlock Text="{Binding StatusText}" Foreground="#8b949e" VerticalAlignment="Center"/>
                 

@@ -40,14 +40,22 @@ jobs:
       - name: Restore dependencies
         run: dotnet restore LunaApp.csproj -r win-x64
 
-      - name: Build application
-        run: dotnet build LunaApp.csproj -c Release -r win-x64 --no-restore /p:Version=${{ inputs.version }}
-
-      - name: Publish application
+      - name: Publish application (self-contained + trimmed)
         run: |
-          dotnet publish LunaApp.csproj -c Release -r win-x64 --self-contained --no-build -o ./publish/win-x64 `
+          dotnet publish LunaApp.csproj -c Release -r win-x64 --self-contained true -o ./publish/win-x64 `
             /p:Version=${{ inputs.version }} `
+            /p:PublishTrimmed=true `
+            /p:TrimMode=partial `
             /p:PublishSingleFile=false
+
+      - name: Verify runtime is bundled
+        run: |
+          if (Test-Path "./publish/win-x64/System.Private.CoreLib.dll") {
+            Write-Host "✓ .NET runtime bundled successfully" -ForegroundColor Green
+          } else {
+            Write-Error "✗ Runtime NOT bundled - self-contained build failed!"
+            exit 1
+          }
 
       - name: Create Velopack installer
         run: |
@@ -86,20 +94,28 @@ jobs:
       - name: Restore dependencies
         run: dotnet restore LunaApp.csproj -r osx-arm64
 
-      - name: Build application
-        run: dotnet build LunaApp.csproj -c Release -r osx-arm64 --no-restore /p:Version=${{ inputs.version }}
-
       - name: Set executable permissions on bundled tools
         run: |
           chmod +x ./tools/arri/osx-arm64/art-cmd || true
           chmod +x ./tools/arri/osx-arm64/look-builder || true
           chmod +x ./tools/ffmpeg/osx-arm64/* || true
 
-      - name: Publish application
+      - name: Publish application (self-contained + trimmed)
         run: |
-          dotnet publish LunaApp.csproj -c Release -r osx-arm64 --self-contained --no-build -o ./publish/osx-arm64 \
+          dotnet publish LunaApp.csproj -c Release -r osx-arm64 --self-contained true -o ./publish/osx-arm64 \
             /p:Version=${{ inputs.version }} \
+            /p:PublishTrimmed=true \
+            /p:TrimMode=partial \
             /p:PublishSingleFile=false
+
+      - name: Verify runtime is bundled
+        run: |
+          if [ -f "./publish/osx-arm64/System.Private.CoreLib.dll" ]; then
+            echo "✓ .NET runtime bundled successfully"
+          else
+            echo "✗ Runtime NOT bundled - self-contained build failed!"
+            exit 1
+          fi
 
       - name: Set executable permissions on published app
         run: |
@@ -181,3 +197,6 @@ jobs:
                ```
 
             See [Installation Guide](https://github.com/shakedex/LunaApp/blob/master/docs/INSTALLATION.md) for detailed instructions.
+            
+            ---
+            *Built with .NET 10 runtime included - no additional installation required.*

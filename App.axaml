@@ -1,5 +1,6 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:materialIcons="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
              x:Class="LunaApp.App"
              xmlns:local="using:LunaApp"
              RequestedThemeVariant="Dark">
@@ -10,5 +11,6 @@
   
     <Application.Styles>
         <FluentTheme />
+        <materialIcons:MaterialIconStyles />
     </Application.Styles>
 </Application>

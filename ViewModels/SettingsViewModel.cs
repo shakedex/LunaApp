@@ -2,6 +2,7 @@ using Avalonia.Platform.Storage;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using LunaApp.Models;
+using Serilog;
 
 namespace LunaApp.ViewModels;
 
@@ -49,6 +50,21 @@ public partial class SettingsViewModel : ViewModelBase
     
     [ObservableProperty]
     private bool _groupPdfsInSeparateFolder;
+    
+    // Update settings
+    [ObservableProperty]
+    private bool _isCheckingForUpdates;
+    
+    [ObservableProperty]
+    private string _updateStatusText = "Click to check for updates";
+    
+    public string CurrentVersionText => $"Current version: {App.UpdateService?.CurrentVersion ?? "Development"}";
+    public string CheckForUpdatesButtonText => IsCheckingForUpdates ? "Checking..." : "Check for Updates";
+    
+    partial void OnIsCheckingForUpdatesChanged(bool value)
+    {
+        OnPropertyChanged(nameof(CheckForUpdatesButtonText));
+    }
     
     // Store provider for file dialogs
     public IStorageProvider? StorageProvider { get; set; }
@@ -158,6 +174,43 @@ public partial class SettingsViewModel : ViewModelBase
         if (folders.Count > 0)
         {
             OutputFolder = folders[0].Path.LocalPath;
+        }
+    }
+    
+    [RelayCommand]
+    private async Task CheckForUpdatesAsync()
+    {
+        if (App.UpdateService == null)
+        {
+            UpdateStatusText = "Updates only available in installed version";
+            return;
+        }
+        
+        try
+        {
+            IsCheckingForUpdates = true;
+            UpdateStatusText = "Checking for updates...";
+            
+            var hasUpdate = await App.UpdateService.CheckForUpdatesAsync();
+            
+            if (hasUpdate)
+            {
+                var version = App.UpdateService.PendingUpdate?.TargetFullRelease.Version;
+                UpdateStatusText = $"Update available: v{version}";
+            }
+            else
+            {
+                UpdateStatusText = "You're using the latest version";
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to check for updates");
+            UpdateStatusText = "Failed to check for updates";
+        }
+        finally
+        {
+            IsCheckingForUpdates = false;
         }
     }
 }

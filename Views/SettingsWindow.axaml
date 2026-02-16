@@ -3,14 +3,16 @@
         xmlns:vm="using:LunaApp.ViewModels"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        mc:Ignorable="d" d:DesignWidth="600" d:DesignHeight="700"
+        xmlns:mi="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
+        mc:Ignorable="d" d:DesignWidth="600" d:DesignHeight="800"
         x:Class="LunaApp.Views.SettingsWindow"
         x:DataType="vm:SettingsViewModel"
         Title="Luna Settings"
         Width="600"
-        Height="700"
+        Height="800"
+        MinHeight="600"
         WindowStartupLocation="CenterOwner"
-        CanResize="False"
+        CanResize="True"
         Background="#0d1117">
 
     <Design.DataContext>
@@ -93,8 +95,10 @@
         </Border>
         
         <!-- Content -->
-        <ScrollViewer Grid.Row="1" Padding="24">
-            <StackPanel Spacing="0">
+        <ScrollViewer Grid.Row="1" 
+                      VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Spacing="0" Margin="24">
                 
                 <!-- Branding Section -->
                 <Border Classes="section">
@@ -185,6 +189,30 @@
                             <CheckBox Content="Open report when complete" IsChecked="{Binding OpenReportWhenDone}"/>
                             <CheckBox Content="Group PDFs in separate folder" IsChecked="{Binding GroupPdfsInSeparateFolder}"/>
                         </StackPanel>
+                    </StackPanel>
+                </Border>
+                
+                <!-- Updates Section -->
+                <Border Classes="section">
+                    <StackPanel Spacing="16">
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                            <mi:MaterialIcon Kind="Update" Width="20" Height="20" Foreground="#58a6ff"/>
+                            <TextBlock Text="Updates" FontSize="16" FontWeight="SemiBold"/>
+                        </StackPanel>
+                        
+                        <Grid ColumnDefinitions="*,Auto">
+                            <StackPanel>
+                                <TextBlock Text="{Binding CurrentVersionText}" FontSize="14"/>
+                                <TextBlock Text="{Binding UpdateStatusText}" FontSize="12" Foreground="#8b949e" Margin="0,4,0,0"/>
+                            </StackPanel>
+                            <Button Grid.Column="1" Classes="secondary" Command="{Binding CheckForUpdatesCommand}">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <mi:MaterialIcon Kind="Refresh" Width="14" Height="14" Foreground="#8b949e"
+                                              IsVisible="{Binding !IsCheckingForUpdates}"/>
+                                    <TextBlock Text="{Binding CheckForUpdatesButtonText}" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                        </Grid>
                     </StackPanel>
                 </Border>
                 
