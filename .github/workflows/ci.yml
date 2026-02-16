@@ -33,13 +33,13 @@ jobs:
           dotnet-quality: 'preview'
 
       - name: Restore dependencies
-        run: dotnet restore
+        run: dotnet restore -r ${{ matrix.runtime }}
 
       - name: Build application
-        run: dotnet build -c Release --no-restore
+        run: dotnet build -c Release -r ${{ matrix.runtime }} --no-restore
 
       - name: Publish (validation only)
-        run: dotnet publish -c Release -r ${{ matrix.runtime }} --self-contained --no-build -o ./publish/${{ matrix.runtime }}
+        run: dotnet publish -c Release -r ${{ matrix.runtime }} --self-contained --no-restore -o ./publish/${{ matrix.runtime }}
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
