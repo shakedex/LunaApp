@@ -1,0 +1,177 @@
+# Luna Release - Build and Publish Installers
+# Manually triggered workflow to create versioned releases with Velopack installers
+
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., 1.0.0)'
+        required: true
+        type: string
+      prerelease:
+        description: 'Mark as pre-release'
+        required: false
+        type: boolean
+        default: false
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+          dotnet-quality: 'preview'
+
+      - name: Install Velopack CLI
+        run: dotnet tool install -g vpk
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Publish application
+        run: |
+          dotnet publish -c Release -r win-x64 --self-contained -o ./publish/win-x64 `
+            /p:Version=${{ inputs.version }} `
+            /p:PublishSingleFile=false
+
+      - name: Create Velopack installer
+        run: |
+          vpk pack `
+            --packId "Luna" `
+            --packVersion ${{ inputs.version }} `
+            --packDir ./publish/win-x64 `
+            --mainExe Luna.exe `
+            --outputDir ./releases/win-x64 `
+            --packAuthors "Luna" `
+            --packTitle "Luna - Camera Report Generator"
+
+      - name: Upload Windows installer artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: luna-win-x64-installer
+          path: ./releases/win-x64/*
+          retention-days: 30
+
+  build-macos-arm:
+    runs-on: macos-14
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+          dotnet-quality: 'preview'
+
+      - name: Install Velopack CLI
+        run: dotnet tool install -g vpk
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Set executable permissions on bundled tools
+        run: |
+          chmod +x ./tools/arri/osx-arm64/art-cmd || true
+          chmod +x ./tools/arri/osx-arm64/look-builder || true
+          chmod +x ./tools/ffmpeg/osx-arm64/* || true
+
+      - name: Publish application
+        run: |
+          dotnet publish -c Release -r osx-arm64 --self-contained -o ./publish/osx-arm64 \
+            /p:Version=${{ inputs.version }} \
+            /p:PublishSingleFile=false
+
+      - name: Set executable permissions on published app
+        run: |
+          chmod +x ./publish/osx-arm64/Luna
+          chmod +x ./publish/osx-arm64/tools/arri/osx-arm64/art-cmd || true
+          chmod +x ./publish/osx-arm64/tools/arri/osx-arm64/look-builder || true
+          chmod +x ./publish/osx-arm64/tools/ffmpeg/osx-arm64/* || true
+
+      - name: Create Velopack installer (DMG)
+        run: |
+          vpk pack \
+            --packId "Luna" \
+            --packVersion ${{ inputs.version }} \
+            --packDir ./publish/osx-arm64 \
+            --mainExe Luna \
+            --outputDir ./releases/osx-arm64 \
+            --packAuthors "Luna" \
+            --packTitle "Luna - Camera Report Generator"
+
+      - name: Upload macOS installer artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: luna-osx-arm64-installer
+          path: ./releases/osx-arm64/*
+          retention-days: 30
+
+  create-release:
+    needs: [build-windows, build-macos-arm]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Download Windows artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: luna-win-x64-installer
+          path: ./artifacts/win-x64
+
+      - name: Download macOS artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: luna-osx-arm64-installer
+          path: ./artifacts/osx-arm64
+
+      - name: List artifacts
+        run: |
+          echo "=== Windows Artifacts ==="
+          ls -la ./artifacts/win-x64/
+          echo ""
+          echo "=== macOS Artifacts ==="
+          ls -la ./artifacts/osx-arm64/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ inputs.version }}
+          name: Luna v${{ inputs.version }}
+          prerelease: ${{ inputs.prerelease }}
+          generate_release_notes: true
+          files: |
+            ./artifacts/win-x64/*
+            ./artifacts/osx-arm64/*
+          body: |
+            ## Installation
+
+            ### Windows
+            1. Download `Luna-${{ inputs.version }}-win-x64-Setup.exe`
+            2. Run the installer - if SmartScreen appears, click "More info" → "Run anyway"
+            3. Follow the installation wizard
+
+            ### macOS (Apple Silicon)
+            1. Download `Luna-${{ inputs.version }}-osx-arm64.dmg`
+            2. Open the DMG and drag Luna to Applications
+            3. First launch: Right-click Luna → Open → Click "Open" in the dialog
+            4. **Important:** Run this command in Terminal to enable bundled tools:
+               ```
+               xattr -cr /Applications/Luna.app
+               ```
+
+            See [Installation Guide](https://github.com/shakedex/LunaApp/blob/master/docs/INSTALLATION.md) for detailed instructions.

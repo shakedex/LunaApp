@@ -29,6 +29,14 @@ public sealed class ReportGenerationService : IDisposable
     public event Action<int, int>? ProgressChanged;
     
     /// <summary>
+    /// Quick count of media files without processing (for pre-scan confirmation)
+    /// </summary>
+    public Task<int> CountMediaFilesAsync(string folderPath)
+    {
+        return _reelDetectionService.CountMediaFilesAsync(folderPath);
+    }
+    
+    /// <summary>
     /// Scan a folder and detect reels
     /// </summary>
     public async Task<List<CameraReel>> ScanFolderAsync(

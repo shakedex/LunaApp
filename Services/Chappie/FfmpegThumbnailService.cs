@@ -190,21 +190,29 @@ public sealed unsafe class FfmpegThumbnailService : IDisposable
         AVPacket* pPacket = null;
         SwsContext* pSwsContext = null;
         byte* rgbBuffer = null;
+        AVDictionary* options = null;
         
         try
         {
-            // Open input file
+            // Open input file with MXF-friendly options
             pFormatContext = ffmpeg.avformat_alloc_context();
             var pFormatContextLocal = pFormatContext;
             
-            if (ffmpeg.avformat_open_input(&pFormatContextLocal, filePath, null, null) != 0)
+            // Increase probe size for MXF files to properly parse index
+            ffmpeg.av_dict_set(&options, "probesize", "100000000", 0); // 100MB
+            ffmpeg.av_dict_set(&options, "analyzeduration", "100000000", 0); // 100 seconds
+            
+            if (ffmpeg.avformat_open_input(&pFormatContextLocal, filePath, null, &options) != 0)
             {
                 Log.Debug("FFmpeg: Failed to open {FileName}", fileName);
+                ffmpeg.av_dict_free(&options);
                 return thumbnails;
             }
             pFormatContext = pFormatContextLocal;
+            ffmpeg.av_dict_free(&options);
             
-            // Find stream info
+            // Find stream info with extended analysis
+            pFormatContext->max_analyze_duration = 100 * ffmpeg.AV_TIME_BASE; // 100 seconds
             if (ffmpeg.avformat_find_stream_info(pFormatContext, null) < 0)
             {
                 Log.Debug("FFmpeg: Failed to find stream info for {FileName}", fileName);
@@ -223,6 +231,27 @@ public sealed unsafe class FfmpegThumbnailService : IDisposable
             }
             
             var pStream = pFormatContext->streams[videoStreamIndex];
+            
+            // Debug: Check actual duration from format context
+            var ffmpegDuration = pFormatContext->duration > 0 
+                ? TimeSpan.FromSeconds(pFormatContext->duration / (double)ffmpeg.AV_TIME_BASE)
+                : duration;
+            var streamDuration = pStream->duration > 0
+                ? TimeSpan.FromSeconds(pStream->duration * ffmpeg.av_q2d(pStream->time_base))
+                : TimeSpan.Zero;
+            var nbFrames = pStream->nb_frames;
+            var frameRate = ffmpeg.av_q2d(pStream->avg_frame_rate);
+            var calculatedDuration = nbFrames > 0 && frameRate > 0 
+                ? TimeSpan.FromSeconds(nbFrames / frameRate) 
+                : TimeSpan.Zero;
+            
+            Log.Debug("FFmpeg: Duration format={FormatDur:g}, stream={StreamDur:g}, nb_frames={NbFrames}, fps={Fps:F2}, calculated={CalcDur:g}, provided={Provided:g} for {FileName}",
+                ffmpegDuration, streamDuration, nbFrames, frameRate, calculatedDuration, duration, fileName);
+            
+            // Use the best available duration - prefer calculated from nb_frames, then provided, then FFmpeg
+            var effectiveDuration = calculatedDuration > TimeSpan.Zero ? calculatedDuration 
+                : duration > TimeSpan.Zero ? duration 
+                : ffmpegDuration;
             
             // Create codec context
             pCodecContext = ffmpeg.avcodec_alloc_context3(pCodec);
@@ -273,42 +302,94 @@ public sealed unsafe class FfmpegThumbnailService : IDisposable
                 return thumbnails;
             }
             
+            // Get file size for byte-based seeking fallback
+            var fileSize = pFormatContext->pb != null ? ffmpeg.avio_size(pFormatContext->pb) : 0L;
+            
             // Extract frame at each position
             foreach (var position in positions)
             {
                 if (cancellationToken.IsCancellationRequested)
                     break;
                 
-                var seekTimeSeconds = position * duration.TotalSeconds;
-                var timestamp = (long)(seekTimeSeconds * pStream->time_base.den / pStream->time_base.num);
+                var seekTimeSeconds = position * effectiveDuration.TotalSeconds;
                 
-                // Seek to position
-                ffmpeg.av_seek_frame(pFormatContext, videoStreamIndex, timestamp, ffmpeg.AVSEEK_FLAG_BACKWARD);
+                // Convert seek time to stream time_base units
+                var timeBase = pStream->time_base;
+                var targetPts = (long)(seekTimeSeconds * timeBase.den / timeBase.num);
+                
+                Log.Debug("FFmpeg: Seeking to {Position:P0} ({SeekTime:F2}s, pts={Pts}, timebase={Num}/{Den}) for {FileName}", 
+                    position, seekTimeSeconds, targetPts, timeBase.num, timeBase.den, fileName);
+                
+                // Try byte-based seek first for MXF (more reliable when index is incomplete)
+                var seekResult = -1;
+                if (fileSize > 0)
+                {
+                    var bytePosition = (long)(position * fileSize * 0.95); // 95% to avoid seeking past end
+                    seekResult = ffmpeg.av_seek_frame(pFormatContext, -1, bytePosition, ffmpeg.AVSEEK_FLAG_BYTE);
+                    if (seekResult >= 0)
+                    {
+                        Log.Debug("FFmpeg: Byte seek to {BytePos} succeeded", bytePosition);
+                    }
+                }
+                
+                // Fallback to timestamp-based seeking
+                if (seekResult < 0)
+                {
+                    seekResult = ffmpeg.av_seek_frame(pFormatContext, videoStreamIndex, targetPts, 
+                        ffmpeg.AVSEEK_FLAG_BACKWARD);
+                }
+                
+                if (seekResult < 0)
+                {
+                    // Try AV_TIME_BASE seek
+                    var seekTarget = (long)(seekTimeSeconds * ffmpeg.AV_TIME_BASE);
+                    seekResult = ffmpeg.av_seek_frame(pFormatContext, -1, seekTarget, ffmpeg.AVSEEK_FLAG_BACKWARD);
+                }
+                
+                if (seekResult < 0)
+                {
+                    Log.Debug("FFmpeg: All seek methods failed for {FileName} at {Position}", fileName, position);
+                    continue;
+                }
+                
                 ffmpeg.avcodec_flush_buffers(pCodecContext);
                 
-                // Decode until we get a valid frame
+                // Decode frames until we get a valid frame
                 var frameDecoded = false;
                 var attempts = 0;
+                var maxAttempts = 300; // Allow more frames for seeking accuracy
                 
-                while (!frameDecoded && attempts < 100)
+                while (!frameDecoded && attempts < maxAttempts)
                 {
                     attempts++;
                     ffmpeg.av_packet_unref(pPacket);
                     
                     var readResult = ffmpeg.av_read_frame(pFormatContext, pPacket);
                     if (readResult < 0)
+                    {
+                        Log.Debug("FFmpeg: av_read_frame returned {Result} (AVERROR_EOF={EOF})", 
+                            readResult, ffmpeg.AVERROR_EOF);
                         break;
+                    }
                     
                     if (pPacket->stream_index != videoStreamIndex)
                         continue;
                     
-                    if (ffmpeg.avcodec_send_packet(pCodecContext, pPacket) < 0)
+                    var sendResult = ffmpeg.avcodec_send_packet(pCodecContext, pPacket);
+                    if (sendResult < 0)
+                    {
+                        Log.Debug("FFmpeg: avcodec_send_packet returned {Result}", sendResult);
                         continue;
+                    }
                     
                     var receiveResult = ffmpeg.avcodec_receive_frame(pCodecContext, pFrame);
                     if (receiveResult == 0)
                     {
+                        // Accept first successfully decoded frame after seek
                         frameDecoded = true;
+                        var framePts = pFrame->pts != ffmpeg.AV_NOPTS_VALUE ? pFrame->pts : pFrame->best_effort_timestamp;
+                        Log.Debug("FFmpeg: Got frame at pts={FramePts} (target={TargetPts}) after {Attempts} attempts", 
+                            framePts, targetPts, attempts);
                     }
                 }
                 

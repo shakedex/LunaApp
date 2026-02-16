@@ -43,10 +43,23 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty]
     private string _logText = string.Empty;
     
+    // Pre-scan state: folder selected but not yet processed
+    [ObservableProperty]
+    private string? _pendingFolderPath;
+    
+    [ObservableProperty]
+    private int _pendingClipCount;
+    
+    [ObservableProperty]
+    private string _pendingFolderName = string.Empty;
+    
     // DEV: Reference to log entries for binding
     public ObservableCollection<LogEntry> LogEntries => InMemoryLogSink.Instance.LogEntries;
     
     public bool HasReels => Reels.Count > 0;
+    public bool HasPendingFolder => !string.IsNullOrEmpty(PendingFolderPath);
+    public bool ShowDropZone => !HasReels && !HasPendingFolder && !IsProcessing;
+    public bool ShowPendingConfirmation => HasPendingFolder && !IsProcessing;
     public int ReelCount => Reels.Count;
     public int TotalClipCount => Reels.Sum(r => r.ClipCount);
     public TimeSpan TotalDuration => TimeSpan.FromTicks(Reels.Sum(r => r.TotalDuration.Ticks));
@@ -92,12 +105,23 @@ public partial class MainWindowViewModel : ViewModelBase
         OnPropertyChanged(nameof(TotalClipCount));
         OnPropertyChanged(nameof(TotalDuration));
         OnPropertyChanged(nameof(CanGenerate));
+        OnPropertyChanged(nameof(ShowDropZone));
+        OnPropertyChanged(nameof(ShowPendingConfirmation));
     }
     
     partial void OnIsProcessingChanged(bool value)
     {
         OnPropertyChanged(nameof(CanGenerate));
         OnPropertyChanged(nameof(GenerateButtonText));
+        OnPropertyChanged(nameof(ShowDropZone));
+        OnPropertyChanged(nameof(ShowPendingConfirmation));
+    }
+    
+    partial void OnPendingFolderPathChanged(string? value)
+    {
+        OnPropertyChanged(nameof(HasPendingFolder));
+        OnPropertyChanged(nameof(ShowDropZone));
+        OnPropertyChanged(nameof(ShowPendingConfirmation));
     }
     
     [RelayCommand]
@@ -114,23 +138,75 @@ public partial class MainWindowViewModel : ViewModelBase
         if (folders.Count > 0)
         {
             var folder = folders[0];
-            await LoadFolderAsync(folder.Path.LocalPath);
+            await QuickScanFolderAsync(folder.Path.LocalPath);
         }
     }
     
-    public async Task LoadFolderAsync(string folderPath)
+    /// <summary>
+    /// Quick scan to count files without processing (called on folder drop/selection)
+    /// </summary>
+    public async Task QuickScanFolderAsync(string folderPath)
     {
         if (IsProcessing) return;
         
         try
         {
+            StatusText = $"Counting files in {Path.GetFileName(folderPath)}...";
+            
+            var count = await _reportService.CountMediaFilesAsync(folderPath);
+            
+            if (count == 0)
+            {
+                StatusText = "No video files found in this folder";
+                PendingFolderPath = null;
+                PendingClipCount = 0;
+                PendingFolderName = string.Empty;
+                return;
+            }
+            
+            // Store for confirmation
+            PendingFolderPath = folderPath;
+            PendingClipCount = count;
+            PendingFolderName = Path.GetFileName(folderPath);
+            
+            StatusText = $"Found {count} video clip(s) ready to process";
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to scan folder: {Path}", folderPath);
+            StatusText = $"Error: {ex.Message}";
+        }
+    }
+    
+    /// <summary>
+    /// Called by drag/drop - delegates to QuickScanFolderAsync
+    /// </summary>
+    public Task LoadFolderAsync(string folderPath) => QuickScanFolderAsync(folderPath);
+    
+    /// <summary>
+    /// Start full processing after user confirmation
+    /// </summary>
+    [RelayCommand]
+    private async Task StartProcessingAsync()
+    {
+        if (string.IsNullOrEmpty(PendingFolderPath) || IsProcessing) return;
+        
+        var folderPath = PendingFolderPath;
+        
+        try
+        {
             IsProcessing = true;
-            StatusText = $"Scanning {Path.GetFileName(folderPath)}...";
+            StatusText = $"Processing {PendingFolderName}...";
             Progress = 0;
             
             var reels = await _reportService.ScanFolderAsync(folderPath);
             
             Reels = new ObservableCollection<CameraReel>(reels);
+            
+            // Clear pending state
+            PendingFolderPath = null;
+            PendingClipCount = 0;
+            PendingFolderName = string.Empty;
             
             // Update app settings with recent source
             _appSettings.AddRecentSource(folderPath);
@@ -140,7 +216,7 @@ public partial class MainWindowViewModel : ViewModelBase
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "Failed to scan folder: {Path}", folderPath);
+            Log.Error(ex, "Failed to process folder: {Path}", folderPath);
             StatusText = $"Error: {ex.Message}";
         }
         finally
@@ -148,6 +224,18 @@ public partial class MainWindowViewModel : ViewModelBase
             IsProcessing = false;
             Progress = 0;
         }
+    }
+    
+    /// <summary>
+    /// Cancel pending folder selection
+    /// </summary>
+    [RelayCommand]
+    private void CancelPending()
+    {
+        PendingFolderPath = null;
+        PendingClipCount = 0;
+        PendingFolderName = string.Empty;
+        StatusText = "Ready - Drop camera footage to begin";
     }
     
     [RelayCommand]
@@ -201,11 +289,20 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         Reels.Clear();
         _reportService.ClearProject();
+        
+        // Clear pending state too
+        PendingFolderPath = null;
+        PendingClipCount = 0;
+        PendingFolderName = string.Empty;
+        
         OnPropertyChanged(nameof(HasReels));
         OnPropertyChanged(nameof(ReelCount));
         OnPropertyChanged(nameof(TotalClipCount));
         OnPropertyChanged(nameof(TotalDuration));
         OnPropertyChanged(nameof(CanGenerate));
+        OnPropertyChanged(nameof(ShowDropZone));
+        OnPropertyChanged(nameof(ShowPendingConfirmation));
+        
         StatusText = "Ready - Drop camera footage to begin";
         Progress = 0;
     }

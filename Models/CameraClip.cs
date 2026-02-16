@@ -40,6 +40,10 @@ public sealed class CameraClip
     // Thumbnails (base64 encoded or file paths)
     public List<ThumbnailFrame> Thumbnails { get; set; } = [];
     
+    // First thumbnail for UI preview
+    public ThumbnailFrame? FirstThumbnail => Thumbnails.Count > 0 ? Thumbnails[0] : null;
+    public bool HasThumbnail => Thumbnails.Count > 0 && Thumbnails[0].HasImage;
+    
     // Processing state
     public ClipProcessingState ProcessingState { get; set; } = ClipProcessingState.Pending;
     public string? ProcessingError { get; set; }

@@ -130,29 +130,71 @@
         <!-- Main content -->
         <Grid Grid.Row="1" Margin="24">
             
-            <!-- Empty state: Drop zone -->
+            <!-- Empty state: Drop zone (only when no folder selected and not processing) -->
             <Border Classes="dropZone" 
-                    IsVisible="{Binding !HasReels}"
+                    IsVisible="{Binding ShowDropZone}"
                     DragDrop.AllowDrop="True"
                     Cursor="Hand">
-                <Grid>
-                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="16">
-                        <!-- Moon icon -->
-                        <Border Width="80" Height="80" CornerRadius="40" Background="#21262d" HorizontalAlignment="Center">
-                            <PathIcon Data="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z"
-                                      Width="40" Height="40" Foreground="#58a6ff"/>
-                        </Border>
-                        <TextBlock Text="Drop camera footage here" FontSize="20" FontWeight="SemiBold" Foreground="#e6edf3" HorizontalAlignment="Center"/>
-                        <TextBlock Text="or click to browse for a folder" FontSize="14" Foreground="#8b949e" HorizontalAlignment="Center"/>
-                        <Button Classes="secondary" Command="{Binding BrowseFolderCommand}" HorizontalAlignment="Center" Margin="0,8,0,0">
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <PathIcon Data="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" 
-                                          Width="16" Height="16" Foreground="#8b949e"/>
-                                <TextBlock Text="Browse Folder" VerticalAlignment="Center"/>
+                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="16">
+                    <!-- Moon icon -->
+                    <Border Width="80" Height="80" CornerRadius="40" Background="#21262d" HorizontalAlignment="Center">
+                        <PathIcon Data="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z"
+                                  Width="40" Height="40" Foreground="#58a6ff"/>
+                    </Border>
+                    <TextBlock Text="Drop camera footage here" FontSize="20" FontWeight="SemiBold" Foreground="#e6edf3" HorizontalAlignment="Center"/>
+                    <TextBlock Text="or click to browse for a folder" FontSize="14" Foreground="#8b949e" HorizontalAlignment="Center"/>
+                    <Button Classes="secondary" Command="{Binding BrowseFolderCommand}" HorizontalAlignment="Center" Margin="0,8,0,0">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <PathIcon Data="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" 
+                                      Width="16" Height="16" Foreground="#8b949e"/>
+                            <TextBlock Text="Browse Folder" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Border>
+            
+            <!-- Pending confirmation state: Folder selected, waiting for user to start processing -->
+            <Border Classes="dropZone" 
+                    IsVisible="{Binding ShowPendingConfirmation}"
+                    Background="#161b22">
+                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="24">
+                    <!-- Folder icon with checkmark -->
+                    <Border Width="100" Height="100" CornerRadius="50" Background="#21262d" HorizontalAlignment="Center">
+                        <PathIcon Data="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z"
+                                  Width="48" Height="48" Foreground="#58a6ff"/>
+                    </Border>
+                    
+                    <!-- Folder name and clip count -->
+                    <StackPanel Spacing="8" HorizontalAlignment="Center">
+                        <TextBlock Text="{Binding PendingFolderName}" FontSize="22" FontWeight="Bold" Foreground="#e6edf3" HorizontalAlignment="Center"/>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="8">
+                            <TextBlock FontSize="48" FontWeight="Bold" Foreground="#58a6ff" VerticalAlignment="Center">
+                                <TextBlock.Text>
+                                    <Binding Path="PendingClipCount"/>
+                                </TextBlock.Text>
+                            </TextBlock>
+                            <TextBlock Text="video clips found" FontSize="18" Foreground="#8b949e" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </StackPanel>
+                    
+                    <!-- Action buttons -->
+                    <StackPanel Orientation="Horizontal" Spacing="16" HorizontalAlignment="Center">
+                        <Button Classes="secondary" Command="{Binding CancelPendingCommand}" Padding="24,14">
+                            <TextBlock Text="Cancel" FontSize="14"/>
+                        </Button>
+                        <Button Classes="primary" Command="{Binding StartProcessingCommand}" Padding="32,14">
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <PathIcon Data="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                                          Width="20" Height="20" Foreground="White"/>
+                                <TextBlock Text="Create Report" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center"/>
                             </StackPanel>
                         </Button>
                     </StackPanel>
-                </Grid>
+                    
+                    <!-- Hint text -->
+                    <TextBlock Text="Clicking 'Create Report' will extract metadata and thumbnails from your footage" 
+                               FontSize="13" Foreground="#6e7681" HorizontalAlignment="Center"/>
+                </StackPanel>
             </Border>
             
             <!-- Content: Reels list -->
@@ -185,24 +227,20 @@
                                                 <DataTemplate x:DataType="models:CameraClip">
                                                     <Border Classes="clipItem">
                                                         <Grid ColumnDefinitions="Auto,*,Auto">
-                                                            <!-- Thumbnails -->
-                                                            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="4" Margin="0,0,16,0">
-                                                                <ItemsControl ItemsSource="{Binding Thumbnails}">
-                                                                    <ItemsControl.ItemsPanel>
-                                                                        <ItemsPanelTemplate>
-                                                                            <StackPanel Orientation="Horizontal" Spacing="4"/>
-                                                                        </ItemsPanelTemplate>
-                                                                    </ItemsControl.ItemsPanel>
-                                                                    <ItemsControl.ItemTemplate>
-                                                                        <DataTemplate x:DataType="models:ThumbnailFrame">
-                                                                            <Border CornerRadius="2" ClipToBounds="True">
-                                                                                <!-- Placeholder for thumbnail - will be replaced with actual image -->
-                                                                                <Border Width="80" Height="45" Background="#30363d"/>
-                                                                            </Border>
-                                                                        </DataTemplate>
-                                                                    </ItemsControl.ItemTemplate>
-                                                                </ItemsControl>
-                                                            </StackPanel>
+                                                            <!-- Single thumbnail or video icon -->
+                                                            <Grid Grid.Column="0" Width="80" Height="45" Margin="0,0,16,0">
+                                                                <!-- Actual thumbnail image -->
+                                                                <Image Source="{Binding FirstThumbnail.Bitmap}"
+                                                                       Width="80" Height="45"
+                                                                       Stretch="UniformToFill"
+                                                                       IsVisible="{Binding HasThumbnail}"/>
+                                                                <!-- Fallback: Video icon when no thumbnail -->
+                                                                <Border Width="80" Height="45" Background="#30363d" CornerRadius="2"
+                                                                        IsVisible="{Binding !HasThumbnail}">
+                                                                    <PathIcon Data="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z"
+                                                                              Width="24" Height="24" Foreground="#6e7681"/>
+                                                                </Border>
+                                                            </Grid>
                                                             
                                                             <!-- Clip info -->
                                                             <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="4">
@@ -287,6 +325,43 @@
                     </StackPanel>
                 </Border>
             </Grid>
+            
+            <!-- Processing overlay - shows on top when processing -->
+            <Border IsVisible="{Binding IsProcessing}"
+                    Background="#0d1117"
+                    CornerRadius="12"
+                    IsHitTestVisible="True">
+                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="24">
+                    <!-- Moon icon with pulsing effect -->
+                    <Grid Width="120" Height="120" HorizontalAlignment="Center">
+                        <Border Width="120" Height="120" CornerRadius="60" BorderBrush="#21262d" BorderThickness="4"/>
+                        <Border Width="80" Height="80" CornerRadius="40" Background="#161b22" HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <PathIcon Data="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z"
+                                      Width="40" Height="40" Foreground="#58a6ff"/>
+                        </Border>
+                    </Grid>
+                    
+                    <!-- Status text -->
+                    <StackPanel Spacing="8" HorizontalAlignment="Center">
+                        <TextBlock Text="{Binding StatusText}" FontSize="18" FontWeight="SemiBold" Foreground="#e6edf3" HorizontalAlignment="Center" TextAlignment="Center"/>
+                        <TextBlock Text="Processing your footage..." FontSize="14" Foreground="#8b949e" HorizontalAlignment="Center"/>
+                    </StackPanel>
+                    
+                    <!-- Progress bar -->
+                    <StackPanel Spacing="8" Width="400" HorizontalAlignment="Center">
+                        <ProgressBar Value="{Binding Progress}" 
+                                     Maximum="100"
+                                     Height="8"
+                                     Foreground="#58a6ff"
+                                     Background="#21262d"
+                                     CornerRadius="4"/>
+                        <TextBlock Text="{Binding Progress, StringFormat='{}{0}%'}" 
+                                   FontSize="14" 
+                                   Foreground="#8b949e" 
+                                   HorizontalAlignment="Center"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
         </Grid>
         
         <!-- DEV: Log viewer panel - for development/debugging stages -->

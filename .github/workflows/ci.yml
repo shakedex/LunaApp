@@ -1,0 +1,49 @@
+# Luna CI - Build Validation
+# Runs on push to master and pull requests to validate builds compile successfully
+
+name: CI Build
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            runtime: win-x64
+          - os: macos-14
+            runtime: osx-arm64
+
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+          dotnet-quality: 'preview'
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build application
+        run: dotnet build -c Release --no-restore
+
+      - name: Publish (validation only)
+        run: dotnet publish -c Release -r ${{ matrix.runtime }} --self-contained --no-build -o ./publish/${{ matrix.runtime }}
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: luna-${{ matrix.runtime }}-ci
+          path: ./publish/${{ matrix.runtime }}
+          retention-days: 7

@@ -43,6 +43,14 @@ public sealed partial class ReelDetectionService : IDisposable
     private static partial Regex ClipPrefixPattern();
     
     /// <summary>
+    /// Quick count of media files without processing (for pre-scan confirmation UI)
+    /// </summary>
+    public Task<int> CountMediaFilesAsync(string folderPath)
+    {
+        return Task.Run(() => FindMediaFiles(folderPath).Count());
+    }
+    
+    /// <summary>
     /// Scan a folder and detect camera reels
     /// </summary>
     public async Task<List<CameraReel>> DetectReelsAsync(

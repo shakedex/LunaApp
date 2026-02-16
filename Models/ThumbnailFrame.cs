@@ -1,3 +1,5 @@
+using Avalonia.Media.Imaging;
+
 namespace LunaApp.Models;
 
 /// <summary>
@@ -46,4 +48,46 @@ public sealed class ThumbnailFrame
     public string ImageSource => !string.IsNullOrEmpty(ImageBase64) 
         ? $"data:image/webp;base64,{ImageBase64}" 
         : ImagePath ?? string.Empty;
+    
+    /// <summary>
+    /// Cached bitmap for UI display
+    /// </summary>
+    private Bitmap? _bitmap;
+    
+    /// <summary>
+    /// Gets a Bitmap for Avalonia UI display. Lazily loads from Base64 or file path.
+    /// </summary>
+    public Bitmap? Bitmap
+    {
+        get
+        {
+            if (_bitmap != null)
+                return _bitmap;
+            
+            try
+            {
+                if (!string.IsNullOrEmpty(ImageBase64))
+                {
+                    var bytes = Convert.FromBase64String(ImageBase64);
+                    using var stream = new MemoryStream(bytes);
+                    _bitmap = new Bitmap(stream);
+                }
+                else if (!string.IsNullOrEmpty(ImagePath) && File.Exists(ImagePath))
+                {
+                    _bitmap = new Bitmap(ImagePath);
+                }
+            }
+            catch
+            {
+                // Failed to load bitmap - return null
+            }
+            
+            return _bitmap;
+        }
+    }
+    
+    /// <summary>
+    /// Whether this thumbnail has a valid image
+    /// </summary>
+    public bool HasImage => !string.IsNullOrEmpty(ImageBase64) || (!string.IsNullOrEmpty(ImagePath) && File.Exists(ImagePath));
 }

@@ -74,8 +74,8 @@ foreach ($rid in $RuntimesToBuild) {
         $mainExe = "Luna"
     }
     
-    # Create installer with Velopack (Windows only for now)
-    if ($rid.StartsWith("win")) {
+    # Create installer with Velopack
+    if ($rid.StartsWith("win") -or $rid.StartsWith("osx")) {
         Write-Host "Creating installer with Velopack..." -ForegroundColor Yellow
         $releasesDir = "$OutputDir\releases\$rid"
         
@@ -86,16 +86,29 @@ foreach ($rid in $RuntimesToBuild) {
             dotnet tool install -g vpk
         }
         
+        # Set executable permissions on macOS before packaging
+        if ($rid.StartsWith("osx") -and (-not $IsWindows)) {
+            Write-Host "Setting executable permissions..." -ForegroundColor Yellow
+            chmod +x "$publishPath/Luna"
+            chmod +x "$publishPath/tools/arri/osx-arm64/art-cmd" 2>$null
+            chmod +x "$publishPath/tools/arri/osx-arm64/look-builder" 2>$null
+            Get-ChildItem "$publishPath/tools/ffmpeg/osx-arm64" -ErrorAction SilentlyContinue | ForEach-Object {
+                chmod +x $_.FullName
+            }
+        }
+        
         vpk pack `
             --packId "Luna" `
             --packVersion $Version `
             --packDir $publishPath `
             --mainExe $mainExe `
-            --outputDir $releasesDir
+            --outputDir $releasesDir `
+            --packAuthors "Luna" `
+            --packTitle "Luna - Camera Report Generator"
         
         Write-Host "Installer created at: $releasesDir" -ForegroundColor Green
     } else {
-        Write-Host "Skipping installer for $rid (Velopack Windows only)" -ForegroundColor Yellow
+        Write-Host "Skipping installer for $rid (Linux not supported yet)" -ForegroundColor Yellow
         Write-Host "Distributable at: $publishPath" -ForegroundColor Green
     }
 }
