@@ -228,4 +228,33 @@
         <Setter Property="IsHitTestVisible" Value="True"/>
     </Style>
 
+    <!-- ==================== Cosmic progress bar (processing overlay) ==================== -->
+    <Style Selector="ProgressBar.luna-cosmic">
+        <Setter Property="Background" Value="{DynamicResource LunaBgTertiary}"/>
+        <Setter Property="CornerRadius" Value="4"/>
+        <Setter Property="Foreground">
+            <Setter.Value>
+                <LinearGradientBrush StartPoint="0%,50%" EndPoint="100%,50%">
+                    <GradientStop Color="#7a8cd6" Offset="0"/>
+                    <GradientStop Color="#c9d4ff" Offset="1"/>
+                </LinearGradientBrush>
+            </Setter.Value>
+        </Setter>
+        <Setter Property="Effect">
+            <Setter.Value>
+                <DropShadowEffect Color="#7a8cd6" BlurRadius="10" OffsetX="0" OffsetY="0" Opacity="0.6"/>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ==================== ETA text (mono digits) ==================== -->
+    <Style Selector="TextBlock.luna-eta">
+        <Setter Property="FontFamily" Value="Cascadia Mono, Consolas, Courier New, monospace"/>
+    </Style>
+
+    <!-- ==================== Phase label (slightly tracked) ==================== -->
+    <Style Selector="TextBlock.luna-phase-label">
+        <Setter Property="LetterSpacing" Value="0.5"/>
+    </Style>
+
 </Styles>

@@ -1,6 +1,8 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using LunaApp.Models;
 using Serilog;
+using System.Threading.Tasks;
 
 namespace LunaApp.ViewModels;
 
@@ -150,5 +152,50 @@ public partial class MainWindowViewModel
         IsUpdateReady = false;
         UpdateDownloadProgress = 0;
         UpdateVersion = string.Empty;
+    }
+
+    [RelayCommand]
+    private async Task DevSimulateProcessingAsync()
+    {
+        if (IsProcessing) return;
+        IsProcessing = true;
+        try
+        {
+            var phases = new[]
+            {
+                ProcessingPhase.Scanning,
+                ProcessingPhase.Extracting,
+                ProcessingPhase.Grouping,
+                ProcessingPhase.GeneratingHtml,
+                ProcessingPhase.GeneratingPdf,
+                ProcessingPhase.Finalizing,
+            };
+            // Two independent groups: scan (0..2) and generate (3..5). Each
+            // group ramps OverallProgress 0→100 then resets at the boundary
+            // so the moon hero waxes once per group.
+            for (var i = 0; i < phases.Length; i++)
+            {
+                PhaseLabel = phases[i].ToString();
+                PhaseDetail = $"Simulating {phases[i]}";
+                EtaText = $"{(phases.Length - i) * 2}s remaining";
+                var groupIdx = i % 3;
+                if (groupIdx == 0) OverallProgress = 0;
+                for (var step = 0; step <= 10; step++)
+                {
+                    Progress = step * 10;
+                    OverallProgress = (int)((groupIdx * 100.0 + step * 10) / 3.0);
+                    await Task.Delay(200);
+                }
+            }
+        }
+        finally
+        {
+            IsProcessing = false;
+            Progress = 0;
+            OverallProgress = 0;
+            PhaseLabel = string.Empty;
+            PhaseDetail = string.Empty;
+            EtaText = string.Empty;
+        }
     }
 }

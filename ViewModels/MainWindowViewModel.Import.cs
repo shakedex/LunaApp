@@ -1,4 +1,6 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics;
+using System.Linq;
 using Avalonia.Platform.Storage;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -158,7 +160,7 @@ public partial class MainWindowViewModel
         }
         finally
         {
-            EndOperation();
+            await EndOperationAsync();
             Progress = 0;
         }
     }
@@ -195,11 +197,42 @@ public partial class MainWindowViewModel
         return _currentOperationCts;
     }
 
-    private void EndOperation()
+    // Tail length for the moon hero so it can finish its last wax tween (~450 ms)
+    // plus a brief "look at me, fully lit" hold before the overlay fades out.
+    private static readonly TimeSpan EndTailDelay = TimeSpan.FromMilliseconds(800);
+
+    // If the user ticked "Open when done", the report path is parked here while
+    // the overlay's tail plays out. Opened only after the tail completes.
+    private string? _pendingOpenAfterTail;
+
+    private async Task EndOperationAsync()
     {
+        // Snap to full so the moon tweens to its complete state during the tail.
+        OverallProgress = 100;
+        Progress = 100;
+        await Task.Delay(EndTailDelay).ConfigureAwait(true);
+
         _currentOperationCts = null;
         IsProcessing = false;
+        OverallProgress = 0;
         OnPropertyChanged(nameof(CanCancel));
+
+        if (_pendingOpenAfterTail is { } path)
+        {
+            _pendingOpenAfterTail = null;
+            try
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = path,
+                    UseShellExecute = true,
+                });
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "Failed to open report file: {Path}", path);
+            }
+        }
     }
 
     [RelayCommand]
@@ -237,7 +270,10 @@ public partial class MainWindowViewModel
                 Theme                     = defaults.Theme,
                 GenerateHtml              = GenerateHtml,
                 GeneratePdf               = GeneratePdf,
-                OpenReportWhenDone        = OpenWhenDone,
+                // VM opens the file itself after the overlay's completion tail
+                // so the user sees the moon finish waxing before the report
+                // pops up. The actual user preference is honored below.
+                OpenReportWhenDone        = false,
 
                 // Per-run Report Name from the sidebar TextBox. Empty string
                 // means "no report name" — the title falls back to just the
@@ -245,8 +281,13 @@ public partial class MainWindowViewModel
                 ReportName                = string.IsNullOrWhiteSpace(ReportName) ? null : ReportName.Trim(),
             };
 
-            await _reportService.GenerateReportsAsync(settings, cts.Token);
+            var outputPaths = await _reportService.GenerateReportsAsync(settings, cts.Token);
             StatusText = $"Reports saved to {settings.OutputFolder}";
+
+            if (OpenWhenDone && outputPaths.Count > 0)
+            {
+                _pendingOpenAfterTail = outputPaths.FirstOrDefault(p => p.EndsWith(".html")) ?? outputPaths[0];
+            }
         }
         catch (OperationCanceledException)
         {
@@ -259,7 +300,7 @@ public partial class MainWindowViewModel
         }
         finally
         {
-            EndOperation();
+            await EndOperationAsync();
             Progress = 0;
         }
     }

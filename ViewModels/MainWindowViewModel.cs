@@ -43,6 +43,11 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty] private string _phaseDetail = string.Empty;
     [ObservableProperty] private string _etaText = string.Empty;
 
+    // Global progress across the whole scan→generate pipeline (0–100). Drives the
+    // moon hero so it waxes continuously instead of resetting at each phase
+    // boundary. The per-phase <see cref="Progress"/> still feeds the progress bar.
+    [ObservableProperty] private int _overallProgress;
+
     // Drag-drop feedback: true while a drop is hovering the window
     [ObservableProperty] private bool _isDragOver;
 
@@ -340,6 +345,7 @@ public partial class MainWindowViewModel : ViewModelBase
         }
 
         Progress = report.Percent;
+        OverallProgress = ComputeOverallProgress(report.Phase, report.Percent);
         PhaseLabel = report.PhaseLabel;
         PhaseDetail = BuildDetail(report);
         EtaText = BuildEta(report);
@@ -347,6 +353,27 @@ public partial class MainWindowViewModel : ViewModelBase
         StatusText = string.IsNullOrEmpty(report.CurrentItem)
             ? report.PhaseLabel
             : $"{report.PhaseLabel}: {report.CurrentItem}";
+    }
+
+    // Maps a per-phase (Phase, Percent) tick to a 0–100 ramp within its
+    // pipeline group. Two independent groups, each gets its own moon wax:
+    //   • scan/parse:  Scanning → Extracting → Grouping  (ends at summary)
+    //   • generation:  GeneratingHtml → GeneratingPdf → Finalizing
+    private static int ComputeOverallProgress(ProcessingPhase phase, int phasePercent)
+    {
+        const int groupSize = 3;
+        var idx = phase switch
+        {
+            ProcessingPhase.Scanning       => 0,
+            ProcessingPhase.Extracting     => 1,
+            ProcessingPhase.Grouping       => 2,
+            ProcessingPhase.GeneratingHtml => 0,
+            ProcessingPhase.GeneratingPdf  => 1,
+            ProcessingPhase.Finalizing     => 2,
+            _ => -1,
+        };
+        if (idx < 0) return 0;
+        return (int)((idx * 100.0 + Math.Clamp(phasePercent, 0, 100)) / groupSize);
     }
 
     private static string BuildDetail(ProcessingReport report)

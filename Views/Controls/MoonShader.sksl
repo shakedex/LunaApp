@@ -1,0 +1,33 @@
+// Luna moon shader. Lit sphere with terminator driven by uTerminator.
+//   uTerminator = 0   → full moon (sun behind viewer)
+//   uTerminator = π/2 → quarter moon (sun on right)
+//   uTerminator = π   → new moon (sun behind moon)
+
+uniform float2 uResolution;
+uniform float  uTerminator;
+uniform float3 uDayTint;
+
+half4 main(float2 fragCoord) {
+    float2 uv = (fragCoord - 0.5 * uResolution) / (0.5 * uResolution.y);
+    float r = length(uv);
+
+    // Edge alpha: hard mask outside circle, AA in last 2%.
+    float edge = 1.0 - smoothstep(0.98, 1.0, r);
+
+    // Sphere normal (clamp r so sqrt is always real).
+    float rc = min(r, 1.0);
+    float z = sqrt(1.0 - rc * rc);
+    float3 n = float3(uv.x, uv.y, z);
+
+    // Light direction. Wax sweeps left → right as terminator goes π → 0.
+    float t = uTerminator;
+    float3 L = normalize(float3(-sin(t), 0.3, cos(t)));
+
+    float diffuse = max(dot(n, L), 0.0);
+
+    // Earth-shine: dim cool tint on the dark limb so the moon never disappears.
+    float3 darkSide = (1.0 - diffuse) * 0.06 * float3(0.4, 0.5, 0.9);
+
+    float3 lit = uDayTint * diffuse + darkSide;
+    return half4(half3(lit), 1.0) * half(edge);
+}

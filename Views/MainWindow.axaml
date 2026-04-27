@@ -5,6 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:models="using:LunaApp.Models"
         xmlns:mi="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
+        xmlns:controls="using:LunaApp.Views.Controls"
         mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="800"
         x:Class="LunaApp.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
@@ -455,17 +456,16 @@
                     Background="{DynamicResource LunaBgOverlay}"
                     CornerRadius="{DynamicResource LunaRadiusXl}">
                 <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="24">
-                    <!-- Moon icon with pulsing effect -->
-                    <Grid Width="120" Height="120" HorizontalAlignment="Center">
-                        <Border Width="120" Height="120" CornerRadius="60" BorderBrush="{DynamicResource LunaBgTertiary}" BorderThickness="4"/>
-                        <Border Width="80" Height="80" CornerRadius="40" Background="{DynamicResource LunaBgSecondary}" HorizontalAlignment="Center" VerticalAlignment="Center">
-                            <mi:MaterialIcon Classes="pulse" Kind="MoonWaningCrescent" Width="40" Height="40" Foreground="{DynamicResource LunaAccent}"/>
-                        </Border>
-                    </Grid>
+                    <!-- Moon waxes from new (0%) to full (100%) as progress climbs. -->
+                    <controls:LunaShaderMoon Width="200" Height="200"
+                                             Progress="{Binding OverallProgress}"
+                                             IsActive="{Binding IsProcessing}"
+                                             HorizontalAlignment="Center"/>
 
                     <!-- Status text -->
                     <StackPanel Spacing="8" HorizontalAlignment="Center">
                         <TextBlock Text="{Binding PhaseLabel}"
+                                   Classes="luna-phase-label"
                                    FontSize="{DynamicResource LunaFontSizeXl}"
                                    FontWeight="SemiBold"
                                    HorizontalAlignment="Center"
@@ -478,6 +478,7 @@
                                    TextTrimming="CharacterEllipsis"
                                    MaxWidth="500"/>
                         <TextBlock Text="{Binding EtaText}"
+                                   Classes="luna-eta"
                                    FontSize="{DynamicResource LunaFontSizeSm}"
                                    Foreground="{DynamicResource LunaTextMuted}"
                                    HorizontalAlignment="Center"/>
@@ -486,9 +487,9 @@
                     <!-- Progress bar -->
                     <StackPanel Spacing="8" Width="400" HorizontalAlignment="Center">
                         <ProgressBar Value="{Binding Progress}"
+                                     Classes="luna-cosmic"
                                      Maximum="100"
                                      Height="8"
-                                     Foreground="{DynamicResource LunaAccent}"
                                      Background="{DynamicResource LunaBgTertiary}"
                                      CornerRadius="4"/>
                         <TextBlock Text="{Binding Progress, StringFormat='{}{0}%'}"
@@ -555,6 +556,11 @@
                         <Border Width="1" Background="{DynamicResource LunaBorder}" Margin="8,0"/>
                         <Button Classes="secondary" Command="{Binding CheckForUpdatesCommand}" Padding="10,6">
                             <TextBlock Text="Check for Updates (Real)" FontSize="{DynamicResource LunaFontSizeXs}"/>
+                        </Button>
+                        <Border Width="1" Background="{DynamicResource LunaBorder}" Margin="8,0"/>
+                        <TextBlock Text="Processing Testing:" Foreground="{DynamicResource LunaTextSecondary}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <Button Classes="secondary" Command="{Binding DevSimulateProcessingCommand}" Padding="10,6">
+                            <TextBlock Text="Simulate Processing" FontSize="{DynamicResource LunaFontSizeXs}"/>
                         </Button>
                     </StackPanel>
                 </Border>
