@@ -64,6 +64,13 @@ public sealed class ReportGenerationService
             throw new InvalidOperationException("No reels loaded. Call ScanFolderAsync first.");
 
         CurrentProject.Settings = settings;
+
+        // Pin a single timestamp for this run so the HTML and PDF outputs
+        // share one folder name + filename even if the wall clock crosses
+        // a second between calls. ReportNaming reads this back through
+        // settings.RunAt instead of calling DateTime.Now twice.
+        settings.RunAt = DateTime.Now;
+
         var outputPaths = new List<string>();
         var stopwatch = Stopwatch.StartNew();
 

@@ -26,7 +26,7 @@
             <Grid ColumnDefinitions="Auto,*,Auto">
                 <!-- Logo and title -->
                 <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-                    <Image Source="/Assets/luna-logo.webp" Width="36" Height="36" RenderOptions.BitmapInterpolationMode="HighQuality"/>
+                    <Image Source="/Assets/luna-logo.webp" Width="36" Height="38" RenderOptions.BitmapInterpolationMode="HighQuality"/>
                     <StackPanel VerticalAlignment="Center">
                         <TextBlock Text="Luna" FontSize="{DynamicResource LunaFontSizeXl}" FontWeight="Bold"/>
                         <TextBlock Text="Camera Report Generator" FontSize="{DynamicResource LunaFontSizeXs}" Foreground="{DynamicResource LunaTextSecondary}"/>
@@ -51,6 +51,16 @@
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <mi:MaterialIcon Kind="Cog" Width="16" Height="16" Foreground="{DynamicResource LunaTextSecondary}"/>
                             <TextBlock Text="Settings" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+
+                    <!-- About / Credits button -->
+                    <Button Classes="secondary" Command="{Binding OpenCreditsCommand}" VerticalAlignment="Center"
+                            ToolTip.Tip="About Luna"
+                            AutomationProperties.Name="About Luna">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <mi:MaterialIcon Kind="InformationOutline" Width="16" Height="16" Foreground="{DynamicResource LunaTextSecondary}"/>
+                            <TextBlock Text="About" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
                 </StackPanel>
@@ -364,19 +374,27 @@
                     <StackPanel Spacing="20">
                         <TextBlock Text="Report Summary" FontSize="{DynamicResource LunaFontSizeLg}" FontWeight="SemiBold"/>
 
-                        <!-- Stats -->
+                        <!-- Stats — reels are an internal grouping, not a metric the
+                             user cares about, so we surface the per-clip totals + a
+                             raw file count (clips plus sidecars/metadata the camera
+                             wrote alongside, used in the summary only — not in the
+                             generated report). -->
                         <StackPanel Spacing="12">
                             <Grid ColumnDefinitions="*,Auto">
-                                <TextBlock Text="Reels" Foreground="{DynamicResource LunaTextSecondary}"/>
-                                <TextBlock Grid.Column="1" Text="{Binding ReelCount}" FontWeight="SemiBold"/>
+                                <TextBlock Text="Clips" Foreground="{DynamicResource LunaTextSecondary}"/>
+                                <TextBlock Grid.Column="1" Text="{Binding TotalClipCount}" FontWeight="SemiBold"/>
                             </Grid>
                             <Grid ColumnDefinitions="*,Auto">
-                                <TextBlock Text="Total Clips" Foreground="{DynamicResource LunaTextSecondary}"/>
-                                <TextBlock Grid.Column="1" Text="{Binding TotalClipCount}" FontWeight="SemiBold"/>
+                                <TextBlock Text="Files" Foreground="{DynamicResource LunaTextSecondary}"/>
+                                <TextBlock Grid.Column="1" Text="{Binding TotalFilesCount}" FontWeight="SemiBold"/>
                             </Grid>
                             <Grid ColumnDefinitions="*,Auto">
                                 <TextBlock Text="Total Duration" Foreground="{DynamicResource LunaTextSecondary}"/>
                                 <TextBlock Grid.Column="1" Text="{Binding TotalDuration, StringFormat='{}{0:hh\\:mm\\:ss}'}" FontWeight="SemiBold"/>
+                            </Grid>
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBlock Text="Total Size" Foreground="{DynamicResource LunaTextSecondary}"/>
+                                <TextBlock Grid.Column="1" Text="{Binding TotalSizeFormatted}" FontWeight="SemiBold"/>
                             </Grid>
                         </StackPanel>
 
@@ -390,6 +408,19 @@
                         </StackPanel>
 
                         <Border Height="1" Background="{DynamicResource LunaBorder}"/>
+
+                        <!-- Per-run report label, e.g. "Day 02" / "Studio A" / "B-roll".
+                             Auto-filled from the scanned folder name; user can override.
+                             Appears in the report header next to the project name and on
+                             the output folder, so back-to-back generations are distinguishable. -->
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="Report name"
+                                       FontSize="{DynamicResource LunaFontSizeXs}"
+                                       Foreground="{DynamicResource LunaTextSecondary}"
+                                       FontWeight="SemiBold"/>
+                            <TextBox Text="{Binding ReportName, Mode=TwoWay}"
+                                     Watermark="e.g., Day 02 — Studio A"/>
+                        </StackPanel>
 
                         <!-- Generate button -->
                         <Button Classes="primary"

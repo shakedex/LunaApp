@@ -4,7 +4,6 @@ using Avalonia.Platform.Storage;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using LunaApp.Models;
-using LunaApp.Services;
 using LunaApp.Services.CameraSupport;
 using LunaApp.Services.Chappie;
 using Serilog;
@@ -23,6 +22,7 @@ public partial class CameraSupportRow : ObservableObject
     public string DisplayName { get; init; } = "";
     public string? InstallButtonLabel { get; init; }
     public IAsyncRelayCommand? InstallCommand { get; init; }
+    public IAsyncRelayCommand? DetectCommand { get; init; }
 
     [ObservableProperty] private string _state = "";
     [ObservableProperty] private string _summary = "";
@@ -30,9 +30,19 @@ public partial class CameraSupportRow : ObservableObject
     [ObservableProperty] private double _installProgress;
     [ObservableProperty] private string? _installError;
 
+    /// <summary>
+    /// Set after we launched a vendor's interactive installer (Sony) but
+    /// haven't yet been able to detect the binaries on disk. Hides the
+    /// Install button and surfaces a Detect button + a helpful message —
+    /// the user finishes Sony's installer at their own pace and clicks
+    /// Detect when done.
+    /// </summary>
+    [ObservableProperty] private bool _isAwaitingDetect;
+
     public bool IsReady => State == "Ready";
-    public bool CanInstall => InstallCommand is not null && !IsReady && !IsInstalling;
-    public bool ShowInstallButton => InstallCommand is not null && !IsReady;
+    public bool CanInstall => InstallCommand is not null && !IsReady && !IsInstalling && !IsAwaitingDetect;
+    public bool ShowInstallButton => InstallCommand is not null && !IsReady && !IsAwaitingDetect;
+    public bool ShowDetectButton => DetectCommand is not null && IsAwaitingDetect && !IsInstalling;
 
     partial void OnStateChanged(string value)
     {
@@ -41,8 +51,18 @@ public partial class CameraSupportRow : ObservableObject
         OnPropertyChanged(nameof(ShowInstallButton));
     }
 
-    partial void OnIsInstallingChanged(bool value) =>
+    partial void OnIsInstallingChanged(bool value)
+    {
         OnPropertyChanged(nameof(CanInstall));
+        OnPropertyChanged(nameof(ShowDetectButton));
+    }
+
+    partial void OnIsAwaitingDetectChanged(bool value)
+    {
+        OnPropertyChanged(nameof(CanInstall));
+        OnPropertyChanged(nameof(ShowInstallButton));
+        OnPropertyChanged(nameof(ShowDetectButton));
+    }
 }
 
 /// <summary>
@@ -54,11 +74,12 @@ public partial class CameraSupportRow : ObservableObject
 /// </summary>
 public partial class SettingsViewModel : ObservableValidator
 {
-    private readonly UpdateService _updateService;
     private readonly AppSettings _appSettings;
 
     private readonly ArtCliInstaller _artCliInstaller;
     private readonly ArtCliLocator _artCliLocator;
+    private readonly SonyRawViewerInstaller _sonyInstaller;
+    private readonly SonyRawViewerLocator _sonyLocator;
     private readonly CameraSupportRegistry _cameraSupports;
 
     public IReadOnlyList<CameraSupportRow> CameraSupports { get; }
@@ -139,21 +160,11 @@ public partial class SettingsViewModel : ObservableValidator
     [ObservableProperty] private bool _isLightTheme = true;
     [ObservableProperty] private bool _isDarkTheme;
 
-    // Update settings
-    [ObservableProperty] private bool _isCheckingForUpdates;
-    [ObservableProperty] private string _updateStatusText = "Click to check for updates";
-
-    public string CurrentVersionText => $"Current version: {_updateService.CurrentVersion ?? "Development"}";
-    public string CheckForUpdatesButtonText => IsCheckingForUpdates ? "Checking..." : "Check for Updates";
-
     /// <summary>True when at least one report format is enabled — gates "Open when complete".</summary>
     public bool WillGenerateAnyReport => GenerateHtmlByDefault || GeneratePdfByDefault;
 
     /// <summary>Raised when the Save command succeeded so the host window can close with a positive result.</summary>
     public event Action? SaveCompleted;
-
-    partial void OnIsCheckingForUpdatesChanged(bool value) =>
-        OnPropertyChanged(nameof(CheckForUpdatesButtonText));
 
     partial void OnGenerateHtmlByDefaultChanged(bool value) =>
         OnPropertyChanged(nameof(WillGenerateAnyReport));
@@ -178,14 +189,16 @@ public partial class SettingsViewModel : ObservableValidator
     public IStorageProvider? StorageProvider { get; set; }
 
     public SettingsViewModel(
-        UpdateService updateService,
         CameraSupportRegistry cameraSupports,
         ArtCliInstaller artCliInstaller,
-        ArtCliLocator artCliLocator)
+        ArtCliLocator artCliLocator,
+        SonyRawViewerInstaller sonyInstaller,
+        SonyRawViewerLocator sonyLocator)
     {
-        _updateService = updateService;
         _artCliInstaller = artCliInstaller;
         _artCliLocator = artCliLocator;
+        _sonyInstaller = sonyInstaller;
+        _sonyLocator = sonyLocator;
         _cameraSupports = cameraSupports;
         _appSettings = AppSettings.Load();
 
@@ -198,55 +211,166 @@ public partial class SettingsViewModel : ObservableValidator
 
     private CameraSupportRow BuildRow(ICameraSupport support)
     {
-        var row = new CameraSupportRow
+        // Each vendor has its own installer + locator pair. The row stays
+        // generic; we just look up the right installer for this support id.
+        Action? invalidate = support.Id switch
+        {
+            "arri"        => () => _artCliLocator.Invalidate(),
+            "sony-venice" => () => _sonyLocator.Invalidate(),
+            _             => null,
+        };
+
+        var (label, installCommand) = support.Id switch
+        {
+            "arri" => (
+                BuildSizeLabel("Install ARRI Reference Tool", _artCliInstaller.CurrentRelease?.DownloadSizeBytes),
+                (IAsyncRelayCommand?)new AsyncRelayCommand(() =>
+                    RunInstallAsync(support.Id, p => _artCliInstaller.InstallAsync(p), invalidate!))),
+
+            "sony-venice" => (
+                BuildSizeLabel("Install Sony RAW Viewer", _sonyInstaller.CurrentRelease?.DownloadSizeBytes),
+                (IAsyncRelayCommand?)new AsyncRelayCommand(() =>
+                    RunInstallAsync(support.Id, p => RunSonyInstall(p), invalidate!))),
+
+            _ => (null, null),
+        };
+
+        // Detect command is only set on rows that have a managed installer —
+        // surfaces only after the install kicks off in "awaiting" mode.
+        var detectCommand = invalidate is null
+            ? null
+            : new AsyncRelayCommand(() => DetectAsync(support.Id, invalidate));
+
+        return new CameraSupportRow
         {
             SupportId = support.Id,
             DisplayName = support.DisplayName,
             State = SupportStateLabel(support.Status),
             Summary = SupportSummary(support.Status),
-            // ARRI is the only support with a managed installer today.
-            // BRAW / Sony plug in here when their installer story lands.
-            InstallButtonLabel = support.Id == "arri" ? BuildArtCliInstallLabel() : null,
-            InstallCommand = support.Id == "arri" ? new AsyncRelayCommand(InstallArtCliAsync) : null,
+            InstallButtonLabel = label,
+            InstallCommand = installCommand,
+            DetectCommand = detectCommand,
         };
-        return row;
     }
 
-    private string BuildArtCliInstallLabel()
+    /// <summary>
+    /// Manual re-probe after the user finishes an out-of-process installer
+    /// (Sony's exe, macOS DMG drag, etc.). Either flips the row to Ready or
+    /// leaves it in "awaiting" mode with a friendly message.
+    /// </summary>
+    private Task DetectAsync(string supportId, Action invalidateLocator)
     {
-        var release = _artCliInstaller.CurrentRelease;
-        if (release is null) return "Install ARRI Reference Tool";
-        var sizeMb = release.DownloadSizeBytes / (1024 * 1024);
-        return $"Install ARRI Reference Tool ({sizeMb} MB)";
+        var row = CameraSupports.FirstOrDefault(r => r.SupportId == supportId);
+        if (row is null) return Task.CompletedTask;
+
+        invalidateLocator();
+        var support = _cameraSupports.All.FirstOrDefault(s => s.Id == supportId);
+        if (support is null) return Task.CompletedTask;
+
+        if (support.Status is SupportStatus.Ready)
+        {
+            row.State = SupportStateLabel(support.Status);
+            row.Summary = SupportSummary(support.Status);
+            row.IsAwaitingDetect = false;
+            row.InstallError = null;
+        }
+        else
+        {
+            row.InstallError = "Still not detected. Make sure the installer finished — if it's still running, wait for it. If it's done and Luna can't find the install, restart Luna.";
+        }
+
+        return Task.CompletedTask;
     }
 
-    private async Task InstallArtCliAsync()
+    private static string BuildSizeLabel(string baseLabel, long? bytes)
     {
-        var row = CameraSupports.FirstOrDefault(r => r.SupportId == "arri");
+        if (bytes is null or <= 0) return baseLabel;
+        var mb = bytes.Value / (1024 * 1024);
+        return $"{baseLabel} ({mb} MB)";
+    }
+
+    /// <summary>
+    /// Bridges the Sony installer's signature into the shared
+    /// <see cref="RunInstallAsync"/> flow. The Sony installer's
+    /// <c>InstallResult</c> is a parallel record to ART CLI's, so we wrap
+    /// it in the shared shape here.
+    /// </summary>
+    private async Task<(bool Success, string? Path, string? Error)> RunSonyInstall(IProgress<double> progress)
+    {
+        var r = await _sonyInstaller.InstallAsync(progress);
+        return (r.Success, r.Path, r.Error);
+    }
+
+    /// <summary>
+    /// Shared install-button handler — ART CLI overload.
+    /// </summary>
+    private Task RunInstallAsync(
+        string supportId,
+        Func<IProgress<double>, Task<ArtCliInstaller.InstallResult>> installFunc,
+        Action invalidateLocator) =>
+        RunInstallCoreAsync(supportId, async p =>
+        {
+            var r = await installFunc(p);
+            return (r.Success, r.Error);
+        }, invalidateLocator);
+
+    /// <summary>Sony's overload — same flow, different installer's result type.</summary>
+    private Task RunInstallAsync(
+        string supportId,
+        Func<IProgress<double>, Task<(bool Success, string? Path, string? Error)>> installFunc,
+        Action invalidateLocator) =>
+        RunInstallCoreAsync(supportId, async p =>
+        {
+            var r = await installFunc(p);
+            return (r.Success, r.Error);
+        }, invalidateLocator);
+
+    /// <summary>
+    /// Real install loop. Drives the row's IsInstalling / InstallProgress /
+    /// InstallError observables, then re-resolves the vendor locator. If
+    /// the locator finds the binaries, the row flips to Ready. If it
+    /// doesn't (e.g. Sony's installer is still running asynchronously),
+    /// the row enters "awaiting detect" mode — the user finishes the
+    /// installer at their own pace and clicks Detect to confirm.
+    /// </summary>
+    private async Task RunInstallCoreAsync(
+        string supportId,
+        Func<IProgress<double>, Task<(bool Success, string? Error)>> installFunc,
+        Action invalidateLocator)
+    {
+        var row = CameraSupports.FirstOrDefault(r => r.SupportId == supportId);
         if (row is null) return;
 
         row.IsInstalling = true;
         row.InstallError = null;
+        row.IsAwaitingDetect = false;
         row.InstallProgress = 0;
 
         var progress = new Progress<double>(p => row.InstallProgress = p);
         try
         {
-            var result = await _artCliInstaller.InstallAsync(progress);
-            if (result.Success)
+            var result = await installFunc(progress);
+            if (!result.Success)
             {
-                // Re-resolve via the locator and refresh the row's state.
-                _artCliLocator.Invalidate();
-                var arri = _cameraSupports.All.FirstOrDefault(s => s.Id == "arri");
-                if (arri is not null)
-                {
-                    row.State = SupportStateLabel(arri.Status);
-                    row.Summary = SupportSummary(arri.Status);
-                }
+                row.InstallError = result.Error;
+                return;
+            }
+
+            invalidateLocator();
+            var support = _cameraSupports.All.FirstOrDefault(s => s.Id == supportId);
+            if (support is null) return;
+
+            if (support.Status is SupportStatus.Ready)
+            {
+                // ART CLI path: zip extract is fully done, locator finds it.
+                row.State = SupportStateLabel(support.Status);
+                row.Summary = SupportSummary(support.Status);
             }
             else
             {
-                row.InstallError = result.Error;
+                // Sony path: installer launched but binaries aren't on disk
+                // yet. Hand off to the Detect button + helpful message.
+                row.IsAwaitingDetect = true;
             }
         }
         finally
@@ -413,37 +537,6 @@ public partial class SettingsViewModel : ObservableValidator
         if (folders.Count > 0)
         {
             OutputFolder = folders[0].Path.LocalPath;
-        }
-    }
-
-    [RelayCommand]
-    private async Task CheckForUpdatesAsync()
-    {
-        try
-        {
-            IsCheckingForUpdates = true;
-            UpdateStatusText = "Checking for updates...";
-
-            var hasUpdate = await _updateService.CheckForUpdatesAsync();
-
-            if (hasUpdate)
-            {
-                var version = _updateService.PendingUpdate?.TargetFullRelease.Version;
-                UpdateStatusText = $"Update available: v{version}";
-            }
-            else
-            {
-                UpdateStatusText = "You're using the latest version";
-            }
-        }
-        catch (Exception ex)
-        {
-            Log.Error(ex, "Failed to check for updates");
-            UpdateStatusText = "Failed to check for updates";
-        }
-        finally
-        {
-            IsCheckingForUpdates = false;
         }
     }
 }

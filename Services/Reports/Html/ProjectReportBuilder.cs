@@ -9,7 +9,7 @@ internal static class ProjectReportBuilder
 {
     public static string Build(IReadOnlyList<CameraReel> reels, ReportSettings settings)
     {
-        var projectName = string.IsNullOrWhiteSpace(settings.ProjectName) ? "Camera Report" : settings.ProjectName;
+        var displayTitle = ReportNaming.DisplayTitle(settings);
         var totalClips = reels.Sum(r => r.Clips.Count);
         var totalDuration = TimeSpan.FromTicks(reels.Sum(r => r.TotalDuration.Ticks));
         var totalBytes = reels.SelectMany(r => r.Clips).Sum(c => c.FileSizeBytes);
@@ -20,13 +20,13 @@ internal static class ProjectReportBuilder
         sb.AppendLine("<head>");
         sb.AppendLine("    <meta charset=\"UTF-8\">");
         sb.AppendLine("    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">");
-        sb.AppendLine($"    <title>{HttpUtility.HtmlEncode($"{projectName} · Camera Report")}</title>");
+        sb.AppendLine($"    <title>{HttpUtility.HtmlEncode($"{displayTitle} · Camera Report")}</title>");
         sb.AppendLine(ReportStylesheet.Base(settings.Theme));
         sb.AppendLine(ReportStylesheet.Project);
         sb.AppendLine("</head>");
         sb.AppendLine("<body>");
 
-        AppendCover(sb, projectName, settings);
+        AppendCover(sb, displayTitle, settings);
         AppendStats(sb, reels.Count, totalClips, totalDuration, totalBytes);
         if (reels.Count > 1) AppendToc(sb, reels);
 
@@ -43,13 +43,13 @@ internal static class ProjectReportBuilder
         return sb.ToString();
     }
 
-    private static void AppendCover(StringBuilder sb, string projectName, ReportSettings settings)
+    private static void AppendCover(StringBuilder sb, string displayTitle, ReportSettings settings)
     {
         sb.AppendLine("<header class=\"cover\">");
         sb.AppendLine("    <div class=\"cover-inner\">");
         sb.AppendLine("        <div>");
         sb.AppendLine("            <div class=\"eyebrow\">Camera Report</div>");
-        sb.AppendLine($"            <h1>{HttpUtility.HtmlEncode(projectName)}</h1>");
+        sb.AppendLine($"            <h1>{HttpUtility.HtmlEncode(displayTitle)}</h1>");
 
         var meta = new List<string>();
         if (!string.IsNullOrEmpty(settings.ProductionCompany)) meta.Add(HttpUtility.HtmlEncode(settings.ProductionCompany));

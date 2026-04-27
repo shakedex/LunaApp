@@ -223,10 +223,22 @@
                                                            Text="{Binding InstallProgress, StringFormat='Downloading… {0:P0}'}"/>
                                             </StackPanel>
 
-                                            <!-- Failure detail (verbatim error) -->
+                                            <!-- Awaiting-detect state — installer is running outside Luna; user clicks Detect when done. -->
+                                            <StackPanel Spacing="6" IsVisible="{Binding ShowDetectButton}">
+                                                <TextBlock FontSize="{DynamicResource LunaFontSizeXs}"
+                                                           Foreground="{DynamicResource LunaTextSecondary}"
+                                                           TextWrapping="Wrap"
+                                                           Text="The vendor installer is now open. Complete it (accept the EULA, click through to Finish), then click Detect below."/>
+                                                <Button Classes="secondary"
+                                                        Content="Detect"
+                                                        Command="{Binding DetectCommand}"
+                                                        HorizontalAlignment="Left"/>
+                                            </StackPanel>
+
+                                            <!-- Failure / "still not detected" detail (verbatim) -->
                                             <TextBlock Text="{Binding InstallError}"
                                                        FontSize="{DynamicResource LunaFontSizeXs}"
-                                                       Foreground="{DynamicResource LunaError}"
+                                                       Foreground="{DynamicResource LunaWarning}"
                                                        TextWrapping="Wrap"
                                                        IsVisible="{Binding InstallError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
                                         </StackPanel>
@@ -234,34 +246,6 @@
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
-                    </StackPanel>
-                </Border>
-
-                <!-- Updates Section -->
-                <Border Classes="section">
-                    <StackPanel Spacing="16">
-                        <StackPanel Orientation="Horizontal" Spacing="12">
-                            <mi:MaterialIcon Kind="Update" Width="20" Height="20" Foreground="{DynamicResource LunaAccent}"/>
-                            <TextBlock Text="Updates" FontSize="{DynamicResource LunaFontSizeLg}" FontWeight="SemiBold"/>
-                        </StackPanel>
-
-                        <Grid ColumnDefinitions="*,Auto">
-                            <StackPanel>
-                                <TextBlock Text="{Binding CurrentVersionText}" FontSize="{DynamicResource LunaFontSizeMd}"/>
-                                <TextBlock Text="{Binding UpdateStatusText}"
-                                           FontSize="{DynamicResource LunaFontSizeSm}"
-                                           Foreground="{DynamicResource LunaTextSecondary}"
-                                           Margin="0,4,0,0"/>
-                            </StackPanel>
-                            <Button Grid.Column="1" Classes="secondary" Command="{Binding CheckForUpdatesCommand}">
-                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <mi:MaterialIcon Kind="Refresh" Width="14" Height="14"
-                                                     Foreground="{DynamicResource LunaTextSecondary}"
-                                                     IsVisible="{Binding !IsCheckingForUpdates}"/>
-                                    <TextBlock Text="{Binding CheckForUpdatesButtonText}" VerticalAlignment="Center"/>
-                                </StackPanel>
-                            </Button>
-                        </Grid>
                     </StackPanel>
                 </Border>
 

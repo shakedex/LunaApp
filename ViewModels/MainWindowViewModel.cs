@@ -51,6 +51,22 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty] private bool _generatePdf = true;
     [ObservableProperty] private bool _openWhenDone = true;
 
+    /// <summary>
+    /// Per-run report label appended to the project name in the report
+    /// header and to the output folder. Empty by default; auto-filled from
+    /// the scanned folder name in <c>QuickScanFolderAsync</c>, but
+    /// preserved if the user typed a custom value.
+    /// </summary>
+    [ObservableProperty] private string _reportName = string.Empty;
+
+    /// <summary>
+    /// Tracks the last auto-fill we wrote into <see cref="ReportName"/>, so
+    /// we know not to overwrite a user-edited value on the next scan. When
+    /// the user types something new, ReportName diverges from this and the
+    /// auto-fill backs off.
+    /// </summary>
+    private string _autoFilledReportName = string.Empty;
+
     // ETA tracking: reset at the start of each phase, extrapolates remaining
     // time from average-item-duration so far.
     private ProcessingPhase _etaPhase = ProcessingPhase.Idle;
@@ -69,8 +85,31 @@ public partial class MainWindowViewModel : ViewModelBase
     public int ReelCount => Reels.Count;
     public int TotalClipCount => Reels.Sum(r => r.ClipCount);
     public TimeSpan TotalDuration => TimeSpan.FromTicks(Reels.Sum(r => r.TotalDuration.Ticks));
+    public long TotalSizeBytes => Reels.Sum(r => r.TotalSizeBytes);
+    public string TotalSizeFormatted => FormatBytes(TotalSizeBytes);
     public bool CanGenerate => HasReels && !IsProcessing;
     public string GenerateButtonText => IsProcessing ? "Generating..." : "Generate Reports";
+
+    /// <summary>
+    /// Total file count across the source folders the loaded reels came
+    /// from. Includes clips plus any sidecars / metadata / LUTs the camera
+    /// wrote alongside (Sony XML, ARRI .ale, audio, etc.). Surfaces in the
+    /// summary panel; not used in the generated report.
+    /// </summary>
+    [ObservableProperty] private int _totalFilesCount;
+
+    private static string FormatBytes(long bytes)
+    {
+        string[] units = ["B", "KB", "MB", "GB", "TB"];
+        double size = bytes;
+        var order = 0;
+        while (size >= 1024 && order < units.Length - 1)
+        {
+            order++;
+            size /= 1024;
+        }
+        return $"{size:0.##} {units[order]}";
+    }
 
     // Store provider for file dialogs (set by code-behind after DataContext is assigned)
     public IStorageProvider? StorageProvider { get; set; }
@@ -83,6 +122,9 @@ public partial class MainWindowViewModel : ViewModelBase
     /// handles the dialog; this event keeps the VM free of view references.
     /// </summary>
     public event Action? OpenSettingsRequested;
+
+    /// <summary>Raised when the credits / about dialog should be opened.</summary>
+    public event Action? OpenCreditsRequested;
 
     public MainWindowViewModel(
         ReportGenerationService reportService,
@@ -110,10 +152,44 @@ public partial class MainWindowViewModel : ViewModelBase
         OnPropertyChanged(nameof(ReelCount));
         OnPropertyChanged(nameof(TotalClipCount));
         OnPropertyChanged(nameof(TotalDuration));
+        OnPropertyChanged(nameof(TotalSizeBytes));
+        OnPropertyChanged(nameof(TotalSizeFormatted));
         OnPropertyChanged(nameof(CanGenerate));
         OnPropertyChanged(nameof(ShowDropZone));
         OnPropertyChanged(nameof(ShowPendingConfirmation));
+        RecomputeTotalFilesCount();
         RebuildFilteredReels();
+    }
+
+    /// <summary>
+    /// Walks the unique source folders the loaded reels were detected in
+    /// and counts every file beneath — clips, Sony NRT XML sidecars,
+    /// ARRI .ale, audio, LUTs, anything. One enumeration per scan; the
+    /// result feeds the summary panel's "Files" row.
+    /// </summary>
+    private void RecomputeTotalFilesCount()
+    {
+        if (Reels.Count == 0) { TotalFilesCount = 0; return; }
+
+        var paths = Reels.Select(r => r.SourcePath)
+                         .Where(p => !string.IsNullOrEmpty(p))
+                         .Distinct(StringComparer.OrdinalIgnoreCase);
+
+        var total = 0;
+        foreach (var path in paths)
+        {
+            try
+            {
+                if (Directory.Exists(path))
+                    total += Directory.EnumerateFiles(path, "*", SearchOption.AllDirectories).Count();
+            }
+            catch
+            {
+                // Permissions / IO hiccups shouldn't break the summary —
+                // we just skip and count what we can.
+            }
+        }
+        TotalFilesCount = total;
     }
 
     partial void OnSearchTextChanged(string value)
@@ -165,6 +241,12 @@ public partial class MainWindowViewModel : ViewModelBase
     private void OpenSettings()
     {
         OpenSettingsRequested?.Invoke();
+    }
+
+    [RelayCommand]
+    private void OpenCredits()
+    {
+        OpenCreditsRequested?.Invoke();
     }
 
     /// <summary>

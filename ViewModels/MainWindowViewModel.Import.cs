@@ -72,7 +72,24 @@ public partial class MainWindowViewModel
 
             PendingFolderPath = folderPath;
             PendingClipCount = count;
-            PendingFolderName = Path.GetFileName(folderPath);
+
+            // DirectoryInfo.Name handles trailing separators ("D:/foo/bar/" → "bar"),
+            // which Path.GetFileName returns as empty for. Drag-drop on Windows can
+            // hand us either form, so use the resilient one.
+            var folderName = SafeFolderName(folderPath);
+            PendingFolderName = folderName;
+
+            // Auto-fill the per-run Report Name with the folder we're about
+            // to process — but only when the user hasn't typed something
+            // custom. We track the last value we auto-filled so we can tell
+            // "still untouched" from "user edited it".
+            if (!string.IsNullOrEmpty(folderName) &&
+                (string.IsNullOrWhiteSpace(ReportName) || ReportName == _autoFilledReportName))
+            {
+                ReportName = folderName;
+                _autoFilledReportName = folderName;
+            }
+
             StatusText = $"Found {count} video clip(s) ready to process";
         }
         catch (OperationCanceledException)
@@ -88,6 +105,17 @@ public partial class MainWindowViewModel
 
     /// <summary>Called by drag/drop — delegates to <see cref="QuickScanFolderAsync"/>.</summary>
     public Task LoadFolderAsync(string folderPath) => QuickScanFolderAsync(folderPath);
+
+    /// <summary>
+    /// Robust folder-name extraction. <c>Path.GetFileName</c> returns empty
+    /// for paths with a trailing separator (which drag-drop frequently
+    /// hands us). <c>DirectoryInfo.Name</c> handles both shapes.
+    /// </summary>
+    private static string SafeFolderName(string folderPath)
+    {
+        try { return new DirectoryInfo(folderPath).Name; }
+        catch { return string.Empty; }
+    }
 
     /// <summary>Start full processing after user confirmation.</summary>
     [RelayCommand]
@@ -210,6 +238,11 @@ public partial class MainWindowViewModel
                 GenerateHtml              = GenerateHtml,
                 GeneratePdf               = GeneratePdf,
                 OpenReportWhenDone        = OpenWhenDone,
+
+                // Per-run Report Name from the sidebar TextBox. Empty string
+                // means "no report name" — the title falls back to just the
+                // project name, and the folder skips the {ReportName} segment.
+                ReportName                = string.IsNullOrWhiteSpace(ReportName) ? null : ReportName.Trim(),
             };
 
             await _reportService.GenerateReportsAsync(settings, cts.Token);

@@ -13,14 +13,25 @@ namespace LunaApp.Services.Chappie;
 /// </summary>
 public sealed class SonyRawViewerLocator
 {
-    private readonly Lazy<RawViewerInstall?> _resolved;
+    private RawViewerInstall? _cached;
+    private bool _probed;
 
-    public SonyRawViewerLocator()
+    public RawViewerInstall? Resolve(bool forceRefresh = false)
     {
-        _resolved = new Lazy<RawViewerInstall?>(Probe, isThreadSafe: true);
+        if (forceRefresh || !_probed)
+        {
+            _cached = Probe();
+            _probed = true;
+        }
+        return _cached;
     }
 
-    public RawViewerInstall? Resolve() => _resolved.Value;
+    /// <summary>Invalidates the cached probe — call after the installer completes.</summary>
+    public void Invalidate()
+    {
+        _probed = false;
+        _cached = null;
+    }
 
     public sealed record RawViewerInstall(string ExecutablePath, string Version);
 

@@ -9,7 +9,7 @@ internal static class ReelReportBuilder
 {
     public static string Build(CameraReel reel, ReportSettings settings)
     {
-        var projectName = string.IsNullOrWhiteSpace(settings.ProjectName) ? "Camera Report" : settings.ProjectName;
+        var displayTitle = ReportNaming.DisplayTitle(settings);
         var totalBytes = reel.Clips.Sum(c => c.FileSizeBytes);
 
         var sb = new StringBuilder();
@@ -18,12 +18,12 @@ internal static class ReelReportBuilder
         sb.AppendLine("<head>");
         sb.AppendLine("    <meta charset=\"UTF-8\">");
         sb.AppendLine("    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">");
-        sb.AppendLine($"    <title>{HttpUtility.HtmlEncode($"{projectName} · {reel.DisplayLabel}")}</title>");
+        sb.AppendLine($"    <title>{HttpUtility.HtmlEncode($"{displayTitle} · {reel.DisplayLabel}")}</title>");
         sb.AppendLine(ReportStylesheet.Base(settings.Theme));
         sb.AppendLine("</head>");
         sb.AppendLine("<body>");
 
-        AppendCover(sb, reel, projectName, settings);
+        AppendCover(sb, reel, displayTitle, settings);
         AppendStats(sb, reel.ClipCount, reel.TotalDuration, totalBytes, reel);
 
         sb.AppendLine("<main>");
@@ -38,13 +38,13 @@ internal static class ReelReportBuilder
         return sb.ToString();
     }
 
-    private static void AppendCover(StringBuilder sb, CameraReel reel, string projectName, ReportSettings settings)
+    private static void AppendCover(StringBuilder sb, CameraReel reel, string displayTitle, ReportSettings settings)
     {
         sb.AppendLine("<header class=\"cover\">");
         sb.AppendLine("    <div class=\"cover-inner\">");
         sb.AppendLine("        <div>");
         sb.AppendLine($"            <div class=\"eyebrow\">Camera Report · {HttpUtility.HtmlEncode(reel.DisplayLabel)}</div>");
-        sb.AppendLine($"            <h1>{HttpUtility.HtmlEncode(projectName)}</h1>");
+        sb.AppendLine($"            <h1>{HttpUtility.HtmlEncode(displayTitle)}</h1>");
 
         var meta = new List<string>();
         if (!string.IsNullOrEmpty(settings.ProductionCompany)) meta.Add(HttpUtility.HtmlEncode(settings.ProductionCompany));

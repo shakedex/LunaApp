@@ -35,10 +35,29 @@ public sealed class ReportSettings
 
     /// <summary>Theme used for the generated HTML / PDF reports.</summary>
     public ReportTheme Theme { get; set; } = ReportTheme.Light;
-    
+
     // Report naming
     public string ReportNamePattern { get; set; } = "{project}_{reel}_{date}";
-    
+
+    /// <summary>
+    /// Per-run "Report Name" entered in the main window before clicking
+    /// Generate. Appended to the project name in the report header
+    /// ("Project Name — Report Name") and to the output folder. Runtime
+    /// only — never persisted, since each generation can have a different
+    /// label (Day 02, Reshoots, Studio A, etc.).
+    /// </summary>
+    [JsonIgnore]
+    public string? ReportName { get; set; }
+
+    /// <summary>
+    /// Single timestamp shared between the HTML and PDF outputs of one
+    /// generation. <see cref="ReportGenerationService"/> sets this once at
+    /// the start of a run so both files land in the same folder even when
+    /// the wall clock crosses a second between calls. Runtime only.
+    /// </summary>
+    [JsonIgnore]
+    public DateTime RunAt { get; set; } = DateTime.Now;
+
     [JsonIgnore]
     public bool HasLogo => !string.IsNullOrEmpty(LogoPath) || !string.IsNullOrEmpty(LogoBase64);
     

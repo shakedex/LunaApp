@@ -85,7 +85,15 @@ public partial class MainWindow : Window
             vm.StorageProvider = StorageProvider;
             vm.Clipboard = Clipboard;
             vm.OpenSettingsRequested += OnOpenSettingsRequested;
+            vm.OpenCreditsRequested += OnOpenCreditsRequested;
         }
+    }
+
+    private async void OnOpenCreditsRequested()
+    {
+        var creditsVm = Program.Services.GetRequiredService<CreditsViewModel>();
+        var creditsWindow = new CreditsWindow { DataContext = creditsVm };
+        await creditsWindow.ShowDialog(this);
     }
 
     private async void OnOpenSettingsRequested()

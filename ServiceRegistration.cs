@@ -33,6 +33,7 @@ internal static class ServiceRegistration
         services.AddSingleton<ArtCliThumbnailService>();
         services.AddSingleton<IThumbnailGenerator>(sp => sp.GetRequiredService<ArtCliThumbnailService>());
         services.AddSingleton<SonyRawViewerLocator>();
+        services.AddSingleton<SonyRawViewerInstaller>();
         services.AddSingleton<SonyRawExporterThumbnailService>();
         services.AddSingleton<IThumbnailGenerator>(sp => sp.GetRequiredService<SonyRawExporterThumbnailService>());
 
@@ -53,6 +54,7 @@ internal static class ServiceRegistration
 
         services.AddTransient<MainWindowViewModel>();
         services.AddTransient<SettingsViewModel>();
+        services.AddTransient<CreditsViewModel>();
 
         return services;
     }

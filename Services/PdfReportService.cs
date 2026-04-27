@@ -206,7 +206,7 @@ public sealed class PdfReportService
                 {
                     c.Item().Text("CAMERA REPORT")
                         .FontSize(8).FontColor(p.InkMuted).LetterSpacing(0.22f).SemiBold();
-                    c.Item().PaddingTop(4).Text(ReportNaming.EffectiveProjectName(settings))
+                    c.Item().PaddingTop(4).Text(ReportNaming.DisplayTitle(settings))
                         .FontSize(22).Bold().LineHeight(1.15f).FontColor(p.InkPrimary);
 
                     var meta = BuildMetaLine(settings);
