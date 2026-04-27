@@ -8,9 +8,14 @@ namespace LunaApp.Services;
 /// <summary>
 /// Service for auto-detecting camera reels from folder structure and file patterns.
 /// </summary>
-public sealed partial class ReelDetectionService : IDisposable
+public sealed partial class ReelDetectionService
 {
-    private readonly ChappieEngine _chappie = new();
+    private readonly ChappieEngine _chappie;
+
+    public ReelDetectionService(ChappieEngine chappie)
+    {
+        _chappie = chappie;
+    }
     
     // Common camera card folder patterns to skip when finding meaningful folder names
     private static readonly string[] CameraFolderPatterns =
@@ -51,62 +56,51 @@ public sealed partial class ReelDetectionService : IDisposable
     }
     
     /// <summary>
-    /// Scan a folder and detect camera reels
+    /// Scan a folder and detect camera reels. Progress ticks report the current
+    /// phase (scanning → extracting → grouping); the view-model layers ETA on top.
     /// </summary>
     public async Task<List<CameraReel>> DetectReelsAsync(
         string folderPath,
-        IProgress<(int current, int total, string status)>? progress = null,
+        IProgress<ProcessingReport>? progress = null,
         CancellationToken cancellationToken = default)
     {
         Log.Information("Scanning folder for reels: {FolderPath}", folderPath);
-        
-        progress?.Report((0, 100, "Scanning for media files..."));
-        
-        // Find all supported media files
-        var mediaFiles = await Task.Run(() => 
-            FindMediaFiles(folderPath).ToList(), 
+
+        progress?.Report(new ProcessingReport(ProcessingPhase.Scanning, 0, 1));
+
+        var mediaFiles = await Task.Run(() =>
+            FindMediaFiles(folderPath).ToList(),
             cancellationToken);
-        
+
         if (mediaFiles.Count == 0)
         {
             Log.Warning("No media files found in {FolderPath}", folderPath);
             return [];
         }
-        
+
         Log.Information("Found {Count} media files", mediaFiles.Count);
-        foreach (var f in mediaFiles)
-        {
-            Log.Debug("Found media file: {File}", f);
-        }
-        progress?.Report((10, 100, $"Found {mediaFiles.Count} media files"));
-        
+        progress?.Report(new ProcessingReport(ProcessingPhase.Scanning, 1, 1, $"{mediaFiles.Count} files"));
+
         // Extract metadata and thumbnails using Chappie engine
         var clips = await _chappie.ProcessClipsAsync(
             mediaFiles,
             extractThumbnails: true,
-            thumbnailCount: 3,
-            thumbnailWidth: 480,
+            thumbnailCount: null,
+            thumbnailWidth: null,
             new Progress<(int current, int total, string file)>(p =>
             {
-                var pct = 10 + (int)(p.current / (double)p.total * 60);
-                progress?.Report((pct, 100, $"Processing: {p.file}"));
+                progress?.Report(new ProcessingReport(ProcessingPhase.Extracting, p.current, p.total, p.file));
             }),
             cancellationToken);
-        
+
         Log.Information("Chappie processed {Count} clips", clips.Count);
-        foreach (var c in clips)
-        {
-            Log.Debug("Processed clip: {File}, ReelName={Reel}, Camera={Camera}, State={State}", 
-                c.FileName, c.ReelName ?? "null", c.CameraModel ?? "null", c.ProcessingState);
-        }
-        
-        progress?.Report((70, 100, "Grouping clips into reels..."));
-        
-        // Group clips into reels
+
+        progress?.Report(new ProcessingReport(ProcessingPhase.Grouping, 0, 1));
+
         var reels = GroupClipsIntoReels(clips, folderPath);
-        
-        progress?.Report((100, 100, $"Found {reels.Count} reels"));
-        
+
+        progress?.Report(new ProcessingReport(ProcessingPhase.Grouping, 1, 1, $"{reels.Count} reels"));
+
         return reels;
     }
     
@@ -294,8 +288,4 @@ public sealed partial class ReelDetectionService : IDisposable
         return null;
     }
     
-    public void Dispose()
-    {
-        _chappie.Dispose();
-    }
 }

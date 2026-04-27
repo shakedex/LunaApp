@@ -1,0 +1,113 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+        Luna design tokens.
+
+        Source of truth for every color, font and spacing value used in the app.
+        Views must reference these via {DynamicResource} (never inline hex codes)
+        so that theme variants and future tweaks take effect everywhere.
+
+        Variants are declared via ThemeDictionaries below. Light-mode values are
+        placeholders — the app currently forces Dark in App.axaml. Once a light
+        variant is wanted, flip RequestedThemeVariant to Default and the dark/
+        light dictionaries will swap at runtime.
+    -->
+
+    <ResourceDictionary.ThemeDictionaries>
+
+        <!-- ==================== DARK (primary) ==================== -->
+        <ResourceDictionary x:Key="Dark">
+            <!-- Surface -->
+            <SolidColorBrush x:Key="LunaBgPrimary"   Color="#0d1117"/>
+            <SolidColorBrush x:Key="LunaBgSecondary" Color="#161b22"/>
+            <SolidColorBrush x:Key="LunaBgTertiary"  Color="#21262d"/>
+            <SolidColorBrush x:Key="LunaBgOverlay"   Color="#0d1117"/>
+
+            <!-- Borders -->
+            <SolidColorBrush x:Key="LunaBorder"      Color="#30363d"/>
+            <SolidColorBrush x:Key="LunaBorderMuted" Color="#21262d"/>
+
+            <!-- Text -->
+            <SolidColorBrush x:Key="LunaTextPrimary"   Color="#e6edf3"/>
+            <SolidColorBrush x:Key="LunaTextSecondary" Color="#8b949e"/>
+            <SolidColorBrush x:Key="LunaTextMuted"     Color="#6e7681"/>
+            <SolidColorBrush x:Key="LunaTextOnAccent"  Color="#0d1117"/>
+            <SolidColorBrush x:Key="LunaTextOnPrimary" Color="#ffffff"/>
+
+            <!-- Brand / accent -->
+            <SolidColorBrush x:Key="LunaAccent"        Color="#58a6ff"/>
+            <SolidColorBrush x:Key="LunaAccentHover"   Color="#79b8ff"/>
+            <SolidColorBrush x:Key="LunaAccentSubtle" Color="#1f6feb"/>
+            <SolidColorBrush x:Key="LunaAccentSubtleHover" Color="#3d7fe8"/>
+
+            <!-- Semantic -->
+            <SolidColorBrush x:Key="LunaPrimary"       Color="#238636"/>
+            <SolidColorBrush x:Key="LunaPrimaryHover"  Color="#2ea043"/>
+            <SolidColorBrush x:Key="LunaSuccess"       Color="#3fb950"/>
+            <SolidColorBrush x:Key="LunaWarning"       Color="#d29922"/>
+            <SolidColorBrush x:Key="LunaDanger"        Color="#f85149"/>
+
+            <!-- Selection / caret (used by log viewer TextBox) -->
+            <SolidColorBrush x:Key="LunaCaret"         Color="#58a6ff"/>
+            <SolidColorBrush x:Key="LunaSelection"     Color="#264f78"/>
+        </ResourceDictionary>
+
+        <!-- ==================== LIGHT (placeholder, not yet wired) ==================== -->
+        <ResourceDictionary x:Key="Light">
+            <SolidColorBrush x:Key="LunaBgPrimary"   Color="#ffffff"/>
+            <SolidColorBrush x:Key="LunaBgSecondary" Color="#f6f8fa"/>
+            <SolidColorBrush x:Key="LunaBgTertiary"  Color="#eaeef2"/>
+            <SolidColorBrush x:Key="LunaBgOverlay"   Color="#ffffff"/>
+
+            <SolidColorBrush x:Key="LunaBorder"      Color="#d0d7de"/>
+            <SolidColorBrush x:Key="LunaBorderMuted" Color="#eaeef2"/>
+
+            <SolidColorBrush x:Key="LunaTextPrimary"   Color="#1f2328"/>
+            <SolidColorBrush x:Key="LunaTextSecondary" Color="#656d76"/>
+            <SolidColorBrush x:Key="LunaTextMuted"     Color="#848d97"/>
+            <SolidColorBrush x:Key="LunaTextOnAccent"  Color="#ffffff"/>
+            <SolidColorBrush x:Key="LunaTextOnPrimary" Color="#ffffff"/>
+
+            <SolidColorBrush x:Key="LunaAccent"        Color="#0969da"/>
+            <SolidColorBrush x:Key="LunaAccentHover"   Color="#0550ae"/>
+            <SolidColorBrush x:Key="LunaAccentSubtle" Color="#0969da"/>
+            <SolidColorBrush x:Key="LunaAccentSubtleHover" Color="#0550ae"/>
+
+            <SolidColorBrush x:Key="LunaPrimary"       Color="#1f883d"/>
+            <SolidColorBrush x:Key="LunaPrimaryHover"  Color="#1a7f37"/>
+            <SolidColorBrush x:Key="LunaSuccess"       Color="#1a7f37"/>
+            <SolidColorBrush x:Key="LunaWarning"       Color="#9a6700"/>
+            <SolidColorBrush x:Key="LunaDanger"        Color="#cf222e"/>
+
+            <SolidColorBrush x:Key="LunaCaret"         Color="#0969da"/>
+            <SolidColorBrush x:Key="LunaSelection"     Color="#b6e3ff"/>
+        </ResourceDictionary>
+
+    </ResourceDictionary.ThemeDictionaries>
+
+    <!-- ==================== Theme-invariant tokens ==================== -->
+
+    <!-- Typography -->
+    <FontFamily x:Key="LunaFontBody">Inter, -apple-system, 'Segoe UI', sans-serif</FontFamily>
+    <FontFamily x:Key="LunaFontMono">Consolas, 'Courier New', monospace</FontFamily>
+
+    <x:Double x:Key="LunaFontSizeXs">11</x:Double>
+    <x:Double x:Key="LunaFontSizeSm">12</x:Double>
+    <x:Double x:Key="LunaFontSizeMd">14</x:Double>
+    <x:Double x:Key="LunaFontSizeLg">16</x:Double>
+    <x:Double x:Key="LunaFontSizeXl">20</x:Double>
+    <x:Double x:Key="LunaFontSize2Xl">22</x:Double>
+    <x:Double x:Key="LunaFontSize3Xl">48</x:Double>
+
+    <!-- Spacing / sizing (multiples of 4) -->
+    <CornerRadius x:Key="LunaRadiusSm">4</CornerRadius>
+    <CornerRadius x:Key="LunaRadiusMd">6</CornerRadius>
+    <CornerRadius x:Key="LunaRadiusLg">8</CornerRadius>
+    <CornerRadius x:Key="LunaRadiusXl">12</CornerRadius>
+    <CornerRadius x:Key="LunaRadiusPill">40</CornerRadius>
+
+    <Thickness x:Key="LunaBorderThin">1</Thickness>
+    <Thickness x:Key="LunaBorderThick">2</Thickness>
+
+</ResourceDictionary>

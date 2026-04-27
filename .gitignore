@@ -489,3 +489,8 @@ docker-output/
 .claude/
 streaming/
 stream.m3u8
+docs/
+
+# ARRI ART CLI binaries — proprietary, not redistributable. Bundling was
+# removed in Part 1 (Camera Support abstraction). If you still keep local
+tools/arri/

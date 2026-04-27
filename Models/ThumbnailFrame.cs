@@ -50,10 +50,13 @@ public sealed class ThumbnailFrame
         : ImagePath ?? string.Empty;
     
     /// <summary>
-    /// Cached bitmap for UI display
+    /// Weakly-held cached bitmap. Under memory pressure the GC can reclaim the
+    /// decoded image and we'll rehydrate from <see cref="ImageBase64"/> /
+    /// <see cref="ImagePath"/> on next access. Combined with the virtualized
+    /// reel list, this caps steady-state bitmap memory without a manual LRU.
     /// </summary>
-    private Bitmap? _bitmap;
-    
+    private WeakReference<Bitmap>? _bitmapRef;
+
     /// <summary>
     /// Gets a Bitmap for Avalonia UI display. Lazily loads from Base64 or file path.
     /// </summary>
@@ -61,28 +64,34 @@ public sealed class ThumbnailFrame
     {
         get
         {
-            if (_bitmap != null)
-                return _bitmap;
-            
+            if (_bitmapRef is not null && _bitmapRef.TryGetTarget(out var cached))
+                return cached;
+
             try
             {
+                Bitmap? decoded = null;
                 if (!string.IsNullOrEmpty(ImageBase64))
                 {
                     var bytes = Convert.FromBase64String(ImageBase64);
                     using var stream = new MemoryStream(bytes);
-                    _bitmap = new Bitmap(stream);
+                    decoded = new Bitmap(stream);
                 }
                 else if (!string.IsNullOrEmpty(ImagePath) && File.Exists(ImagePath))
                 {
-                    _bitmap = new Bitmap(ImagePath);
+                    decoded = new Bitmap(ImagePath);
                 }
+
+                if (decoded is not null)
+                    _bitmapRef = new WeakReference<Bitmap>(decoded);
+
+                return decoded;
             }
-            catch
+            catch (Exception ex)
             {
-                // Failed to load bitmap - return null
+                Serilog.Log.Debug(ex, "Failed to materialize thumbnail bitmap (base64 len={Len}, path={Path})",
+                    ImageBase64?.Length ?? 0, ImagePath);
+                return null;
             }
-            
-            return _bitmap;
         }
     }
     

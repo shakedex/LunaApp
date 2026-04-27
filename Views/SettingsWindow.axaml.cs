@@ -10,23 +10,19 @@ public partial class SettingsWindow : Window
     {
         InitializeComponent();
     }
-    
+
     protected override void OnDataContextChanged(EventArgs e)
     {
         base.OnDataContextChanged(e);
-        
-        // Provide storage provider to view model for file dialogs
+
         if (DataContext is SettingsViewModel vm)
         {
             vm.StorageProvider = StorageProvider;
+            // NB: the SaveCompleted → Close(true) hook is wired by the owner
+            // (MainWindow) before ShowDialog runs, so that path is guaranteed.
         }
     }
-    
-    private void OnSave(object? sender, RoutedEventArgs e)
-    {
-        Close(true);
-    }
-    
+
     private void OnCancel(object? sender, RoutedEventArgs e)
     {
         Close(false);

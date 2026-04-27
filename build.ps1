@@ -101,8 +101,6 @@ foreach ($rid in $RuntimesToBuild) {
         if ($rid.StartsWith("osx") -and (-not $IsWindows)) {
             Write-Host "Setting executable permissions..." -ForegroundColor Yellow
             chmod +x "$publishPath/Luna"
-            chmod +x "$publishPath/tools/arri/osx-arm64/art-cmd" 2>$null
-            chmod +x "$publishPath/tools/arri/osx-arm64/look-builder" 2>$null
             Get-ChildItem "$publishPath/tools/ffmpeg/osx-arm64" -ErrorAction SilentlyContinue | ForEach-Object {
                 chmod +x $_.FullName
             }

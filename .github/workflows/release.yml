@@ -96,8 +96,6 @@ jobs:
 
       - name: Set executable permissions on bundled tools
         run: |
-          chmod +x ./tools/arri/osx-arm64/art-cmd || true
-          chmod +x ./tools/arri/osx-arm64/look-builder || true
           chmod +x ./tools/ffmpeg/osx-arm64/* || true
 
       - name: Publish application (self-contained + trimmed)
@@ -120,8 +118,6 @@ jobs:
       - name: Set executable permissions on published app
         run: |
           chmod +x ./publish/osx-arm64/Luna
-          chmod +x ./publish/osx-arm64/tools/arri/osx-arm64/art-cmd || true
-          chmod +x ./publish/osx-arm64/tools/arri/osx-arm64/look-builder || true
           chmod +x ./publish/osx-arm64/tools/ffmpeg/osx-arm64/* || true
 
       - name: Create Velopack installer (DMG)

@@ -39,18 +39,45 @@ public sealed class CameraClip
     
     // Thumbnails (base64 encoded or file paths)
     public List<ThumbnailFrame> Thumbnails { get; set; } = [];
-    
+
     // First thumbnail for UI preview
     public ThumbnailFrame? FirstThumbnail => Thumbnails.Count > 0 ? Thumbnails[0] : null;
     public bool HasThumbnail => Thumbnails.Count > 0 && Thumbnails[0].HasImage;
-    
+
+    // Typed outcome of the thumbnail-extraction step. Distinguishes "we didn't
+    // try" from "we tried and FFmpeg has no decoder for this codec" from
+    // "we tried and seeking failed". Drives the UI's per-clip placeholder
+    // and stops the old "empty list" ambiguity.
+    public ThumbnailOutcome ThumbnailOutcome { get; set; } = ThumbnailOutcome.NotAttempted;
+    public string? ThumbnailOutcomeDetail { get; set; }
+
     // Processing state
     public ClipProcessingState ProcessingState { get; set; } = ClipProcessingState.Pending;
     public string? ProcessingError { get; set; }
+    public UnsupportedFormatNotice? UnsupportedNotice { get; set; }
     
     public string Resolution => $"{Width}x{Height}";
     public string FileSizeFormatted => FormatFileSize(FileSizeBytes);
     public string DurationFormatted => Duration.ToString(@"hh\:mm\:ss\:ff");
+
+    /// <summary>
+    /// True when thumbnail extraction failed for a reason worth surfacing to
+    /// the user. Excludes NotAttempted (handled by the Unsupported notice or
+    /// simply not requested) and Success.
+    /// </summary>
+    public bool HasThumbnailIssue =>
+        UnsupportedNotice is null &&
+        ThumbnailOutcome is not (ThumbnailOutcome.Success or ThumbnailOutcome.NotAttempted);
+
+    /// <summary>One-line human summary of <see cref="ThumbnailOutcome"/> for the clip row.</summary>
+    public string ThumbnailIssueSummary => ThumbnailOutcome switch
+    {
+        ThumbnailOutcome.NoDecoder           => $"Frames unavailable — {ThumbnailOutcomeDetail ?? "no decoder for this codec"}",
+        ThumbnailOutcome.SeekFailed          => "Frames unavailable — seeking failed (container index may be incomplete)",
+        ThumbnailOutcome.DecodeFailed        => "Frames unavailable — decoder error",
+        ThumbnailOutcome.ContainerOpenFailed => "Frames unavailable — couldn't open this file",
+        _                                    => string.Empty,
+    };
     
     private static string FormatFileSize(long bytes)
     {
@@ -71,5 +98,6 @@ public enum ClipProcessingState
     Pending,
     Processing,
     Completed,
-    Failed
+    Failed,
+    Unsupported
 }

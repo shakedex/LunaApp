@@ -24,19 +24,29 @@ public sealed class AppSettings
     public List<string> RecentSources { get; set; } = [];
     
     /// <summary>
-    /// Window state
+    /// Window state (persisted across sessions by the main window code-behind).
     /// </summary>
     public double WindowWidth { get; set; } = 1200;
     public double WindowHeight { get; set; } = 800;
+    public int? WindowX { get; set; }
+    public int? WindowY { get; set; }
     public bool IsMaximized { get; set; } = false;
-    
+
+    /// <summary>
+    /// When non-null, the update banner is suppressed until this date. Set by
+    /// the user choosing "Remind me later" on the update toast.
+    /// </summary>
+    public DateTime? UpdateSnoozeUntil { get; set; }
+
     /// <summary>
     /// FFmpeg library path (if custom)
     /// </summary>
     public string? FfmpegPath { get; set; }
     
     /// <summary>
-    /// Load settings from disk
+    /// Load settings from disk. Uses the source-generated JSON context because
+    /// the app is trimmed and reflection-based <c>JsonSerializer</c> throws at
+    /// runtime under trimming.
     /// </summary>
     public static AppSettings Load()
     {
@@ -45,21 +55,24 @@ public sealed class AppSettings
             if (File.Exists(SettingsPath))
             {
                 var json = File.ReadAllText(SettingsPath);
-                return JsonSerializer.Deserialize<AppSettings>(json) ?? new AppSettings();
+                return JsonSerializer.Deserialize(json, AppSettingsJsonContext.Default.AppSettings)
+                       ?? new AppSettings();
             }
         }
-        catch
+        catch (Exception ex)
         {
-            // If loading fails, return default settings
+            Serilog.Log.Warning(ex, "Failed to load settings from {Path} — falling back to defaults", SettingsPath);
         }
-        
+
         return new AppSettings();
     }
-    
+
     /// <summary>
-    /// Save settings to disk
+    /// Save settings to disk. Returns true on success, false on failure (so
+    /// callers can tell whether persistence actually happened — the UI logs
+    /// the positive path, so we mustn't pretend success on throw).
     /// </summary>
-    public void Save()
+    public bool Save()
     {
         try
         {
@@ -68,16 +81,15 @@ public sealed class AppSettings
             {
                 Directory.CreateDirectory(directory);
             }
-            
-            var json = JsonSerializer.Serialize(this, new JsonSerializerOptions 
-            { 
-                WriteIndented = true 
-            });
+
+            var json = JsonSerializer.Serialize(this, AppSettingsJsonContext.Default.AppSettings);
             File.WriteAllText(SettingsPath, json);
+            return true;
         }
-        catch
+        catch (Exception ex)
         {
-            // Silently fail if we can't save settings
+            Serilog.Log.Error(ex, "Failed to save settings to {Path}", SettingsPath);
+            return false;
         }
     }
     

@@ -1,159 +1,109 @@
-﻿using System.Collections.ObjectModel;
-using System.Collections.Specialized;
+using System.Collections.ObjectModel;
+using System.Diagnostics;
 using Avalonia.Platform.Storage;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using LunaApp.Models;
 using LunaApp.Services;
-using Serilog;
 
 namespace LunaApp.ViewModels;
 
+/// <summary>
+/// The primary shell view-model. The file is split via <c>partial class</c> for
+/// readability — see <c>MainWindowViewModel.Import.cs</c> (scan/generate workflow),
+/// <c>MainWindowViewModel.Update.cs</c> (auto-update banner) and
+/// <c>MainWindowViewModel.LogViewer.cs</c> (developer log panel).
+/// </summary>
 public partial class MainWindowViewModel : ViewModelBase
 {
-    private readonly ReportGenerationService _reportService = new();
+    private readonly ReportGenerationService _reportService;
+    private readonly UpdateService _updateService;
     private readonly AppSettings _appSettings;
-    
-    [ObservableProperty]
-    private ObservableCollection<CameraReel> _reels = [];
-    
-    [ObservableProperty]
-    private string _statusText = "Ready - Drop camera footage to begin";
-    
-    [ObservableProperty]
-    private int _progress;
-    
-    [ObservableProperty]
-    private bool _isProcessing;
-    
-    [ObservableProperty]
-    private bool _generateHtml = true;
-    
-    [ObservableProperty]
-    private bool _generatePdf = true;
-    
-    [ObservableProperty]
-    private bool _openWhenDone = true;
-    
-    // DEV: Log viewer toggle state
-    [ObservableProperty]
-    private bool _isLogViewerVisible;
-    
-    // DEV: Combined log text for multi-line selection
-    [ObservableProperty]
-    private string _logText = string.Empty;
-    
-    // Pre-scan state: folder selected but not yet processed
-    [ObservableProperty]
-    private string? _pendingFolderPath;
-    
-    [ObservableProperty]
-    private int _pendingClipCount;
-    
-    [ObservableProperty]
-    private string _pendingFolderName = string.Empty;
-    
-    // Update system properties
-    [ObservableProperty]
-    private bool _hasUpdateAvailable;
-    
-    [ObservableProperty]
-    private string _updateVersion = string.Empty;
-    
-    [ObservableProperty]
-    private int _updateDownloadProgress;
-    
-    [ObservableProperty]
-    private bool _isDownloadingUpdate;
-    
-    [ObservableProperty]
-    private bool _isUpdateReady;
-    
-    // DEV: Reference to log entries for binding
-    public ObservableCollection<LogEntry> LogEntries => InMemoryLogSink.Instance.LogEntries;
-    
+
+    // Core / shell state
+    [ObservableProperty] private ObservableCollection<CameraReel> _reels = [];
+    [ObservableProperty] private string _statusText = "Ready - Drop camera footage to begin";
+    [ObservableProperty] private int _progress;
+    [ObservableProperty] private bool _isProcessing;
+
+    // Search — filters the displayed reels by matching reel label or any clip filename.
+    [ObservableProperty] private string _searchText = string.Empty;
+
+    /// <summary>Reels after applying <see cref="SearchText"/>. Bound to the list UI.</summary>
+    public ObservableCollection<CameraReel> FilteredReels { get; } = [];
+
+    public bool IsSearchActive => !string.IsNullOrWhiteSpace(SearchText);
+    public bool HasFilteredReels => FilteredReels.Count > 0;
+    public string FilterSummary => IsSearchActive
+        ? $"{FilteredReels.Count} of {Reels.Count} reels"
+        : string.Empty;
+
+    // Phased progress (populated from ReportGenerationService.ProgressReported)
+    [ObservableProperty] private string _phaseLabel = string.Empty;
+    [ObservableProperty] private string _phaseDetail = string.Empty;
+    [ObservableProperty] private string _etaText = string.Empty;
+
+    // Drag-drop feedback: true while a drop is hovering the window
+    [ObservableProperty] private bool _isDragOver;
+
+    // Report output toggles (surfaced on the sidebar, live in core VM state)
+    [ObservableProperty] private bool _generateHtml = true;
+    [ObservableProperty] private bool _generatePdf = true;
+    [ObservableProperty] private bool _openWhenDone = true;
+
+    // ETA tracking: reset at the start of each phase, extrapolates remaining
+    // time from average-item-duration so far.
+    private ProcessingPhase _etaPhase = ProcessingPhase.Idle;
+    private Stopwatch? _etaStopwatch;
+    private int _etaBaseItem;
+
+    // Minimum time each phase label is visible before letting the next one take
+    // over — prevents the overlay from strobing through phases on tiny projects.
+    private static readonly TimeSpan MinPhaseDwell = TimeSpan.FromMilliseconds(450);
+    private DateTime _currentPhaseShownAt = DateTime.MinValue;
+    private ProcessingReport? _pendingReport;
+    private bool _dwellScheduled;
+
+    // Computed aggregates
     public bool HasReels => Reels.Count > 0;
-    public bool HasPendingFolder => !string.IsNullOrEmpty(PendingFolderPath);
-    public bool ShowDropZone => !HasReels && !HasPendingFolder && !IsProcessing;
-    public bool ShowPendingConfirmation => HasPendingFolder && !IsProcessing;
     public int ReelCount => Reels.Count;
     public int TotalClipCount => Reels.Sum(r => r.ClipCount);
     public TimeSpan TotalDuration => TimeSpan.FromTicks(Reels.Sum(r => r.TotalDuration.Ticks));
     public bool CanGenerate => HasReels && !IsProcessing;
     public string GenerateButtonText => IsProcessing ? "Generating..." : "Generate Reports";
-    
-    // Store provider for file dialogs
+
+    // Store provider for file dialogs (set by code-behind after DataContext is assigned)
     public IStorageProvider? StorageProvider { get; set; }
 
-    public MainWindowViewModel()
+    /// <summary>The owning window's clipboard, set by code-behind. Used by clip context menu actions.</summary>
+    public Avalonia.Input.Platform.IClipboard? Clipboard { get; set; }
+
+    /// <summary>
+    /// Raised when the settings dialog should be opened. The window code-behind
+    /// handles the dialog; this event keeps the VM free of view references.
+    /// </summary>
+    public event Action? OpenSettingsRequested;
+
+    public MainWindowViewModel(
+        ReportGenerationService reportService,
+        UpdateService updateService)
     {
+        _reportService = reportService;
+        _updateService = updateService;
         _appSettings = AppSettings.Load();
-        
-        // Restore settings
+
         GenerateHtml = _appSettings.DefaultReportSettings.GenerateHtml;
         GeneratePdf = _appSettings.DefaultReportSettings.GeneratePdf;
         OpenWhenDone = _appSettings.DefaultReportSettings.OpenReportWhenDone;
-        
-        // Subscribe to service events
-        _reportService.StatusChanged += status => StatusText = status;
-        _reportService.ProgressChanged += (current, total) => 
-        {
-            Progress = total > 0 ? (int)(current / (double)total * 100) : 0;
-        };
-        
-        // DEV: Subscribe to log collection changes to update combined text
+
+        _reportService.ProgressReported += OnProgressReported;
+
         LogEntries.CollectionChanged += OnLogEntriesChanged;
-        
-        // Subscribe to update service events (will be available after App initialization)
         SubscribeToUpdateService();
-        
-        // FFmpeg will auto-download on first use
+
         StatusText = "Ready - Drop camera footage to begin";
     }
-    
-    private void SubscribeToUpdateService()
-    {
-        // Delay subscription since UpdateService is initialized after ViewModel
-        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
-        {
-            var updateService = App.UpdateService;
-            if (updateService == null) return;
-            
-            updateService.UpdateAvailable += (_, info) =>
-            {
-                HasUpdateAvailable = true;
-                UpdateVersion = info.TargetFullRelease.Version.ToString();
-                IsUpdateReady = false;
-                IsDownloadingUpdate = false;
-            };
-            
-            updateService.DevUpdateAvailable += (_, version) =>
-            {
-                HasUpdateAvailable = true;
-                UpdateVersion = version;
-                IsUpdateReady = false;
-                IsDownloadingUpdate = false;
-            };
-            
-            updateService.DownloadProgress += (_, progress) =>
-            {
-                UpdateDownloadProgress = progress;
-            };
-            
-            updateService.UpdateReady += (_, _) =>
-            {
-                IsDownloadingUpdate = false;
-                IsUpdateReady = true;
-            };
-        });
-    }
-    
-    // DEV: Update combined log text when collection changes
-    private void OnLogEntriesChanged(object? sender, NotifyCollectionChangedEventArgs e)
-    {
-        LogText = string.Join(Environment.NewLine, LogEntries.Select(l => l.FormattedMessage));
-    }
-    
+
     partial void OnReelsChanged(ObservableCollection<CameraReel> value)
     {
         OnPropertyChanged(nameof(HasReels));
@@ -163,342 +113,185 @@ public partial class MainWindowViewModel : ViewModelBase
         OnPropertyChanged(nameof(CanGenerate));
         OnPropertyChanged(nameof(ShowDropZone));
         OnPropertyChanged(nameof(ShowPendingConfirmation));
+        RebuildFilteredReels();
     }
-    
+
+    partial void OnSearchTextChanged(string value)
+    {
+        RebuildFilteredReels();
+        OnPropertyChanged(nameof(IsSearchActive));
+    }
+
+    private void RebuildFilteredReels()
+    {
+        FilteredReels.Clear();
+
+        var needle = SearchText?.Trim();
+        var hasQuery = !string.IsNullOrEmpty(needle);
+
+        foreach (var reel in Reels)
+        {
+            if (!hasQuery)
+            {
+                FilteredReels.Add(reel);
+                continue;
+            }
+
+            // Match reel label OR any clip filename (case-insensitive)
+            if (reel.DisplayLabel.Contains(needle!, StringComparison.OrdinalIgnoreCase) ||
+                reel.Clips.Any(c => c.FileName.Contains(needle!, StringComparison.OrdinalIgnoreCase)))
+            {
+                FilteredReels.Add(reel);
+            }
+        }
+
+        OnPropertyChanged(nameof(HasFilteredReels));
+        OnPropertyChanged(nameof(FilterSummary));
+    }
+
+    [RelayCommand]
+    private void ClearSearch() => SearchText = string.Empty;
+
     partial void OnIsProcessingChanged(bool value)
     {
         OnPropertyChanged(nameof(CanGenerate));
         OnPropertyChanged(nameof(GenerateButtonText));
         OnPropertyChanged(nameof(ShowDropZone));
         OnPropertyChanged(nameof(ShowPendingConfirmation));
+        OnPropertyChanged(nameof(CanCancel));
     }
-    
-    partial void OnPendingFolderPathChanged(string? value)
-    {
-        OnPropertyChanged(nameof(HasPendingFolder));
-        OnPropertyChanged(nameof(ShowDropZone));
-        OnPropertyChanged(nameof(ShowPendingConfirmation));
-    }
-    
-    [RelayCommand]
-    private async Task BrowseFolderAsync()
-    {
-        if (StorageProvider == null) return;
-        
-        var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
-        {
-            Title = "Select Camera Footage Folder",
-            AllowMultiple = false
-        });
-        
-        if (folders.Count > 0)
-        {
-            var folder = folders[0];
-            await QuickScanFolderAsync(folder.Path.LocalPath);
-        }
-    }
-    
-    /// <summary>
-    /// Quick scan to count files without processing (called on folder drop/selection)
-    /// </summary>
-    public async Task QuickScanFolderAsync(string folderPath)
-    {
-        if (IsProcessing) return;
-        
-        try
-        {
-            StatusText = $"Counting files in {Path.GetFileName(folderPath)}...";
-            
-            var count = await _reportService.CountMediaFilesAsync(folderPath);
-            
-            if (count == 0)
-            {
-                StatusText = "No video files found in this folder";
-                PendingFolderPath = null;
-                PendingClipCount = 0;
-                PendingFolderName = string.Empty;
-                return;
-            }
-            
-            // Store for confirmation
-            PendingFolderPath = folderPath;
-            PendingClipCount = count;
-            PendingFolderName = Path.GetFileName(folderPath);
-            
-            StatusText = $"Found {count} video clip(s) ready to process";
-        }
-        catch (Exception ex)
-        {
-            Log.Error(ex, "Failed to scan folder: {Path}", folderPath);
-            StatusText = $"Error: {ex.Message}";
-        }
-    }
-    
-    /// <summary>
-    /// Called by drag/drop - delegates to QuickScanFolderAsync
-    /// </summary>
-    public Task LoadFolderAsync(string folderPath) => QuickScanFolderAsync(folderPath);
-    
-    /// <summary>
-    /// Start full processing after user confirmation
-    /// </summary>
-    [RelayCommand]
-    private async Task StartProcessingAsync()
-    {
-        if (string.IsNullOrEmpty(PendingFolderPath) || IsProcessing) return;
-        
-        var folderPath = PendingFolderPath;
-        
-        try
-        {
-            IsProcessing = true;
-            StatusText = $"Processing {PendingFolderName}...";
-            Progress = 0;
-            
-            var reels = await _reportService.ScanFolderAsync(folderPath);
-            
-            Reels = new ObservableCollection<CameraReel>(reels);
-            
-            // Clear pending state
-            PendingFolderPath = null;
-            PendingClipCount = 0;
-            PendingFolderName = string.Empty;
-            
-            // Update app settings with recent source
-            _appSettings.AddRecentSource(folderPath);
-            _appSettings.Save();
-            
-            StatusText = $"Found {ReelCount} reel(s) with {TotalClipCount} clips";
-        }
-        catch (Exception ex)
-        {
-            Log.Error(ex, "Failed to process folder: {Path}", folderPath);
-            StatusText = $"Error: {ex.Message}";
-        }
-        finally
-        {
-            IsProcessing = false;
-            Progress = 0;
-        }
-    }
-    
-    /// <summary>
-    /// Cancel pending folder selection
-    /// </summary>
-    [RelayCommand]
-    private void CancelPending()
-    {
-        PendingFolderPath = null;
-        PendingClipCount = 0;
-        PendingFolderName = string.Empty;
-        StatusText = "Ready - Drop camera footage to begin";
-    }
-    
-    [RelayCommand]
-    private async Task GenerateReportsAsync()
-    {
-        if (!HasReels || IsProcessing) return;
-        
-        try
-        {
-            IsProcessing = true;
-            Progress = 0;
-            
-            // Build settings from current state
-            var settings = new ReportSettings
-            {
-                ProjectName = _appSettings.DefaultReportSettings.ProjectName,
-                ProductionCompany = _appSettings.DefaultReportSettings.ProductionCompany,
-                DitName = _appSettings.DefaultReportSettings.DitName,
-                LogoPath = _appSettings.DefaultReportSettings.LogoPath,
-                LogoBase64 = _appSettings.DefaultReportSettings.LogoBase64,
-                OutputFolder = _appSettings.DefaultReportSettings.OutputFolder,
-                ThumbnailsPerClip = _appSettings.DefaultReportSettings.ThumbnailsPerClip,
-                ThumbnailWidth = _appSettings.DefaultReportSettings.ThumbnailWidth,
-                GenerateHtml = GenerateHtml,
-                GeneratePdf = GeneratePdf,
-                OpenReportWhenDone = OpenWhenDone
-            };
-            
-            var outputPaths = await _reportService.GenerateReportsAsync(settings);
-            
-            StatusText = $"Reports saved to {settings.OutputFolder}";
-        }
-        catch (OperationCanceledException)
-        {
-            StatusText = "Generation cancelled";
-        }
-        catch (Exception ex)
-        {
-            Log.Error(ex, "Report generation failed");
-            StatusText = $"Error: {ex.Message}";
-        }
-        finally
-        {
-            IsProcessing = false;
-            Progress = 0;
-        }
-    }
-    
-    [RelayCommand]
-    private void Clear()
-    {
-        Reels.Clear();
-        _reportService.ClearProject();
-        
-        // Clear pending state too
-        PendingFolderPath = null;
-        PendingClipCount = 0;
-        PendingFolderName = string.Empty;
-        
-        OnPropertyChanged(nameof(HasReels));
-        OnPropertyChanged(nameof(ReelCount));
-        OnPropertyChanged(nameof(TotalClipCount));
-        OnPropertyChanged(nameof(TotalDuration));
-        OnPropertyChanged(nameof(CanGenerate));
-        OnPropertyChanged(nameof(ShowDropZone));
-        OnPropertyChanged(nameof(ShowPendingConfirmation));
-        
-        StatusText = "Ready - Drop camera footage to begin";
-        Progress = 0;
-    }
-    
-    /// <summary>
-    /// Event raised when settings window should be opened.
-    /// Subscribe in MainWindow to show the dialog.
-    /// </summary>
-    public event Action? OpenSettingsRequested;
-    
+
     [RelayCommand]
     private void OpenSettings()
     {
         OpenSettingsRequested?.Invoke();
     }
-    
-    // DEV: Toggle log viewer visibility
-    [RelayCommand]
-    private void ToggleLogViewer()
-    {
-        IsLogViewerVisible = !IsLogViewerVisible;
-        Log.Debug("Log viewer toggled: {IsVisible}", IsLogViewerVisible);
-    }
-    
-    // DEV: Clear all log entries
-    [RelayCommand]
-    private void ClearLogs()
-    {
-        InMemoryLogSink.Instance.Clear();
-    }
-    
-    // ============ UPDATE COMMANDS ============
-    
-    [RelayCommand]
-    private async Task DownloadUpdateAsync()
-    {
-        if (App.UpdateService == null) return;
-        
-        try
-        {
-            IsDownloadingUpdate = true;
-            UpdateDownloadProgress = 0;
-            await App.UpdateService.DownloadUpdateAsync();
-        }
-        catch (Exception ex)
-        {
-            Log.Error(ex, "Failed to download update");
-            IsDownloadingUpdate = false;
-        }
-    }
-    
-    [RelayCommand]
-    private void ApplyUpdate()
-    {
-        App.UpdateService?.ApplyUpdateAndRestart();
-    }
-    
-    [RelayCommand]
-    private void DismissUpdate()
-    {
-        HasUpdateAvailable = false;
-        IsUpdateReady = false;
-        IsDownloadingUpdate = false;
-    }
-    
-    [RelayCommand]
-    private async Task CheckForUpdatesAsync()
-    {
-        if (App.UpdateService == null) return;
-        
-        try
-        {
-            StatusText = "Checking for updates...";
-            var hasUpdate = await App.UpdateService.CheckForUpdatesAsync();
-            StatusText = hasUpdate ? $"Update available: v{UpdateVersion}" : "You're up to date!";
-        }
-        catch (Exception ex)
-        {
-            Log.Error(ex, "Failed to check for updates");
-            StatusText = "Failed to check for updates";
-        }
-    }
-    
-    // ============ DEV TESTING COMMANDS ============
-    
-    [RelayCommand]
-    private void DevShowUpdateBanner()
-    {
-        App.UpdateService?.DevSimulateUpdateAvailable("99.0.0");
-    }
-    
-    [RelayCommand]
-    private void DevSimulateDownload()
-    {
-        IsDownloadingUpdate = true;
-        UpdateDownloadProgress = 0;
-        
-        // Simulate progress over time
-        _ = Task.Run(async () =>
-        {
-            for (int i = 0; i <= 100; i += 10)
-            {
-                await Task.Delay(200);
-                Avalonia.Threading.Dispatcher.UIThread.Post(() => UpdateDownloadProgress = i);
-            }
-            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
-            {
-                IsDownloadingUpdate = false;
-                IsUpdateReady = true;
-            });
-        });
-    }
-    
-    [RelayCommand]
-    private void DevResetUpdateState()
-    {
-        HasUpdateAvailable = false;
-        IsDownloadingUpdate = false;
-        IsUpdateReady = false;
-        UpdateDownloadProgress = 0;
-        UpdateVersion = string.Empty;
-    }
-    
+
     /// <summary>
-    /// Reload settings after they've been changed
+    /// Reload the default report settings from disk (called after the settings
+    /// dialog saves). Copies every field exhaustively — forgetting one here
+    /// would silently drop the user's preference on the next generate run.
     /// </summary>
     public void ReloadSettings()
     {
-        var settings = AppSettings.Load();
-        _appSettings.DefaultReportSettings.ProjectName = settings.DefaultReportSettings.ProjectName;
-        _appSettings.DefaultReportSettings.ProductionCompany = settings.DefaultReportSettings.ProductionCompany;
-        _appSettings.DefaultReportSettings.DitName = settings.DefaultReportSettings.DitName;
-        _appSettings.DefaultReportSettings.LogoPath = settings.DefaultReportSettings.LogoPath;
-        _appSettings.DefaultReportSettings.LogoBase64 = settings.DefaultReportSettings.LogoBase64;
-        _appSettings.DefaultReportSettings.OutputFolder = settings.DefaultReportSettings.OutputFolder;
-        _appSettings.DefaultReportSettings.ThumbnailsPerClip = settings.DefaultReportSettings.ThumbnailsPerClip;
-        
-        GenerateHtml = settings.DefaultReportSettings.GenerateHtml;
-        GeneratePdf = settings.DefaultReportSettings.GeneratePdf;
-        OpenWhenDone = settings.DefaultReportSettings.OpenReportWhenDone;
+        var loaded = AppSettings.Load().DefaultReportSettings;
+        var defaults = _appSettings.DefaultReportSettings;
+
+        defaults.ProjectName               = loaded.ProjectName;
+        defaults.ProductionCompany         = loaded.ProductionCompany;
+        defaults.DitName                   = loaded.DitName;
+        defaults.Director                  = loaded.Director;
+        defaults.Dp                        = loaded.Dp;
+        defaults.LogoPath                  = loaded.LogoPath;
+        defaults.LogoBase64                = loaded.LogoBase64;
+        defaults.OutputFolder              = loaded.OutputFolder;
+        defaults.ThumbnailsPerClip         = loaded.ThumbnailsPerClip;
+        defaults.ThumbnailWidth            = loaded.ThumbnailWidth;
+        defaults.GroupPdfsInSeparateFolder = loaded.GroupPdfsInSeparateFolder;
+        defaults.SaveReportToSource        = loaded.SaveReportToSource;
+        defaults.ReportNamePattern         = loaded.ReportNamePattern;
+        defaults.Theme                     = loaded.Theme;
+
+        GenerateHtml  = loaded.GenerateHtml;
+        GeneratePdf   = loaded.GeneratePdf;
+        OpenWhenDone  = loaded.OpenReportWhenDone;
+    }
+
+    /// <summary>
+    /// Consumes <see cref="ProcessingReport"/> ticks from the service layer and
+    /// updates the phase label, per-item detail, percent, and ETA.
+    ///
+    /// Phase transitions are gated by <see cref="MinPhaseDwell"/> so that on
+    /// tiny projects we don't strobe through five phases in 80 ms. When a new
+    /// phase arrives before the previous one has been visible long enough,
+    /// it's held in <c>_pendingReport</c> and applied after a short delay;
+    /// later reports for the same phase overwrite the pending one so we never
+    /// queue up stale updates.
+    /// </summary>
+    private void OnProgressReported(ProcessingReport report)
+    {
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            // Same phase → update in place, no dwell needed
+            if (report.Phase == _etaPhase)
+            {
+                ApplyReport(report);
+                return;
+            }
+
+            var elapsed = DateTime.UtcNow - _currentPhaseShownAt;
+            if (elapsed >= MinPhaseDwell)
+            {
+                ApplyReport(report);
+                return;
+            }
+
+            // Too soon — defer so the previous phase is visible long enough
+            _pendingReport = report;
+            if (_dwellScheduled) return;
+            _dwellScheduled = true;
+
+            var remaining = MinPhaseDwell - elapsed;
+            _ = Task.Delay(remaining).ContinueWith(_ =>
+            {
+                Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                {
+                    _dwellScheduled = false;
+                    if (_pendingReport is { } queued)
+                    {
+                        _pendingReport = null;
+                        ApplyReport(queued);
+                    }
+                });
+            });
+        });
+    }
+
+    private void ApplyReport(ProcessingReport report)
+    {
+        if (report.Phase != _etaPhase)
+        {
+            _etaPhase = report.Phase;
+            _etaStopwatch = Stopwatch.StartNew();
+            _etaBaseItem = report.Current;
+            _currentPhaseShownAt = DateTime.UtcNow;
+        }
+
+        Progress = report.Percent;
+        PhaseLabel = report.PhaseLabel;
+        PhaseDetail = BuildDetail(report);
+        EtaText = BuildEta(report);
+
+        StatusText = string.IsNullOrEmpty(report.CurrentItem)
+            ? report.PhaseLabel
+            : $"{report.PhaseLabel}: {report.CurrentItem}";
+    }
+
+    private static string BuildDetail(ProcessingReport report)
+    {
+        if (report.Total <= 1) return report.CurrentItem ?? string.Empty;
+        var item = string.IsNullOrEmpty(report.CurrentItem) ? string.Empty : $"  •  {report.CurrentItem}";
+        return $"{report.Current} of {report.Total}{item}";
+    }
+
+    private string BuildEta(ProcessingReport report)
+    {
+        if (_etaStopwatch == null || report.Total <= 1) return string.Empty;
+        var itemsDone = report.Current - _etaBaseItem;
+        if (itemsDone <= 0) return string.Empty;
+
+        var remaining = report.Total - report.Current;
+        if (remaining <= 0) return string.Empty;
+
+        var msPerItem = _etaStopwatch.Elapsed.TotalMilliseconds / itemsDone;
+        var eta = TimeSpan.FromMilliseconds(msPerItem * remaining);
+
+        return eta.TotalSeconds switch
+        {
+            < 1      => string.Empty,
+            < 60     => $"~{eta.Seconds}s remaining",
+            < 3600   => $"~{(int)eta.TotalMinutes}m {eta.Seconds}s remaining",
+            _        => $"~{(int)eta.TotalHours}h {eta.Minutes}m remaining",
+        };
     }
 }
-

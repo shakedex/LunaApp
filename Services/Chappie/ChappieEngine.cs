@@ -1,283 +1,92 @@
 using LunaApp.Models;
+using LunaApp.Services.CameraSupport;
 using Serilog;
 
 namespace LunaApp.Services.Chappie;
 
 /// <summary>
-/// Chappie Engine - Intelligent clip processing orchestrator.
-/// Tries each extractor in order until one successfully extracts metadata.
-/// Priority: Sony sidecar → ARRI ART CLI → LibVLC (fallback)
-/// Thumbnails: FFmpeg (if available) → LibVLC
+/// Thin dispatcher. Resolves each file to an <see cref="ICameraSupport"/> via
+/// the registry and delegates. Files that match a non-Ready support (e.g. a
+/// <c>.ari</c> while ARRI support is still <c>ComingLater</c>) are returned as
+/// Unsupported clips carrying a typed notice — never dropped into a fallback
+/// decoder that would produce garbage.
 /// </summary>
-public sealed class ChappieEngine : IDisposable
+public sealed class ChappieEngine(CameraSupportRegistry registry, MediaProcessingOptions options)
 {
-    private readonly List<IClipProcessor> _processors = [];
-    private readonly LibVlcClipProcessor _libVlcFallback = new();
-    private readonly FfmpegThumbnailService _ffmpegThumbnails = new();
-    private bool _disposed;
-    
-    public ChappieEngine()
-    {
-        // Register processors in priority order (highest first)
-        // Sony first - sidecar check is definitive and fast
-        RegisterProcessor(new SonyClipProcessor());
-        // ARRI second - uses ART CLI
-        RegisterProcessor(new ArriClipProcessor());
-        
-        Log.Information("Chappie engine initialized with {Count} processors + LibVLC fallback", _processors.Count);
-    }
-    
-    /// <summary>
-    /// Register a clip processor
-    /// </summary>
-    public void RegisterProcessor(IClipProcessor processor)
-    {
-        _processors.Add(processor);
-        // Sort by priority descending
-        _processors.Sort((a, b) => b.Priority.CompareTo(a.Priority));
-    }
-    
-    /// <summary>
-    /// Detect manufacturer from file path and content
-    /// </summary>
-    public static CameraManufacturer DetectManufacturer(string filePath)
-    {
-        var fileName = Path.GetFileName(filePath).ToUpperInvariant();
-        var ext = Path.GetExtension(filePath).ToUpperInvariant();
-        var directory = Path.GetDirectoryName(filePath)?.ToUpperInvariant() ?? "";
-        
-        // ARRI patterns
-        if (fileName.Contains("_ARRI") || 
-            directory.Contains("ARRI") ||
-            fileName.StartsWith("A0") || fileName.StartsWith("B0") || fileName.StartsWith("C0") ||
-            ArriClipProcessor.HasArriSidecar(filePath))
-        {
-            return CameraManufacturer.Arri;
-        }
-        
-        // Sony patterns
-        if (ext == ".MXF" && SonyClipProcessor.HasSonySidecar(filePath))
-        {
-            return CameraManufacturer.Sony;
-        }
-        
-        // RED patterns
-        if (ext == ".R3D" || directory.Contains("RED"))
-        {
-            return CameraManufacturer.Red;
-        }
-        
-        // Blackmagic patterns
-        if (ext == ".BRAW" || directory.Contains("BRAW") || directory.Contains("BLACKMAGIC"))
-        {
-            return CameraManufacturer.Blackmagic;
-        }
-        
-        // Canon patterns
-        if (directory.Contains("CANON") || fileName.StartsWith("MVI_") || fileName.StartsWith("CLIP"))
-        {
-            return CameraManufacturer.Canon;
-        }
-        
-        // Panasonic patterns
-        if (directory.Contains("AVCHD") || directory.Contains("PRIVATE") && directory.Contains("PANA"))
-        {
-            return CameraManufacturer.Panasonic;
-        }
-        
-        // DJI patterns
-        if (fileName.StartsWith("DJI_") || directory.Contains("DJI"))
-        {
-            return CameraManufacturer.DJI;
-        }
-        
-        return CameraManufacturer.Unknown;
-    }
-    
-    /// <summary>
-    /// Process a single clip - try each extractor until one succeeds
-    /// </summary>
+    private readonly CameraSupportRegistry _registry = registry;
+    private readonly MediaProcessingOptions _options = options;
+
     public async Task<CameraClip> ProcessClipAsync(
         string filePath,
         bool extractThumbnails = true,
-        int thumbnailCount = 3,
-        int thumbnailWidth = 480,
+        int? thumbnailCount = null,
+        int? thumbnailWidth = null,
         CancellationToken cancellationToken = default)
     {
+        var effectiveCount = thumbnailCount ?? _options.ThumbnailCount;
+        var effectiveWidth = thumbnailWidth ?? _options.ThumbnailWidth;
         var fileName = Path.GetFileName(filePath);
-        CameraClip? clip = null;
-        IClipProcessor? successfulProcessor = null;
-        
-        // Try each processor in priority order
-        foreach (var processor in _processors)
+
+        var support = _registry.ResolveFor(filePath);
+        if (support is null)
         {
-            try
-            {
-                // Quick check - does processor think it can handle this?
-                if (!processor.CanProcess(filePath))
-                    continue;
-                
-                Log.Debug("Trying {Processor} for {FileName}", processor.GetType().Name, fileName);
-                
-                var result = await processor.ExtractMetadataAsync(filePath, cancellationToken);
-                
-                // Consider success if we got meaningful metadata (camera model or duration)
-                if (result.ProcessingState == ClipProcessingState.Completed &&
-                    (!string.IsNullOrEmpty(result.CameraModel) || result.Duration > TimeSpan.Zero))
-                {
-                    clip = result;
-                    successfulProcessor = processor;
-                    Log.Information("{Processor} succeeded for {FileName}", processor.GetType().Name, fileName);
-                    break;
-                }
-            }
-            catch (Exception ex)
-            {
-                Log.Debug(ex, "{Processor} failed for {FileName}", processor.GetType().Name, fileName);
-            }
+            Log.Information("No camera support claims {File} — returning unsupported clip", fileName);
+            return CameraSupportHelpers.CreateUnsupportedClip(
+                filePath,
+                new UnknownFormatSupport());
         }
-        
-        // Fallback to LibVLC if no processor succeeded
-        if (clip == null)
+
+        if (support.Status is not SupportStatus.Ready)
         {
-            Log.Debug("Using LibVLC fallback for {FileName}", fileName);
-            try
-            {
-                clip = await _libVlcFallback.ExtractMetadataAsync(filePath, cancellationToken);
-                successfulProcessor = _libVlcFallback;
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "LibVLC fallback failed for {FileName}", fileName);
-                return CreateFailedClip(filePath, ex.Message);
-            }
+            Log.Information("{File} routed to {Support} ({Status}) — emitting notice",
+                fileName, support.Id, support.Status.Summary);
+            return CameraSupportHelpers.CreateUnsupportedClip(filePath, support);
         }
-        
-        // Fill missing metadata from LibVLC if needed
-        if (clip.Duration == TimeSpan.Zero || clip.Width == 0)
-        {
-            await FillMissingMetadataAsync(clip, cancellationToken);
-        }
-        
-        // Extract thumbnails using FFmpeg first (fastest, best seeking), then LibVLC fallback
-        if (extractThumbnails && clip.Duration > TimeSpan.Zero)
-        {
-            try
-            {
-                Log.Debug("Extracting thumbnails for {FileName} (duration: {Duration})", fileName, clip.Duration);
-                
-                // Try FFmpeg first - it can seek accurately in any codec
-                if (_ffmpegThumbnails.IsAvailable)
-                {
-                    clip.Thumbnails = await _ffmpegThumbnails.ExtractThumbnailsAsync(
-                        filePath, clip.Duration, thumbnailCount, thumbnailWidth, cancellationToken);
-                }
-                
-                // Fall back to LibVLC if FFmpeg failed or not available
-                if (clip.Thumbnails == null || clip.Thumbnails.Count == 0)
-                {
-                    Log.Debug("FFmpeg thumbnails unavailable, using LibVLC fallback for {FileName}", fileName);
-                    clip.Thumbnails = await _libVlcFallback.ExtractThumbnailsAsync(
-                        filePath, clip.Duration, thumbnailCount, thumbnailWidth, cancellationToken);
-                }
-                
-                Log.Debug("Extracted {Count} thumbnails for {FileName}", clip.Thumbnails.Count, fileName);
-            }
-            catch (Exception ex)
-            {
-                Log.Warning(ex, "Thumbnail extraction failed for {FileName}", fileName);
-                clip.Thumbnails = [];
-            }
-        }
-        else if (extractThumbnails)
-        {
-            Log.Warning("Skipping thumbnails for {FileName} - duration is zero", fileName);
-            clip.Thumbnails = [];
-        }
-        
-        clip.ProcessingState = ClipProcessingState.Completed;
-        return clip;
+
+        return await support.ProcessAsync(
+            filePath, extractThumbnails, effectiveCount, effectiveWidth, cancellationToken);
     }
-    
-    private async Task FillMissingMetadataAsync(CameraClip clip, CancellationToken cancellationToken)
-    {
-        try
-        {
-            var vlcClip = await _libVlcFallback.ExtractMetadataAsync(clip.FilePath, cancellationToken);
-            
-            if (clip.Duration == TimeSpan.Zero)
-                clip.Duration = vlcClip.Duration;
-            if (clip.Width == 0)
-                clip.Width = vlcClip.Width;
-            if (clip.Height == 0)
-                clip.Height = vlcClip.Height;
-            if (clip.FrameRate == 0)
-                clip.FrameRate = vlcClip.FrameRate;
-            if (string.IsNullOrEmpty(clip.Codec))
-                clip.Codec = vlcClip.Codec;
-        }
-        catch (Exception ex)
-        {
-            Log.Debug(ex, "Failed to fill missing metadata for {FileName}", clip.FileName);
-        }
-    }
-    
-    /// <summary>
-    /// Process multiple clips with progress reporting
-    /// </summary>
+
     public async Task<List<CameraClip>> ProcessClipsAsync(
         IEnumerable<string> filePaths,
         bool extractThumbnails = true,
-        int thumbnailCount = 3,
-        int thumbnailWidth = 480,
+        int? thumbnailCount = null,
+        int? thumbnailWidth = null,
         IProgress<(int current, int total, string file)>? progress = null,
         CancellationToken cancellationToken = default)
     {
         var paths = filePaths.ToList();
         var clips = new List<CameraClip>(paths.Count);
-        
+
         for (int i = 0; i < paths.Count; i++)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            
+
             var path = paths[i];
             progress?.Report((i + 1, paths.Count, Path.GetFileName(path)));
-            
+
             var clip = await ProcessClipAsync(path, extractThumbnails, thumbnailCount, thumbnailWidth, cancellationToken);
             clips.Add(clip);
         }
-        
+
         return clips;
     }
-    
-    private static CameraClip CreateFailedClip(string filePath, string error)
+
+    /// <summary>Placeholder support used only to satisfy the "unknown" branch.</summary>
+    private sealed class UnknownFormatSupport : ICameraSupport
     {
-        var fileInfo = new FileInfo(filePath);
-        return new CameraClip
-        {
-            FilePath = filePath,
-            FileName = fileInfo.Name,
-            FileSizeBytes = fileInfo.Exists ? fileInfo.Length : 0,
-            ProcessingState = ClipProcessingState.Failed,
-            ProcessingError = error
-        };
+        public string Id => "unknown";
+        public string DisplayName => "Unknown format";
+        public IReadOnlySet<string> HandledExtensions { get; } = new HashSet<string>();
+        public SupportStatus Status { get; } = new SupportStatus.NotAvailable("No camera support claims this file");
+        public bool CanHandle(string filePath) => false;
+        public Task<CameraClip> ProcessAsync(string filePath, bool extractThumbnails, int thumbnailCount, int thumbnailWidth, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
     }
-    
-    public void Dispose()
-    {
-        if (_disposed) return;
-        _disposed = true;
-        
-        _libVlcFallback.Dispose();
-        
-        foreach (var processor in _processors)
-        {
-            if (processor is IDisposable disposable)
-            {
-                disposable.Dispose();
-            }
-        }
-        
-        _processors.Clear();
-    }
+}
+
+// Kept for compatibility with ReelDetectionService usage; no longer the primary classification path.
+public enum CameraManufacturer
+{
+    Unknown, Arri, Sony, Red, Blackmagic, Canon, Panasonic, DJI
 }

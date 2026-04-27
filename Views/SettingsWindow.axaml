@@ -13,136 +13,90 @@
         MinHeight="600"
         WindowStartupLocation="CenterOwner"
         CanResize="True"
-        Background="#0d1117">
-
-    <Design.DataContext>
-        <vm:SettingsViewModel/>
-    </Design.DataContext>
-
-    <Window.Styles>
-        <Style Selector="TextBlock">
-            <Setter Property="Foreground" Value="#e6edf3"/>
-        </Style>
-        
-        <Style Selector="TextBlock.label">
-            <Setter Property="FontSize" Value="12"/>
-            <Setter Property="Foreground" Value="#8b949e"/>
-            <Setter Property="Margin" Value="0,0,0,4"/>
-        </Style>
-        
-        <Style Selector="TextBox">
-            <Setter Property="Background" Value="#21262d"/>
-            <Setter Property="BorderBrush" Value="#30363d"/>
-            <Setter Property="Foreground" Value="#e6edf3"/>
-            <Setter Property="Padding" Value="12,10"/>
-            <Setter Property="CornerRadius" Value="6"/>
-        </Style>
-        
-        <Style Selector="TextBox:focus">
-            <Setter Property="BorderBrush" Value="#58a6ff"/>
-        </Style>
-        
-        <Style Selector="NumericUpDown">
-            <Setter Property="Background" Value="#21262d"/>
-            <Setter Property="BorderBrush" Value="#30363d"/>
-            <Setter Property="Foreground" Value="#e6edf3"/>
-        </Style>
-        
-        <Style Selector="CheckBox">
-            <Setter Property="Foreground" Value="#e6edf3"/>
-        </Style>
-        
-        <Style Selector="Button.primary">
-            <Setter Property="Background" Value="#238636"/>
-            <Setter Property="Foreground" Value="White"/>
-            <Setter Property="Padding" Value="24,12"/>
-            <Setter Property="CornerRadius" Value="6"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Cursor" Value="Hand"/>
-        </Style>
-        <Style Selector="Button.primary:pointerover">
-            <Setter Property="Background" Value="#2ea043"/>
-        </Style>
-        
-        <Style Selector="Button.secondary">
-            <Setter Property="Background" Value="#21262d"/>
-            <Setter Property="Foreground" Value="#e6edf3"/>
-            <Setter Property="Padding" Value="12,8"/>
-            <Setter Property="CornerRadius" Value="6"/>
-            <Setter Property="BorderBrush" Value="#30363d"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Cursor" Value="Hand"/>
-        </Style>
-        <Style Selector="Button.secondary:pointerover">
-            <Setter Property="Background" Value="#30363d"/>
-        </Style>
-        
-        <Style Selector="Border.section">
-            <Setter Property="Background" Value="#161b22"/>
-            <Setter Property="BorderBrush" Value="#30363d"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius" Value="8"/>
-            <Setter Property="Padding" Value="20"/>
-            <Setter Property="Margin" Value="0,0,0,16"/>
-        </Style>
-    </Window.Styles>
+        Background="{DynamicResource LunaBgPrimary}">
 
     <Grid RowDefinitions="Auto,*,Auto">
-        
+
         <!-- Header -->
-        <Border Grid.Row="0" Background="#161b22" BorderBrush="#30363d" BorderThickness="0,0,0,1" Padding="24,16">
-            <TextBlock Text="Settings" FontSize="20" FontWeight="Bold"/>
+        <Border Grid.Row="0"
+                Background="{DynamicResource LunaBgSecondary}"
+                BorderBrush="{DynamicResource LunaBorder}"
+                BorderThickness="0,0,0,1" Padding="24,16">
+            <TextBlock Text="Settings" FontSize="{DynamicResource LunaFontSizeXl}" FontWeight="Bold"/>
         </Border>
-        
+
         <!-- Content -->
-        <ScrollViewer Grid.Row="1" 
+        <ScrollViewer Grid.Row="1"
                       VerticalScrollBarVisibility="Auto"
                       HorizontalScrollBarVisibility="Disabled">
             <StackPanel Spacing="0" Margin="24">
-                
+
                 <!-- Branding Section -->
                 <Border Classes="section">
                     <StackPanel Spacing="16">
-                        <TextBlock Text="Report Branding" FontSize="16" FontWeight="SemiBold"/>
-                        
+                        <TextBlock Text="Report Branding" FontSize="{DynamicResource LunaFontSizeLg}" FontWeight="SemiBold"/>
+
                         <!-- Logo -->
                         <StackPanel Spacing="8">
                             <TextBlock Classes="label" Text="Company Logo"/>
-                            <Grid ColumnDefinitions="Auto,*,Auto">
-                                <Border Grid.Column="0" 
-                                        Width="60" Height="60" 
-                                        CornerRadius="6"
-                                        Background="#21262d"
-                                        BorderBrush="#30363d"
-                                        BorderThickness="1"
-                                        Margin="0,0,12,0"
+                            <Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="*">
+                                <!-- Filled preview -->
+                                <Border Grid.Column="0"
+                                        Width="160" Height="160"
+                                        CornerRadius="{DynamicResource LunaRadiusLg}"
+                                        Background="{DynamicResource LunaBgTertiary}"
+                                        BorderBrush="{DynamicResource LunaBorder}"
+                                        BorderThickness="{DynamicResource LunaBorderThin}"
+                                        Margin="0,0,16,0"
                                         IsVisible="{Binding HasLogo}">
-                                    <Image Source="{Binding LogoPath}" Stretch="Uniform" Margin="8"/>
+                                    <Image Source="{Binding LogoBitmap}" Stretch="Uniform" Margin="12"/>
                                 </Border>
-                                <TextBlock Grid.Column="1" 
-                                           Text="{Binding LogoPath, FallbackValue='No logo selected'}"
-                                           Foreground="#8b949e"
-                                           VerticalAlignment="Center"
-                                           TextTrimming="CharacterEllipsis"/>
-                                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
-                                    <Button Classes="secondary" Command="{Binding BrowseLogoCommand}" Content="Browse"/>
-                                    <Button Classes="secondary" Command="{Binding ClearLogoCommand}" Content="Clear" IsVisible="{Binding HasLogo}"/>
+                                <!-- Empty state placeholder -->
+                                <Border Grid.Column="0"
+                                        Width="160" Height="160"
+                                        CornerRadius="{DynamicResource LunaRadiusLg}"
+                                        Background="{DynamicResource LunaBgTertiary}"
+                                        BorderBrush="{DynamicResource LunaBorder}"
+                                        BorderThickness="{DynamicResource LunaBorderThin}"
+                                        Margin="0,0,16,0"
+                                        IsVisible="{Binding !HasLogo}">
+                                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="8">
+                                        <mi:MaterialIcon Kind="ImageOutline" Width="48" Height="48" Foreground="{DynamicResource LunaTextMuted}"/>
+                                        <TextBlock Text="No logo" FontSize="{DynamicResource LunaFontSizeSm}"
+                                                   Foreground="{DynamicResource LunaTextMuted}" HorizontalAlignment="Center"/>
+                                    </StackPanel>
+                                </Border>
+                                <StackPanel Grid.Column="1" Spacing="8" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding LogoPath, FallbackValue='No logo selected'}"
+                                               Foreground="{DynamicResource LunaTextSecondary}"
+                                               TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Text="PNG, JPG, WebP or SVG. Shown at the top of every report."
+                                               FontSize="{DynamicResource LunaFontSizeXs}"
+                                               Foreground="{DynamicResource LunaTextMuted}"
+                                               TextWrapping="Wrap"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="2" Orientation="Vertical" Spacing="8" VerticalAlignment="Top">
+                                    <Button Classes="secondary" Command="{Binding BrowseLogoCommand}" Content="Browse"
+                                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"/>
+                                    <Button Classes="secondary" Command="{Binding ClearLogoCommand}" Content="Clear"
+                                            IsVisible="{Binding HasLogo}"
+                                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"/>
                                 </StackPanel>
                             </Grid>
                         </StackPanel>
-                        
+
                         <!-- Project Name -->
                         <StackPanel Spacing="4">
                             <TextBlock Classes="label" Text="Project Name"/>
                             <TextBox Text="{Binding ProjectName}" Watermark="e.g., My Film Production"/>
                         </StackPanel>
-                        
+
                         <!-- Production Company -->
                         <StackPanel Spacing="4">
                             <TextBlock Classes="label" Text="Production Company"/>
                             <TextBox Text="{Binding ProductionCompany}" Watermark="e.g., Acme Films"/>
                         </StackPanel>
-                        
+
                         <!-- Grid for DIT, Director, DP -->
                         <Grid ColumnDefinitions="*,16,*,16,*">
                             <StackPanel Grid.Column="0" Spacing="4">
@@ -160,12 +114,12 @@
                         </Grid>
                     </StackPanel>
                 </Border>
-                
+
                 <!-- Output Section -->
                 <Border Classes="section">
                     <StackPanel Spacing="16">
-                        <TextBlock Text="Output Settings" FontSize="16" FontWeight="SemiBold"/>
-                        
+                        <TextBlock Text="Output Settings" FontSize="{DynamicResource LunaFontSizeLg}" FontWeight="SemiBold"/>
+
                         <!-- Output Folder -->
                         <StackPanel Spacing="4">
                             <TextBlock Classes="label" Text="Report Output Folder"/>
@@ -174,56 +128,156 @@
                                 <Button Grid.Column="2" Classes="secondary" Command="{Binding BrowseOutputFolderCommand}" Content="Browse"/>
                             </Grid>
                         </StackPanel>
-                        
+
                         <!-- Thumbnails per clip -->
                         <StackPanel Spacing="4">
                             <TextBlock Classes="label" Text="Thumbnails per Clip"/>
                             <NumericUpDown Value="{Binding ThumbnailsPerClip}" Minimum="0" Maximum="10" Width="120" HorizontalAlignment="Left"/>
-                            <TextBlock Text="Set to 0 to disable thumbnail generation" FontSize="11" Foreground="#6e7681"/>
+                            <TextBlock Text="Set to 0 to disable thumbnail generation"
+                                       FontSize="{DynamicResource LunaFontSizeXs}"
+                                       Foreground="{DynamicResource LunaTextMuted}"/>
                         </StackPanel>
-                        
+
                         <!-- Checkboxes -->
                         <StackPanel Spacing="8" Margin="0,8,0,0">
                             <CheckBox Content="Generate HTML reports by default" IsChecked="{Binding GenerateHtmlByDefault}"/>
                             <CheckBox Content="Generate PDF reports by default" IsChecked="{Binding GeneratePdfByDefault}"/>
-                            <CheckBox Content="Open report when complete" IsChecked="{Binding OpenReportWhenDone}"/>
-                            <CheckBox Content="Group PDFs in separate folder" IsChecked="{Binding GroupPdfsInSeparateFolder}"/>
+                            <CheckBox Content="Open report when complete" IsChecked="{Binding OpenReportWhenDone}"
+                                      IsEnabled="{Binding WillGenerateAnyReport}"/>
+                            <CheckBox Content="Group PDFs in separate folder" IsChecked="{Binding GroupPdfsInSeparateFolder}"
+                                      IsEnabled="{Binding GeneratePdfByDefault}"/>
+                        </StackPanel>
+
+                        <!-- Report theme -->
+                        <StackPanel Spacing="4" Margin="0,12,0,0">
+                            <TextBlock Classes="label" Text="Report theme"/>
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <RadioButton GroupName="ReportTheme"
+                                             IsChecked="{Binding IsLightTheme, Mode=TwoWay}"
+                                             Content="Light"/>
+                                <RadioButton GroupName="ReportTheme"
+                                             IsChecked="{Binding IsDarkTheme, Mode=TwoWay}"
+                                             Content="Dark"/>
+                            </StackPanel>
+                            <TextBlock Text="Applies to both the HTML and PDF output."
+                                       FontSize="{DynamicResource LunaFontSizeXs}"
+                                       Foreground="{DynamicResource LunaTextMuted}"/>
                         </StackPanel>
                     </StackPanel>
                 </Border>
-                
+
+                <!-- Camera Support Section -->
+                <Border Classes="section">
+                    <StackPanel Spacing="16">
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                            <mi:MaterialIcon Kind="Camera" Width="20" Height="20" Foreground="{DynamicResource LunaAccent}"/>
+                            <TextBlock Text="Camera Support" FontSize="{DynamicResource LunaFontSizeLg}" FontWeight="SemiBold"/>
+                        </StackPanel>
+
+                        <TextBlock Text="Which camera families Luna can read on this install. Proprietary formats arrive through future releases; nothing to configure here."
+                                   FontSize="{DynamicResource LunaFontSizeXs}"
+                                   Foreground="{DynamicResource LunaTextMuted}"
+                                   TextWrapping="Wrap"/>
+
+                        <ItemsControl ItemsSource="{Binding CameraSupports}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:CameraSupportRow">
+                                    <Border BorderBrush="{DynamicResource LunaBorder}"
+                                            BorderThickness="0,0,0,1"
+                                            Padding="0,10">
+                                        <StackPanel Spacing="8">
+                                            <Grid ColumnDefinitions="*,Auto">
+                                                <StackPanel Grid.Column="0" Spacing="2">
+                                                    <TextBlock Text="{Binding DisplayName}"
+                                                               FontSize="{DynamicResource LunaFontSizeMd}"
+                                                               FontWeight="SemiBold"/>
+                                                    <TextBlock Text="{Binding Summary}"
+                                                               FontSize="{DynamicResource LunaFontSizeXs}"
+                                                               Foreground="{DynamicResource LunaTextMuted}"
+                                                               TextWrapping="Wrap"/>
+                                                </StackPanel>
+                                                <Border Grid.Column="1"
+                                                        VerticalAlignment="Center"
+                                                        Padding="10,4"
+                                                        CornerRadius="{DynamicResource LunaRadiusSm}"
+                                                        Background="{DynamicResource LunaBgTertiary}">
+                                                    <TextBlock Text="{Binding State}"
+                                                               FontSize="{DynamicResource LunaFontSizeXs}"
+                                                               Foreground="{DynamicResource LunaTextSecondary}"/>
+                                                </Border>
+                                            </Grid>
+
+                                            <!-- Install action — only on rows that have an installer wired and aren't already Ready. -->
+                                            <Button Classes="secondary"
+                                                    Content="{Binding InstallButtonLabel}"
+                                                    Command="{Binding InstallCommand}"
+                                                    IsEnabled="{Binding CanInstall}"
+                                                    IsVisible="{Binding ShowInstallButton}"
+                                                    HorizontalAlignment="Left"/>
+
+                                            <!-- In-flight progress -->
+                                            <StackPanel Spacing="4" IsVisible="{Binding IsInstalling}">
+                                                <ProgressBar Value="{Binding InstallProgress}" Minimum="0" Maximum="1"/>
+                                                <TextBlock FontSize="{DynamicResource LunaFontSizeXs}"
+                                                           Foreground="{DynamicResource LunaTextMuted}"
+                                                           Text="{Binding InstallProgress, StringFormat='Downloading… {0:P0}'}"/>
+                                            </StackPanel>
+
+                                            <!-- Failure detail (verbatim error) -->
+                                            <TextBlock Text="{Binding InstallError}"
+                                                       FontSize="{DynamicResource LunaFontSizeXs}"
+                                                       Foreground="{DynamicResource LunaError}"
+                                                       TextWrapping="Wrap"
+                                                       IsVisible="{Binding InstallError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
                 <!-- Updates Section -->
                 <Border Classes="section">
                     <StackPanel Spacing="16">
                         <StackPanel Orientation="Horizontal" Spacing="12">
-                            <mi:MaterialIcon Kind="Update" Width="20" Height="20" Foreground="#58a6ff"/>
-                            <TextBlock Text="Updates" FontSize="16" FontWeight="SemiBold"/>
+                            <mi:MaterialIcon Kind="Update" Width="20" Height="20" Foreground="{DynamicResource LunaAccent}"/>
+                            <TextBlock Text="Updates" FontSize="{DynamicResource LunaFontSizeLg}" FontWeight="SemiBold"/>
                         </StackPanel>
-                        
+
                         <Grid ColumnDefinitions="*,Auto">
                             <StackPanel>
-                                <TextBlock Text="{Binding CurrentVersionText}" FontSize="14"/>
-                                <TextBlock Text="{Binding UpdateStatusText}" FontSize="12" Foreground="#8b949e" Margin="0,4,0,0"/>
+                                <TextBlock Text="{Binding CurrentVersionText}" FontSize="{DynamicResource LunaFontSizeMd}"/>
+                                <TextBlock Text="{Binding UpdateStatusText}"
+                                           FontSize="{DynamicResource LunaFontSizeSm}"
+                                           Foreground="{DynamicResource LunaTextSecondary}"
+                                           Margin="0,4,0,0"/>
                             </StackPanel>
                             <Button Grid.Column="1" Classes="secondary" Command="{Binding CheckForUpdatesCommand}">
                                 <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <mi:MaterialIcon Kind="Refresh" Width="14" Height="14" Foreground="#8b949e"
-                                              IsVisible="{Binding !IsCheckingForUpdates}"/>
+                                    <mi:MaterialIcon Kind="Refresh" Width="14" Height="14"
+                                                     Foreground="{DynamicResource LunaTextSecondary}"
+                                                     IsVisible="{Binding !IsCheckingForUpdates}"/>
                                     <TextBlock Text="{Binding CheckForUpdatesButtonText}" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </Button>
                         </Grid>
                     </StackPanel>
                 </Border>
-                
+
             </StackPanel>
         </ScrollViewer>
-        
+
         <!-- Footer -->
-        <Border Grid.Row="2" Background="#161b22" BorderBrush="#30363d" BorderThickness="0,1,0,0" Padding="24,16">
+        <Border Grid.Row="2"
+                Background="{DynamicResource LunaBgSecondary}"
+                BorderBrush="{DynamicResource LunaBorder}"
+                BorderThickness="0,1,0,0" Padding="24,16">
             <Grid ColumnDefinitions="*,Auto,8,Auto">
                 <Button Grid.Column="1" Classes="secondary" Click="OnCancel" Content="Cancel"/>
-                <Button Grid.Column="3" Classes="primary" Command="{Binding SaveCommand}" Click="OnSave" Content="Save Settings"/>
+                <Button Grid.Column="3" Classes="primary"
+                        Command="{Binding SaveCommand}"
+                        Content="Save Settings"/>
             </Grid>
         </Border>
     </Grid>

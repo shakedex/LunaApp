@@ -2,6 +2,13 @@ using System.Text.Json.Serialization;
 
 namespace LunaApp.Models;
 
+/// <summary>Visual theme applied to generated reports.</summary>
+public enum ReportTheme
+{
+    Light,
+    Dark,
+}
+
 /// <summary>
 /// Settings for report generation and branding.
 /// </summary>
@@ -15,7 +22,7 @@ public sealed class ReportSettings
     public string? DitName { get; set; }
     public string? Director { get; set; }
     public string? Dp { get; set; }
-    
+
     // Output settings
     public string OutputFolder { get; set; } = GetDefaultOutputFolder();
     public int ThumbnailsPerClip { get; set; } = 3;
@@ -25,6 +32,9 @@ public sealed class ReportSettings
     public bool OpenReportWhenDone { get; set; } = true;
     public bool SaveReportToSource { get; set; } = false;
     public bool GroupPdfsInSeparateFolder { get; set; } = false;
+
+    /// <summary>Theme used for the generated HTML / PDF reports.</summary>
+    public ReportTheme Theme { get; set; } = ReportTheme.Light;
     
     // Report naming
     public string ReportNamePattern { get; set; } = "{project}_{reel}_{date}";
