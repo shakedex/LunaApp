@@ -495,3 +495,5 @@ docs/
 # removed in Part 1 (Camera Support abstraction). If you still keep local
 tools/arri/
 .superpowers/
+file_proccessing/
+old/

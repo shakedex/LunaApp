@@ -1,0 +1,64 @@
+Luna — Camera Report Generator for Filmsets
+Copyright 2026 Shaked Lipszyc
+
+This product includes software developed by third parties.
+The full attribution and license details are in DISCLAIMER.md.
+
+================================================================================
+Bundled redistributed components
+================================================================================
+
+FFmpeg (https://ffmpeg.org/)
+    Bundled in tools/ffmpeg/<rid>/ as shared libraries.
+    Build configuration: LGPL v2.1+ with --enable-version3 (no --enable-gpl,
+    no --enable-nonfree). The libraries are dynamically linked at runtime and
+    can be replaced by the end user with any compatible LGPL build.
+    Source: https://ffmpeg.org/download.html
+    License: GNU Lesser General Public License, version 2.1 or later
+             (some components LGPL v3+ due to --enable-version3)
+
+================================================================================
+Third-party libraries via NuGet (license texts shipped with each package)
+================================================================================
+
+Avalonia                                       MIT
+Avalonia.Themes.Fluent                         MIT
+Avalonia.Fonts.Inter                           MIT
+Avalonia.Diagnostics                           MIT
+CommunityToolkit.Mvvm                          MIT
+FFmpeg.AutoGen                                 LGPL v3
+Material.Icons.Avalonia                        MIT
+MediaInfo.Wrapper.Core                         BSD
+Microsoft.Extensions.DependencyInjection       MIT
+SkiaSharp (and native assets)                  MIT
+QuestPDF                                       QuestPDF Community License
+Velopack                                       MIT
+Serilog                                        Apache License 2.0
+Serilog.Sinks.File                             Apache License 2.0
+
+================================================================================
+Vendor SDKs (NOT bundled — user-supplied)
+================================================================================
+
+ARRI ART CLI (art-cmd)                Obtained by user from ARRI.
+Blackmagic RAW SDK                    Obtained by user from Blackmagic Design.
+Sony RAW Viewer                       Obtained by user from Sony.
+
+These vendor components are loaded by Luna at runtime when present and are
+governed by their respective vendor licenses. Luna does not redistribute them.
+
+================================================================================
+Trademarks
+================================================================================
+
+ARRI, ALEXA, ARRIRAW, and ART are trademarks of Arnold & Richter Cine Technik
+GmbH & Co. Betriebs KG.
+Blackmagic, BRAW, Blackmagic RAW, and URSA are trademarks of Blackmagic Design
+Pty. Ltd.
+Sony, VENICE, and CineAlta are trademarks of Sony Corporation.
+Apple, macOS, and ProRes are trademarks of Apple Inc.
+Microsoft, Windows, and .NET are trademarks of Microsoft Corporation.
+
+Luna is an independent project and is not affiliated with, endorsed by, or
+sponsored by any of the above. All other trademarks are property of their
+respective owners.
