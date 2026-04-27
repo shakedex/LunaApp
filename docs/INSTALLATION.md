@@ -17,17 +17,16 @@ Download the latest release from the [GitHub Releases page](https://github.com/s
 
 | Platform | File |
 |----------|------|
-| Windows | `Luna-X.X.X-win-x64-Setup.exe` |
+| Windows | `Luna-X.X.X-win-Setup.exe` |
 | macOS ARM | `Luna-X.X.X-osx-arm64.dmg` |
 
 ---
 
 ## Windows Installation
 
-### Step 1: Download and Run Installer
+### Step 1: Download the Installer
 
-1. Download `Luna-X.X.X-win-x64-Setup.exe` from the releases page
-2. Double-click the installer to run it
+1. Download `Luna-X.X.X-win-Setup.exe` from the [latest release](https://github.com/shakedex/LunaApp/releases).
 
 ### Step 2: Bypass Windows SmartScreen
 
@@ -36,26 +35,21 @@ Since Luna is not code-signed, Windows SmartScreen will show a warning. This is 
 1. When you see **"Windows protected your PC"**, click **"More info"**
 2. Click **"Run anyway"**
 
-![SmartScreen Bypass](https://docs.microsoft.com/en-us/windows/security/threat-protection/microsoft-defender-smartscreen/images/smartscreen-unknown-app.png)
+### Step 3: Run the Installer
 
-### Step 3: Complete Installation
+1. Double-click `Luna-X.X.X-win-Setup.exe`. A Luna splash appears while files extract.
+2. Luna installs to your user profile (`%LocalAppData%\Luna`) — no admin rights required and no UAC prompt — and launches automatically when finished.
 
-Follow the installation wizard to complete setup. Luna will be installed and a desktop shortcut will be created.
+See [Automatic Updates](#automatic-updates) and [Uninstallation](#uninstallation) below for post-install lifecycle.
 
-### Enabling Bundled Tools (ARRI ART CLI)
+### Optional Camera Support Tools
 
-Luna bundles the ARRI ART CLI for ARRI camera metadata extraction. To allow Windows to run this tool:
+Luna ships with FFmpeg for generic camera support. Vendor-specific tools (ARRI Reference Tool for deeper ARRI metadata + ARRIRAW decoding, Sony RAW Viewer for X-OCN frame extraction) are downloaded on demand from inside Luna:
 
-1. Open Luna's installation folder (typically `%LOCALAPPDATA%\Luna`)
-2. Navigate to `tools\arri\win-x64\`
-3. Right-click `art-cmd.exe` → **Properties**
-4. At the bottom, check **"Unblock"** if present
-5. Click **Apply** and **OK**
+1. Launch Luna. If a tool is missing, a top-right toast surfaces a "Camera support missing" notice.
+2. Click **Open Settings** → **Camera Support** to install ARRI / Sony tooling per row, or come back later.
 
-Alternatively, run this in PowerShell as Administrator:
-```powershell
-Get-ChildItem -Path "$env:LOCALAPPDATA\Luna\tools" -Recurse -Include *.exe,*.dll | Unblock-File
-```
+ARRI binaries land under `%LOCALAPPDATA%\Luna\tools\arri\` and don't need a Windows Unblock step. Sony's installer is launched directly from its vendor zip and installs into Program Files via its own UAC-elevated wizard.
 
 ---
 
@@ -153,8 +147,8 @@ Check the logs at:
 ## Uninstallation
 
 ### Windows
-1. Go to **Settings** → **Apps** → **Apps & features**
-2. Find **Luna** and click **Uninstall**
+1. Go to **Settings** → **Apps** → **Installed apps**
+2. Find **Luna - Camera Report Generator** and click **Uninstall**
 
 ### macOS
 1. Drag **Luna** from **Applications** to the **Trash**

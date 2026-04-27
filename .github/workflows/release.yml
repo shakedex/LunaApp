@@ -88,7 +88,40 @@ jobs:
             exit 1
           }
 
-      - name: Create Velopack installer
+      - name: Verify bundled assemblies + native deps
+        shell: pwsh
+        # Note: the native MediaInfo binary ships as `libmediainfo.dll` (NuGet
+        # payload path: runtimes/win-x64/native/), NOT `MediaInfo.dll`.
+        run: |
+          $publishPath = "./publish/win-x64"
+          $required = @(
+            "Luna.exe", "Avalonia.dll", "SkiaSharp.dll",
+            "FFmpeg.AutoGen.dll", "MediaInfo.Wrapper.Core.dll",
+            "QuestPDF.dll", "Velopack.dll",
+            "libSkiaSharp.dll", "libmediainfo.dll"
+          )
+          foreach ($name in $required) {
+            $p = Join-Path $publishPath $name
+            if (-not (Test-Path $p)) {
+              Write-Error "Required file missing from publish output: $name"
+              exit 1
+            }
+          }
+          $ffmpegDlls = @("avcodec-61.dll", "avformat-61.dll", "avutil-59.dll", "swresample-5.dll", "swscale-8.dll")
+          foreach ($name in $ffmpegDlls) {
+            $p = Join-Path $publishPath "tools/ffmpeg/win-x64" | Join-Path -ChildPath $name
+            if (-not (Test-Path $p)) {
+              Write-Error "FFmpeg DLL missing from publish output: $name"
+              exit 1
+            }
+          }
+          if (Test-Path (Join-Path $publishPath "Avalonia.Diagnostics.dll")) {
+            Write-Error "Avalonia.Diagnostics.dll leaked into Release publish output"
+            exit 1
+          }
+          Write-Host "Bundled assemblies + native deps verified"
+
+      - name: Create Velopack installer (Setup.exe, branded)
         run: |
           vpk pack `
             --packId "Luna" `
@@ -97,7 +130,9 @@ jobs:
             --mainExe Luna.exe `
             --outputDir ./releases/win-x64 `
             --packAuthors "Luna" `
-            --packTitle "Luna - Camera Report Generator"
+            --packTitle "Luna - Camera Report Generator" `
+            --icon Assets/luna-logo.ico `
+            --splashImage Assets/install-splash.png
 
       - name: Upload Windows installer artifacts
         uses: actions/upload-artifact@v4
@@ -152,7 +187,7 @@ jobs:
           chmod +x ./publish/osx-arm64/Luna
           chmod +x ./publish/osx-arm64/tools/ffmpeg/osx-arm64/* || true
 
-      - name: Create Velopack installer (DMG)
+      - name: Create Velopack installer (DMG, branded icon)
         run: |
           vpk pack \
             --packId "Luna" \
@@ -161,7 +196,8 @@ jobs:
             --mainExe Luna \
             --outputDir ./releases/osx-arm64 \
             --packAuthors "Luna" \
-            --packTitle "Luna - Camera Report Generator"
+            --packTitle "Luna - Camera Report Generator" \
+            --icon Assets/luna-logo.icns
 
       - name: Upload macOS installer artifacts
         uses: actions/upload-artifact@v4
@@ -211,9 +247,9 @@ jobs:
             ## Installation
 
             ### Windows
-            1. Download `Luna-${{ needs.resolve-version.outputs.version }}-win-x64-Setup.exe`
+            1. Download `Luna-${{ needs.resolve-version.outputs.version }}-win-Setup.exe`
             2. Run the installer - if SmartScreen appears, click "More info" → "Run anyway"
-            3. Follow the installation wizard
+            3. Luna installs to your user profile (no admin required) and launches automatically
 
             ### macOS (Apple Silicon)
             1. Download `Luna-${{ needs.resolve-version.outputs.version }}-osx-arm64.dmg`
@@ -225,6 +261,6 @@ jobs:
                ```
 
             See [Installation Guide](https://github.com/shakedex/LunaApp/blob/master/docs/INSTALLATION.md) for detailed instructions.
-            
+
             ---
             *Built with .NET 10 runtime included - no additional installation required.*

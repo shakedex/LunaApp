@@ -81,6 +81,7 @@ public partial class SettingsViewModel : ObservableValidator
     private readonly SonyRawViewerInstaller _sonyInstaller;
     private readonly SonyRawViewerLocator _sonyLocator;
     private readonly CameraSupportRegistry _cameraSupports;
+    private readonly CameraSupportInstallationStatus _installStatus;
 
     public IReadOnlyList<CameraSupportRow> CameraSupports { get; }
 
@@ -193,13 +194,15 @@ public partial class SettingsViewModel : ObservableValidator
         ArtCliInstaller artCliInstaller,
         ArtCliLocator artCliLocator,
         SonyRawViewerInstaller sonyInstaller,
-        SonyRawViewerLocator sonyLocator)
+        SonyRawViewerLocator sonyLocator,
+        CameraSupportInstallationStatus installStatus)
     {
         _artCliInstaller = artCliInstaller;
         _artCliLocator = artCliLocator;
         _sonyInstaller = sonyInstaller;
         _sonyLocator = sonyLocator;
         _cameraSupports = cameraSupports;
+        _installStatus = installStatus;
         _appSettings = AppSettings.Load();
 
         CameraSupports = cameraSupports.All.Select(BuildRow).ToArray();
@@ -273,6 +276,7 @@ public partial class SettingsViewModel : ObservableValidator
             row.Summary = SupportSummary(support.Status);
             row.IsAwaitingDetect = false;
             row.InstallError = null;
+            _installStatus.Invalidate();
         }
         else
         {
@@ -365,6 +369,7 @@ public partial class SettingsViewModel : ObservableValidator
                 // ART CLI path: zip extract is fully done, locator finds it.
                 row.State = SupportStateLabel(support.Status);
                 row.Summary = SupportSummary(support.Status);
+                _installStatus.Invalidate();
             }
             else
             {

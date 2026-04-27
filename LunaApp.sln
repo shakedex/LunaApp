@@ -4,6 +4,8 @@ VisualStudioVersion = 17.5.2.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LunaApp", "LunaApp.csproj", "{1098D18A-261C-70B8-AA82-BB998A616F94}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LunaApp.Tests", "LunaApp.Tests\LunaApp.Tests.csproj", "{B12A1E5F-3F25-4C8F-9E1A-2B7B1D9E5E12}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -14,6 +16,10 @@ Global
 		{1098D18A-261C-70B8-AA82-BB998A616F94}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{1098D18A-261C-70B8-AA82-BB998A616F94}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{1098D18A-261C-70B8-AA82-BB998A616F94}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B12A1E5F-3F25-4C8F-9E1A-2B7B1D9E5E12}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B12A1E5F-3F25-4C8F-9E1A-2B7B1D9E5E12}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B12A1E5F-3F25-4C8F-9E1A-2B7B1D9E5E12}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B12A1E5F-3F25-4C8F-9E1A-2B7B1D9E5E12}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

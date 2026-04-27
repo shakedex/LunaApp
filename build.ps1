@@ -77,7 +77,46 @@ foreach ($rid in $RuntimesToBuild) {
         Write-Error "✗ Runtime NOT bundled - self-contained build failed!"
         exit 1
     }
-    
+
+    # ---- Bundled-runtime + native-deps verification (catches trim regressions) ----
+    # Note: the native MediaInfo binary ships as `libmediainfo.dll` (NuGet payload
+    # path: runtimes/win-x64/native/), NOT `MediaInfo.dll`. Don't flip it back.
+    if ($rid.StartsWith("win")) {
+        $required = @(
+            "Luna.exe", "Avalonia.dll", "SkiaSharp.dll",
+            "FFmpeg.AutoGen.dll", "MediaInfo.Wrapper.Core.dll",
+            "QuestPDF.dll", "Velopack.dll",
+            "libSkiaSharp.dll", "libmediainfo.dll"
+        )
+        foreach ($name in $required) {
+            $p = Join-Path $publishPath $name
+            if (-not (Test-Path $p)) {
+                Write-Error "✗ Required file missing from publish output: $name"
+                exit 1
+            }
+        }
+
+        # FFmpeg DLLs ship under tools/ffmpeg/win-x64/.
+        $ffmpegDlls = @("avcodec-61.dll", "avformat-61.dll", "avutil-59.dll", "swresample-5.dll", "swscale-8.dll")
+        foreach ($name in $ffmpegDlls) {
+            $p = Join-Path $publishPath "tools/ffmpeg/win-x64" | Join-Path -ChildPath $name
+            if (-not (Test-Path $p)) {
+                Write-Error "✗ FFmpeg DLL missing from publish output: $name"
+                exit 1
+            }
+        }
+
+        # Avalonia.Diagnostics must NOT ship in Release builds.
+        if ($Configuration -eq "Release") {
+            $diag = Join-Path $publishPath "Avalonia.Diagnostics.dll"
+            if (Test-Path $diag) {
+                Write-Error "✗ Avalonia.Diagnostics.dll leaked into Release publish output"
+                exit 1
+            }
+        }
+        Write-Host "✓ Bundled assemblies + native deps verified" -ForegroundColor Green
+    }
+
     # Determine main executable name
     if ($rid.StartsWith("win")) {
         $mainExe = "Luna.exe"
@@ -106,15 +145,31 @@ foreach ($rid in $RuntimesToBuild) {
             }
         }
         
-        vpk pack `
-            --packId "Luna" `
-            --packVersion $Version `
-            --packDir $publishPath `
-            --mainExe $mainExe `
-            --outputDir $releasesDir `
-            --packAuthors "Luna" `
-            --packTitle "Luna - Camera Report Generator"
-        
+        # Windows: Velopack Setup.exe with branded splash + Luna icon.
+        # macOS: Velopack DMG with the .icns icon for bundle/DMG branding.
+        if ($rid.StartsWith("win")) {
+            vpk pack `
+                --packId "Luna" `
+                --packVersion $Version `
+                --packDir $publishPath `
+                --mainExe $mainExe `
+                --outputDir $releasesDir `
+                --packAuthors "Luna" `
+                --packTitle "Luna - Camera Report Generator" `
+                --icon "Assets/luna-logo.ico" `
+                --splashImage "Assets/install-splash.png"
+        } else {
+            vpk pack `
+                --packId "Luna" `
+                --packVersion $Version `
+                --packDir $publishPath `
+                --mainExe $mainExe `
+                --outputDir $releasesDir `
+                --packAuthors "Luna" `
+                --packTitle "Luna - Camera Report Generator" `
+                --icon "Assets/luna-logo.icns"
+        }
+
         Write-Host "Installer created at: $releasesDir" -ForegroundColor Green
     } else {
         Write-Host "Skipping installer for $rid (Linux not supported yet)" -ForegroundColor Yellow

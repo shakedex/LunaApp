@@ -34,12 +34,32 @@
          Use SemVer (MAJOR.MINOR.PATCH). For pre-releases:
            1.2.0-beta.1
          ============================================================ -->
-    <Version>1.0.0</Version>
+    <Version>0.9.1</Version>
     <Product>Luna</Product>
     <Company>Shaked Lipszyc</Company>
     <Description>Camera Report Generator for Filmsets</Description>
     <Copyright>Copyright © 2026</Copyright>
   </PropertyGroup>
+
+  <!-- Surface internal types to the test project so test fakes can touch
+       internals without forcing them public for the rest of the world.
+       Item form (not the <InternalsVisibleTo> property) — the SDK emits the
+       [assembly: InternalsVisibleTo(...)] attribute from this item group. -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="LunaApp.Tests" />
+  </ItemGroup>
+
+  <!-- Keep the test project tree (which lives under the repo root, alongside
+       LunaApp.csproj) out of the main app's default Compile/EmbeddedResource/
+       None globs. Without this the SDK pulls LunaApp.Tests\**\*.cs (and the
+       generated AssemblyInfo under LunaApp.Tests\obj) into the LunaApp build,
+       which produces CS0579 duplicate-attribute errors plus xunit-not-found. -->
+  <ItemGroup>
+    <Compile Remove="LunaApp.Tests\**" />
+    <EmbeddedResource Remove="LunaApp.Tests\**" />
+    <None Remove="LunaApp.Tests\**" />
+    <AvaloniaResource Remove="LunaApp.Tests\**" />
+  </ItemGroup>
 
   <ItemGroup>
     <Folder Include="Models\" />

@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using LunaApp.Models;
 using LunaApp.Services;
+using LunaApp.Services.CameraSupport;
 
 namespace LunaApp.ViewModels;
 
@@ -133,7 +134,8 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public MainWindowViewModel(
         ReportGenerationService reportService,
-        UpdateService updateService)
+        UpdateService updateService,
+        CameraSupportInstallationStatus cameraSupportStatus)
     {
         _reportService = reportService;
         _updateService = updateService;
@@ -147,6 +149,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
         LogEntries.CollectionChanged += OnLogEntriesChanged;
         SubscribeToUpdateService();
+        SubscribeToCameraSupport(cameraSupportStatus);
 
         StatusText = "Ready - Drop camera footage to begin";
     }

@@ -39,6 +39,13 @@ public sealed class AppSettings
     public DateTime? UpdateSnoozeUntil { get; set; }
 
     /// <summary>
+    /// When non-null, the camera-support toast is suppressed until this date.
+    /// Set by the user choosing "Remind me later" on the toast. Mirrors the
+    /// shape of <see cref="UpdateSnoozeUntil"/>.
+    /// </summary>
+    public DateTime? CameraSupportSnoozeUntil { get; set; }
+
+    /// <summary>
     /// FFmpeg library path (if custom)
     /// </summary>
     public string? FfmpegPath { get; set; }

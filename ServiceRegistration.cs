@@ -45,6 +45,21 @@ internal static class ServiceRegistration
         services.AddSingleton<ICameraSupport, SonyVeniceCameraSupport>();
         services.AddSingleton<CameraSupportRegistry>();
 
+        // Camera-support installation probes — used by the main-window toast
+        // to decide whether to nudge the user to install ARRI/Sony tooling.
+        // The probe interfaces are internal, so the service constructor is
+        // also internal; we register CameraSupportInstallationStatus via a
+        // factory rather than the type-only overload to avoid asking the
+        // DI container to reflect over a non-public ctor (matters under
+        // trim/AOT, where reflection roots may be stripped).
+        services.AddSingleton<IArtCliInstallProbe, ArtCliInstallProbe>();
+        services.AddSingleton<ISonyRawViewerInstallProbe, SonyRawViewerInstallProbe>();
+        services.AddSingleton<CameraSupportInstallationStatus>(sp =>
+            new CameraSupportInstallationStatus(
+                sp.GetRequiredService<CameraSupportRegistry>(),
+                sp.GetRequiredService<IArtCliInstallProbe>(),
+                sp.GetRequiredService<ISonyRawViewerInstallProbe>()));
+
         services.AddSingleton<ChappieEngine>();
         services.AddSingleton<ReelDetectionService>();
         services.AddSingleton<HtmlReportService>();
