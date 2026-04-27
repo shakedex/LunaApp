@@ -19,13 +19,25 @@
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <RuntimeIdentifiers>win-x64;osx-arm64</RuntimeIdentifiers>
     
-    <!-- Version info for Velopack -->
+    <!-- ============================================================
+         SINGLE SOURCE OF TRUTH for Luna's version. Bump this and
+         every downstream consumer picks it up automatically:
+           • assembly metadata (<AssemblyVersion>/<FileVersion> are
+             derived from <Version> by MSBuild — don't add them back)
+           • the About dialog (reads Assembly.GetEntryAssembly().Version
+             when the build isn't a Velopack install)
+           • the GitHub Release workflow (reads <Version> from this
+             csproj when the workflow input is left blank — see
+             .github/workflows/release.yml → resolve-version job)
+           • Velopack's installed-version reporting after a release
+             built from this same csproj
+         Use SemVer (MAJOR.MINOR.PATCH). For pre-releases:
+           1.2.0-beta.1
+         ============================================================ -->
     <Version>1.0.0</Version>
-    <AssemblyVersion>1.0.0.0</AssemblyVersion>
-    <FileVersion>1.0.0.0</FileVersion>
     <Product>Luna</Product>
-    <Company>Luna</Company>
-    <Description>Camera Report Generator for DITs</Description>
+    <Company>Shaked Lipszyc</Company>
+    <Description>Camera Report Generator for Filmsets</Description>
     <Copyright>Copyright © 2026</Copyright>
   </PropertyGroup>
 

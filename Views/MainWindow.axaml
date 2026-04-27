@@ -35,8 +35,10 @@
 
                 <!-- Header buttons -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
-                    <!-- DEV: Development tools toggle button -->
+                    <!-- DEV: Development tools toggle button — Debug builds only.
+                         Hidden in Release so the playground never reaches end users. -->
                     <Button Classes="secondary" Command="{Binding ToggleLogViewerCommand}" VerticalAlignment="Center"
+                            IsVisible="{Binding IsDevBuild}"
                             ToolTip.Tip="Toggle Developer Tools"
                             AutomationProperties.Name="Toggle Developer Tools">
                         <StackPanel Orientation="Horizontal" Spacing="8">
@@ -512,13 +514,14 @@
             </Border>
         </Grid>
 
-        <!-- DEV: Developer Tools panel -->
+        <!-- DEV: Developer Tools panel — Debug-only. IsDevPanelVisible
+             requires both IsDevBuild and IsLogViewerVisible. -->
         <Border Grid.Row="3"
                 Background="{DynamicResource LunaBgPrimary}"
                 BorderBrush="{DynamicResource LunaBorder}"
                 BorderThickness="0,1,0,0"
                 Height="300"
-                IsVisible="{Binding IsLogViewerVisible}">
+                IsVisible="{Binding IsDevPanelVisible}">
             <Grid RowDefinitions="Auto,Auto,*">
                 <!-- Panel header -->
                 <Border Grid.Row="0" Background="{DynamicResource LunaBgSecondary}" Padding="12,8">

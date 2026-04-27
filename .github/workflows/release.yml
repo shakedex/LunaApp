@@ -7,9 +7,10 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Release version (e.g., 1.0.0)'
-        required: true
+        description: 'Release version override (leave blank to use <Version> from LunaApp.csproj)'
+        required: false
         type: string
+        default: ''
       prerelease:
         description: 'Mark as pre-release'
         required: false
@@ -21,9 +22,39 @@ env:
   DOTNET_CLI_TELEMETRY_OPTOUT: true
 
 jobs:
+  # Resolves the version that all downstream jobs use. Either takes the
+  # workflow input (if non-empty) or falls back to <Version> in the csproj.
+  # Keeps versioning centralized in one place — bumping requires editing
+  # exactly one line in LunaApp.csproj.
+  resolve-version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.set.outputs.version }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Resolve version
+        id: set
+        run: |
+          input='${{ inputs.version }}'
+          if [ -n "$input" ]; then
+            v="$input"
+            echo "Using workflow input override: $v"
+          else
+            v=$(grep -oP '(?<=<Version>)[^<]+' LunaApp.csproj | head -1)
+            echo "Using <Version> from LunaApp.csproj: $v"
+          fi
+          if [ -z "$v" ]; then
+            echo "::error::Could not resolve a version (input empty and <Version> not found in csproj)"
+            exit 1
+          fi
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+
   build-windows:
+    needs: resolve-version
     runs-on: windows-latest
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -43,7 +74,7 @@ jobs:
       - name: Publish application (self-contained + trimmed)
         run: |
           dotnet publish LunaApp.csproj -c Release -r win-x64 --self-contained true -o ./publish/win-x64 `
-            /p:Version=${{ inputs.version }} `
+            /p:Version=${{ needs.resolve-version.outputs.version }} `
             /p:PublishTrimmed=true `
             /p:TrimMode=partial `
             /p:PublishSingleFile=false
@@ -61,7 +92,7 @@ jobs:
         run: |
           vpk pack `
             --packId "Luna" `
-            --packVersion ${{ inputs.version }} `
+            --packVersion ${{ needs.resolve-version.outputs.version }} `
             --packDir ./publish/win-x64 `
             --mainExe Luna.exe `
             --outputDir ./releases/win-x64 `
@@ -76,8 +107,9 @@ jobs:
           retention-days: 30
 
   build-macos-arm:
+    needs: resolve-version
     runs-on: macos-14
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -101,7 +133,7 @@ jobs:
       - name: Publish application (self-contained + trimmed)
         run: |
           dotnet publish LunaApp.csproj -c Release -r osx-arm64 --self-contained true -o ./publish/osx-arm64 \
-            /p:Version=${{ inputs.version }} \
+            /p:Version=${{ needs.resolve-version.outputs.version }} \
             /p:PublishTrimmed=true \
             /p:TrimMode=partial \
             /p:PublishSingleFile=false
@@ -124,7 +156,7 @@ jobs:
         run: |
           vpk pack \
             --packId "Luna" \
-            --packVersion ${{ inputs.version }} \
+            --packVersion ${{ needs.resolve-version.outputs.version }} \
             --packDir ./publish/osx-arm64 \
             --mainExe Luna \
             --outputDir ./releases/osx-arm64 \
@@ -139,7 +171,7 @@ jobs:
           retention-days: 30
 
   create-release:
-    needs: [build-windows, build-macos-arm]
+    needs: [resolve-version, build-windows, build-macos-arm]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -168,8 +200,8 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ inputs.version }}
-          name: Luna v${{ inputs.version }}
+          tag_name: v${{ needs.resolve-version.outputs.version }}
+          name: Luna v${{ needs.resolve-version.outputs.version }}
           prerelease: ${{ inputs.prerelease }}
           generate_release_notes: true
           files: |
@@ -179,12 +211,12 @@ jobs:
             ## Installation
 
             ### Windows
-            1. Download `Luna-${{ inputs.version }}-win-x64-Setup.exe`
+            1. Download `Luna-${{ needs.resolve-version.outputs.version }}-win-x64-Setup.exe`
             2. Run the installer - if SmartScreen appears, click "More info" → "Run anyway"
             3. Follow the installation wizard
 
             ### macOS (Apple Silicon)
-            1. Download `Luna-${{ inputs.version }}-osx-arm64.dmg`
+            1. Download `Luna-${{ needs.resolve-version.outputs.version }}-osx-arm64.dmg`
             2. Open the DMG and drag Luna to Applications
             3. First launch: Right-click Luna → Open → Click "Open" in the dialog
             4. **Important:** Run this command in Terminal to enable bundled tools:

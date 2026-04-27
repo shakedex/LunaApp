@@ -4,178 +4,106 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:mi="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
-        mc:Ignorable="d" d:DesignWidth="560" d:DesignHeight="720"
+        mc:Ignorable="d" d:DesignWidth="480" d:DesignHeight="480"
         x:Class="LunaApp.Views.CreditsWindow"
         x:DataType="vm:CreditsViewModel"
         Title="About Luna"
-        Width="560"
-        Height="720"
-        MinHeight="560"
+        Width="480"
+        SizeToContent="Height"
         WindowStartupLocation="CenterOwner"
-        CanResize="True"
+        CanResize="False"
         Background="{DynamicResource LunaBgPrimary}">
 
-    <Grid RowDefinitions="Auto,*,Auto">
+    <StackPanel Margin="28" Spacing="20">
 
-        <!-- Header -->
-        <Border Grid.Row="0"
-                Background="{DynamicResource LunaBgSecondary}"
-                BorderBrush="{DynamicResource LunaBorder}"
-                BorderThickness="0,0,0,1" Padding="24,20">
-            <StackPanel Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
-                <Image Source="/Assets/luna-logo.webp" Width="48" Height="50"
-                       RenderOptions.BitmapInterpolationMode="HighQuality"/>
-                <StackPanel VerticalAlignment="Center">
-                    <TextBlock Text="Luna" FontSize="{DynamicResource LunaFontSize2Xl}" FontWeight="Bold"/>
-                    <TextBlock Text="{Binding VersionText}"
-                               FontSize="{DynamicResource LunaFontSizeSm}"
-                               Foreground="{DynamicResource LunaTextSecondary}"/>
-                </StackPanel>
-            </StackPanel>
-        </Border>
-
-        <!-- Content -->
-        <ScrollViewer Grid.Row="1"
-                      VerticalScrollBarVisibility="Auto"
-                      HorizontalScrollBarVisibility="Disabled">
-            <StackPanel Spacing="0" Margin="24">
-
-                <!-- Credits -->
-                <Border Classes="section">
-                    <StackPanel Spacing="12">
-                        <StackPanel Orientation="Horizontal" Spacing="12">
-                            <mi:MaterialIcon Kind="HeartOutline" Width="20" Height="20" Foreground="{DynamicResource LunaAccent}"/>
-                            <TextBlock Text="Credits" FontSize="{DynamicResource LunaFontSizeLg}" FontWeight="SemiBold"/>
-                        </StackPanel>
-
-                        <TextBlock TextWrapping="Wrap"
-                                   Foreground="{DynamicResource LunaTextSecondary}">
-                            <Run Text="Designed and built by"/>
-                            <Run Text="Shaked Lipszyc" FontWeight="SemiBold" Foreground="{DynamicResource LunaTextPrimary}"/>
-                        </TextBlock>
-
-                        <StackPanel Spacing="8" Margin="0,8,0,0">
-                            <Button Classes="secondary"
-                                    HorizontalAlignment="Stretch"
-                                    HorizontalContentAlignment="Left"
-                                    Command="{Binding OpenLinkCommand}"
-                                    CommandParameter="https://shaked.co">
-                                <StackPanel Orientation="Horizontal" Spacing="12">
-                                    <mi:MaterialIcon Kind="Web" Width="18" Height="18" Foreground="{DynamicResource LunaAccent}"/>
-                                    <StackPanel>
-                                        <TextBlock Text="Website" FontWeight="SemiBold"/>
-                                        <TextBlock Text="Personal site"
-                                                   FontSize="{DynamicResource LunaFontSizeXs}"
-                                                   Foreground="{DynamicResource LunaTextMuted}"/>
-                                    </StackPanel>
-                                </StackPanel>
-                            </Button>
-
-                            <Button Classes="secondary"
-                                    HorizontalAlignment="Stretch"
-                                    HorizontalContentAlignment="Left"
-                                    Command="{Binding OpenLinkCommand}"
-                                    CommandParameter="https://github.com/shakedex/LunaApp">
-                                <StackPanel Orientation="Horizontal" Spacing="12">
-                                    <mi:MaterialIcon Kind="Github" Width="18" Height="18" Foreground="{DynamicResource LunaAccent}"/>
-                                    <StackPanel>
-                                        <TextBlock Text="Github Repo" FontWeight="SemiBold"/>
-                                        <TextBlock Text="Source code, issues, releases"
-                                                   FontSize="{DynamicResource LunaFontSizeXs}"
-                                                   Foreground="{DynamicResource LunaTextMuted}"/>
-                                    </StackPanel>
-                                </StackPanel>
-                            </Button>
-
-                            <Button Classes="secondary"
-                                    HorizontalAlignment="Stretch"
-                                    HorizontalContentAlignment="Left"
-                                    Command="{Binding OpenLinkCommand}"
-                                    CommandParameter="https://ozer2.one">
-                                <StackPanel Orientation="Horizontal" Spacing="12">
-                                    <mi:MaterialIcon Kind="MovieOpenOutline" Width="18" Height="18" Foreground="{DynamicResource LunaAccent}"/>
-                                    <StackPanel>
-                                        <TextBlock Text="Ozer²" FontWeight="SemiBold"/>
-                                        <TextBlock Text="tools for the filmmaking community"
-                                                   FontSize="{DynamicResource LunaFontSizeXs}"
-                                                   Foreground="{DynamicResource LunaTextMuted}"/>
-                                    </StackPanel>
-                                </StackPanel>
-                            </Button>
-                        </StackPanel>
-                    </StackPanel>
-                </Border>
-
-                <!-- Updates -->
-                <Border Classes="section">
-                    <StackPanel Spacing="16">
-                        <StackPanel Orientation="Horizontal" Spacing="12">
-                            <mi:MaterialIcon Kind="Update" Width="20" Height="20" Foreground="{DynamicResource LunaAccent}"/>
-                            <TextBlock Text="Updates" FontSize="{DynamicResource LunaFontSizeLg}" FontWeight="SemiBold"/>
-                        </StackPanel>
-
-                        <Grid ColumnDefinitions="*,Auto">
-                            <StackPanel>
-                                <TextBlock Text="{Binding VersionText}" FontSize="{DynamicResource LunaFontSizeMd}"/>
-                                <TextBlock Text="{Binding UpdateStatusText}"
-                                           FontSize="{DynamicResource LunaFontSizeSm}"
-                                           Foreground="{DynamicResource LunaTextSecondary}"
-                                           Margin="0,4,0,0"/>
-                            </StackPanel>
-                            <Button Grid.Column="1" Classes="secondary"
-                                    Command="{Binding CheckForUpdatesCommand}">
-                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <mi:MaterialIcon Kind="Refresh" Width="14" Height="14"
-                                                     Foreground="{DynamicResource LunaTextSecondary}"
-                                                     IsVisible="{Binding !IsCheckingForUpdates}"/>
-                                    <TextBlock Text="{Binding CheckForUpdatesButtonText}" VerticalAlignment="Center"/>
-                                </StackPanel>
-                            </Button>
-                        </Grid>
-                    </StackPanel>
-                </Border>
-
-                <!-- Disclaimer -->
-                <Border Classes="section">
-                    <StackPanel Spacing="12">
-                        <StackPanel Orientation="Horizontal" Spacing="12">
-                            <mi:MaterialIcon Kind="ShieldOutline" Width="20" Height="20" Foreground="{DynamicResource LunaAccent}"/>
-                            <TextBlock Text="Disclaimer" FontSize="{DynamicResource LunaFontSizeLg}" FontWeight="SemiBold"/>
-                        </StackPanel>
-
-                        <TextBlock TextWrapping="Wrap"
-                                   FontSize="{DynamicResource LunaFontSizeSm}"
-                                   Foreground="{DynamicResource LunaTextSecondary}"
-                                   Text="Luna is provided “as is”, without warranty of any kind, express or implied. The author is not liable for any data loss, missed delivery, or damage arising from use of this software. Always verify your reports against the source media before handing them off."/>
-
-                        <TextBlock TextWrapping="Wrap"
-                                   FontSize="{DynamicResource LunaFontSizeXs}"
-                                   Foreground="{DynamicResource LunaTextMuted}"
-                                   Text="Luna is an independent project and is not affiliated with, endorsed by, or sponsored by ARRI, Sony, Blackmagic Design, RED, or any other camera manufacturer. All product names, logos, and trademarks are property of their respective owners."/>
-
-                        <TextBlock TextWrapping="Wrap"
-                                   FontSize="{DynamicResource LunaFontSizeXs}"
-                                   Foreground="{DynamicResource LunaTextMuted}"
-                                   Text="Built on FFmpeg (LGPL), Avalonia, QuestPDF, MediaInfo, Velopack, and other open-source projects. Vendor tooling (ARRI Reference Tool, Sony RAW Viewer) is downloaded and installed on demand under the respective vendor's license."/>
-                    </StackPanel>
-                </Border>
-
-            </StackPanel>
-        </ScrollViewer>
-
-        <!-- Footer -->
-        <Border Grid.Row="2"
-                Background="{DynamicResource LunaBgSecondary}"
-                BorderBrush="{DynamicResource LunaBorder}"
-                BorderThickness="0,1,0,0" Padding="24,16">
-            <Grid ColumnDefinitions="*,Auto">
-                <TextBlock Text="© 2026 Shaked Lipszyc"
-                           Foreground="{DynamicResource LunaTextMuted}"
+        <!-- Identity row -->
+        <StackPanel Orientation="Horizontal" Spacing="14" VerticalAlignment="Center">
+            <Image Source="/Assets/luna-logo.webp" Width="44" Height="46"
+                   RenderOptions.BitmapInterpolationMode="HighQuality"/>
+            <StackPanel VerticalAlignment="Center" Spacing="2">
+                <TextBlock Text="Luna" FontSize="{DynamicResource LunaFontSize2Xl}" FontWeight="Bold"/>
+                <TextBlock Text="{Binding VersionText}"
                            FontSize="{DynamicResource LunaFontSizeXs}"
-                           VerticalAlignment="Center"/>
-                <Button Grid.Column="1" Classes="primary" Click="OnClose" Content="Close"/>
+                           Foreground="{DynamicResource LunaTextMuted}"/>
+            </StackPanel>
+        </StackPanel>
+
+        <!-- Credit line -->
+        <TextBlock TextWrapping="Wrap"
+                   FontSize="{DynamicResource LunaFontSizeSm}"
+                   Foreground="{DynamicResource LunaTextSecondary}">
+            <Run Text="Designed and built by"/>
+            <Run Text="Shaked Lipszyc" FontWeight="SemiBold" Foreground="{DynamicResource LunaTextPrimary}"/>
+        </TextBlock>
+
+        <!-- Links — three compact buttons in a row -->
+        <UniformGrid Columns="3" Rows="1">
+            <Button Classes="secondary" Margin="0,0,4,0"
+                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                    Command="{Binding OpenLinkCommand}"
+                    CommandParameter="https://shaked.co"
+                    ToolTip.Tip="shaked.co">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <mi:MaterialIcon Kind="Web" Width="14" Height="14" Foreground="{DynamicResource LunaAccent}"/>
+                    <TextBlock Text="Website"/>
+                </StackPanel>
+            </Button>
+            <Button Classes="secondary" Margin="2,0"
+                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                    Command="{Binding OpenLinkCommand}"
+                    CommandParameter="https://github.com/shakedex/LunaApp"
+                    ToolTip.Tip="github.com/shakedex/LunaApp">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <mi:MaterialIcon Kind="Github" Width="14" Height="14" Foreground="{DynamicResource LunaAccent}"/>
+                    <TextBlock Text="GitHub"/>
+                </StackPanel>
+            </Button>
+            <Button Classes="secondary" Margin="4,0,0,0"
+                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                    Command="{Binding OpenLinkCommand}"
+                    CommandParameter="https://ozer2.one"
+                    ToolTip.Tip="ozer2.one">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <mi:MaterialIcon Kind="MovieOpenOutline" Width="14" Height="14" Foreground="{DynamicResource LunaAccent}"/>
+                    <TextBlock Text="Ozer²"/>
+                </StackPanel>
+            </Button>
+        </UniformGrid>
+
+        <!-- Update strip — single line -->
+        <Border Background="{DynamicResource LunaBgSecondary}"
+                BorderBrush="{DynamicResource LunaBorder}"
+                BorderThickness="{DynamicResource LunaBorderThin}"
+                CornerRadius="{DynamicResource LunaRadiusMd}"
+                Padding="14,12">
+            <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Grid.Column="0"
+                           Text="{Binding UpdateStatusText}"
+                           FontSize="{DynamicResource LunaFontSizeSm}"
+                           Foreground="{DynamicResource LunaTextSecondary}"
+                           VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis"/>
+                <Button Grid.Column="1" Classes="secondary"
+                        Padding="10,6"
+                        Command="{Binding CheckForUpdatesCommand}">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <mi:MaterialIcon Kind="Refresh" Width="13" Height="13"
+                                         Foreground="{DynamicResource LunaTextSecondary}"
+                                         IsVisible="{Binding !IsCheckingForUpdates}"/>
+                        <TextBlock Text="{Binding CheckForUpdatesButtonText}"
+                                   FontSize="{DynamicResource LunaFontSizeSm}"
+                                   VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
             </Grid>
         </Border>
-    </Grid>
+
+        <!-- Disclaimer — plain text, no card -->
+        <TextBlock TextWrapping="Wrap"
+                   FontSize="{DynamicResource LunaFontSizeXs}"
+                   Foreground="{DynamicResource LunaTextMuted}"
+                   Text="Luna is provided “as is”, without warranty of any kind. The author is not liable for data loss or damage arising from use of this software — always verify reports against the source media. Not affiliated with ARRI, Sony, Blackmagic, RED, or any other manufacturer; trademarks belong to their owners. Built on FFmpeg (LGPL), Avalonia, QuestPDF, MediaInfo, and Velopack."/>
+
+    </StackPanel>
 
 </Window>
