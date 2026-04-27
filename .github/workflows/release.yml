@@ -42,7 +42,9 @@ jobs:
             v="$input"
             echo "Using workflow input override: $v"
           else
-            v=$(grep -oP '(?<=<Version>)[^<]+' LunaApp.csproj | head -1)
+            # Require <Version>...</Version> on the same line so the regex
+            # ignores stray <Version> mentions inside multi-line XML comments.
+            v=$(grep -oP '<Version>\K[^<]+(?=</Version>)' LunaApp.csproj | head -1)
             echo "Using <Version> from LunaApp.csproj: $v"
           fi
           if [ -z "$v" ]; then
