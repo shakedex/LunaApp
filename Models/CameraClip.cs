@@ -72,12 +72,19 @@ public sealed class CameraClip
     /// <summary>One-line human summary of <see cref="ThumbnailOutcome"/> for the clip row.</summary>
     public string ThumbnailIssueSummary => ThumbnailOutcome switch
     {
-        ThumbnailOutcome.NoDecoder           => $"Frames unavailable — {ThumbnailOutcomeDetail ?? "no decoder for this codec"}",
-        ThumbnailOutcome.SeekFailed          => "Frames unavailable — seeking failed (container index may be incomplete)",
-        ThumbnailOutcome.DecodeFailed        => "Frames unavailable — decoder error",
-        ThumbnailOutcome.ContainerOpenFailed => "Frames unavailable — couldn't open this file",
+        ThumbnailOutcome.NoDecoder           => "Frames unavailable — install vendor support in Settings.",
+        ThumbnailOutcome.SeekFailed          => "Frames unavailable — the file may still be copying. Try again after copy completes.",
+        ThumbnailOutcome.DecodeFailed        => "Frames unavailable — decoder couldn't process this file.",
+        ThumbnailOutcome.ContainerOpenFailed => "Frames unavailable — couldn't open this file. It may be corrupted or in use.",
         _                                    => string.Empty,
     };
+
+    /// <summary>
+    /// True when the thumbnail issue surfaces an action the user can take
+    /// (currently only the NoDecoder case, which routes to Settings → Camera Support).
+    /// </summary>
+    public bool ThumbnailIssueIsActionable =>
+        ThumbnailOutcome == ThumbnailOutcome.NoDecoder;
     
     private static string FormatFileSize(long bytes)
     {

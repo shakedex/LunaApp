@@ -1,7 +1,12 @@
+using System;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Layout;
+using Avalonia.Media;
 using Avalonia.Platform.Storage;
+using Avalonia.Styling;
 using LunaApp.Models;
 using LunaApp.Services;
 using LunaApp.ViewModels;
@@ -87,6 +92,7 @@ public partial class MainWindow : Window
             vm.Clipboard = Clipboard;
             vm.OpenSettingsRequested += OnOpenSettingsRequested;
             vm.OpenCreditsRequested += OnOpenCreditsRequested;
+            vm.ClearConfirmRequested = ShowClearConfirmAsync;
         }
     }
 
@@ -95,6 +101,68 @@ public partial class MainWindow : Window
         var creditsVm = Program.Services.GetRequiredService<CreditsViewModel>();
         var creditsWindow = new CreditsWindow { DataContext = creditsVm };
         await creditsWindow.ShowDialog(this);
+    }
+
+    private async Task<bool> ShowClearConfirmAsync()
+    {
+        var tcs = new TaskCompletionSource<bool>();
+
+        object? bgRes = null;
+        object? textRes = null;
+        Application.Current?.TryGetResource("LunaBgPrimary", ThemeVariant.Default, out bgRes);
+        Application.Current?.TryGetResource("LunaTextPrimary", ThemeVariant.Default, out textRes);
+        IBrush? bgBrush = bgRes as IBrush ?? Brushes.Transparent;
+        IBrush? textBrush = textRes as IBrush;
+
+        var dialog = new Window
+        {
+            Title = "Clear loaded reels?",
+            Width = 420,
+            Height = 170,
+            SystemDecorations = SystemDecorations.BorderOnly,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Background = bgBrush,
+        };
+
+        var cancel = new Button
+        {
+            Content = "Cancel",
+            Classes = { "secondary" },
+        };
+        var clear = new Button
+        {
+            Content = "Clear",
+            Classes = { "primary" },
+        };
+        cancel.Click += (_, _) => { tcs.TrySetResult(false); dialog.Close(); };
+        clear.Click  += (_, _) => { tcs.TrySetResult(true);  dialog.Close(); };
+
+        var buttons = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 8,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            Children = { cancel, clear },
+        };
+        var content = new StackPanel
+        {
+            Margin = new Thickness(20),
+            Spacing = 16,
+            Children =
+            {
+                new TextBlock
+                {
+                    Text = "Clear all loaded reels and start over?",
+                    FontSize = 14,
+                    Foreground = textBrush,
+                },
+                buttons,
+            },
+        };
+        dialog.Content = content;
+
+        await dialog.ShowDialog(this);
+        return await tcs.Task;
     }
 
     private async void OnOpenSettingsRequested()

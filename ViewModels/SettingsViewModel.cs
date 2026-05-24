@@ -287,7 +287,7 @@ public partial class SettingsViewModel : ObservableValidator
         }
         else
         {
-            row.InstallError = "Still not detected. Make sure the installer finished — if it's still running, wait for it. If it's done and Luna can't find the install, restart Luna.";
+            row.InstallError = "Still not detected. Finish the vendor installer, then try Detect again. If it keeps failing, restart Luna.";
         }
 
         return Task.CompletedTask;

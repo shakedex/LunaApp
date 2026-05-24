@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using Avalonia.Platform.Storage;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -270,6 +271,25 @@ public partial class MainWindowViewModel : ViewModelBase
     private void OpenSettings()
     {
         OpenSettingsRequested?.Invoke();
+    }
+
+    /// <summary>
+    /// Raised by ClearWithConfirm before clearing when reels are loaded. The
+    /// view subscribes from MainWindow.axaml.cs and shows a confirmation dialog.
+    /// Returns true if the user confirms.
+    /// </summary>
+    public Func<Task<bool>>? ClearConfirmRequested { get; set; }
+
+    [RelayCommand]
+    private async Task ClearWithConfirmAsync()
+    {
+        if (!HasReels)
+        {
+            Clear();
+            return;
+        }
+        var confirmed = ClearConfirmRequested is null || await ClearConfirmRequested();
+        if (confirmed) Clear();
     }
 
     [RelayCommand]

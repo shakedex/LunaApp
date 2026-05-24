@@ -119,6 +119,19 @@
         <Setter Property="Background" Value="{DynamicResource LunaBgTertiary}"/>
     </Style>
 
+    <!-- Link-style button (text-only, accent color) -->
+    <Style Selector="Button.link">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Foreground" Value="{DynamicResource LunaWarning}"/>
+        <Setter Property="FontSize" Value="{DynamicResource LunaFontSizeXs}"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Padding" Value="0"/>
+    </Style>
+    <Style Selector="Button.link:pointerover /template/ ContentPresenter">
+        <Setter Property="Foreground" Value="{DynamicResource LunaAccent}"/>
+    </Style>
+
     <!-- ==================== Surfaces ==================== -->
 
     <!-- Drop target (empty / pending confirmation state) -->

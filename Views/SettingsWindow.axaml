@@ -105,15 +105,24 @@
                         <!-- Grid for DIT, Director, DP -->
                         <Grid ColumnDefinitions="*,16,*,16,*">
                             <StackPanel Grid.Column="0" Spacing="4">
-                                <TextBlock Classes="label" Text="DIT"/>
+                                <TextBlock Classes="label">
+                                    <Run Text="DIT"/>
+                                    <Run Text=" (Optional)" Foreground="{DynamicResource LunaTextMuted}"/>
+                                </TextBlock>
                                 <TextBox Text="{Binding DitName}" Watermark="Your name"/>
                             </StackPanel>
                             <StackPanel Grid.Column="2" Spacing="4">
-                                <TextBlock Classes="label" Text="Director"/>
+                                <TextBlock Classes="label">
+                                    <Run Text="Director"/>
+                                    <Run Text=" (Optional)" Foreground="{DynamicResource LunaTextMuted}"/>
+                                </TextBlock>
                                 <TextBox Text="{Binding Director}" Watermark="Director name"/>
                             </StackPanel>
                             <StackPanel Grid.Column="4" Spacing="4">
-                                <TextBlock Classes="label" Text="DP"/>
+                                <TextBlock Classes="label">
+                                    <Run Text="DP"/>
+                                    <Run Text=" (Optional)" Foreground="{DynamicResource LunaTextMuted}"/>
+                                </TextBlock>
                                 <TextBox Text="{Binding Dp}" Watermark="DP name"/>
                             </StackPanel>
                         </Grid>
@@ -179,7 +188,7 @@
                             <TextBlock Text="Camera Support" FontSize="{DynamicResource LunaFontSizeLg}" FontWeight="SemiBold"/>
                         </StackPanel>
 
-                        <TextBlock Text="Which camera families Luna can read on this install. Proprietary formats arrive through future releases; nothing to configure here."
+                        <TextBlock Text="Install vendor SDKs to enable proprietary camera formats. Luna detects them automatically."
                                    FontSize="{DynamicResource LunaFontSizeXs}"
                                    Foreground="{DynamicResource LunaTextMuted}"
                                    TextWrapping="Wrap"/>

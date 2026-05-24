@@ -93,14 +93,19 @@
                             Background="{DynamicResource LunaBgTertiary}" HorizontalAlignment="Center">
                         <mi:MaterialIcon Kind="MoonWaningCrescent" Width="40" Height="40" Foreground="{DynamicResource LunaAccent}"/>
                     </Border>
-                    <TextBlock Text="Drop camera footage here" FontSize="{DynamicResource LunaFontSizeXl}" FontWeight="SemiBold" HorizontalAlignment="Center"/>
-                    <TextBlock Text="or click to browse for a folder" FontSize="{DynamicResource LunaFontSizeMd}" Foreground="{DynamicResource LunaTextSecondary}" HorizontalAlignment="Center"/>
+                    <TextBlock Text="Drop a folder of camera footage" FontSize="{DynamicResource LunaFontSizeXl}" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                    <TextBlock Text="or browse" FontSize="{DynamicResource LunaFontSizeMd}" Foreground="{DynamicResource LunaTextSecondary}" HorizontalAlignment="Center"/>
                     <Button Classes="secondary" Command="{Binding BrowseFolderCommand}" HorizontalAlignment="Center" Margin="0,8,0,0">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <mi:MaterialIcon Kind="FolderOpen" Width="16" Height="16" Foreground="{DynamicResource LunaTextSecondary}"/>
                             <TextBlock Text="Browse Folder" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
+                    <TextBlock Text="ARRI · BRAW · Sony VENICE · ProRes · H.264/265"
+                               Foreground="{DynamicResource LunaTextMuted}"
+                               FontSize="{DynamicResource LunaFontSizeXs}"
+                               HorizontalAlignment="Center"
+                               Margin="0,12,0,0"/>
                 </StackPanel>
             </Border>
 
@@ -124,7 +129,7 @@
                                     <Binding Path="PendingClipCount"/>
                                 </TextBlock.Text>
                             </TextBlock>
-                            <TextBlock Text="video clips found" FontSize="18" Foreground="{DynamicResource LunaTextSecondary}" VerticalAlignment="Center"/>
+                            <TextBlock Text="video clips ready to scan" FontSize="18" Foreground="{DynamicResource LunaTextSecondary}" VerticalAlignment="Center"/>
                         </StackPanel>
                     </StackPanel>
 
@@ -136,13 +141,13 @@
                         <Button Classes="primary" Command="{Binding StartProcessingCommand}" Padding="32,14">
                             <StackPanel Orientation="Horizontal" Spacing="10">
                                 <mi:MaterialIcon Kind="CheckCircle" Width="20" Height="20" Foreground="White"/>
-                                <TextBlock Text="Create Report" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                <TextBlock Text="Scan &amp; Continue" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center"/>
                             </StackPanel>
                         </Button>
                     </StackPanel>
 
                     <!-- Hint text -->
-                    <TextBlock Text="Clicking 'Create Report' will extract metadata and thumbnails from your footage"
+                    <TextBlock Text="We'll read metadata and generate thumbnails. You'll review before exporting."
                                FontSize="13" Foreground="{DynamicResource LunaTextMuted}" HorizontalAlignment="Center"/>
                 </StackPanel>
             </Border>
@@ -283,11 +288,20 @@
                                                                            IsVisible="{Binding UnsupportedNotice, Converter={x:Static ObjectConverters.IsNotNull}}"/>
                                                                 <!-- Thumbnail-extraction outcome: surfaced when metadata worked but frames didn't
                                                                      (NoDecoder for X-OCN/ARRIRAW/BRAW/REDCODE, SeekFailed for busted MXF indexes, etc.). -->
+                                                                <!-- Non-actionable: plain text -->
                                                                 <TextBlock Text="{Binding ThumbnailIssueSummary}"
                                                                            FontSize="{DynamicResource LunaFontSizeXs}"
                                                                            Foreground="{DynamicResource LunaTextMuted}"
-                                                                           TextWrapping="Wrap"
-                                                                           IsVisible="{Binding HasThumbnailIssue}"/>
+                                                                           IsVisible="{Binding !ThumbnailIssueIsActionable}"
+                                                                           TextWrapping="Wrap"/>
+
+                                                                <!-- Actionable (NoDecoder) — clickable, routes to Settings -->
+                                                                <Button Content="{Binding ThumbnailIssueSummary}"
+                                                                        Classes="link"
+                                                                        HorizontalAlignment="Left"
+                                                                        IsVisible="{Binding ThumbnailIssueIsActionable}"
+                                                                        Command="{Binding DataContext.OpenSettingsForCameraSupportCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                        AutomationProperties.Name="Install vendor support in Settings"/>
                                                             </StackPanel>
 
                                                             <!-- Timecode -->
@@ -374,7 +388,7 @@
 
                         <!-- Clear button -->
                         <Button Classes="secondary"
-                                Command="{Binding ClearCommand}"
+                                Command="{Binding ClearWithConfirmCommand}"
                                 HorizontalAlignment="Stretch"
                                 HorizontalContentAlignment="Center"
                                 IsVisible="{Binding HasReels}">
