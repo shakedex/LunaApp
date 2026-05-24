@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using LunaApp.Models;
+using LunaApp.Services;
 using LunaApp.Services.CameraSupport;
 using Serilog;
 
@@ -19,6 +20,32 @@ public partial class MainWindowViewModel
 
     [ObservableProperty] private bool _hasMissingCameraSupport;
     [ObservableProperty] private string _missingCameraSupportSummary = string.Empty;
+
+    partial void OnHasMissingCameraSupportChanged(bool value)
+    {
+        if (value) PushCameraSupportBanner();
+        else Banners.RemoveByKey("camera-support");
+    }
+
+    partial void OnMissingCameraSupportSummaryChanged(string value)
+    {
+        if (HasMissingCameraSupport) PushCameraSupportBanner();
+    }
+
+    private void PushCameraSupportBanner()
+    {
+        Banners.AddOrReplace(new BannerItem
+        {
+            Key = "camera-support",
+            Level = Level.Warning,
+            Title = "Camera support missing",
+            Body = $"{MissingCameraSupportSummary} not installed. To decode these formats, install the tools from Settings.",
+            PrimaryAction = new BannerAction("Open Settings", OpenSettingsForCameraSupportCommand),
+            SecondaryAction = new BannerAction("Later", RemindCameraSupportLaterCommand),
+            IsDismissible = true,
+            OnDismiss = DismissCameraSupportCommand,
+        });
+    }
 
     private void SubscribeToCameraSupport(CameraSupportInstallationStatus status)
     {
