@@ -24,11 +24,15 @@ public partial class MainWindowViewModel
     // Cancellation: non-null only while a long-running operation is in flight.
     // CancelProcessing cancels whichever op is active (scan / process / generate).
     private CancellationTokenSource? _currentOperationCts;
+    private bool _isInTail;
 
     public bool HasPendingFolder => !string.IsNullOrEmpty(PendingFolderPath);
     public bool ShowDropZone => !HasReels && !HasPendingFolder && !IsProcessing;
     public bool ShowPendingConfirmation => HasPendingFolder && !IsProcessing;
-    public bool CanCancel => IsProcessing && _currentOperationCts is { IsCancellationRequested: false };
+    public bool CanCancel =>
+        IsProcessing
+        && !_isInTail
+        && _currentOperationCts is { IsCancellationRequested: false };
 
     partial void OnPendingFolderPathChanged(string? value)
     {
@@ -183,11 +187,20 @@ public partial class MainWindowViewModel
     [RelayCommand]
     private void CancelProcessing()
     {
+        if (_isInTail) return;
         if (_currentOperationCts is { IsCancellationRequested: false } cts)
         {
-            Log.Information("User requested cancellation of current operation");
-            State = StateMessage.Info("Cancelling…");
-            cts.Cancel();
+            try
+            {
+                Log.Information("User requested cancellation of current operation");
+                State = StateMessage.Info("Cancelling…");
+                cts.Cancel();
+            }
+            catch (ObjectDisposedException)
+            {
+                // Race: operation finished between the IsCancellationRequested
+                // check and the Cancel call. Nothing to do.
+            }
             OnPropertyChanged(nameof(CanCancel));
         }
     }
@@ -211,6 +224,8 @@ public partial class MainWindowViewModel
     {
         OverallProgress = 100;
         Progress = 100;
+        _isInTail = true;
+        OnPropertyChanged(nameof(CanCancel));
 
         if (OverlayState == OverlayState.SuccessHold)
         {
@@ -225,6 +240,7 @@ public partial class MainWindowViewModel
             await Task.Delay(EndTailDelay).ConfigureAwait(true);
         }
 
+        _isInTail = false;
         _currentOperationCts = null;
         IsProcessing = false;
         OverallProgress = 0;
