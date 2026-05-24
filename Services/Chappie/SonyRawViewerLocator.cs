@@ -66,6 +66,11 @@ public sealed class SonyRawViewerLocator
 
     private static IEnumerable<string> CandidatePaths()
     {
+        // Sony RAW Viewer is Windows-only. Skip the hard-coded paths entirely
+        // on other platforms — there's no equivalent install to find.
+        if (!System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows))
+            yield break;
+
         // Default install location.
         yield return @"C:\Program Files\Sony\RAW Viewer\rawexporter.exe";
 
