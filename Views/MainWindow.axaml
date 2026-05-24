@@ -75,82 +75,11 @@
             </Grid>
         </Border>
 
-        <!-- Update toast - floats top-right; doesn't take a full row of chrome -->
-        <Border Grid.Row="1" Height="0"/>
+        <!-- Banner stack — drops in below the header for update / camera-support / etc. -->
+        <controls:BannerStack Grid.Row="1" Items="{Binding Banners}"/>
 
         <!-- Main content + overlays -->
         <Grid Grid.Row="2" Margin="24">
-
-            <!-- Update toast (top-right floating card) — fades in via .fade class -->
-            <Border Classes="fade"
-                    Classes.visible="{Binding HasUpdateAvailable}"
-                    HorizontalAlignment="Right" VerticalAlignment="Top"
-                    Background="{DynamicResource LunaBgSecondary}"
-                    BorderBrush="{DynamicResource LunaAccentSubtle}"
-                    BorderThickness="1"
-                    CornerRadius="{DynamicResource LunaRadiusLg}"
-                    Padding="16,14" MaxWidth="380"
-                    Margin="0,8,8,0"
-                    ZIndex="50">
-                <StackPanel Spacing="10">
-                    <StackPanel Orientation="Horizontal" Spacing="10">
-                        <mi:MaterialIcon Kind="Update" Width="20" Height="20" Foreground="{DynamicResource LunaAccent}"/>
-                        <TextBlock VerticalAlignment="Center" Foreground="{DynamicResource LunaTextPrimary}">
-                            <Run Text="Luna"/>
-                            <Run Text="{Binding UpdateVersion}" FontWeight="Bold"/>
-                            <Run Text="is available"/>
-                        </TextBlock>
-                    </StackPanel>
-
-                    <!-- Download progress -->
-                    <StackPanel Spacing="4" IsVisible="{Binding IsDownloadingUpdate}">
-                        <ProgressBar Value="{Binding UpdateDownloadProgress}" Maximum="100"
-                                     Height="4"
-                                     Foreground="{DynamicResource LunaAccent}"
-                                     Background="{DynamicResource LunaBgTertiary}"
-                                     CornerRadius="2"/>
-                        <TextBlock Text="{Binding UpdateDownloadProgress, StringFormat='Downloading… {0}%'}"
-                                   FontSize="{DynamicResource LunaFontSizeXs}"
-                                   Foreground="{DynamicResource LunaTextSecondary}"/>
-                    </StackPanel>
-
-                    <!-- Actions -->
-                    <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
-                        <!-- Download -->
-                        <Button Classes="secondary" Padding="12,6"
-                                Command="{Binding DownloadUpdateCommand}"
-                                IsVisible="{Binding !IsUpdateReady}"
-                                IsEnabled="{Binding !IsDownloadingUpdate}">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <mi:MaterialIcon Kind="Download" Width="14" Height="14" Foreground="{DynamicResource LunaTextSecondary}"/>
-                                <TextBlock Text="Download"/>
-                            </StackPanel>
-                        </Button>
-                        <!-- Restart -->
-                        <Button Classes="primary" Padding="12,6"
-                                Command="{Binding ApplyUpdateCommand}"
-                                IsVisible="{Binding IsUpdateReady}">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <mi:MaterialIcon Kind="Restart" Width="14" Height="14" Foreground="White"/>
-                                <TextBlock Text="Restart Now"/>
-                            </StackPanel>
-                        </Button>
-                        <!-- Remind me later (3 days) -->
-                        <Button Classes="secondary" Padding="12,6"
-                                Command="{Binding RemindUpdateLaterCommand}"
-                                ToolTip.Tip="Hide this for 3 days">
-                            <TextBlock Text="Later"/>
-                        </Button>
-                        <!-- Dismiss for this session only -->
-                        <Button Classes="secondary" Padding="8,6"
-                                Command="{Binding DismissUpdateCommand}"
-                                ToolTip.Tip="Dismiss"
-                                AutomationProperties.Name="Dismiss update notification">
-                            <mi:MaterialIcon Kind="Close" Width="12" Height="12" Foreground="{DynamicResource LunaTextSecondary}"/>
-                        </Button>
-                    </StackPanel>
-                </StackPanel>
-            </Border>
 
             <!-- Camera-support missing toast — fades in below the update toast. -->
             <Border Classes="fade"

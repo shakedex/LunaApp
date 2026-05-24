@@ -19,6 +19,41 @@ public partial class MainWindowViewModel
     [ObservableProperty] private bool _isDownloadingUpdate;
     [ObservableProperty] private bool _isUpdateReady;
 
+    partial void OnHasUpdateAvailableChanged(bool value)
+    {
+        if (value) PushUpdateBanner();
+        else Banners.RemoveByKey("update");
+    }
+
+    partial void OnUpdateVersionChanged(string value)        => RefreshUpdateBannerIfShown();
+    partial void OnIsDownloadingUpdateChanged(bool value)    => RefreshUpdateBannerIfShown();
+    partial void OnUpdateDownloadProgressChanged(int value)  => RefreshUpdateBannerIfShown();
+    partial void OnIsUpdateReadyChanged(bool value)          => RefreshUpdateBannerIfShown();
+
+    private void RefreshUpdateBannerIfShown()
+    {
+        if (HasUpdateAvailable) PushUpdateBanner();
+    }
+
+    private void PushUpdateBanner()
+    {
+        Banners.AddOrReplace(new BannerItem
+        {
+            Key = "update",
+            Level = Level.Info,
+            Title = $"Luna {UpdateVersion} is available",
+            Body = IsDownloadingUpdate ? $"Downloading… {UpdateDownloadProgress}%"
+                 : IsUpdateReady       ? "Update ready"
+                 : null,
+            PrimaryAction = IsUpdateReady
+                ? new BannerAction("Restart Now", ApplyUpdateCommand)
+                : new BannerAction("Download", DownloadUpdateCommand),
+            SecondaryAction = new BannerAction("Later", RemindUpdateLaterCommand),
+            IsDismissible = true,
+            OnDismiss = DismissUpdateCommand,
+        });
+    }
+
     private bool IsSnoozed =>
         _appSettings.UpdateSnoozeUntil is DateTime until && until > DateTime.Now;
 

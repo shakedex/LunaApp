@@ -38,6 +38,13 @@ public partial class MainWindowViewModel : ViewModelBase
     /// <summary>Reels after applying <see cref="SearchText"/>. Bound to the list UI.</summary>
     public ObservableCollection<CameraReel> FilteredReels { get; } = [];
 
+    /// <summary>
+    /// App-level notifications stack below the header. Update toast and
+    /// camera-support warning both push BannerItems here. Renders via
+    /// <see cref="LunaApp.Views.Controls.BannerStack"/>.
+    /// </summary>
+    public ObservableCollection<BannerItem> Banners { get; } = new();
+
     public bool IsSearchActive => !string.IsNullOrWhiteSpace(SearchText);
     public bool HasFilteredReels => FilteredReels.Count > 0;
     public string FilterSummary => IsSearchActive
