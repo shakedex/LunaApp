@@ -86,6 +86,9 @@ public partial class MainWindowViewModel : ViewModelBase
     /// </summary>
     private string _autoFilledReportName = string.Empty;
 
+    // Search debounce timer — waits 300 ms after the last keystroke before rebuilding the filtered reels list
+    private Avalonia.Threading.DispatcherTimer? _searchDebounceTimer;
+
     // ETA tracking: reset at the start of each phase, extrapolates remaining
     // time from average-item-duration so far.
     private ProcessingPhase _etaPhase = ProcessingPhase.Idle;
@@ -224,8 +227,23 @@ public partial class MainWindowViewModel : ViewModelBase
 
     partial void OnSearchTextChanged(string value)
     {
-        RebuildFilteredReels();
         OnPropertyChanged(nameof(IsSearchActive));
+
+        _searchDebounceTimer ??= new Avalonia.Threading.DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(300),
+        };
+        _searchDebounceTimer.Stop();
+
+        EventHandler? handler = null;
+        handler = (_, _) =>
+        {
+            _searchDebounceTimer!.Stop();
+            _searchDebounceTimer.Tick -= handler;
+            RebuildFilteredReels();
+        };
+        _searchDebounceTimer.Tick += handler;
+        _searchDebounceTimer.Start();
     }
 
     private void RebuildFilteredReels()
