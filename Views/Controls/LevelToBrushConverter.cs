@@ -3,6 +3,7 @@ using System.Globalization;
 using Avalonia;
 using Avalonia.Data.Converters;
 using Avalonia.Media;
+using Avalonia.Styling;
 using LunaApp.Services;
 
 namespace LunaApp.Views.Controls;
@@ -29,7 +30,7 @@ public sealed class LevelToBrushConverter : IValueConverter
             Level.Error   => "LunaDanger",
             _             => "LunaBgTertiary",
         };
-        if (Application.Current?.Resources.TryGetValue(key, out var brush) == true)
+        if (Application.Current?.TryGetResource(key, ThemeVariant.Default, out var brush) == true)
         {
             return brush;
         }
