@@ -480,6 +480,12 @@ public partial class SettingsViewModel : ObservableValidator
             ? _appSettings.DefaultReportSettings.OutputFolder
             : OutputFolder.Trim();
 
+        if (!ReportSettings.IsValidReportNamePattern(settings.ReportNamePattern))
+        {
+            settings.ReportNamePattern = ReportSettings.DefaultReportNamePattern;
+            clampReport.Add("Report name pattern", 0, 0);
+        }
+
         settings.ThumbnailsPerClip = Math.Clamp(ThumbnailsPerClip, 0, 10);
         settings.GenerateHtml = GenerateHtmlByDefault;
         settings.GeneratePdf = GeneratePdfByDefault;

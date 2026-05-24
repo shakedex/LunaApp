@@ -37,7 +37,23 @@ public sealed class ReportSettings
     public ReportTheme Theme { get; set; } = ReportTheme.Light;
 
     // Report naming
-    public string ReportNamePattern { get; set; } = "{project}_{reel}_{date}";
+    public const string DefaultReportNamePattern = "{project}_{reel}_{date}";
+
+    private static readonly System.Text.RegularExpressions.Regex AllowedTokens =
+        new(@"\{(project|reel|date|time)\}", System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    /// <summary>
+    /// Returns true if the pattern contains only the allowed tokens
+    /// ({project}, {reel}, {date}, {time}) and ordinary characters.
+    /// </summary>
+    public static bool IsValidReportNamePattern(string? pattern)
+    {
+        if (string.IsNullOrWhiteSpace(pattern)) return true;
+        var stripped = AllowedTokens.Replace(pattern, string.Empty);
+        return !stripped.Contains('{') && !stripped.Contains('}');
+    }
+
+    public string ReportNamePattern { get; set; } = DefaultReportNamePattern;
 
     /// <summary>
     /// Per-run "Report Name" entered in the main window before clicking
