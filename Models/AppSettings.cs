@@ -100,7 +100,13 @@ public sealed class AppSettings
             }
 
             var json = JsonSerializer.Serialize(this, AppSettingsJsonContext.Default.AppSettings);
-            File.WriteAllText(SettingsPath, json);
+
+            // Atomic write: stage the new content next to the destination, then
+            // rename. If the process crashes mid-write, the original file is
+            // untouched. File.Move with overwrite is atomic on NTFS and APFS.
+            var tempPath = SettingsPath + ".tmp";
+            File.WriteAllText(tempPath, json);
+            File.Move(tempPath, SettingsPath, overwrite: true);
             return true;
         }
         catch (Exception ex)
