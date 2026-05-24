@@ -6,7 +6,6 @@
         xmlns:models="using:LunaApp.Models"
         xmlns:mi="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
         xmlns:controls="using:LunaApp.Views.Controls"
-        xmlns:converters="using:LunaApp.Views.Controls"
         mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="800"
         x:Class="LunaApp.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
@@ -19,7 +18,7 @@
 
     <Window.Resources>
         <!-- Used by the processing overlay to show/hide layers based on OverlayState (M6) -->
-        <converters:EnumEqualsConverter x:Key="EnumEquals"/>
+        <controls:EnumEqualsConverter x:Key="EnumEquals"/>
     </Window.Resources>
 
     <Grid RowDefinitions="Auto,Auto,*,Auto,Auto">

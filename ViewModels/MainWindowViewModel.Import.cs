@@ -259,6 +259,10 @@ public partial class MainWindowViewModel
     {
         if (!HasReels || IsProcessing) return;
 
+        _completedReportPaths = null;
+        SuccessLabel = null;
+        _userClosedOverlay = false;
+
         using var cts = BeginOperation();
 
         ReportSettings? settings = null;
@@ -348,6 +352,10 @@ public partial class MainWindowViewModel
     [RelayCommand]
     private void Clear()
     {
+        _completedReportPaths = null;
+        SuccessLabel = null;
+        _userClosedOverlay = false;
+
         Reels.Clear();
         _reportService.ClearProject();
 
