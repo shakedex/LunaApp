@@ -78,13 +78,26 @@ public partial class MainWindowViewModel : ViewModelBase
     /// </summary>
     [ObservableProperty] private string _reportName = string.Empty;
 
+    partial void OnReportNameChanged(string value)
+    {
+        if (!_settingAutoFilledReportName)
+        {
+            _userEditedReportName = true;
+        }
+    }
+
     /// <summary>
-    /// Tracks the last auto-fill we wrote into <see cref="ReportName"/>, so
-    /// we know not to overwrite a user-edited value on the next scan. When
-    /// the user types something new, ReportName diverges from this and the
-    /// auto-fill backs off.
+    /// Tracks whether the user has typed anything into <see cref="ReportName"/>.
+    /// Once true, auto-fill from folder names is suppressed for the rest of the
+    /// session (until <see cref="Clear"/> resets it). Initial state: false.
     /// </summary>
-    private string _autoFilledReportName = string.Empty;
+    private bool _userEditedReportName;
+
+    /// <summary>
+    /// Guard set while programmatic auto-fill is writing <see cref="ReportName"/>,
+    /// so the change handler can tell user edits from auto-fill writes.
+    /// </summary>
+    private bool _settingAutoFilledReportName;
 
     // Search debounce timer — waits 300 ms after the last keystroke before rebuilding the filtered reels list
     private Avalonia.Threading.DispatcherTimer? _searchDebounceTimer;

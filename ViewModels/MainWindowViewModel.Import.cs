@@ -84,13 +84,13 @@ public partial class MainWindowViewModel
 
             // Auto-fill the per-run Report Name with the folder we're about
             // to process — but only when the user hasn't typed something
-            // custom. We track the last value we auto-filled so we can tell
-            // "still untouched" from "user edited it".
-            if (!string.IsNullOrEmpty(folderName) &&
-                (string.IsNullOrWhiteSpace(ReportName) || ReportName == _autoFilledReportName))
+            // custom. The guard suppresses the change handler so we can tell
+            // user edits from auto-fill writes.
+            if (!string.IsNullOrEmpty(folderName) && !_userEditedReportName)
             {
+                _settingAutoFilledReportName = true;
                 ReportName = folderName;
-                _autoFilledReportName = folderName;
+                _settingAutoFilledReportName = false;
             }
 
             State = StateMessage.Info($"Found {count} video clip(s) ready to scan");
@@ -358,6 +358,8 @@ public partial class MainWindowViewModel
 
         Reels.Clear();
         _reportService.ClearProject();
+
+        _userEditedReportName = false;
 
         PendingFolderPath = null;
         PendingClipCount = 0;
