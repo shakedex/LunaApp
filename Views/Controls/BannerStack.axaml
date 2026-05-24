@@ -1,0 +1,80 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:LunaApp.Views.Controls"
+             xmlns:vm="using:LunaApp.ViewModels"
+             xmlns:mi="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
+             x:Class="LunaApp.Views.Controls.BannerStack"
+             x:Name="Root">
+
+    <UserControl.Resources>
+        <controls:LevelToBrushConverter x:Key="LevelToBrush"/>
+    </UserControl.Resources>
+
+    <ItemsControl ItemsSource="{Binding Items, ElementName=Root}">
+        <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+                <StackPanel Orientation="Vertical" Spacing="0"/>
+            </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+            <DataTemplate DataType="vm:BannerItem">
+                <Border BorderBrush="{DynamicResource LunaBorder}"
+                        BorderThickness="0,0,0,1"
+                        Padding="24,10"
+                        Background="{DynamicResource LunaBgSecondary}">
+                    <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto">
+                        <!-- Level dot -->
+                        <Ellipse Grid.Column="0"
+                                 Width="8" Height="8"
+                                 VerticalAlignment="Center"
+                                 Margin="0,0,12,0"
+                                 Fill="{Binding Level, Converter={StaticResource LevelToBrush}}"/>
+
+                        <!-- Title + body -->
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding Title}"
+                                       Foreground="{DynamicResource LunaTextPrimary}"
+                                       FontSize="{DynamicResource LunaFontSizeSm}"
+                                       FontWeight="SemiBold"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding Body}"
+                                       Foreground="{DynamicResource LunaTextSecondary}"
+                                       FontSize="{DynamicResource LunaFontSizeSm}"
+                                       VerticalAlignment="Center"
+                                       IsVisible="{Binding Body, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                        </StackPanel>
+
+                        <!-- Secondary action -->
+                        <Button Grid.Column="2"
+                                Classes="secondary"
+                                Margin="0,0,8,0"
+                                IsVisible="{Binding SecondaryAction, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                Command="{Binding SecondaryAction.Command}"
+                                Content="{Binding SecondaryAction.Label}"
+                                AutomationProperties.Name="{Binding SecondaryAction.Label}"/>
+
+                        <!-- Primary action -->
+                        <Button Grid.Column="3"
+                                Classes="primary"
+                                IsVisible="{Binding PrimaryAction, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                Command="{Binding PrimaryAction.Command}"
+                                Content="{Binding PrimaryAction.Label}"
+                                AutomationProperties.Name="{Binding PrimaryAction.Label}"/>
+
+                        <!-- Dismiss -->
+                        <Button Grid.Column="4"
+                                Classes="iconOnly"
+                                Margin="8,0,0,0"
+                                IsVisible="{Binding IsDismissible}"
+                                Command="{Binding OnDismiss}"
+                                ToolTip.Tip="Dismiss"
+                                AutomationProperties.Name="Dismiss banner">
+                            <mi:MaterialIcon Kind="Close" Width="14" Height="14"
+                                             Foreground="{DynamicResource LunaTextSecondary}"/>
+                        </Button>
+                    </Grid>
+                </Border>
+            </DataTemplate>
+        </ItemsControl.ItemTemplate>
+    </ItemsControl>
+</UserControl>
