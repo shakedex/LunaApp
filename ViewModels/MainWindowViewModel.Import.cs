@@ -245,6 +245,8 @@ public partial class MainWindowViewModel
 
         using var cts = BeginOperation();
 
+        ReportSettings? settings = null;
+
         try
         {
             IsProcessing = true;
@@ -255,7 +257,7 @@ public partial class MainWindowViewModel
             // to copy (previously: Theme, Director, Dp, GroupPdfsInSeparateFolder).
             // The three sidebar toggles override the saved defaults for this run only.
             var defaults = _appSettings.DefaultReportSettings;
-            var settings = new ReportSettings
+            settings = new ReportSettings
             {
                 ProjectName               = defaults.ProjectName,
                 ProductionCompany         = defaults.ProductionCompany,
@@ -294,6 +296,17 @@ public partial class MainWindowViewModel
         }
         catch (OperationCanceledException)
         {
+            if (_reportService.LastWrittenPaths is { Count: > 0 } partials)
+            {
+                try
+                {
+                    await _reportService.CleanupPartialOutputAsync(settings!, partials);
+                }
+                catch (Exception cleanupEx)
+                {
+                    Log.Warning(cleanupEx, "Cleanup of partial reports failed");
+                }
+            }
             State = StateMessage.Info("Generation cancelled");
         }
         catch (Exception ex)

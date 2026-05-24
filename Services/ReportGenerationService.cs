@@ -26,6 +26,16 @@ public sealed class ReportGenerationService
 
     public ReportProject? CurrentProject { get; private set; }
 
+    private readonly List<string> _lastWrittenPaths = new();
+
+    /// <summary>
+    /// Files written by the most recent <see cref="GenerateReportsAsync"/> call.
+    /// Populated incrementally as the service writes; reset at the start of each
+    /// call. Read by callers in <see cref="OperationCanceledException"/> paths so
+    /// they can clean up.
+    /// </summary>
+    public IReadOnlyList<string> LastWrittenPaths => _lastWrittenPaths;
+
     /// <summary>
     /// Fired on every progress tick from the underlying pipeline. Carries the
     /// current phase, count, and item name — view-model layers ETA on top.
@@ -63,6 +73,8 @@ public sealed class ReportGenerationService
         if (CurrentProject == null || CurrentProject.Reels.Count == 0)
             throw new InvalidOperationException("No reels loaded. Call ScanFolderAsync first.");
 
+        _lastWrittenPaths.Clear();
+
         CurrentProject.Settings = settings;
 
         // Pin a single timestamp for this run so the HTML and PDF outputs
@@ -84,6 +96,7 @@ public sealed class ReportGenerationService
                 var htmlPath = await _htmlReportService.GenerateAndSaveProjectReportAsync(
                     CurrentProject.Reels, settings, cancellationToken);
                 outputPaths.Add(htmlPath);
+                _lastWrittenPaths.Add(htmlPath);
                 CurrentProject.HtmlReportPath = htmlPath;
                 ProgressReported?.Invoke(new ProcessingReport(ProcessingPhase.GeneratingHtml, 1, 1));
             }
@@ -94,6 +107,7 @@ public sealed class ReportGenerationService
                 var pdfPath = await _pdfReportService.GenerateAndSaveProjectReportAsync(
                     CurrentProject.Reels, settings, cancellationToken);
                 outputPaths.Add(pdfPath);
+                _lastWrittenPaths.Add(pdfPath);
                 CurrentProject.PdfReportPath = pdfPath;
                 ProgressReported?.Invoke(new ProcessingReport(ProcessingPhase.GeneratingPdf, 1, 1));
             }
@@ -123,6 +137,40 @@ public sealed class ReportGenerationService
     {
         CurrentProject = null;
         ProgressReported?.Invoke(ProcessingReport.Idle);
+    }
+
+    /// <summary>
+    /// Best-effort deletion of files in <paramref name="partialPaths"/> plus any
+    /// sibling <c>*.tmp</c> files in their parent directories. Safe when
+    /// <paramref name="partialPaths"/> is empty. Failures are logged, never thrown.
+    /// </summary>
+    public Task CleanupPartialOutputAsync(ReportSettings settings, IReadOnlyList<string> partialPaths)
+    {
+        foreach (var path in partialPaths)
+        {
+            TryDelete(path);
+
+            var dir = Path.GetDirectoryName(path);
+            if (!string.IsNullOrEmpty(dir) && Directory.Exists(dir))
+            {
+                try
+                {
+                    foreach (var tmp in Directory.EnumerateFiles(dir, "*.tmp"))
+                        TryDelete(tmp);
+                }
+                catch (Exception ex)
+                {
+                    Log.Debug(ex, "Cleanup: failed to enumerate temp files in {Dir}", dir);
+                }
+            }
+        }
+        return Task.CompletedTask;
+
+        static void TryDelete(string path)
+        {
+            try { if (File.Exists(path)) File.Delete(path); }
+            catch (Exception ex) { Log.Debug(ex, "Cleanup: failed to delete {Path}", path); }
+        }
     }
 
     private static void OpenFile(string path)
