@@ -445,6 +445,7 @@ public sealed unsafe class FfmpegThumbnailService : IThumbnailGenerator, IDispos
 
                 while (!frameDecoded && attempts < MaxDecodeAttemptsPerPosition)
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     attempts++;
                     ffmpeg.av_packet_unref(pPacket);
                     
@@ -512,6 +513,10 @@ public sealed unsafe class FfmpegThumbnailService : IThumbnailGenerator, IDispos
             return seekFailures >= decodeFailures
                 ? ThumbnailResult.SeekFailed(detail)
                 : ThumbnailResult.DecodeFailed(detail);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch (Exception ex)
         {
