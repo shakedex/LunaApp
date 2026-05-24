@@ -1,6 +1,6 @@
 using System;
 using System.IO;
-using CommunityToolkit.Mvvm.Input;
+using System.Windows.Input;
 
 namespace LunaApp.Services;
 
@@ -14,7 +14,7 @@ public enum Level
 }
 
 /// <summary>Optional inline action button on a state strip or banner.</summary>
-public sealed record StateAction(string Label, IRelayCommand Command);
+public sealed record StateAction(string Label, ICommand Command);
 
 /// <summary>
 /// Single payload bound by the StateStrip control. Replaces the old
@@ -56,14 +56,19 @@ public static class ExceptionMapper
         UnauthorizedAccessException       => StateMessage.Error("Permission denied — check folder access"),
         DirectoryNotFoundException        => StateMessage.Error("Folder not found"),
         FileNotFoundException             => StateMessage.Error("File not found"),
+        // PathTooLongException derives from IOException in .NET 5+, so it must
+        // be listed before the IOException arms to match correctly.
         PathTooLongException              => StateMessage.Error("File path is too long"),
-        IOException io when IsDiskFull(io)=> StateMessage.Error("Not enough disk space"),
+        IOException io when IsDiskFull(io) => StateMessage.Error("Not enough disk space"),
         IOException                       => StateMessage.Error("File system error — the file may be open in another app"),
         _                                 => StateMessage.Error("Something went wrong"),
     };
 
-    // ERROR_DISK_FULL = 0x70 on Windows; ENOSPC = 0x1C on Linux/macOS. Both
-    // surface as the low 16 bits of HResult.
-    private static bool IsDiskFull(IOException io) =>
-        (io.HResult & 0xFFFF) is 0x70 or 0x1C;
+    private static bool IsDiskFull(IOException io)
+    {
+        var low = io.HResult & 0xFFFF;
+        return OperatingSystem.IsWindows()
+            ? low == 0x70           // ERROR_DISK_FULL
+            : low == 0x1C;          // POSIX ENOSPC
+    }
 }
