@@ -102,7 +102,7 @@ public partial class MainWindowViewModel
         catch (Exception ex)
         {
             Log.Error(ex, "Failed to scan folder: {Path}", folderPath);
-            State = StateMessage.Error($"Error: {ex.Message}");
+            State = ExceptionMapper.ToUserMessage(ex, "Scan");
         }
     }
 
@@ -157,7 +157,7 @@ public partial class MainWindowViewModel
         catch (Exception ex)
         {
             Log.Error(ex, "Failed to process folder: {Path}", folderPath);
-            State = StateMessage.Error($"Error: {ex.Message}");
+            State = ExceptionMapper.ToUserMessage(ex, "Processing");
         }
         finally
         {
@@ -232,6 +232,8 @@ public partial class MainWindowViewModel
             catch (Exception ex)
             {
                 Log.Warning(ex, "Failed to open report file: {Path}", path);
+                var folder = Path.GetDirectoryName(path);
+                State = StateMessage.Warning($"Report saved, but couldn't open it. Find it at: {folder}");
             }
         }
     }
@@ -297,7 +299,7 @@ public partial class MainWindowViewModel
         catch (Exception ex)
         {
             Log.Error(ex, "Report generation failed");
-            State = StateMessage.Error($"Error: {ex.Message}");
+            State = ExceptionMapper.ToUserMessage(ex, "Generation");
         }
         finally
         {

@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using CommunityToolkit.Mvvm.Input;
 using LunaApp.Models;
+using LunaApp.Services;
 using Serilog;
 
 namespace LunaApp.ViewModels;
@@ -56,6 +57,7 @@ public partial class MainWindowViewModel
         catch (Exception ex)
         {
             Log.Warning(ex, "Failed to reveal {File} in file manager", clip.FilePath);
+            State = StateMessage.Warning("Couldn't reveal that clip in the file manager.");
         }
     }
 

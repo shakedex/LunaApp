@@ -88,7 +88,7 @@ public partial class CreditsViewModel : ViewModelBase
         }
         catch (Exception ex)
         {
-            Log.Warning(ex, "Failed to open link {Url}", url);
+            Log.Warning(ex, "Failed to open link {Url} — copy manually from this log entry", url);
         }
     }
 }
