@@ -107,6 +107,8 @@ public partial class MainWindowViewModel : ViewModelBase
     private ProcessingPhase _etaPhase = ProcessingPhase.Idle;
     private Stopwatch? _etaStopwatch;
     private int _etaBaseItem;
+    private double _smoothedMsPerItem;
+    private int _itemsCompletedInPhase;
 
     // Hero success-hold state (M6) — populated after a successful GenerateReportsAsync
     // so the overlay can show "Report saved" + Open folder / Open report.
@@ -479,6 +481,8 @@ public partial class MainWindowViewModel : ViewModelBase
             _etaStopwatch = Stopwatch.StartNew();
             _etaBaseItem = report.Current;
             _currentPhaseShownAt = DateTime.UtcNow;
+            _smoothedMsPerItem = 0;
+            _itemsCompletedInPhase = 0;
         }
 
         Progress = report.Percent;
@@ -529,8 +533,18 @@ public partial class MainWindowViewModel : ViewModelBase
         var remaining = report.Total - report.Current;
         if (remaining <= 0) return string.Empty;
 
-        var msPerItem = _etaStopwatch.Elapsed.TotalMilliseconds / itemsDone;
-        var eta = TimeSpan.FromMilliseconds(msPerItem * remaining);
+        // Suppress ETA for the first 2 items so we don't show a wildly wrong
+        // estimate based on a single data point. After that, smooth across
+        // updates so a slow file doesn't push the ETA into "1h remaining" land.
+        _itemsCompletedInPhase = itemsDone;
+        if (_itemsCompletedInPhase < 2) return string.Empty;
+
+        var rawMsPerItem = _etaStopwatch.Elapsed.TotalMilliseconds / itemsDone;
+        _smoothedMsPerItem = _smoothedMsPerItem == 0
+            ? rawMsPerItem
+            : _smoothedMsPerItem * 0.7 + rawMsPerItem * 0.3;
+
+        var eta = TimeSpan.FromMilliseconds(_smoothedMsPerItem * remaining);
 
         return eta.TotalSeconds switch
         {
