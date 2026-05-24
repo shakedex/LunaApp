@@ -111,6 +111,10 @@
         <Setter Property="Padding" Value="6"/>
         <Setter Property="Cursor" Value="Hand"/>
     </Style>
+    <Style Selector="Button.iconOnly:focus-visible /template/ ContentPresenter">
+        <Setter Property="BorderBrush" Value="{DynamicResource LunaAccent}"/>
+        <Setter Property="BorderThickness" Value="2"/>
+    </Style>
     <Style Selector="Button.iconOnly:pointerover /template/ ContentPresenter">
         <Setter Property="Background" Value="{DynamicResource LunaBgTertiary}"/>
     </Style>

@@ -2,7 +2,6 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="using:LunaApp.Views.Controls"
              xmlns:mi="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
-             xmlns:services="using:LunaApp.Services"
              x:Class="LunaApp.Views.Controls.StateStrip"
              x:Name="Root">
 
@@ -39,16 +38,17 @@
                     Margin="12,0,0,0"
                     IsVisible="{Binding Message.Action, ElementName=Root, Converter={x:Static ObjectConverters.IsNotNull}}"
                     Command="{Binding Message.Action.Command, ElementName=Root}"
-                    Content="{Binding Message.Action.Label, ElementName=Root}"/>
+                    Content="{Binding Message.Action.Label, ElementName=Root}"
+                    AutomationProperties.Name="{Binding Message.Action.Label, ElementName=Root}"/>
 
             <!-- Dismiss -->
             <Button Grid.Column="3"
                     Classes="iconOnly"
                     Margin="8,0,0,0"
-                    Padding="6"
                     IsVisible="{Binding Message.IsDismissible, ElementName=Root}"
                     Click="OnDismissClick"
-                    ToolTip.Tip="Dismiss">
+                    ToolTip.Tip="Dismiss"
+                    AutomationProperties.Name="Dismiss status message">
                 <mi:MaterialIcon Kind="Close" Width="14" Height="14"
                                  Foreground="{DynamicResource LunaTextSecondary}"/>
             </Button>
