@@ -1,0 +1,39 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:LunaApp.Views.Controls"
+             xmlns:mi="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
+             x:Class="LunaApp.Views.Controls.InlineBanner"
+             x:Name="Root">
+
+    <UserControl.Resources>
+        <controls:LevelToBrushConverter x:Key="LevelToBrush"/>
+    </UserControl.Resources>
+
+    <Border Padding="14,10"
+            CornerRadius="{DynamicResource LunaRadiusMd}"
+            Background="{DynamicResource LunaBgTertiary}"
+            BorderThickness="{DynamicResource LunaBorderThin}"
+            BorderBrush="{Binding State.Level, ElementName=Root, Converter={StaticResource LevelToBrush}}"
+            IsVisible="{Binding State, ElementName=Root, Converter={x:Static ObjectConverters.IsNotNull}}">
+        <Grid ColumnDefinitions="Auto,*,Auto">
+            <Ellipse Grid.Column="0"
+                     Width="8" Height="8"
+                     VerticalAlignment="Center"
+                     Margin="0,0,12,0"
+                     Fill="{Binding State.Level, ElementName=Root, Converter={StaticResource LevelToBrush}}"/>
+            <TextBlock Grid.Column="1"
+                       Text="{Binding State.Text, ElementName=Root}"
+                       Foreground="{DynamicResource LunaTextPrimary}"
+                       FontSize="{DynamicResource LunaFontSizeSm}"
+                       VerticalAlignment="Center"
+                       TextWrapping="Wrap"/>
+            <Button Grid.Column="2"
+                    Classes="secondary"
+                    Margin="12,0,0,0"
+                    Content="Retry"
+                    Command="{Binding State.RetryCommand, ElementName=Root}"
+                    IsVisible="{Binding State.RetryCommand, ElementName=Root, Converter={x:Static ObjectConverters.IsNotNull}}"
+                    AutomationProperties.Name="Retry"/>
+        </Grid>
+    </Border>
+</UserControl>
