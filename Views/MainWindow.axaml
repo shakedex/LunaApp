@@ -300,7 +300,7 @@
                                                                         Classes="link"
                                                                         HorizontalAlignment="Left"
                                                                         IsVisible="{Binding HasActionableThumbnailIssue}"
-                                                                        Command="{Binding DataContext.OpenSettingsForCameraSupportCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                        Command="{Binding DataContext.OpenSettingsForCameraSupportCommand, ElementName=RootWindow}"
                                                                         AutomationProperties.Name="Install vendor support in Settings"/>
                                                             </StackPanel>
 
