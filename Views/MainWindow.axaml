@@ -292,14 +292,14 @@
                                                                 <TextBlock Text="{Binding ThumbnailIssueSummary}"
                                                                            FontSize="{DynamicResource LunaFontSizeXs}"
                                                                            Foreground="{DynamicResource LunaTextMuted}"
-                                                                           IsVisible="{Binding !ThumbnailIssueIsActionable}"
+                                                                           IsVisible="{Binding HasNonActionableThumbnailIssue}"
                                                                            TextWrapping="Wrap"/>
 
                                                                 <!-- Actionable (NoDecoder) — clickable, routes to Settings -->
                                                                 <Button Content="{Binding ThumbnailIssueSummary}"
                                                                         Classes="link"
                                                                         HorizontalAlignment="Left"
-                                                                        IsVisible="{Binding ThumbnailIssueIsActionable}"
+                                                                        IsVisible="{Binding HasActionableThumbnailIssue}"
                                                                         Command="{Binding DataContext.OpenSettingsForCameraSupportCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                                                         AutomationProperties.Name="Install vendor support in Settings"/>
                                                             </StackPanel>

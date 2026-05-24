@@ -85,7 +85,21 @@ public sealed class CameraClip
     /// </summary>
     public bool ThumbnailIssueIsActionable =>
         ThumbnailOutcome == ThumbnailOutcome.NoDecoder;
-    
+
+    /// <summary>
+    /// True only when there's a real thumbnail issue AND it's the actionable
+    /// NoDecoder case. Drives the clickable "install vendor support" link.
+    /// </summary>
+    public bool HasActionableThumbnailIssue =>
+        HasThumbnailIssue && ThumbnailIssueIsActionable;
+
+    /// <summary>
+    /// True only when there's a real thumbnail issue AND the user has no
+    /// direct action to take (SeekFailed/DecodeFailed/ContainerOpenFailed).
+    /// </summary>
+    public bool HasNonActionableThumbnailIssue =>
+        HasThumbnailIssue && !ThumbnailIssueIsActionable;
+
     private static string FormatFileSize(long bytes)
     {
         string[] sizes = ["B", "KB", "MB", "GB", "TB"];
