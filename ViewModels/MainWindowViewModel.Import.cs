@@ -5,6 +5,7 @@ using Avalonia.Platform.Storage;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using LunaApp.Models;
+using LunaApp.Services;
 using Serilog;
 
 namespace LunaApp.ViewModels;
@@ -60,12 +61,12 @@ public partial class MainWindowViewModel
 
         try
         {
-            StatusText = $"Counting files in {Path.GetFileName(folderPath)}...";
+            State = StateMessage.Info($"Counting files in {Path.GetFileName(folderPath)}…");
             var count = await _reportService.CountMediaFilesAsync(folderPath);
 
             if (count == 0)
             {
-                StatusText = "No video files found in this folder";
+                State = StateMessage.Warning("No video files found in this folder");
                 PendingFolderPath = null;
                 PendingClipCount = 0;
                 PendingFolderName = string.Empty;
@@ -92,16 +93,16 @@ public partial class MainWindowViewModel
                 _autoFilledReportName = folderName;
             }
 
-            StatusText = $"Found {count} video clip(s) ready to process";
+            State = StateMessage.Info($"Found {count} video clip(s) ready to scan");
         }
         catch (OperationCanceledException)
         {
-            StatusText = "Scan cancelled";
+            State = StateMessage.Info("Scan cancelled");
         }
         catch (Exception ex)
         {
             Log.Error(ex, "Failed to scan folder: {Path}", folderPath);
-            StatusText = $"Error: {ex.Message}";
+            State = StateMessage.Error($"Error: {ex.Message}");
         }
     }
 
@@ -131,7 +132,7 @@ public partial class MainWindowViewModel
         try
         {
             IsProcessing = true;
-            StatusText = $"Processing {PendingFolderName}...";
+            State = StateMessage.Info($"Processing {PendingFolderName}…");
             Progress = 0;
 
             var reels = await _reportService.ScanFolderAsync(folderPath, cts.Token);
@@ -144,11 +145,11 @@ public partial class MainWindowViewModel
             _appSettings.AddRecentSource(folderPath);
             _appSettings.Save();
 
-            StatusText = $"Found {ReelCount} reel(s) with {TotalClipCount} clips";
+            State = StateMessage.Info($"Found {ReelCount} reel(s) with {TotalClipCount} clips");
         }
         catch (OperationCanceledException)
         {
-            StatusText = "Processing cancelled";
+            State = StateMessage.Info("Processing cancelled");
             PendingFolderPath = null;
             PendingClipCount = 0;
             PendingFolderName = string.Empty;
@@ -156,7 +157,7 @@ public partial class MainWindowViewModel
         catch (Exception ex)
         {
             Log.Error(ex, "Failed to process folder: {Path}", folderPath);
-            StatusText = $"Error: {ex.Message}";
+            State = StateMessage.Error($"Error: {ex.Message}");
         }
         finally
         {
@@ -171,7 +172,7 @@ public partial class MainWindowViewModel
         PendingFolderPath = null;
         PendingClipCount = 0;
         PendingFolderName = string.Empty;
-        StatusText = "Ready - Drop camera footage to begin";
+        State = StateMessage.Idle("Ready — drop camera footage to begin");
     }
 
     /// <summary>
@@ -184,7 +185,7 @@ public partial class MainWindowViewModel
         if (_currentOperationCts is { IsCancellationRequested: false } cts)
         {
             Log.Information("User requested cancellation of current operation");
-            StatusText = "Cancelling...";
+            State = StateMessage.Info("Cancelling…");
             cts.Cancel();
             OnPropertyChanged(nameof(CanCancel));
         }
@@ -282,7 +283,7 @@ public partial class MainWindowViewModel
             };
 
             var outputPaths = await _reportService.GenerateReportsAsync(settings, cts.Token);
-            StatusText = $"Reports saved to {settings.OutputFolder}";
+            State = StateMessage.Success($"Reports saved to {settings.OutputFolder}");
 
             if (OpenWhenDone && outputPaths.Count > 0)
             {
@@ -291,12 +292,12 @@ public partial class MainWindowViewModel
         }
         catch (OperationCanceledException)
         {
-            StatusText = "Generation cancelled";
+            State = StateMessage.Info("Generation cancelled");
         }
         catch (Exception ex)
         {
             Log.Error(ex, "Report generation failed");
-            StatusText = $"Error: {ex.Message}";
+            State = StateMessage.Error($"Error: {ex.Message}");
         }
         finally
         {
@@ -323,7 +324,7 @@ public partial class MainWindowViewModel
         OnPropertyChanged(nameof(ShowDropZone));
         OnPropertyChanged(nameof(ShowPendingConfirmation));
 
-        StatusText = "Ready - Drop camera footage to begin";
+        State = StateMessage.Idle("Ready — drop camera footage to begin");
         Progress = 0;
     }
 }

@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Platform.Storage;
 using LunaApp.Models;
+using LunaApp.Services;
 using LunaApp.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 using Serilog;
@@ -174,7 +175,7 @@ public partial class MainWindow : Window
             {
                 Log.Information("Multi-folder drop received ({Count}), loading only the first: {Folder}",
                     folders.Count, folders[0]);
-                vm.StatusText = $"Loaded '{Path.GetFileName(folders[0])}' — drop one folder at a time for now";
+                vm.State = StateMessage.Warning($"Loaded '{Path.GetFileName(folders[0])}' — drop one folder at a time for now");
             }
 
             await vm.LoadFolderAsync(folders[0]);

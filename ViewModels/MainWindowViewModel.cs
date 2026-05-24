@@ -23,7 +23,8 @@ public partial class MainWindowViewModel : ViewModelBase
 
     // Core / shell state
     [ObservableProperty] private ObservableCollection<CameraReel> _reels = [];
-    [ObservableProperty] private string _statusText = "Ready - Drop camera footage to begin";
+    [ObservableProperty]
+    private StateMessage _state = StateMessage.Idle("Ready — drop camera footage to begin");
     [ObservableProperty] private int _progress;
     [ObservableProperty] private bool _isProcessing;
 
@@ -151,7 +152,7 @@ public partial class MainWindowViewModel : ViewModelBase
         SubscribeToUpdateService();
         SubscribeToCameraSupport(cameraSupportStatus);
 
-        StatusText = "Ready - Drop camera footage to begin";
+        State = StateMessage.Idle("Ready — drop camera footage to begin");
     }
 
     partial void OnReelsChanged(ObservableCollection<CameraReel> value)
@@ -353,9 +354,9 @@ public partial class MainWindowViewModel : ViewModelBase
         PhaseDetail = BuildDetail(report);
         EtaText = BuildEta(report);
 
-        StatusText = string.IsNullOrEmpty(report.CurrentItem)
+        State = StateMessage.Info(string.IsNullOrEmpty(report.CurrentItem)
             ? report.PhaseLabel
-            : $"{report.PhaseLabel}: {report.CurrentItem}";
+            : $"{report.PhaseLabel}: {report.CurrentItem}");
     }
 
     // Maps a per-phase (Phase, Percent) tick to a 0–100 ramp within its

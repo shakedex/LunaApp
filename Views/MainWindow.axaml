@@ -632,25 +632,20 @@
             </Grid>
         </Border>
 
-        <!-- Status bar -->
-        <Border Grid.Row="4"
-                Background="{DynamicResource LunaBgSecondary}"
-                BorderBrush="{DynamicResource LunaBorder}"
-                BorderThickness="0,1,0,0" Padding="24,12">
-            <Grid ColumnDefinitions="*,Auto">
-                <TextBlock Text="{Binding StatusText}" Foreground="{DynamicResource LunaTextSecondary}" VerticalAlignment="Center"/>
-
-                <!-- Progress bar -->
-                <ProgressBar Grid.Column="1"
-                             Value="{Binding Progress}"
-                             Maximum="100"
-                             Width="200"
-                             Height="4"
-                             IsVisible="{Binding IsProcessing}"
-                             Foreground="{DynamicResource LunaAccent}"
-                             Background="{DynamicResource LunaBgTertiary}"/>
-            </Grid>
-        </Border>
+        <!-- Status strip -->
+        <Grid Grid.Row="4" ColumnDefinitions="*,Auto">
+            <controls:StateStrip Grid.Column="0" Message="{Binding State}"/>
+            <ProgressBar Grid.Column="1"
+                         Value="{Binding Progress}"
+                         Maximum="100"
+                         Width="200"
+                         Height="4"
+                         Margin="0,0,24,0"
+                         VerticalAlignment="Center"
+                         IsVisible="{Binding IsProcessing}"
+                         Foreground="{DynamicResource LunaAccent}"
+                         Background="{DynamicResource LunaBgTertiary}"/>
+        </Grid>
     </Grid>
 
 </Window>

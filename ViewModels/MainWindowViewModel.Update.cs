@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using LunaApp.Models;
+using LunaApp.Services;
 using Serilog;
 using System.Threading.Tasks;
 
@@ -104,14 +105,14 @@ public partial class MainWindowViewModel
     {
         try
         {
-            StatusText = "Checking for updates...";
+            State = StateMessage.Info("Checking for updates…");
             var hasUpdate = await _updateService.CheckForUpdatesAsync();
-            StatusText = hasUpdate ? $"Update available: v{UpdateVersion}" : "You're up to date!";
+            State = StateMessage.Info(hasUpdate ? $"Update available: v{UpdateVersion}" : "You're up to date!");
         }
         catch (Exception ex)
         {
             Log.Error(ex, "Failed to check for updates");
-            StatusText = "Failed to check for updates";
+            State = StateMessage.Error("Failed to check for updates");
         }
     }
 
