@@ -1,5 +1,9 @@
+using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.IO;
+using System.Linq;
 using Avalonia.Platform.Storage;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -79,6 +83,15 @@ public partial class MainWindowViewModel : ViewModelBase
     private ProcessingPhase _etaPhase = ProcessingPhase.Idle;
     private Stopwatch? _etaStopwatch;
     private int _etaBaseItem;
+
+    // Hero success-hold state (M6) — populated after a successful GenerateReportsAsync
+    // so the overlay can show "Report saved" + Open folder / Open report.
+    [ObservableProperty] private OverlayState _overlayState = OverlayState.Idle;
+    [ObservableProperty] private string? _successLabel;
+    private IReadOnlyList<string>? _completedReportPaths;
+    private bool _userClosedOverlay;
+
+    private static readonly TimeSpan SuccessHoldDelay = TimeSpan.FromMilliseconds(2000);
 
     // Minimum time each phase label is visible before letting the next one take
     // over — prevents the overlay from strobing through phases on tiny projects.
@@ -256,6 +269,55 @@ public partial class MainWindowViewModel : ViewModelBase
     private void OpenCredits()
     {
         OpenCreditsRequested?.Invoke();
+    }
+
+    [RelayCommand]
+    private void OpenOutputFolder()
+    {
+        if (_completedReportPaths is { Count: > 0 } paths)
+        {
+            var folder = Path.GetDirectoryName(paths[0]);
+            if (!string.IsNullOrEmpty(folder) && Directory.Exists(folder))
+            {
+                try
+                {
+                    Process.Start(new ProcessStartInfo
+                    {
+                        FileName = folder,
+                        UseShellExecute = true,
+                    });
+                }
+                catch (Exception ex)
+                {
+                    Serilog.Log.Warning(ex, "Failed to open output folder {Folder}", folder);
+                    State = StateMessage.Warning("Couldn't open the output folder.");
+                }
+            }
+        }
+        _userClosedOverlay = true;
+    }
+
+    [RelayCommand]
+    private void OpenLastReport()
+    {
+        if (_completedReportPaths is { Count: > 0 } paths)
+        {
+            var report = paths.FirstOrDefault(p => p.EndsWith(".html")) ?? paths[0];
+            try
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = report,
+                    UseShellExecute = true,
+                });
+            }
+            catch (Exception ex)
+            {
+                Serilog.Log.Warning(ex, "Failed to open report file {Path}", report);
+                State = StateMessage.Warning("Couldn't open the report.");
+            }
+        }
+        _userClosedOverlay = true;
     }
 
     /// <summary>

@@ -132,6 +132,7 @@ public partial class MainWindowViewModel
         try
         {
             IsProcessing = true;
+            OverlayState = OverlayState.Processing;
             State = StateMessage.Info($"Processing {PendingFolderName}…");
             Progress = 0;
 
@@ -208,14 +209,27 @@ public partial class MainWindowViewModel
 
     private async Task EndOperationAsync()
     {
-        // Snap to full so the moon tweens to its complete state during the tail.
         OverallProgress = 100;
         Progress = 100;
-        await Task.Delay(EndTailDelay).ConfigureAwait(true);
+
+        if (OverlayState == OverlayState.SuccessHold)
+        {
+            var holdEnd = DateTime.UtcNow + SuccessHoldDelay;
+            while (DateTime.UtcNow < holdEnd && !_userClosedOverlay)
+            {
+                await Task.Delay(50).ConfigureAwait(true);
+            }
+        }
+        else
+        {
+            await Task.Delay(EndTailDelay).ConfigureAwait(true);
+        }
 
         _currentOperationCts = null;
         IsProcessing = false;
         OverallProgress = 0;
+        OverlayState = OverlayState.Idle;
+        SuccessLabel = null;
         OnPropertyChanged(nameof(CanCancel));
 
         if (_pendingOpenAfterTail is { } path)
@@ -233,7 +247,9 @@ public partial class MainWindowViewModel
             {
                 Log.Warning(ex, "Failed to open report file: {Path}", path);
                 var folder = Path.GetDirectoryName(path);
-                State = StateMessage.Warning($"Report saved, but couldn't open it. Find it at: {folder}");
+                State = StateMessage.Warning(
+                    $"Report saved, but couldn't open it. Find it at: {folder}",
+                    new StateAction("Open folder", OpenOutputFolderCommand));
             }
         }
     }
@@ -250,6 +266,7 @@ public partial class MainWindowViewModel
         try
         {
             IsProcessing = true;
+            OverlayState = OverlayState.Processing;
             Progress = 0;
 
             // Use the stored defaults as the source of truth — reconstructing
@@ -287,7 +304,14 @@ public partial class MainWindowViewModel
             };
 
             var outputPaths = await _reportService.GenerateReportsAsync(settings, cts.Token);
-            State = StateMessage.Success($"Reports saved to {settings.OutputFolder}");
+            _completedReportPaths = outputPaths;
+            OverlayState = OverlayState.SuccessHold;
+            SuccessLabel = "Report saved";
+            _userClosedOverlay = false;
+
+            State = StateMessage.Success(
+                $"Reports saved to {settings.OutputFolder}",
+                new StateAction("Open folder", OpenOutputFolderCommand));
 
             if (OpenWhenDone && outputPaths.Count > 0)
             {

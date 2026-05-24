@@ -160,6 +160,7 @@ public partial class MainWindowViewModel
     {
         if (IsProcessing) return;
         IsProcessing = true;
+        OverlayState = OverlayState.Processing;
         try
         {
             var phases = new[]

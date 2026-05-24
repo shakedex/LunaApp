@@ -6,6 +6,7 @@
         xmlns:models="using:LunaApp.Models"
         xmlns:mi="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
         xmlns:controls="using:LunaApp.Views.Controls"
+        xmlns:converters="using:LunaApp.Views.Controls"
         mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="800"
         x:Class="LunaApp.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
@@ -15,6 +16,11 @@
         MinWidth="900"
         MinHeight="600"
         Background="{DynamicResource LunaBgPrimary}">
+
+    <Window.Resources>
+        <!-- Used by the processing overlay to show/hide layers based on OverlayState (M6) -->
+        <converters:EnumEqualsConverter x:Key="EnumEquals"/>
+    </Window.Resources>
 
     <Grid RowDefinitions="Auto,Auto,*,Auto,Auto">
 
@@ -512,8 +518,11 @@
                                              IsActive="{Binding IsProcessing}"
                                              HorizontalAlignment="Center"/>
 
-                    <!-- Status text -->
-                    <StackPanel Spacing="8" HorizontalAlignment="Center">
+                    <!-- Status text — hidden during SuccessHold (M6) -->
+                    <StackPanel Spacing="8" HorizontalAlignment="Center"
+                                IsVisible="{Binding OverlayState,
+                                    Converter={StaticResource EnumEquals},
+                                    ConverterParameter=Processing}">
                         <TextBlock Text="{Binding PhaseLabel}"
                                    Classes="luna-phase-label"
                                    FontSize="{DynamicResource LunaFontSizeXl}"
@@ -534,8 +543,11 @@
                                    HorizontalAlignment="Center"/>
                     </StackPanel>
 
-                    <!-- Progress bar -->
-                    <StackPanel Spacing="8" Width="400" HorizontalAlignment="Center">
+                    <!-- Progress bar — hidden during SuccessHold (M6) -->
+                    <StackPanel Spacing="8" Width="400" HorizontalAlignment="Center"
+                                IsVisible="{Binding OverlayState,
+                                    Converter={StaticResource EnumEquals},
+                                    ConverterParameter=Processing}">
                         <ProgressBar Value="{Binding Progress}"
                                      Classes="luna-cosmic"
                                      Maximum="100"
@@ -548,19 +560,46 @@
                                    HorizontalAlignment="Center"/>
                     </StackPanel>
 
-                    <!-- Cancel button -->
+                    <!-- Cancel button — hidden during SuccessHold (M6) -->
                     <Button Classes="secondary"
                             Command="{Binding CancelProcessingCommand}"
                             IsEnabled="{Binding CanCancel}"
                             HorizontalAlignment="Center"
                             Padding="20,10"
                             Margin="0,8,0,0"
-                            AutomationProperties.Name="Cancel current operation">
+                            AutomationProperties.Name="Cancel current operation"
+                            IsVisible="{Binding OverlayState,
+                                Converter={StaticResource EnumEquals},
+                                ConverterParameter=Processing}">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <mi:MaterialIcon Kind="Close" Width="16" Height="16" Foreground="{DynamicResource LunaTextSecondary}"/>
                             <TextBlock Text="Cancel" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
+
+                    <!-- Success hold layer (M6) — shown for ~2s after generation completes -->
+                    <StackPanel Spacing="16"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                IsVisible="{Binding OverlayState,
+                                    Converter={StaticResource EnumEquals},
+                                    ConverterParameter=SuccessHold}">
+                        <TextBlock Text="{Binding SuccessLabel}"
+                                   FontSize="{DynamicResource LunaFontSizeXl}"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource LunaTextPrimary}"
+                                   HorizontalAlignment="Center"/>
+                        <StackPanel Orientation="Horizontal" Spacing="12" HorizontalAlignment="Center">
+                            <Button Classes="primary"
+                                    Content="Open folder"
+                                    Command="{Binding OpenOutputFolderCommand}"
+                                    AutomationProperties.Name="Open output folder"/>
+                            <Button Classes="secondary"
+                                    Content="Open report"
+                                    Command="{Binding OpenLastReportCommand}"
+                                    AutomationProperties.Name="Open generated report"/>
+                        </StackPanel>
+                    </StackPanel>
                 </StackPanel>
             </Border>
         </Grid>
