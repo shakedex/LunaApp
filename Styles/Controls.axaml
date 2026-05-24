@@ -104,6 +104,17 @@
         <Setter Property="Foreground" Value="{DynamicResource LunaAccentSubtle}"/>
     </Style>
 
+    <!-- Icon-only button (transparent, hover-tinted) -->
+    <Style Selector="Button.iconOnly">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Padding" Value="6"/>
+        <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.iconOnly:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource LunaBgTertiary}"/>
+    </Style>
+
     <!-- ==================== Surfaces ==================== -->
 
     <!-- Drop target (empty / pending confirmation state) -->

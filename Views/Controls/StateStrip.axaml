@@ -1,0 +1,57 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:LunaApp.Views.Controls"
+             xmlns:mi="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
+             xmlns:services="using:LunaApp.Services"
+             x:Class="LunaApp.Views.Controls.StateStrip"
+             x:Name="Root">
+
+    <UserControl.Resources>
+        <controls:LevelToBrushConverter x:Key="LevelToBrush"/>
+    </UserControl.Resources>
+
+    <Border BorderThickness="0,1,0,0"
+            BorderBrush="{DynamicResource LunaBorder}"
+            Background="{DynamicResource LunaBgSecondary}"
+            Padding="16,8">
+        <Grid ColumnDefinitions="Auto,*,Auto,Auto"
+              IsVisible="{Binding Message, ElementName=Root, Converter={x:Static ObjectConverters.IsNotNull}}">
+
+            <!-- Level dot -->
+            <Ellipse Grid.Column="0"
+                     Width="8" Height="8"
+                     VerticalAlignment="Center"
+                     Margin="0,0,12,0"
+                     Fill="{Binding Message.Level, ElementName=Root, Converter={StaticResource LevelToBrush}}"/>
+
+            <!-- Text -->
+            <TextBlock Grid.Column="1"
+                       Text="{Binding Message.Text, ElementName=Root}"
+                       Foreground="{DynamicResource LunaTextPrimary}"
+                       FontSize="{DynamicResource LunaFontSizeSm}"
+                       VerticalAlignment="Center"
+                       TextWrapping="NoWrap"
+                       TextTrimming="CharacterEllipsis"/>
+
+            <!-- Optional inline action -->
+            <Button Grid.Column="2"
+                    Classes="secondary"
+                    Margin="12,0,0,0"
+                    IsVisible="{Binding Message.Action, ElementName=Root, Converter={x:Static ObjectConverters.IsNotNull}}"
+                    Command="{Binding Message.Action.Command, ElementName=Root}"
+                    Content="{Binding Message.Action.Label, ElementName=Root}"/>
+
+            <!-- Dismiss -->
+            <Button Grid.Column="3"
+                    Classes="iconOnly"
+                    Margin="8,0,0,0"
+                    Padding="6"
+                    IsVisible="{Binding Message.IsDismissible, ElementName=Root}"
+                    Click="OnDismissClick"
+                    ToolTip.Tip="Dismiss">
+                <mi:MaterialIcon Kind="Close" Width="14" Height="14"
+                                 Foreground="{DynamicResource LunaTextSecondary}"/>
+            </Button>
+        </Grid>
+    </Border>
+</UserControl>
