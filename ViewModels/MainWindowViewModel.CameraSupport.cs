@@ -101,7 +101,8 @@ public sealed class CameraSupportToastState : ObservableObject
     }
 
     private bool IsSnoozed =>
-        _settings.CameraSupportSnoozeUntil is DateTime until && until > DateTime.Now;
+        (_settings.CameraSupportSnoozeUntil is DateTime snooze && snooze > DateTime.Now) ||
+        (_settings.CameraSupportDismissedUntil is DateTime dismiss && dismiss > DateTime.Now);
 
     public void Refresh()
     {
@@ -125,7 +126,25 @@ public sealed class CameraSupportToastState : ObservableObject
     }
 
     /// <summary>Called when <see cref="CameraSupportInstallationStatus.StatusChanged"/> fires.</summary>
-    public void OnStatusChanged() => Refresh();
+    public void OnStatusChanged()
+    {
+        // If the user dismissed because of a specific missing set, and that set
+        // is now installed, clear the dismissal so they're not permanently
+        // hidden from future changes (e.g. a different vendor goes missing
+        // because the user uninstalled it).
+        if (_settings.CameraSupportDismissedUntil is not null)
+        {
+            var missing = _status.ResolveMissing();
+            if (missing.Count == 0)
+            {
+                _settings.CameraSupportDismissedUntil = null;
+                _save(_settings);
+                _dismissedThisSession = false;
+            }
+        }
+
+        Refresh();
+    }
 
     public void RemindLater()
     {
@@ -137,7 +156,8 @@ public sealed class CameraSupportToastState : ObservableObject
 
     public void Dismiss()
     {
-        _dismissedThisSession = true;
+        _settings.CameraSupportDismissedUntil = DateTime.MaxValue;
+        _save(_settings);
         HasMissingCameraSupport = false;
         MissingCameraSupportSummary = string.Empty;
     }

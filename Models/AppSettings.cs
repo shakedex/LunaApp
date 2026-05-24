@@ -46,6 +46,16 @@ public sealed class AppSettings
     public DateTime? CameraSupportSnoozeUntil { get; set; }
 
     /// <summary>
+    /// When non-null and in the future, the camera-support banner is hidden
+    /// permanently for this session and across restarts. Set when the user
+    /// chooses "Dismiss" on the banner. Cleared automatically when the
+    /// previously missing tools become installed, so the user isn't hidden
+    /// from re-discovering changed state. Mirrors the shape of
+    /// <see cref="CameraSupportSnoozeUntil"/>.
+    /// </summary>
+    public DateTime? CameraSupportDismissedUntil { get; set; }
+
+    /// <summary>
     /// FFmpeg library path (if custom)
     /// </summary>
     public string? FfmpegPath { get; set; }
