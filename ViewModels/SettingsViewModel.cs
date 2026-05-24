@@ -4,6 +4,7 @@ using Avalonia.Platform.Storage;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using LunaApp.Models;
+using LunaApp.Services;
 using LunaApp.Services.CameraSupport;
 using LunaApp.Services.Chappie;
 using Serilog;
@@ -123,6 +124,12 @@ public partial class SettingsViewModel : ObservableValidator
     [ObservableProperty]
     private Bitmap? _logoBitmap;
 
+    /// <summary>
+    /// Inline banner shown at the top of the SettingsWindow. Non-null means
+    /// visible — Info (clamp summary) or Error (save failed with Retry).
+    /// </summary>
+    [ObservableProperty] private InlineBannerState? _saveBanner;
+
     partial void OnLogoPathChanged(string? value)
     {
         LogoBitmap?.Dispose();
@@ -165,7 +172,7 @@ public partial class SettingsViewModel : ObservableValidator
     public bool WillGenerateAnyReport => GenerateHtmlByDefault || GeneratePdfByDefault;
 
     /// <summary>Raised when the Save command succeeded so the host window can close with a positive result.</summary>
-    public event Action? SaveCompleted;
+    public event Action<ClampReport?>? SaveCompleted;
 
     partial void OnGenerateHtmlByDefaultChanged(bool value) =>
         OnPropertyChanged(nameof(WillGenerateAnyReport));
@@ -436,6 +443,21 @@ public partial class SettingsViewModel : ObservableValidator
     }
 
     /// <summary>
+    /// Clamps a text field to the given maximum length. Returns null for empty input.
+    /// If the trimmed value exceeds <paramref name="max"/>, truncates and records
+    /// the field name in the <paramref name="report"/> so MainWindow can surface
+    /// what got changed.
+    /// </summary>
+    private static string? Clamp(string? value, int max, string label, ClampReport report)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        var trimmed = value.Trim();
+        if (trimmed.Length <= max) return trimmed;
+        report.Add(label, trimmed.Length, max);
+        return trimmed[..max];
+    }
+
+    /// <summary>
     /// Save is always enabled — if the form has minor issues (too-long field,
     /// out-of-range thumbnail count) we clamp/fallback instead of blocking. The
     /// user sees the inline error and can fix it, but typing nothing shouldn't
@@ -445,13 +467,14 @@ public partial class SettingsViewModel : ObservableValidator
     private void Save()
     {
         var settings = _appSettings.DefaultReportSettings;
+        var clampReport = new ClampReport();
 
-        settings.ProjectName = string.IsNullOrWhiteSpace(ProjectName) ? null : ProjectName.Trim();
-        settings.ProductionCompany = string.IsNullOrWhiteSpace(ProductionCompany) ? null : ProductionCompany.Trim();
-        settings.DitName = string.IsNullOrWhiteSpace(DitName) ? null : DitName.Trim();
-        settings.Director = string.IsNullOrWhiteSpace(Director) ? null : Director.Trim();
-        settings.Dp = string.IsNullOrWhiteSpace(Dp) ? null : Dp.Trim();
-        settings.LogoPath = LogoPath;
+        settings.ProjectName       = Clamp(ProjectName, 120, "Project name", clampReport);
+        settings.ProductionCompany = Clamp(ProductionCompany, 120, "Production company", clampReport);
+        settings.DitName           = Clamp(DitName, 80, "DIT", clampReport);
+        settings.Director          = Clamp(Director, 80, "Director", clampReport);
+        settings.Dp                = Clamp(Dp, 80, "DP", clampReport);
+        settings.LogoPath          = LogoPath;
 
         settings.OutputFolder = string.IsNullOrWhiteSpace(OutputFolder)
             ? _appSettings.DefaultReportSettings.OutputFolder
@@ -464,7 +487,6 @@ public partial class SettingsViewModel : ObservableValidator
         settings.GroupPdfsInSeparateFolder = GroupPdfsInSeparateFolder;
         settings.Theme = IsDarkTheme ? ReportTheme.Dark : ReportTheme.Light;
 
-        // Embed logo as base64 so reports are self-contained.
         if (!string.IsNullOrEmpty(LogoPath) && File.Exists(LogoPath))
         {
             try
@@ -486,14 +508,15 @@ public partial class SettingsViewModel : ObservableValidator
         {
             Log.Information("Settings saved (project={Project}, output={Output}, theme={Theme})",
                 settings.ProjectName, settings.OutputFolder, settings.Theme);
-            SaveCompleted?.Invoke();
+            SaveBanner = null;
+            SaveCompleted?.Invoke(clampReport.HasAny ? clampReport : null);
         }
         else
         {
-            // Save() already logged the underlying exception. Keep the dialog
-            // open so the user knows something went wrong instead of silently
-            // losing their input.
-            Log.Warning("Settings write failed — leaving the dialog open");
+            Log.Warning("Settings write failed — surfacing inline banner");
+            SaveBanner = InlineBannerState.Error(
+                "Couldn't save settings. Check folder permissions or try again.",
+                SaveCommand);
         }
     }
 

@@ -104,7 +104,14 @@ public partial class MainWindow : Window
         // reliably depending on initializer ordering, so this path is explicit.
         var settingsVm = Program.Services.GetRequiredService<SettingsViewModel>();
         var settingsWindow = new SettingsWindow { DataContext = settingsVm };
-        settingsVm.SaveCompleted += () => settingsWindow.Close(true);
+        settingsVm.SaveCompleted += (clampReport) =>
+        {
+            if (DataContext is MainWindowViewModel mwvm)
+            {
+                mwvm.OnSettingsSaved(clampReport);
+            }
+            settingsWindow.Close(true);
+        };
 
         var result = await settingsWindow.ShowDialog<bool?>(this);
 

@@ -321,6 +321,19 @@ public partial class MainWindowViewModel : ViewModelBase
     }
 
     /// <summary>
+    /// Called from the Settings dialog's SaveCompleted event. Hydrates the
+    /// state strip with a summary of what got clamped (e.g., "Project name
+    /// trimmed to fit"). Null/empty report → no state push.
+    /// </summary>
+    public void OnSettingsSaved(ClampReport? clampReport)
+    {
+        if (clampReport?.HasAny == true)
+        {
+            State = StateMessage.Info(clampReport.Describe());
+        }
+    }
+
+    /// <summary>
     /// Reload the default report settings from disk (called after the settings
     /// dialog saves). Copies every field exhaustively — forgetting one here
     /// would silently drop the user's preference on the next generate run.
