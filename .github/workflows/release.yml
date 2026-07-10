@@ -163,10 +163,6 @@ jobs:
       - name: Restore dependencies
         run: dotnet restore LunaApp.csproj -r osx-arm64
 
-      - name: Set executable permissions on bundled tools
-        run: |
-          chmod +x ./tools/ffmpeg/osx-arm64/* || true
-
       - name: Publish application (self-contained + trimmed)
         run: |
           dotnet publish LunaApp.csproj -c Release -r osx-arm64 --self-contained true -o ./publish/osx-arm64 \
@@ -184,18 +180,126 @@ jobs:
             exit 1
           fi
 
+      # FFmpeg dylibs are NOT committed to the repo for macOS (unlike Windows).
+      # We pull them from Homebrew at build time, then use dylibbundler to
+      # rewrite each dylib's install_name + LC_LOAD_DYLIB entries from absolute
+      # /opt/homebrew/... paths to @loader_path/, and copy every transitive
+      # dependency into the same directory. The result is a self-contained
+      # tools/ffmpeg/osx-arm64/ folder that loads correctly from inside the
+      # .app bundle on machines without Homebrew.
+      #
+      # Luna is GPLv3, which is compatible with Homebrew's ffmpeg formula
+      # (built with --enable-gpl + GPL-licensed deps such as x264/x265).
+      - name: Install Homebrew FFmpeg + dylibbundler
+        run: |
+          brew update
+          brew install ffmpeg dylibbundler
+
+      - name: Bundle FFmpeg dylibs into publish output
+        run: |
+          set -euo pipefail
+          PREFIX=$(brew --prefix)
+          DEST="./publish/osx-arm64/tools/ffmpeg/osx-arm64"
+          mkdir -p "$DEST"
+
+          # Core libs Luna's FFmpeg.AutoGen bindings load. Versions match
+          # FFmpeg 7.x ABI (avcodec 61, avformat 61, avutil 59, swscale 8,
+          # swresample 5).
+          LIBS=(libavcodec.61 libavformat.61 libavutil.59 libswscale.8 libswresample.5)
+          for lib in "${LIBS[@]}"; do
+            src="$PREFIX/lib/$lib.dylib"
+            if [ ! -f "$src" ]; then
+              echo "::error::Expected FFmpeg dylib not found at $src"
+              exit 1
+            fi
+            cp -L "$src" "$DEST/"
+            chmod u+w "$DEST/$lib.dylib"
+          done
+
+          # dylibbundler walks each -x dylib's deps, copies them into -d, and
+          # rewrites every install_name + reference to @loader_path/<basename>.
+          # -of: overwrite already-present files (the 5 we just staged).
+          # -b:  ignore missing inputs gracefully (none expected).
+          XFLAGS=()
+          for lib in "${LIBS[@]}"; do
+            XFLAGS+=(-x "$DEST/$lib.dylib")
+          done
+          dylibbundler -of -b -d "$DEST/" -p '@loader_path/' "${XFLAGS[@]}"
+
+          echo "Bundled FFmpeg payload:"
+          ls -la "$DEST"
+
+      - name: Verify FFmpeg dylibs + runtime payload
+        run: |
+          set -euo pipefail
+          PUB="./publish/osx-arm64"
+          REQUIRED=(
+            "Luna" "Avalonia.dll" "SkiaSharp.dll"
+            "FFmpeg.AutoGen.dll" "MediaInfo.Wrapper.Core.dll"
+            "QuestPDF.dll" "Velopack.dll"
+            "libSkiaSharp.dylib"
+          )
+          for f in "${REQUIRED[@]}"; do
+            if [ ! -f "$PUB/$f" ]; then
+              echo "::error::Required file missing from publish output: $f"
+              exit 1
+            fi
+          done
+
+          FFMPEG_DIR="$PUB/tools/ffmpeg/osx-arm64"
+          REQUIRED_DYLIBS=(
+            "libavcodec.61.dylib" "libavformat.61.dylib" "libavutil.59.dylib"
+            "libswscale.8.dylib" "libswresample.5.dylib"
+          )
+          for f in "${REQUIRED_DYLIBS[@]}"; do
+            if [ ! -f "$FFMPEG_DIR/$f" ]; then
+              echo "::error::FFmpeg dylib missing: $f"
+              exit 1
+            fi
+          done
+
+          # Catch the silent failure mode where dylibbundler skipped rewriting
+          # and left absolute /opt/homebrew/ refs that would break on user
+          # machines. Anything still pointing outside @loader_path/ is fatal.
+          echo "Auditing install_name references..."
+          BAD=0
+          for dylib in "$FFMPEG_DIR"/*.dylib; do
+            while IFS= read -r ref; do
+              case "$ref" in
+                @loader_path/*|@executable_path/*|@rpath/*|/usr/lib/*|/System/*) ;;
+                *)
+                  echo "::error::$dylib still references $ref"
+                  BAD=1
+                  ;;
+              esac
+            done < <(otool -L "$dylib" | tail -n +2 | awk '{print $1}')
+          done
+          if [ "$BAD" -ne 0 ]; then
+            exit 1
+          fi
+
+          if [ -f "$PUB/Avalonia.Diagnostics.dll" ]; then
+            echo "::error::Avalonia.Diagnostics.dll leaked into Release publish output"
+            exit 1
+          fi
+          echo "✓ macOS publish payload verified"
+
       - name: Set executable permissions on published app
         run: |
           chmod +x ./publish/osx-arm64/Luna
-          chmod +x ./publish/osx-arm64/tools/ffmpeg/osx-arm64/* || true
+          chmod +x ./publish/osx-arm64/tools/ffmpeg/osx-arm64/*.dylib || true
 
-      - name: Create Velopack installer (DMG, branded icon)
+      - name: Create Velopack installer (.pkg, branded icon)
+        # Velopack on macOS produces a .pkg installer (productbuild) plus a
+        # portable .zip — there is no DMG output. --channel osx-arm64 keeps
+        # the artifact name arch-specific so an Intel build later won't collide.
         run: |
           vpk pack \
             --packId "Luna" \
             --packVersion ${{ needs.resolve-version.outputs.version }} \
             --packDir ./publish/osx-arm64 \
             --mainExe Luna \
+            --channel osx-arm64 \
             --outputDir ./releases/osx-arm64 \
             --packAuthors "Luna" \
             --packTitle "Luna - Camera Report Generator" \
@@ -254,10 +358,10 @@ jobs:
             3. Luna installs to your user profile (no admin required) and launches automatically
 
             ### macOS (Apple Silicon)
-            1. Download `Luna-${{ needs.resolve-version.outputs.version }}-osx-arm64.dmg`
-            2. Open the DMG and drag Luna to Applications
-            3. First launch: Right-click Luna → Open → Click "Open" in the dialog
-            4. **Important:** Run this command in Terminal to enable bundled tools:
+            1. Download `Luna-osx-arm64-Setup.pkg`
+            2. Double-click the .pkg and follow the installer — Luna lands in `/Applications`
+            3. First launch: Right-click Luna → Open → Click "Open" in the dialog (Gatekeeper bypass for unsigned builds)
+            4. **Important:** Run this command in Terminal to clear quarantine on bundled tools:
                ```
                xattr -cr /Applications/Luna.app
                ```

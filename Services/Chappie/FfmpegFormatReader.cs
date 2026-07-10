@@ -15,10 +15,27 @@ namespace LunaApp.Services.Chappie;
 /// </summary>
 public sealed unsafe class FfmpegFormatReader
 {
+    private readonly bool _isAvailable;
+
+    public bool IsAvailable => _isAvailable;
+
     public FfmpegFormatReader()
     {
-        // Reuses the same init + library path resolution as the thumbnail service.
-        FfmpegThumbnailService.EnsureInitialized();
+        // Mirror FfmpegThumbnailService's resilient init: degrade rather than
+        // killing the host process when libs are missing on the user's machine.
+        // ReadMetadata() returns null when unavailable so callers fall through
+        // to other enrichers instead of crashing the DI graph at startup.
+        try
+        {
+            FfmpegThumbnailService.EnsureInitialized();
+            _isAvailable = true;
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "FFmpeg format reader disabled — native libs not found. " +
+                            "Container-tag enrichers will skip.");
+            _isAvailable = false;
+        }
     }
 
     public sealed record FormatMetadata(
@@ -28,6 +45,8 @@ public sealed unsafe class FfmpegFormatReader
 
     public FormatMetadata? ReadMetadata(string filePath)
     {
+        if (!_isAvailable) return null;
+
         AVFormatContext* ctx = null;
         try
         {

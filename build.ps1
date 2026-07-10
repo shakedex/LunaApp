@@ -140,13 +140,15 @@ foreach ($rid in $RuntimesToBuild) {
         if ($rid.StartsWith("osx") -and (-not $IsWindows)) {
             Write-Host "Setting executable permissions..." -ForegroundColor Yellow
             chmod +x "$publishPath/Luna"
-            Get-ChildItem "$publishPath/tools/ffmpeg/osx-arm64" -ErrorAction SilentlyContinue | ForEach-Object {
+            Get-ChildItem "$publishPath/tools/ffmpeg/$rid" -ErrorAction SilentlyContinue | ForEach-Object {
                 chmod +x $_.FullName
             }
         }
-        
+
         # Windows: Velopack Setup.exe with branded splash + Luna icon.
-        # macOS: Velopack DMG with the .icns icon for bundle/DMG branding.
+        # macOS: Velopack .pkg installer (productbuild) with the .icns icon
+        # for bundle branding. Velopack does not produce a DMG — output is
+        # always .pkg + portable .zip on osx.
         if ($rid.StartsWith("win")) {
             vpk pack `
                 --packId "Luna" `
@@ -159,11 +161,14 @@ foreach ($rid in $RuntimesToBuild) {
                 --icon "Assets/luna-logo.ico" `
                 --splashImage "Assets/install-splash.png"
         } else {
+            # --channel keeps artifact filenames arch-specific (e.g.
+            # Luna-osx-arm64-Setup.pkg) so a future Intel build won't collide.
             vpk pack `
                 --packId "Luna" `
                 --packVersion $Version `
                 --packDir $publishPath `
                 --mainExe $mainExe `
+                --channel $rid `
                 --outputDir $releasesDir `
                 --packAuthors "Luna" `
                 --packTitle "Luna - Camera Report Generator" `
