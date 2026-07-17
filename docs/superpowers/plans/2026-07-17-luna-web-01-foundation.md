@@ -66,15 +66,16 @@ web/
 ## Task 1: Workspace root
 
 **Files:**
-- Create: `web/package.json`, `web/bunfig.toml`, `web/tsconfig.base.json`, `web/biome.json`, `web/.gitignore`, `web/README.md`
+- Create (hand-authored, no version-sensitive content): `web/package.json`, `web/bunfig.toml`, `web/tsconfig.base.json`, `web/.gitignore`, `web/README.md`
+- Generate via CLI: `web/biome.json` (`biome init`)
 
 **Interfaces:**
 - Consumes: nothing.
-- Produces: a Bun workspace rooted at `web/` with `workspaces: ["app", "docs", "packages/*"]`; a shared `tsconfig.base.json`; Biome config; scripts `lint`, `format`, `typecheck`, `test`, `build` that fan out with `bun --filter '*'`.
+- Produces: a Bun workspace rooted at `web/` with `workspaces: ["app", "docs", "packages/*"]`; a shared `tsconfig.base.json`; a Biome config at the installed (latest) version; scripts `lint`, `format`, `typecheck`, `test`, `build` that fan out with `bun --filter '*'`.
 
-- [ ] **Step 1: Create the workspace root `package.json`**
+**VERSION RULE (applies to every task in this plan):** never hand-write a dependency version into any `package.json`. Add each dependency with `bun add` / `bun add -d`, which installs the **latest** and writes the resolved version for you. Keep whatever versions a scaffolder or `bun add` writes — never downgrade or pin them by hand.
 
-Create `web/package.json`:
+- [ ] **Step 1: Create the workspace root `package.json`** (no dependencies here — they are added at latest in Step 4)
 
 ```json
 {
@@ -88,10 +89,6 @@ Create `web/package.json`:
     "typecheck": "bun --filter '*' typecheck",
     "test": "bun --filter '*' test",
     "build": "bun --filter '*' build"
-  },
-  "devDependencies": {
-    "@biomejs/biome": "^2.0.0",
-    "typescript": "^5.6.0"
   }
 }
 ```
@@ -103,7 +100,7 @@ Create `web/package.json`:
 exact = false
 ```
 
-- [ ] **Step 3: Create the shared `web/tsconfig.base.json`**
+- [ ] **Step 3: Create the shared `web/tsconfig.base.json`** (no versions in this file)
 
 ```json
 {
@@ -125,19 +122,23 @@ exact = false
 }
 ```
 
-- [ ] **Step 4: Create `web/biome.json`**
+- [ ] **Step 4: Add the toolchain at the latest version (do NOT hand-write versions)**
 
-```json
-{
-  "$schema": "https://biomejs.dev/schemas/2.0.0/schema.json",
-  "files": { "ignore": ["**/dist/**", "**/.astro/**", "**/routeTree.gen.ts"] },
-  "formatter": { "enabled": true, "indentStyle": "space", "indentWidth": 2, "lineWidth": 100 },
-  "linter": { "enabled": true, "rules": { "recommended": true } },
-  "javascript": { "formatter": { "quoteStyle": "single", "semicolons": "asNeeded" } }
-}
-```
+Run: `cd web && bun add -d @biomejs/biome typescript`
+Expected: both install at their current latest; bun writes a `devDependencies` block into `web/package.json` with resolved versions; `web/node_modules` and `web/bun.lock` are created. Do not edit the versions bun writes.
 
-- [ ] **Step 5: Create `web/.gitignore`**
+- [ ] **Step 5: Generate the Biome config with the CLI, then set preferences**
+
+Run: `cd web && bunx @biomejs/biome init`
+This writes `web/biome.json` with a `$schema` that matches the just-installed version. Then edit that generated file to:
+- enable VCS-aware ignores so build output and generated files are skipped automatically (avoids hand-maintaining ignore globs):
+  `"vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true }`
+- formatter: `indentStyle: "space"`, `indentWidth: 2`, `lineWidth: 100`
+- JavaScript formatter: `quoteStyle: "single"`, `semicolons: "asNeeded"`
+
+Use the exact key names present in the generated file for the installed Biome version — do not import keys from a different version's schema. Keep the `$schema` line that `biome init` wrote.
+
+- [ ] **Step 6: Create `web/.gitignore`**
 
 ```gitignore
 node_modules/
@@ -149,7 +150,7 @@ routeTree.gen.ts
 .wrangler/
 ```
 
-- [ ] **Step 6: Create `web/README.md`**
+- [ ] **Step 7: Create `web/README.md`**
 
 ```markdown
 # Luna Web
@@ -167,12 +168,12 @@ Bun workspace: `app` (the tool), `docs` (Starlight), `packages/core` (pure logic
 - `bun run lint` / `bun run typecheck` — quality gates
 ```
 
-- [ ] **Step 7: Install and verify the workspace resolves**
+- [ ] **Step 8: Verify the workspace and lint config resolve**
 
-Run: `cd web && bun install`
-Expected: completes without error; `web/node_modules` and `web/bun.lock` created.
+Run: `cd web && bun install && bunx @biomejs/biome check .`
+Expected: install is clean; Biome runs without a configuration error (any style findings are fine — fix with `bun run format`).
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 9: Commit**
 
 ```bash
 git add web/package.json web/bunfig.toml web/tsconfig.base.json web/biome.json web/.gitignore web/README.md web/bun.lock
@@ -337,37 +338,29 @@ cd web && bun create vite@latest app --template react-ts
 
 Then tell the controller "done". Do NOT run `bun install` inside `app/` separately — the workspace install handles it.
 
-- [ ] **Step 2: Rewrite `web/app/package.json` for the monorepo**
+- [ ] **Step 2: Adapt `web/app/package.json` for the monorepo (KEEP the scaffolded versions)**
 
-Set name/scripts/deps (keep whatever React version the scaffold pinned if newer):
+Do **not** rewrite dependency versions — create-vite pinned the current latest at scaffold time; keep every one exactly as generated. Edit only these fields:
+- `"name": "@luna-web/app"`
+- ensure `"private": true` and `"type": "module"` are present
+- replace the `scripts` block with:
 
 ```json
-{
-  "name": "@luna-web/app",
-  "version": "0.0.0",
-  "private": true,
-  "type": "module",
-  "scripts": {
-    "dev": "vite",
-    "build": "tsc -b --noEmit && vite build",
-    "preview": "vite preview",
-    "typecheck": "tsc -b --noEmit",
-    "test": "bun test"
-  },
-  "dependencies": {
-    "@luna-web/core": "workspace:*",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0"
-  },
-  "devDependencies": {
-    "@types/react": "^19.0.0",
-    "@types/react-dom": "^19.0.0",
-    "@vitejs/plugin-react": "^4.3.0",
-    "typescript": "^5.6.0",
-    "vite": "^6.0.0"
-  }
+"scripts": {
+  "dev": "vite",
+  "build": "tsc -b --noEmit && vite build",
+  "preview": "vite preview",
+  "typecheck": "tsc -b --noEmit",
+  "test": "bun test"
 }
 ```
+
+- delete the ESLint entries from `devDependencies` (whichever the scaffold added — e.g. `eslint`, `@eslint/js`, `typescript-eslint`, `eslint-plugin-react-hooks`, `eslint-plugin-react-refresh`, `globals`). Leave every other dependency and its version untouched.
+
+- [ ] **Step 2b: Add the core package as a workspace dependency**
+
+Run: `cd web/app && bun add '@luna-web/core@workspace:*'`
+Expected: `@luna-web/core` is added to `app` `dependencies` as `workspace:*`. (No version number — it resolves to the local package.)
 
 - [ ] **Step 3: Remove ESLint + boilerplate the scaffold added**
 
