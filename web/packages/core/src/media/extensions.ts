@@ -1,6 +1,16 @@
 export const SUPPORTED_MEDIA_EXTENSIONS = [
-  '.mov', '.mp4', '.mxf', '.avi', '.mkv', '.m4v',
-  '.mts', '.m2ts', '.3gp', '.webm', '.wmv', '.flv',
+  '.mov',
+  '.mp4',
+  '.mxf',
+  '.avi',
+  '.mkv',
+  '.m4v',
+  '.mts',
+  '.m2ts',
+  '.3gp',
+  '.webm',
+  '.wmv',
+  '.flv',
 ] as const
 
 export const UNSUPPORTED_RAW_EXTENSIONS = ['.r3d', '.braw', '.ari'] as const
