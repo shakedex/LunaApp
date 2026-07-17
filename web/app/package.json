@@ -12,8 +12,10 @@
   },
   "dependencies": {
     "@luna-web/core": "workspace:*",
+    "@tailwindcss/vite": "^4.3.3",
     "react": "^19.2.7",
-    "react-dom": "^19.2.7"
+    "react-dom": "^19.2.7",
+    "tailwindcss": "^4.3.3"
   },
   "devDependencies": {
     "@types/node": "^24.13.2",
