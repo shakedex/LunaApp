@@ -817,16 +817,66 @@ git commit -m "feat(docs): scaffold astro starlight at /docs base"
 
 ---
 
-## Task 8: CI — lint, typecheck, test, build
+## Task 8: Green the gates + CI
+
+Tasks 2–6 verified via build/typecheck but never ran Biome, so the branch has accumulated
+lint findings. This task makes `bun run lint`, `typecheck`, `test`, and `build` all pass, then
+adds the CI workflow that enforces them.
 
 **Files:**
+- Modify: `web/biome.json` (exclude generated/CSS/SVG files), `web/package.json` (`test` script),
+  `web/docs/package.json` (`private`), plus Biome auto-formatting across `web/app` and `web/packages/core`
 - Create: `.github/workflows/web-ci.yml`
 
 **Interfaces:**
-- Consumes: the `web/` workspace scripts.
-- Produces: a workflow that runs on pushes/PRs touching `web/**` and gates on Biome, typecheck, `bun test`, and production builds of `app` and `docs`.
+- Consumes: all packages from Tasks 1–7.
+- Produces: green `bun run lint|typecheck|test|build`, and a CI workflow enforcing them.
 
-- [ ] **Step 1: Create `.github/workflows/web-ci.yml`**
+- [ ] **Step 1: Exclude non-hand-written files from Biome**
+
+Biome can't parse Tailwind v4 CSS (`@theme`/`@apply`) and shouldn't lint shadcn-generated
+components or asset SVGs. Edit `web/biome.json`'s `files.includes` (currently `["**", "!docs"]`) to:
+
+```json
+"includes": ["**", "!docs", "!**/*.css", "!**/*.svg", "!app/src/components/ui"]
+```
+Use the Biome 2.5.4 schema shape (bare folder name for directories, as with `!docs`). If a pattern
+is rejected, run `bun run lint` to see the tool's suggested form and adjust.
+
+- [ ] **Step 2: Fix the root `test` script and the docs `private` flag**
+
+In `web/package.json`, change `"test": "bun --filter '*' test"` to `"test": "bun test"` (the runner
+discovers all `*.test.ts` across the workspace; the per-package fan-out fails because `app`/`docs`
+have no test files). In `web/docs/package.json`, add `"private": true` (matching `app` and `core`).
+
+- [ ] **Step 3: Auto-fix formatting/assist, then verify lint is clean**
+
+Run: `cd web && bunx @biomejs/biome check --write .`
+(applies the formatter + safe lint fixes + import/export sorting to the includable files —
+`capability-gate.tsx`, `lib/utils.ts`, `packages/core/src/*`, `tsconfig.json`, etc.)
+Then: `cd web && bun run lint`
+Expected: exit 0, no errors. Fix any residual findings by hand and re-run.
+
+- [ ] **Step 4: Verify every gate passes locally**
+
+Run each from `web/`:
+```bash
+bun run lint
+bun run typecheck
+bun test
+bun run build
+```
+Expected: all exit 0. (`bun run build` = `bun --filter '*' build`, building core, app, and docs;
+`bun test` discovers `packages/core`'s tests.)
+
+- [ ] **Step 5: Commit the gate fixes**
+
+```bash
+git add web/
+git commit -m "chore(web): green biome/lint gates across the workspace"
+```
+
+- [ ] **Step 6: Create `.github/workflows/web-ci.yml`**
 
 ```yaml
 name: web-ci
@@ -854,29 +904,27 @@ jobs:
       - run: bun run lint
       - run: bun run typecheck
       - run: bun test
-      - run: bun --filter app build
-      - run: bun --filter docs build
+      - run: bun run build
 ```
+(Uses the root `build` script — `bun --filter '*' build` — not per-package filters, since the
+package names are `@luna-web/app|docs`, not their directory names.)
 
-- [ ] **Step 2: Verify the same gates pass locally**
+- [ ] **Step 7: Verify the CI gates locally with a frozen lockfile**
 
-Run each from `web/`:
-```bash
-bun install --frozen-lockfile
-bun run lint
-bun run typecheck
-bun test
-bun --filter app build
-bun --filter docs build
-```
-Expected: every command exits 0. Fix Biome findings with `bun run format` then re-run `bun run lint`.
+Run from `web/`: `bun install --frozen-lockfile && bun run lint && bun run typecheck && bun test && bun run build`
+Expected: all exit 0 (mirrors the CI job).
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 8: Commit the workflow**
 
 ```bash
 git add .github/workflows/web-ci.yml
 git commit -m "ci(web): lint, typecheck, test, and build gates"
 ```
+
+- [ ] **Step 9: Push (controller, after review)**
+
+After this task's review passes, the controller runs `git push -u origin feature/luna-web`
+and confirms the `web-ci` workflow is green on GitHub. Needs the maintainer's remote/GitHub access.
 
 ---
 
