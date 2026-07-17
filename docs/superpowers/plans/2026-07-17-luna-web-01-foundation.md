@@ -336,6 +336,8 @@ The maintainer runs this interactively (choose React + TypeScript if prompted):
 cd web && bun create vite@latest app --template react-ts
 ```
 
+Note: `web/app/` already contains a throwaway placeholder `package.json` from Task 1 (needed so Bun's workspace resolver accepts the literal `app` entry). When create-vite warns the target directory is not empty, choose **Remove existing files and continue** — the placeholder is disposable and gets replaced by the real scaffold.
+
 Then tell the controller "done". Do NOT run `bun install` inside `app/` separately — the workspace install handles it.
 
 - [ ] **Step 2: Adapt `web/app/package.json` for the monorepo (KEEP the scaffolded versions)**
@@ -712,6 +714,8 @@ The maintainer runs this interactively (when prompted: use the current directory
 ```bash
 cd web && bun create astro@latest docs -- --template starlight
 ```
+
+Note: `web/docs/` already contains a throwaway placeholder `package.json` from Task 1. When create-astro warns the target directory is not empty, choose to **remove/overwrite existing files** — the placeholder is disposable and gets replaced by the real scaffold.
 
 Then tell the controller "done".
 
