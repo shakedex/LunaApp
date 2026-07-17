@@ -2,7 +2,7 @@
   "name": "@luna-web/docs",
   "private": true,
   "type": "module",
-  "version": "0.0.1",
+  "version": "0.0.0",
   "scripts": {
     "dev": "astro dev",
     "start": "astro dev",

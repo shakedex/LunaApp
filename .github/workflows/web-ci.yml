@@ -2,7 +2,7 @@ name: web-ci
 
 on:
   push:
-    branches: [feature/luna-web]
+    branches: [feature/luna-web, master]
     paths: ['web/**', '.github/workflows/web-ci.yml']
   pull_request:
     paths: ['web/**', '.github/workflows/web-ci.yml']
