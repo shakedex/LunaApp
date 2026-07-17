@@ -1,0 +1,21 @@
+{
+  "name": "luna-web-workspace",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "app",
+    "docs",
+    "packages/*"
+  ],
+  "scripts": {
+    "lint": "biome check .",
+    "format": "biome format --write .",
+    "typecheck": "bun --filter '*' typecheck",
+    "test": "bun --filter '*' test",
+    "build": "bun --filter '*' build"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.4",
+    "typescript": "^7.0.2"
+  }
+}
