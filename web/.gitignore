@@ -5,3 +5,7 @@ dist/
 routeTree.gen.ts
 .dev.vars
 .wrangler/
+
+# The repo root .gitignore blankets any "packages" dir for NuGet Package Restore
+# (**/[Pp]ackages/*). Un-ignore our Bun workspace packages so packages/* is tracked.
+!packages/*
