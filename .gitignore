@@ -489,7 +489,10 @@ docker-output/
 .claude/
 streaming/
 stream.m3u8
-docs/
+docs/*
+# Keep design specs under version control; the rest of docs/ (vendor SDKs,
+# generated output) stays ignored.
+!docs/superpowers/
 .worktrees/
 
 # ARRI ART CLI binaries — proprietary, not redistributable. Bundling was
