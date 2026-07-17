@@ -214,7 +214,7 @@ acceptable because Luna Web is open-source.
 | Data grid (results) | **TanStack Table** | MIT |
 | List virtualization | **TanStack Virtual** | MIT |
 | Forms (cover, settings) | **TanStack Form** | MIT |
-| Components | **shadcn/ui** (owned code, on Radix UI) | MIT |
+| Components | **shadcn/ui** (owned code, on **Base UI** — `@base-ui/react`, shadcn 4.x's `base-nova` default) | MIT |
 | Icons | **lucide-react** | ISC |
 | Styling | **Tailwind CSS v4** (`@tailwindcss/vite`) | MIT |
 | Worker RPC | **Comlink** | Apache-2.0 |
