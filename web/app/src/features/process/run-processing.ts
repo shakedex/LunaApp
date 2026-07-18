@@ -1,8 +1,4 @@
-import {
-  type ClipRef,
-  type MediaInfoObjectResult,
-  mapMediaInfoToClipMetadata,
-} from '@luna-web/core'
+import { type ClipRef, mapMediaInfoToClipMetadata } from '@luna-web/core'
 import { scanStore } from '../scan/store'
 import { createMetadataWorker, type MetadataWorkerHandle } from './metadata-client'
 
@@ -32,7 +28,7 @@ export async function startProcessing(): Promise<void> {
       for (;;) {
         const index = nextIndex++
         if (index >= clips.length) return
-        const clip = clips[index] as ClipRef
+        const clip = clips[index]
         setStatus(clip.id, 'processing')
         let attempt = 0
         for (;;) {
@@ -83,7 +79,7 @@ async function analyzeClip(handle: MetadataWorkerHandle, clip: ClipRef) {
   // (structured-cloneable into the worker).
   const file = (await clip.file.getFile()) as File
   const raw = await withTimeout(handle.api.analyze(file), METADATA_TIMEOUT_MS, clip.fileName)
-  return mapMediaInfoToClipMetadata(raw as MediaInfoObjectResult)
+  return mapMediaInfoToClipMetadata(raw)
 }
 
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {

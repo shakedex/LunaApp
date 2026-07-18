@@ -135,7 +135,7 @@ function ClipRow({ clip, state }: { clip: ClipRef; state: ScanState }) {
     <li className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] items-center gap-x-4 px-4 py-2 text-sm">
       <span className="truncate">{clip.relativePath}</span>
       <span className="text-muted-foreground tabular-nums">
-        {m?.width && m?.height ? `${m.width}×${m.height}` : '—'}
+        {m?.width !== undefined && m?.height !== undefined ? `${m.width}×${m.height}` : '—'}
       </span>
       <span className="text-muted-foreground">{m?.codec ?? '—'}</span>
       <span className="text-muted-foreground tabular-nums">
