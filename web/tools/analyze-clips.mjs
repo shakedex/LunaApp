@@ -56,8 +56,9 @@ const MEDIA_EXTS = new Set([...SUPPORTED_MEDIA_EXTENSIONS, ...UNSUPPORTED_RAW_EX
 // .dng/.cdng = CinemaDNG. Explicit file args bypass filtering entirely.
 const EXTRA_PROBE_EXTS = new Set(['.crm', '.rmf', '.cine', '.dng', '.cdng'])
 const PROBE_EXTS = new Set([...MEDIA_EXTS, ...EXTRA_PROBE_EXTS])
-const SIDECAR_TEXT_EXTS = new Set(['.xml', '.ale', '.xmp', '.cdl', '.ccc', '.txt'])
-const SIDECAR_BINARY_EXTS = new Set(['.bin'])
+const SIDECAR_TEXT_EXTS = new Set(['.xml', '.ale', '.xmp', '.cdl', '.ccc', '.txt', '.rmd'])
+// .rtn = RED thumbnail sidecar ("REDTHUMBNAIL" header + JPEG); .bin = Avid bin.
+const SIDECAR_BINARY_EXTS = new Set(['.bin', '.rtn'])
 const SKIP_DIRS = new Set(['node_modules', '.git', 'out'])
 const MAX_SIDECAR_TEXT_BYTES = 512 * 1024
 

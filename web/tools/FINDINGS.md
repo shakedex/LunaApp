@@ -303,3 +303,35 @@ a 5.6 GB `mdat`); previews are in `moov/udta`:
    load. Hand the extracted JPEG bytes to the existing WebP thumbnail path.
 5. Grab pixel dims from the JPEG `SOF` marker if needed (see `jpegDims` in the
    tool). BRAW has no such box → no browser thumbnail.
+
+## 2026-07-19 — RED KOMODO `.r3d` (KOMODO_RED_Color_Science_Sunflower)
+
+Folder = one 1.8 GB `.R3D` + `.RMD` + `.rtn` sidecars.
+
+- **mediainfo: useless** — 1 track, 4 tags. REDCODE is fully opaque to it (unlike
+  crm, where mediainfo at least gave dims/fps).
+- **exiftool: reads acquisition metadata well** (native): ISO 800, WB 5600 K,
+  ƒ5.6, 24 mm, `LensModel=NIKKOR Z 24-70mm f/2.8 S II`, 5760×3240 (6K), 23.976p,
+  `SerialNumber=KXZBK000532` (KOMODO), firmware 2.0.3. No embedded-preview tag,
+  and a 24 MB scan of the R3D found no JPEG — REDCODE frames need REDSDK/redline
+  (native), so no in-container thumbnail.
+- **`.rtn` sidecar IS the thumbnail.** Header is literally `REDTHUMBNAIL` (18-byte
+  header: `"REDTHUMBNAIL"` + 2-byte + 4-byte little-endian JPEG length) followed
+  by a JPEG. Here: **720×405, 45 030 bytes** — a real color-managed frame
+  (sunflower field + colour chart). Browser-trivial: read the small `.rtn`, slice
+  `FF D8 … FF D9` (or skip 18 bytes) → use directly, no SDK, no decode.
+- **`.rmd` sidecar = look / colour-decision** (RSX / IPP2 XML from REDCINE-X):
+  curves, black level, look GUID. Grade data, *not* the camera block.
+
+**Browser take for R3D** — R3D joins BRAW/X-OCN/ARRIRAW as "no in-browser frame
+decode," BUT:
+- **Thumbnail:** use the `.rtn` sidecar when present (trivial JPEG extract).
+  Caveat: `.rtn` is typically written by REDCINE-X, so it may be **absent on a
+  fresh on-set R3D** → then no browser thumbnail without REDSDK.
+- **Metadata:** mediainfo can't help; the full camera block needs exiftool
+  (desktop/server) or an R3D-header parser (proprietary). `.rmd` gives look, not
+  acquisition.
+
+Pattern worth noting: **RAW formats increasingly ship a sidecar/embedded JPEG we
+can grab without decoding** — crm (`PRVW` box), ProRes RAW (`udta`), R3D (`.rtn`).
+BRAW remains the outlier with no free thumbnail path.
