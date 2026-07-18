@@ -1,13 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
+import { ScanScreen } from '@/features/scan/scan-screen'
 
 export const Route = createFileRoute('/')({
-  component: Home,
+  component: ScanScreen,
 })
-
-function Home() {
-  return (
-    <main className="flex min-h-screen items-center justify-center bg-zinc-950 text-zinc-100">
-      <h1 className="text-2xl font-semibold">Luna Web</h1>
-    </main>
-  )
-}
