@@ -13,6 +13,15 @@ export { runPool } from './pool/run-pool'
 export type { DetectedReel, ReelInput } from './reels/detect'
 export { detectReels, UNGROUPED_REEL } from './reels/detect'
 export type {
+  BuildReportInput,
+  CoverFields,
+  Reel,
+  ReportClip,
+  ReportModel,
+  ReportStats,
+} from './report/model'
+export { buildReportModel, cardCountFrom } from './report/model'
+export type {
   BlobLike,
   DirectoryHandleLike,
   FileHandleLike,
