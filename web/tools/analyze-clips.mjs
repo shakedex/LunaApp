@@ -49,6 +49,13 @@ const wasmPath = requireFromApp.resolve('mediainfo.js/MediaInfoModule.wasm')
 
 const DEFAULT_ROOTS = ['D:/LUNA_TEST/TEST_PROJECT_LUNA/CAMERA', 'E:/Coding/LunaApp/docs']
 const MEDIA_EXTS = new Set([...SUPPORTED_MEDIA_EXTENSIONS, ...UNSUPPORTED_RAW_EXTENSIONS])
+// Camera-raw extensions Luna core doesn't list yet, but the diagnostic should
+// still probe on a directory walk (does mediainfo read them at all?). Presence
+// here means "worth inspecting", NOT "supported" — keep it in the tool, not core.
+// .crm = Canon Cinema RAW Light, .rmf = Canon original RAW, .cine = Phantom,
+// .dng/.cdng = CinemaDNG. Explicit file args bypass filtering entirely.
+const EXTRA_PROBE_EXTS = new Set(['.crm', '.rmf', '.cine', '.dng', '.cdng'])
+const PROBE_EXTS = new Set([...MEDIA_EXTS, ...EXTRA_PROBE_EXTS])
 const SIDECAR_TEXT_EXTS = new Set(['.xml', '.ale', '.xmp', '.cdl', '.ccc', '.txt'])
 const SIDECAR_BINARY_EXTS = new Set(['.bin'])
 const SKIP_DIRS = new Set(['node_modules', '.git', 'out'])
@@ -102,10 +109,15 @@ async function discoverClips(inputs) {
       console.warn(`! skip (not found): ${input}`)
       continue
     }
-    if (s.isDirectory()) await walk(abs, files)
-    else files.push(abs)
+    if (s.isDirectory()) {
+      const walked = []
+      await walk(abs, walked)
+      for (const f of walked) if (PROBE_EXTS.has(fileExtensionOf(f))) files.push(f)
+    } else {
+      files.push(abs) // explicit file: probe regardless of extension
+    }
   }
-  return files.filter((f) => MEDIA_EXTS.has(fileExtensionOf(f)))
+  return files
 }
 
 // Sidecars = sibling files in the clip's folder that are metadata carriers.
@@ -328,6 +340,7 @@ async function main() {
           {
             file: filePath,
             ext,
+            knownToCore: MEDIA_EXTS.has(ext),
             mappedClipMetadata: record.mappedClipMetadata,
             error: record.error,
             sidecars: record.sidecars,

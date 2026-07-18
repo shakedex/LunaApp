@@ -123,3 +123,61 @@ bun tools/analyze-clips.mjs clip.mxf clip2.mov   # explicit files
 Outputs land in `tools/out/` (git-ignored): one `<clip>.json` per file with the
 full mediainfo payload + current mapping + sidecar text, plus `_schema.json` /
 `_schema.md` (union of every tag seen).
+
+---
+
+# 2026-07-18 update — second corpus (`CAMERA/S_cam`): Canon RAW, FX6, Lumix, ProRes RAW
+
+Ran `analyze-clips.mjs "…/CAMERA/S_cam"`. Six new clips. Two need a vendor
+decoder (Canon Cinema RAW Light, ProRes RAW); the rest slot into patterns above.
+
+| Clip | Container / codec | Camera model | ISO/WB/Shutter/Lens | Frames decodable? | Source |
+|---|---|---|---|---|---|
+| **Canon Cinema RAW Light `.crm`** (S001) | `crx` / `CRAW`, 6000×3164 50p | ❌ none in payload | ❌ none | ❌ CRAW proprietary | mediainfo gives **dims/fps/duration/TC only** |
+| Canon EOS **C50 XF-AVC `.mxf`** (s004) | MXF / AVC, 3840×2160 25p | ✅ `EOS C50` (`Encoded_Application`) | ✅ full | ✅ AVC | mediainfo `Other.extra.*` — **same SMPTE acquisition track as Sony** |
+| Canon **`.mp4`** XF-AVC/HEVC (S005) | `XFVC` / HEVC, 4096×2160 25p | ~ (needs `Video.extra.Metas` parse) | ❌ not surfaced | ✅ HEVC | mediainfo standard; Canon `Metas` blob opaque |
+| Sony **FX6 XAVC `.mxf`** (S003) | MXF / AVC, 4096×2160 50p | ~ `CompanyName=Sony` | ✅ full (73-key acq. track) | ✅ AVC | mediainfo `Other.extra.*` — fits Sony MXF handling |
+| Panasonic **Lumix S5 `.mov`** (S002) | MPEG-4 / AVC, 3840×2160 | via embedded XML | via embedded XML | ✅ AVC | **new shape**: `General.extra.com_panasonic_SemiPro_metadata_xml` (P2-style ClipMetadata XML string in a QT atom) |
+| DJI **Ronin-4D ProRes RAW `.mov`** (S006) | MPEG-4 / ProRes RAW (`aprn`), 8192×4320 60p | ❌ (`App=DJI X2`) | ❌ | ❌ ProRes RAW not ffmpeg-decodable | mediainfo dims/fps only; `General.extra.snal` opaque |
+
+Notes:
+- **Canon XF-AVC MXF is great** — the C50 exposes the identical `Other.extra`
+  acquisition set as Sony (ISO 800, WB 5600, Shutter 180°/(1/50), CaptureFrameRate,
+  ImageSensor dims…) plus model via `Encoded_Application`. Same code path as Sony MXF.
+- **`.crm` is the weak one** the request was about (see below).
+- **Panasonic** needs a small XML-atom reader (parse `com_panasonic_SemiPro_metadata_xml`).
+- The **`knownToCore`** flag in each dump shows which extensions Luna core doesn't
+  list yet (`.crm` is the only `false` here).
+
+## Canon Cinema RAW Light `.crm` — does it work? (the S001 question)
+
+**Partly.** mediainfo reads the `crx` container and gives basic video params —
+`6000×3164, 50fps, 26.88s, TC 00:25:14:20, codec CRAW` — so Luna *could* list
+`.crm` clips with core info if we add `.crm` to the extensions. But:
+
+- **No camera metadata** — no ISO/WB/lens/model, not even a Canon company tag.
+  (Unlike Canon XF-AVC MXF, the RAW Light container doesn't expose acquisition data to mediainfo.)
+- **No frames** — `CRAW` is Canon's proprietary RAW codec; neither ffmpeg.wasm
+  nor mediabunny can decode it. There is **no native FFmpeg support** for CRM.
+
+So `.crm` needs a vendor path for both a thumbnail and camera metadata. Options
+found (GitHub / current, ordered by how usable they are for us to test):
+
+1. **exiftool** (recommended first test) — reads Canon maker-note metadata
+   (ISO/WB/lens/model) from the crx container AND extracts the embedded preview
+   JPEG (`-PreviewImage` / `-JpgFromRaw`), so we get a thumbnail **without
+   debayering**. crx embeds a `THMB` thumb + preview, same as CR3 stills. Node
+   binding: `exiftool-vendored` (bundles the binary). Not installed here yet.
+2. **LibRaw** — the CRX codec was reverse-engineered (A. Danilchenko, 2019) and
+   is in LibRaw; `dcraw_emu` / LibRaw can debayer a real `.crm` frame. Open
+   source, CLI-scriptable, and has WASM builds — the path if the embedded
+   preview isn't good enough. Container reference: `lclevy/canon_cr3`.
+3. **Canon Cinema RAW Development SDK** — official decoder (what Parallel Media
+   Encoder uses). Gated/proprietary → desktop "detect-existing / link-out" pattern.
+4. **DaVinci Resolve** decodes `.crm` natively → detect-existing on machines that have it.
+
+**Recommended test path:** install exiftool (or `bun add -d exiftool-vendored`)
+and run it on `S001/…CANONRAW.CRM` to confirm (a) Canon metadata fields and
+(b) an embedded preview JPEG we can use as the thumbnail. If preview quality is
+insufficient, fall back to LibRaw for a decoded frame. Same story applies to the
+**ProRes RAW** Ronin-4D clip (S006) — no ffmpeg decode; needs a vendor route.
