@@ -1,5 +1,9 @@
 import { describe, expect, test } from 'bun:test'
-import { isKnownRawExtension, isSupportedMediaExtension } from '../src/media/extensions'
+import {
+  fileExtensionOf,
+  isKnownRawExtension,
+  isSupportedMediaExtension,
+} from '../src/media/extensions'
 
 describe('isSupportedMediaExtension', () => {
   test('accepts generic camera formats regardless of case', () => {
@@ -22,5 +26,16 @@ describe('isKnownRawExtension', () => {
     expect(isKnownRawExtension('shot.R3D')).toBe(true)
     expect(isKnownRawExtension('shot.braw')).toBe(true)
     expect(isKnownRawExtension('clip.mov')).toBe(false)
+  })
+})
+
+describe('fileExtensionOf', () => {
+  test('lowercases and keeps the dot', () => {
+    expect(fileExtensionOf('CLIP.MOV')).toBe('.mov')
+    expect(fileExtensionOf('a.tar.gz')).toBe('.gz')
+  })
+  test('empty for no extension and dotfiles', () => {
+    expect(fileExtensionOf('noext')).toBe('')
+    expect(fileExtensionOf('.DS_Store')).toBe('')
   })
 })
