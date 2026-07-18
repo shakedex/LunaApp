@@ -9,3 +9,5 @@ export type { DirectoryHandleLike, FileHandleLike, FileSystemEntryLike } from '.
 export { isJunkName } from './scan/junk'
 export type { ClipRef, RawNotice, ScanSummary } from './scan/model'
 export { buildScanSummary } from './scan/model'
+export type { ScanProgress, ScanResult } from './scan/walker'
+export { scanFolder } from './scan/walker'
