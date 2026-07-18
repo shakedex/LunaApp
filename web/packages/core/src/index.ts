@@ -14,6 +14,10 @@ export { applyVendorEnrichment, vendorEnrichers } from './metadata/vendors/regis
 export type { VendorEnricher } from './metadata/vendors/types'
 export type { PoolHandlers, PoolHooks, PoolOptions } from './pool/run-pool'
 export { runPool } from './pool/run-pool'
+export type { BoxHeader } from './preview/boxes'
+export { findChildBox, readBoxHeaderAt, walkTopLevelBoxes } from './preview/boxes'
+export type { JpegCandidate } from './preview/jpeg'
+export { findValidJpegs, jpegDimensions } from './preview/jpeg'
 export type { DetectedReel, ReelInput } from './reels/detect'
 export { detectReels, UNGROUPED_REEL } from './reels/detect'
 export type {
