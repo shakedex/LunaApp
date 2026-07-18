@@ -3,12 +3,14 @@ import type { ClipMetadata } from '../model'
 import { acquisitionEnricher } from './acquisition'
 import { arriMovEnricher } from './arri-mov'
 import { arriMxfEnricher } from './arri-mxf'
+import { brawEnricher } from './braw'
 import type { VendorEnricher } from './types'
 
 export const vendorEnrichers: readonly VendorEnricher[] = [
   arriMovEnricher,
   arriMxfEnricher,
   acquisitionEnricher,
+  brawEnricher,
 ]
 
 export function applyVendorEnrichment(
