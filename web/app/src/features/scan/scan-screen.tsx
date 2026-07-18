@@ -1,6 +1,11 @@
 import { useStore } from '@tanstack/react-store'
+import { TriangleAlert } from 'lucide-react'
 import { Logo } from '@/components/logo'
+import { StatTile } from '@/components/stat-tile'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Spinner } from '@/components/ui/spinner'
 import { startProcessing } from '@/features/process/run-processing'
 import { ReportWorkspace } from '@/features/report/report-workspace'
 import { formatBytes } from '@/lib/format'
@@ -50,44 +55,50 @@ export function ScanScreen() {
       )}
 
       {phase === 'scanning' && (
-        <p className="text-muted-foreground" aria-live="polite">
-          Scanning {sourceName}…{' '}
-          {progress ? `${progress.filesSeen} files, ${progress.clipsFound} clips` : ''}
-        </p>
+        <div className="flex items-center gap-3 py-16" aria-live="polite">
+          <Spinner className="size-5" />
+          <p className="text-muted-foreground">
+            Scanning {sourceName}…{' '}
+            <span className="font-mono tabular-nums">
+              {progress ? `${progress.filesSeen} files, ${progress.clipsFound} clips` : ''}
+            </span>
+          </p>
+        </div>
       )}
 
       {phase === 'summary' && summary && (
-        <section className="w-full rounded-lg border p-6">
-          <h2 className="mb-4 text-xl font-medium">{sourceName}</h2>
-          <dl className="mb-4 grid grid-cols-3 gap-4 text-center">
-            <div>
-              <dt className="text-muted-foreground text-sm">Clips</dt>
-              <dd className="text-2xl">{summary.clipCount}</dd>
+        <Card className="w-full">
+          <CardHeader>
+            <CardTitle className="truncate">{sourceName}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <dl className="grid grid-cols-3 gap-4">
+              <StatTile label="Clips" value={String(summary.clipCount)} />
+              <StatTile label="Total size" value={formatBytes(summary.totalClipSizeBytes)} />
+              <StatTile label="RAW (unsupported)" value={String(summary.rawCount)} />
+            </dl>
+            {summary.rawCount > 0 && (
+              <Alert className="border-amber-500/30 [&>svg]:text-amber-400">
+                <TriangleAlert />
+                <AlertTitle>
+                  {summary.rawCount} RAW file(s) can't be decoded in a browser
+                </AlertTitle>
+                <AlertDescription>
+                  ARRIRAW / R3D / BRAW files were detected. They'll be listed in the report without
+                  thumbnails.
+                </AlertDescription>
+              </Alert>
+            )}
+            <div className="flex gap-3">
+              <Button onClick={() => void startProcessing()}>
+                Process {summary.clipCount} clips
+              </Button>
+              <Button variant="outline" onClick={resetScan}>
+                Cancel
+              </Button>
             </div>
-            <div>
-              <dt className="text-muted-foreground text-sm">Total size</dt>
-              <dd className="text-2xl">{formatBytes(summary.totalClipSizeBytes)}</dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground text-sm">RAW (unsupported)</dt>
-              <dd className="text-2xl">{summary.rawCount}</dd>
-            </div>
-          </dl>
-          {summary.rawCount > 0 && (
-            <p className="text-muted-foreground mb-4 text-sm">
-              {summary.rawCount} ARRIRAW/R3D/BRAW file(s) were detected but cannot be decoded in a
-              browser — they will be listed without thumbnails.
-            </p>
-          )}
-          <div className="flex gap-3">
-            <Button onClick={() => void startProcessing()}>
-              Process {summary.clipCount} clips
-            </Button>
-            <Button variant="outline" onClick={resetScan}>
-              Cancel
-            </Button>
-          </div>
-        </section>
+          </CardContent>
+        </Card>
       )}
 
       {(phase === 'processing' || phase === 'thumbnailing') && (
