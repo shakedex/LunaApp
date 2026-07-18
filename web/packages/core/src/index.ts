@@ -1,3 +1,4 @@
+export { aggregateThumbnailOutcome, CSV_COLUMNS, generateReportCsv } from './export/csv'
 export {
   fileExtensionOf,
   isKnownRawExtension,
