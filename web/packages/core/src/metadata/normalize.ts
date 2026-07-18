@@ -27,3 +27,19 @@ export function tNumberDisplay(v: unknown): string | undefined {
   if (num === undefined) return undefined
   return `T${num.toFixed(1)}`
 }
+
+export function fNumberDisplay(v: unknown): string | undefined {
+  const num = scaledNumber(v, 1)
+  if (num === undefined) return undefined
+  return `F${num.toFixed(1)}`
+}
+
+// Sony/Canon acquisition tracks report focal length as a bare scaled number
+// (e.g. "50.000") — append the unit. Leave any other shape (already-suffixed,
+// non-numeric) untouched rather than guessing.
+export function focalLengthDisplay(v: unknown): string | undefined {
+  if (typeof v !== 'string') return undefined
+  const trimmed = v.trim()
+  if (trimmed === '') return undefined
+  return /^\d+(\.\d+)?$/.test(trimmed) ? `${trimmed} mm` : trimmed
+}
