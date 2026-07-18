@@ -27,6 +27,11 @@ export async function startThumbnails(run: number): Promise<void> {
     else if (path === 'ffmpeg') ffmpegClips.push(clip)
   }
 
+  if (mediabunnyClips.length === 0 && ffmpegClips.length === 0) {
+    guardedUpdate(run, (s) => ({ ...s, phase: 'processed' }))
+    return
+  }
+
   guardedUpdate(run, (s) => ({
     ...s,
     phase: 'thumbnailing',

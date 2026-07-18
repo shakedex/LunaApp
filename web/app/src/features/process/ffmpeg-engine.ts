@@ -30,6 +30,9 @@ export function createFfmpegEngine(): FfmpegEngine {
         cachedBlobUrl(`${CORE_BASE}/ffmpeg-core.wasm`, 'application/wasm'),
       ])
       await ffmpeg.load({ coreURL, wasmURL })
+      // The engine has consumed the binaries; drop the ~31MB object URLs.
+      URL.revokeObjectURL(coreURL)
+      URL.revokeObjectURL(wasmURL)
     })().catch((err) => {
       // A transient fetch/load failure must not permanently brick this engine:
       // clear the cached promise so the next call retries.

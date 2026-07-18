@@ -114,7 +114,19 @@ export async function startProcessing(): Promise<void> {
   }
 
   if (run !== currentRun) return
-  await startThumbnails(run)
+  try {
+    await startThumbnails(run)
+  } catch (err) {
+    // Same boundary as the metadata pass: never leave the UI wedged in
+    // 'thumbnailing' — surface the failure and stop sibling work.
+    cancelProcessing()
+    const message = err instanceof Error ? err.message : String(err)
+    scanStore.setState((s) =>
+      s.phase === 'thumbnailing' || s.phase === 'processing'
+        ? { ...s, phase: 'error', error: message }
+        : s,
+    )
+  }
 }
 
 async function analyzeClip(handle: MetadataWorkerHandle, clip: ClipRef) {
