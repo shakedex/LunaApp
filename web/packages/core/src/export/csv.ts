@@ -34,7 +34,9 @@ export function aggregateThumbnailOutcome(frames: readonly ThumbnailFrame[]): Th
 
 function field(value: unknown): string {
   if (value === undefined || value === null) return ''
-  const text = String(value)
+  let text = String(value)
+  // Spreadsheet formula-injection guard: neutralize leading = + - @
+  if (/^[=+\-@]/.test(text)) text = `'${text}`
   return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text
 }
 

@@ -40,5 +40,7 @@ export async function saveBlob(blob: Blob, fileName: string, mime: string): Prom
   anchor.href = url
   anchor.download = fileName
   anchor.click()
-  URL.revokeObjectURL(url)
+  // Defer the revoke: revoking synchronously can cancel a large download
+  // before the browser finishes reading the blob (final-review finding).
+  setTimeout(() => URL.revokeObjectURL(url), 60_000)
 }

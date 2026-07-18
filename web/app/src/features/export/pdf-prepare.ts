@@ -49,16 +49,25 @@ function blobToDataUrl(blob: Blob): Promise<string> {
   })
 }
 
+const PDF_FRAME_MAX_WIDTH = 480
+
 // react-pdf renders JPEG/PNG only. ffmpeg-path frames are already JPEG and
 // pass through; mediabunny-path frames are WebP and are re-encoded via canvas.
-async function frameToJpegDataUrl(image: Blob, mime: string | undefined): Promise<string> {
-  if (mime === 'image/jpeg') return blobToDataUrl(image)
+// Always decode + downscale: thumbnails are stored at 1280px but render at
+// ~160pt in the PDF — embedding full size would bloat a 200-clip report by
+// hundreds of MB (final-review finding). JPEG passthrough only applies when
+// the source is already small enough.
+async function frameToJpegDataUrl(image: Blob, _mime: string | undefined): Promise<string> {
   const bitmap = await createImageBitmap(image)
   try {
-    const canvas = new OffscreenCanvas(bitmap.width, bitmap.height)
+    if (_mime === 'image/jpeg' && bitmap.width <= PDF_FRAME_MAX_WIDTH) return blobToDataUrl(image)
+    const scale = Math.min(1, PDF_FRAME_MAX_WIDTH / bitmap.width)
+    const width = Math.max(1, Math.round(bitmap.width * scale))
+    const height = Math.max(1, Math.round(bitmap.height * scale))
+    const canvas = new OffscreenCanvas(width, height)
     const ctx = canvas.getContext('2d')
     if (!ctx) throw new Error('Canvas 2d context unavailable')
-    ctx.drawImage(bitmap, 0, 0)
+    ctx.drawImage(bitmap, 0, 0, width, height)
     const jpeg = await canvas.convertToBlob({ type: 'image/jpeg', quality: 0.85 })
     return blobToDataUrl(jpeg)
   } finally {

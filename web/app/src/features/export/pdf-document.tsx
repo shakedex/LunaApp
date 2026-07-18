@@ -105,7 +105,7 @@ function ClipCard({ clip }: { clip: PdfClip }) {
             <Image key={String(i)} src={frame.dataUrl} style={styles.frame} />
           ) : (
             <View key={String(i)} style={styles.framePlaceholder}>
-              <Text>{frame.outcome === 'NotAttempted' ? 'RAW' : 'no preview'}</Text>
+              <Text>no preview</Text>
             </View>
           ),
         )}

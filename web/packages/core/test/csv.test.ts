@@ -99,4 +99,12 @@ describe('generateReportCsv', () => {
     )
     expect(lines[2]).toBe('A001,two.mov,A001/two.mov,,,,,,5,50,,,,,,,,,,NotAttempted')
   })
+
+  test('leading formula characters are neutralized', () => {
+    const injected = structuredClone(model)
+    const clip0 = injected.reels[0]?.clips[0]
+    if (clip0) clip0.metadata.camera = '=cmd|/c calc'
+    const row = generateReportCsv(injected).split('\r\n')[1]
+    expect(row).toContain("'=cmd|/c calc")
+  })
 })
