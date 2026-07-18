@@ -120,4 +120,23 @@ describe('findValidJpegs', () => {
     const bytes = Uint8Array.from([...insaneJpeg(), 0x00, 0x00])
     expect(findValidJpegs(bytes)).toEqual([])
   })
+
+  test('a non-self-terminating decoy SOI before a real JPEG does not hide it', () => {
+    const real = minimalJpeg(1920, 1080)
+    const bytes = new Uint8Array([0xff, 0xd8, 0xff, 1, 2, 3, 4, 5, 6, 7, 8, ...real])
+    const found = findValidJpegs(bytes)
+    expect(found).toHaveLength(1)
+    expect(found[0]).toMatchObject({ offset: 11, length: real.length, width: 1920, height: 1080 })
+  })
+
+  test('candidate spans start at the REAL SOI, not a preceding decoy', () => {
+    const real = minimalJpeg(640, 480)
+    const bytes = new Uint8Array([0xff, 0xd8, 0xff, 0x01, 0x02, ...real])
+    const found = findValidJpegs(bytes)
+    expect(found).toHaveLength(1)
+    expect(found[0]?.offset).toBe(5)
+    // the reported span must itself re-parse as a valid JPEG:
+    const span = bytes.subarray(found[0]!.offset, found[0]!.offset + found[0]!.length)
+    expect(jpegDimensions(span)).toEqual({ width: 640, height: 480 })
+  })
 })
