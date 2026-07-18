@@ -1,9 +1,17 @@
 import { describe, expect, test } from 'bun:test'
-import type { DirectoryHandleLike, FileHandleLike, FileSystemEntryLike } from '../src/scan/handles'
+import type {
+  BlobLike,
+  DirectoryHandleLike,
+  FileHandleLike,
+  FileSystemEntryLike,
+} from '../src/scan/handles'
 import { type ScanProgress, scanFolder } from '../src/scan/walker'
 
+function fakeBlob(size: number): BlobLike {
+  return { size, slice: () => fakeBlob(0), arrayBuffer: async () => new ArrayBuffer(0) }
+}
 function file(name: string, size: number): FileHandleLike {
-  return { kind: 'file', name, getFile: async () => ({ size }) }
+  return { kind: 'file', name, getFile: async () => fakeBlob(size) }
 }
 function dir(name: string, ...children: FileSystemEntryLike[]): DirectoryHandleLike {
   return {

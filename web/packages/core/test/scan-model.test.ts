@@ -1,9 +1,14 @@
 import { describe, expect, test } from 'bun:test'
-import type { FileHandleLike } from '../src/scan/handles'
+import type { BlobLike, FileHandleLike } from '../src/scan/handles'
 import { isJunkName } from '../src/scan/junk'
 import { buildScanSummary, type ClipRef, type RawNotice } from '../src/scan/model'
 
-const fakeFile: FileHandleLike = { kind: 'file', name: 'x', getFile: async () => ({ size: 0 }) }
+const fakeBlob: BlobLike = {
+  size: 0,
+  slice: () => fakeBlob,
+  arrayBuffer: async () => new ArrayBuffer(0),
+}
+const fakeFile: FileHandleLike = { kind: 'file', name: 'x', getFile: async () => fakeBlob }
 const clip = (relativePath: string, extension: string, sizeBytes: number): ClipRef => ({
   id: relativePath,
   fileName: relativePath.split('/').pop() ?? relativePath,
