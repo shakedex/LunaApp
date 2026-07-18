@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { THUMBNAIL_POSITIONS, thumbnailTimestamps } from '../src/thumbs/model'
-import { decodePathFor } from '../src/thumbs/router'
+import { decodePathFor, PRORES_RAW_CODEC_PATTERN, thumbnailRouteFor } from '../src/thumbs/router'
 
 describe('thumbnailTimestamps', () => {
   test('maps 10/50/90% of duration', () => {
@@ -17,19 +17,88 @@ describe('thumbnailTimestamps', () => {
   })
 })
 
-describe('decodePathFor', () => {
-  test('fast-path containers go to mediabunny', () => {
+describe('thumbnailRouteFor', () => {
+  test('fast-path containers go to mediabunny (no codec)', () => {
     for (const ext of ['.mp4', '.m4v', '.mov', '.mkv', '.webm', '.3gp']) {
-      expect(decodePathFor(ext)).toBe('mediabunny')
+      expect(thumbnailRouteFor(ext)).toBe('mediabunny')
     }
   })
   test('MXF and legacy go to ffmpeg', () => {
     for (const ext of ['.mxf', '.avi', '.mts', '.m2ts', '.wmv', '.flv']) {
-      expect(decodePathFor(ext)).toBe('ffmpeg')
+      expect(thumbnailRouteFor(ext)).toBe('ffmpeg')
     }
   })
-  test('RAW and unknown are never decoded', () => {
-    for (const ext of ['.r3d', '.braw', '.ari', '.txt', '']) {
+  test('.crm and .r3d always route to preview (no free frame decode, embedded/sidecar preview instead)', () => {
+    expect(thumbnailRouteFor('.crm')).toBe('preview')
+    expect(thumbnailRouteFor('.r3d')).toBe('preview')
+    // codec is irrelevant for these — routed by extension unconditionally.
+    expect(thumbnailRouteFor('.crm', 'CRAW')).toBe('preview')
+  })
+  test('.braw routes to none (clip with metadata, placeholder thumbnail)', () => {
+    expect(thumbnailRouteFor('.braw')).toBe('none')
+    expect(thumbnailRouteFor('.braw', 'Blackmagic RAW')).toBe('none')
+  })
+  test('unknown extensions are never decoded', () => {
+    for (const ext of ['.ari', '.txt', '']) {
+      expect(thumbnailRouteFor(ext)).toBe('none')
+    }
+  })
+
+  describe('ProRes RAW detection on a mediabunny-set extension', () => {
+    // web/tools/out/S_cam_S006_A003C0011_210922_0000_ronin4d_proresraw.mov.json
+    // (DJI Ronin-4D ProRes RAW) — mediainfo Video track:
+    //   Format = "ProRes", Format_Profile = "RAW", CodecID = "aprn"
+    // web/tools/out/CAMERA_RONIN-4D_A001C0004_..._4K_ProRes4444_25FPS.mov.json
+    // (plain ProRes 4444), same Video track shape:
+    //   Format = "ProRes", Format_Profile = "4444", CodecID = "ap4h"
+    // Both dumps' mappedClipMetadata.codec (mapMediaInfoToClipMetadata's actual
+    // output) is the bare string "ProRes" for BOTH clips — Format_Profile/
+    // CodecID are not currently threaded onto ClipMetadata.codec. So this
+    // pattern is written against the real, cited profile/codecID strings, and
+    // deliberately does NOT match bare "ProRes" (else every ordinary ProRes
+    // 4444/422 clip would be misrouted to 'preview' too).
+    test('matches the real Format_Profile/CodecID strings from the S006 dump', () => {
+      expect(PRORES_RAW_CODEC_PATTERN.test('RAW')).toBe(false) // bare profile alone is too ambiguous to match on its own
+      expect(PRORES_RAW_CODEC_PATTERN.test('ProRes RAW')).toBe(true)
+      expect(PRORES_RAW_CODEC_PATTERN.test('aprn')).toBe(true)
+      expect(PRORES_RAW_CODEC_PATTERN.test('APRN')).toBe(true) // case-insensitive
+    })
+
+    test('a codec string matching the pattern routes a mediabunny extension to preview', () => {
+      expect(thumbnailRouteFor('.mov', 'ProRes RAW')).toBe('preview')
+      expect(thumbnailRouteFor('.mov', 'aprn')).toBe('preview')
+    })
+
+    test('plain "ProRes" (today\'s actual mapped codec for both RAW and non-RAW) does not match', () => {
+      // Documents the known gap: until a richer codec string is threaded
+      // through (mediainfo's Format_Profile/CodecID), this branch cannot fire
+      // from ClipMetadata.codec alone — the mediabunny->ffmpeg cascade is the
+      // safety net in the meantime (see router.ts comment on the pattern).
+      expect(thumbnailRouteFor('.mov', 'ProRes')).toBe('mediabunny')
+    })
+
+    test('ordinary ProRes 4444/422 codec strings stay on mediabunny', () => {
+      expect(thumbnailRouteFor('.mov', 'ProRes 4444')).toBe('mediabunny')
+      expect(thumbnailRouteFor('.mov', 'ProRes 422')).toBe('mediabunny')
+    })
+  })
+})
+
+describe('decodePathFor (deprecated alias)', () => {
+  test('delegates exactly to thumbnailRouteFor(extension) — a true alias, not a lossy narrowing', () => {
+    for (const ext of ['.mp4', '.m4v', '.mov', '.mkv', '.webm', '.3gp']) {
+      expect(decodePathFor(ext)).toBe('mediabunny')
+    }
+    for (const ext of ['.mxf', '.avi', '.mts', '.m2ts', '.wmv', '.flv']) {
+      expect(decodePathFor(ext)).toBe('ffmpeg')
+    }
+    // Deliberate change: .crm/.r3d are reclassified clips now, routed to
+    // 'preview' (not 'none' as before) — the deprecated alias reflects this
+    // real routing rather than hiding it.
+    expect(decodePathFor('.crm')).toBe('preview')
+    expect(decodePathFor('.r3d')).toBe('preview')
+    expect(decodePathFor('.braw')).toBe('none')
+    for (const ext of ['.ari', '.txt', '']) {
       expect(decodePathFor(ext)).toBe('none')
     }
   })

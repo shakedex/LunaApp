@@ -37,7 +37,15 @@ export async function startThumbnails(run: number): Promise<void> {
     phase: 'thumbnailing',
     thumbStatus: Object.fromEntries(
       clips
-        .filter((c) => decodePathFor(c.extension) !== 'none')
+        .filter((c) => {
+          const path = decodePathFor(c.extension)
+          // decodePathFor can now return 'preview' (.crm/.r3d reclassified as
+          // clips, thumbs/router.ts). Task 4 wires the preview queue — treat
+          // 'preview' like 'none' for now so these clips aren't seeded into
+          // thumbStatus as 'queued' with no pool to ever resolve them (that
+          // would wedge thumbDoneCount/thumbTotal and the per-row spinner).
+          return path === 'mediabunny' || path === 'ffmpeg'
+        })
         .map((c) => [c.id, 'queued' as const]),
     ),
   }))
