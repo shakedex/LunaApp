@@ -4,6 +4,7 @@ import { acquisitionEnricher } from './acquisition'
 import { arriMovEnricher } from './arri-mov'
 import { arriMxfEnricher } from './arri-mxf'
 import { brawEnricher } from './braw'
+import { panasonicEnricher } from './panasonic'
 import type { VendorEnricher } from './types'
 
 export const vendorEnrichers: readonly VendorEnricher[] = [
@@ -11,6 +12,7 @@ export const vendorEnrichers: readonly VendorEnricher[] = [
   arriMxfEnricher,
   acquisitionEnricher,
   brawEnricher,
+  panasonicEnricher,
 ]
 
 export function applyVendorEnrichment(
