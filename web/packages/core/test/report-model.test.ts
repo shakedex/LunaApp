@@ -62,6 +62,10 @@ describe('buildReportModel', () => {
     expect(three?.metadata).toEqual({}) // failed metadata → empty, present
     expect(three?.thumbnails).toEqual([])
     expect(model.cover.projectTitle).toBe('Test')
+    const a001 = model.reels.find((r) => r.name === 'A001')
+    expect(a001?.stats).toEqual({ clipCount: 1, totalSizeBytes: 50, totalDurationSeconds: 5 })
+    const customStats = model.reels.find((r) => r.name === 'CUSTOM')?.stats
+    expect(customStats).toEqual({ clipCount: 1, totalSizeBytes: 100, totalDurationSeconds: 10 })
   })
 
   test('empty input produces an empty, zeroed model', () => {

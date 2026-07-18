@@ -16,6 +16,7 @@ export type {
   BuildReportInput,
   CoverFields,
   Reel,
+  ReelStats,
   ReportClip,
   ReportModel,
   ReportStats,

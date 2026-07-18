@@ -23,9 +23,16 @@ export interface ReportClip<TImage = unknown> {
   thumbnails: ThumbnailFrame<TImage>[]
 }
 
+export interface ReelStats {
+  clipCount: number
+  totalSizeBytes: number
+  totalDurationSeconds: number
+}
+
 export interface Reel<TImage = unknown> {
   name: string
   clips: ReportClip<TImage>[]
+  stats: ReelStats
 }
 
 export interface ReportStats {
@@ -87,10 +94,20 @@ export function buildReportModel<TImage = unknown>(
     totalSizeBytes += clip.sizeBytes
   }
 
-  const reels = detectReels(reportClips).map((reel) => ({
-    name: reel.name,
-    clips: reel.clips.map(({ reelName: _drop, ...clip }) => clip),
-  }))
+  const reels = detectReels(reportClips).map((reel) => {
+    const clips = reel.clips.map(({ reelName: _drop, ...clip }) => clip)
+    let totalSizeBytes = 0
+    let totalDurationSeconds = 0
+    for (const clip of clips) {
+      totalSizeBytes += clip.sizeBytes
+      totalDurationSeconds += clip.metadata.durationSeconds ?? 0
+    }
+    return {
+      name: reel.name,
+      clips,
+      stats: { clipCount: clips.length, totalSizeBytes, totalDurationSeconds },
+    }
+  })
 
   return {
     cover: input.cover,
