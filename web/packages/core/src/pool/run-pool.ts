@@ -6,6 +6,9 @@
 // handlers (callers drop late writes via their own guards).
 // createLane failures are pool-level faults and always propagate; sibling
 // lanes are not pre-empted mid-item — callers stop them via isCancelled.
+// A pool-level fault (createLane failure) still rejects runPool, but only
+// after every lane has settled — callers observe a fully-quiesced pool,
+// never racing stragglers.
 export interface PoolHooks<L, T, R> {
   createLane(): L | Promise<L>
   destroyLane(lane: L): void
@@ -70,5 +73,7 @@ export async function runPool<L, T, R>(
     }
   }
 
-  await Promise.all(Array.from({ length: laneCount }, () => laneLoop()))
+  const results = await Promise.allSettled(Array.from({ length: laneCount }, () => laneLoop()))
+  const rejection = results.find((r): r is PromiseRejectedResult => r.status === 'rejected')
+  if (rejection) throw rejection.reason
 }

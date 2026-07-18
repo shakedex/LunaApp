@@ -162,6 +162,35 @@ describe('runPool', () => {
     expect(failed).toEqual([]) // the createLane fault must NOT masquerade as an item failure
   })
 
+  test('pool-level rejection surfaces only after sibling lanes settle', async () => {
+    let createCalls = 0
+    const ok: string[] = []
+    const hooks = {
+      createLane: () => {
+        createCalls += 1
+        if (createCalls === 3) throw new Error('lane death') // the retry-create of lane 0
+        return { id: createCalls }
+      },
+      destroyLane: () => {},
+      run: async (_l: { id: number }, item: string) => {
+        if (item === 'poison') throw new Error('force retry')
+        await new Promise((r) => setTimeout(r, 10))
+        return `ok:${item}`
+      },
+    }
+    await expect(
+      runPool(
+        ['poison', 'a', 'b', 'c'],
+        hooks,
+        { onItemSuccess: (_i, r: string) => ok.push(r), onItemFailure: () => {} },
+        { concurrency: 2 },
+      ),
+    ).rejects.toThrow('lane death')
+    // The healthy sibling lane must have fully drained the queue BEFORE the
+    // pool-level rejection surfaced — no dropped/raced items.
+    expect(ok.sort()).toEqual(['ok:a', 'ok:b', 'ok:c'])
+  })
+
   test('non-positive concurrency clamps to one lane and still processes', async () => {
     const t = makeHooks(async (_l, item) => `ok:${item}`)
     const ok: string[] = []
