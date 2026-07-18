@@ -1,12 +1,13 @@
-import type { ClipRef, ThumbnailFrame } from '@luna-web/core'
+import type { RawNotice, ThumbnailFrame } from '@luna-web/core'
 import { useStore } from '@tanstack/react-store'
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { startProcessing } from '@/features/process/run-processing'
+import { ReportWorkspace } from '@/features/report/report-workspace'
 import { formatBytes, formatDuration } from '@/lib/format'
 import { RecentList } from './recent-list'
 import { pickAndScan, resetScan } from './run-scan'
-import { type ScanState, scanStore } from './store'
+import { scanStore } from './store'
 
 export function ScanScreen() {
   const state = useStore(scanStore)
@@ -68,43 +69,28 @@ export function ScanScreen() {
         </section>
       )}
 
-      {(state.phase === 'processing' ||
-        state.phase === 'thumbnailing' ||
-        state.phase === 'processed') && (
+      {(state.phase === 'processing' || state.phase === 'thumbnailing') && (
         <section className="w-full">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-xl font-medium" aria-live="polite">
               {state.phase === 'processing'
                 ? `Reading metadata… ${state.processedCount}/${state.clips.length}`
-                : state.phase === 'thumbnailing'
-                  ? `Generating thumbnails… ${state.thumbDoneCount}/${Object.keys(state.thumbStatus).length}`
-                  : `${state.clips.length} clips processed`}
+                : `Generating thumbnails… ${state.thumbDoneCount}/${Object.keys(state.thumbStatus).length}`}
             </h2>
             <Button variant="outline" onClick={resetScan}>
               Start over
             </Button>
           </div>
-          <ClipTable state={state} />
-          {state.raw.length > 0 && (
-            <section className="mt-6">
-              <h3 className="text-muted-foreground mb-2 text-sm font-medium">
-                RAW files (not decodable in browser)
-              </h3>
-              <ul className="divide-y rounded-lg border">
-                {state.raw.map((r) => (
-                  <li
-                    key={r.id}
-                    className="text-muted-foreground flex items-center justify-between px-4 py-2 text-sm"
-                  >
-                    <span className="truncate">{r.relativePath}</span>
-                    <span className="ml-4 shrink-0">RAW · {formatBytes(r.sizeBytes)}</span>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
+          <ul className="divide-y rounded-lg border">
+            {state.clips.map((c) => (
+              <ClipRow key={c.id} clipId={c.id} />
+            ))}
+          </ul>
+          <RawSection raw={state.raw} />
         </section>
       )}
+
+      {state.phase === 'processed' && <ReportWorkspace />}
 
       {state.phase === 'error' && (
         <section className="text-center">
@@ -118,20 +104,16 @@ export function ScanScreen() {
   )
 }
 
-function ClipTable({ state }: { state: ScanState }) {
-  return (
-    <ul className="divide-y rounded-lg border">
-      {state.clips.map((c) => (
-        <ClipRow key={c.id} clip={c} state={state} />
-      ))}
-    </ul>
-  )
-}
+export function ClipRow({ clipId }: { clipId: string }) {
+  const clip = useStore(scanStore, (s) => s.clips.find((c) => c.id === clipId))
+  const status = useStore(scanStore, (s) => s.clipStatus[clipId] ?? 'queued')
+  const m = useStore(scanStore, (s) => s.metadataById[clipId])
+  const thumbStatus = useStore(scanStore, (s) => s.thumbStatus[clipId])
+  const frames = useStore(scanStore, (s) => s.thumbsById[clipId])
+  const error = useStore(scanStore, (s) => s.clipErrors[clipId])
 
-function ClipRow({ clip, state }: { clip: ClipRef; state: ScanState }) {
-  const status = state.clipStatus[clip.id] ?? 'queued'
-  const m = state.metadataById[clip.id]
-  const thumbStatus = state.thumbStatus[clip.id]
+  if (!clip) return null
+
   return (
     <li className="flex flex-col gap-2 px-4 py-2 text-sm">
       {thumbStatus === 'queued' || thumbStatus === 'decoding' ? (
@@ -141,7 +123,7 @@ function ClipRow({ clip, state }: { clip: ClipRef; state: ScanState }) {
           ))}
         </div>
       ) : (
-        <ThumbStrip frames={state.thumbsById[clip.id]} />
+        <ThumbStrip frames={frames} />
       )}
       <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] items-center gap-x-4">
         <span className="truncate">{clip.relativePath}</span>
@@ -159,11 +141,33 @@ function ClipRow({ clip, state }: { clip: ClipRef; state: ScanState }) {
           {status === 'done' ? (
             formatBytes(clip.sizeBytes)
           ) : (
-            <StatusBadge status={status} error={state.clipErrors[clip.id]} />
+            <StatusBadge status={status} error={error} />
           )}
         </span>
       </div>
     </li>
+  )
+}
+
+export function RawSection({ raw }: { raw: RawNotice[] }) {
+  if (raw.length === 0) return null
+  return (
+    <section className="mt-6">
+      <h3 className="text-muted-foreground mb-2 text-sm font-medium">
+        RAW files (not decodable in browser)
+      </h3>
+      <ul className="divide-y rounded-lg border">
+        {raw.map((r) => (
+          <li
+            key={r.id}
+            className="text-muted-foreground flex items-center justify-between px-4 py-2 text-sm"
+          >
+            <span className="truncate">{r.relativePath}</span>
+            <span className="ml-4 shrink-0">RAW · {formatBytes(r.sizeBytes)}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
   )
 }
 
