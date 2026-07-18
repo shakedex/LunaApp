@@ -63,4 +63,18 @@ describe('mapMediaInfoToClipMetadata', () => {
     expect(m.codec).toBeUndefined()
     expect(m.frameRate).toBeUndefined()
   })
+
+  test('RAW profile is threaded into the codec string', () => {
+    const m = mapMediaInfoToClipMetadata({
+      media: { track: [{ '@type': 'Video', Format: 'ProRes', Format_Profile: 'RAW' }] },
+    })
+    expect(m.codec).toBe('ProRes RAW')
+  })
+
+  test('non-RAW profiles do not pollute the codec string', () => {
+    const m = mapMediaInfoToClipMetadata({
+      media: { track: [{ '@type': 'Video', Format: 'AVC', Format_Profile: 'High@L5.1' }] },
+    })
+    expect(m.codec).toBe('AVC')
+  })
 })

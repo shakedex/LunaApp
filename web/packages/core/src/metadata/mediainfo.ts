@@ -30,10 +30,13 @@ export function mapMediaInfoToClipMetadata(result: MediaInfoObjectResult): ClipM
   const timecode = tracks.find(
     (t) => t['@type'] === 'Other' && str(t.Type)?.toLowerCase() === 'time code',
   )
+  const baseCodec = str(video?.Format)
+  const profile = str(video?.Format_Profile)
+  const codec = baseCodec && profile?.toUpperCase() === 'RAW' ? `${baseCodec} RAW` : baseCodec
   const base: ClipMetadata = {
     width: num(video?.Width),
     height: num(video?.Height),
-    codec: str(video?.Format),
+    codec,
     frameRate: num(video?.FrameRate),
     // MediaInfo JSON reports General.Duration in seconds — verify in manual QA.
     durationSeconds: num(general?.Duration),
