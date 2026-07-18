@@ -16,6 +16,7 @@
     "@fontsource-variable/geist": "^5.2.9",
     "@luna-web/core": "workspace:*",
     "@mediabunny/prores": "^1.50.8",
+    "@react-pdf/renderer": "^4.5.1",
     "@tanstack/react-form": "^1.33.2",
     "@tanstack/react-router": "^1.170.18",
     "@tanstack/react-store": "^0.11.0",

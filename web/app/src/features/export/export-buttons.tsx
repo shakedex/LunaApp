@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { exporters, runExport } from './exporter'
 import './csv-exporter'
+import './pdf-exporter'
 
 export function ExportButtons({ report }: { report: ReportModel<Blob> }) {
   const [busy, setBusy] = useState<string | null>(null)
