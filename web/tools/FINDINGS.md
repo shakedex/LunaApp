@@ -335,3 +335,36 @@ decode," BUT:
 Pattern worth noting: **RAW formats increasingly ship a sidecar/embedded JPEG we
 can grab without decoding** — crm (`PRVW` box), ProRes RAW (`udta`), R3D (`.rtn`).
 BRAW remains the outlier with no free thumbnail path.
+
+## 2026-07-19 — ARRI ALEXA 35 MXF: ARRICORE + ARRIRAW (T_CAM)
+
+Two clips, both **ALEXA 35** (`General.Encoded_Application=ALEXA 35`, Company ARRI),
+MXF-wrapped, no sidecars:
+
+| Clip | `Video.Format` | Resolution | fps |
+|---|---|---|---|
+| `…-arricore.mxf` | **ARRICORE** | 3840×1608 | 24 |
+| `…_arri-raw.mxf` | **ARRIRAW** | 2048×1152 | 24 |
+
+- **mediainfo is the better tool here.** It gives the model
+  (`Encoded_Application=ALEXA 35`), company (ARRI), codec name (`ARRICORE` /
+  `ARRIRAW`), dims, fps, duration, `startTimecode`. But there's **no acquisition
+  track** (only `Audio.extra` Locked/BlockAlignment) → **no ISO/WB/lens/shutter/
+  gamma**. Unlike Sony/Canon MXF, these ARRI MXF don't embed the SMPTE
+  acquisition metadata; unlike ARRI ProRes `.mov`, there are no `com_arri` atoms.
+- **exiftool adds nothing** — 64 tags, all technical (dims/duration/FrameLayout),
+  no Make/Model/ISO/WB. For ARRI MXF, exiftool < mediainfo.
+- **No thumbnail path.** No embedded JPEG, no sidecar. ARRIRAW needs ART /
+  ARRIRAW SDK; **ARRICORE is brand-new (2024+) and not ffmpeg/mediabunny-
+  decodable** → no browser thumbnail. Getting ISO/WB would need the Avid `.ale`
+  or an ART CLI metadata export (native) — neither present here.
+
+**Where it lands:** ARRI MXF (ARRIRAW/ARRICORE) is the **hardest case so far** —
+metadata-light (model + codec + TC only) *and* no free thumbnail — alongside
+BRAW. The opposite of crm/ProRes RAW/R3D, which each shipped a grabbable JPEG.
+
+⚠️ **Toolkit caveat:** scanning MXF (or any compressed-RAW essence) for `FF D8 FF`
+is unreliable — the byte pattern occurs by chance in the payload. These files
+produced several "JPEG" hits with nonsense SOF dims (e.g. 3900×56032). Always
+validate a candidate embedded JPEG by *sane* SOF dimensions before trusting it;
+`box-offsets.mjs` avoids this by only reading declared boxes, not scanning.
