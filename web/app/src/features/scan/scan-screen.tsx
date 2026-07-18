@@ -1,4 +1,5 @@
 import { useStore } from '@tanstack/react-store'
+import { Logo } from '@/components/logo'
 import { Button } from '@/components/ui/button'
 import { startProcessing } from '@/features/process/run-processing'
 import { ReportWorkspace } from '@/features/report/report-workspace'
@@ -23,13 +24,29 @@ export function ScanScreen() {
   return (
     <div className="flex flex-col gap-6">
       {phase === 'idle' && (
-        <>
-          <p className="text-muted-foreground">
-            Pick a footage folder — everything stays on this device.
+        <div className="flex flex-col items-center gap-6 py-16 text-center">
+          <Logo className="h-16 w-auto" />
+          <div className="space-y-2">
+            <h1 className="text-2xl font-semibold tracking-tight">
+              Camera reports, in your browser
+            </h1>
+            <p className="text-muted-foreground max-w-md text-sm leading-relaxed">
+              Pick a footage folder to get per-clip thumbnails, metadata, and a PDF/CSV report.
+              Everything stays on this device.
+            </p>
+          </div>
+          <Button
+            size="lg"
+            onClick={() => void pickAndScan()}
+            style={{ boxShadow: '0 0 24px oklch(0.72 0.14 245 / 0.25)' }}
+          >
+            Pick folder
+          </Button>
+          <p className="text-muted-foreground font-mono text-xs">
+            MOV · MP4 · MXF · MKV · AVI · MTS · and more
           </p>
-          <Button onClick={() => void pickAndScan()}>Pick folder</Button>
           <RecentList />
-        </>
+        </div>
       )}
 
       {phase === 'scanning' && (

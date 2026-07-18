@@ -1,3 +1,4 @@
+import { FolderOpen, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import {
@@ -19,28 +20,33 @@ export function RecentList() {
   if (entries.length === 0) return null
 
   return (
-    <section className="w-full max-w-md">
-      <h2 className="text-muted-foreground mb-2 text-sm font-medium">Recent folders</h2>
-      <ul className="divide-y rounded-lg border">
+    <section className="w-full max-w-md text-left">
+      <h2 className="text-muted-foreground mb-2 text-xs font-medium tracking-wide uppercase">
+        Recent folders
+      </h2>
+      <ul className="flex flex-col gap-1.5">
         {entries.map((e) => (
-          <li key={e.key} className="flex items-center justify-between px-4 py-2">
-            <button
-              type="button"
-              className="truncate text-left text-sm hover:underline"
-              onClick={() => void scanFrom(e.handle)}
-            >
-              {e.name}
-            </button>
-            <Button
-              variant="ghost"
-              size="sm"
-              aria-label={`Remove ${e.name} from recent folders`}
-              onClick={() => {
-                void forgetSource(e.key).then(() => listRecentSources().then(setEntries))
-              }}
-            >
-              ✕
-            </Button>
+          <li key={e.key}>
+            <div className="bg-card hover:border-input flex items-center justify-between rounded-lg border px-3 py-2 transition-colors">
+              <button
+                type="button"
+                className="flex min-w-0 items-center gap-2 text-left text-sm"
+                onClick={() => void scanFrom(e.handle)}
+              >
+                <FolderOpen className="text-muted-foreground size-4 shrink-0" />
+                <span className="truncate">{e.name}</span>
+              </button>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label={`Remove ${e.name} from recent folders`}
+                onClick={() => {
+                  void forgetSource(e.key).then(() => listRecentSources().then(setEntries))
+                }}
+              >
+                <X />
+              </Button>
+            </div>
           </li>
         ))}
       </ul>
