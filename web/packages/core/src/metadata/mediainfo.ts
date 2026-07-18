@@ -1,4 +1,5 @@
 import type { ClipMetadata } from './model'
+import { applyVendorEnrichment } from './vendors/registry'
 
 export interface MediaInfoTrack {
   '@type': string
@@ -29,7 +30,7 @@ export function mapMediaInfoToClipMetadata(result: MediaInfoObjectResult): ClipM
   const timecode = tracks.find(
     (t) => t['@type'] === 'Other' && str(t.Type)?.toLowerCase() === 'time code',
   )
-  return {
+  const base: ClipMetadata = {
     width: num(video?.Width),
     height: num(video?.Height),
     codec: str(video?.Format),
@@ -40,4 +41,5 @@ export function mapMediaInfoToClipMetadata(result: MediaInfoObjectResult): ClipM
     startTimecode: str(timecode?.TimeCode_FirstFrame),
     reelName: str(general?.Reel_Name) ?? str(video?.Reel_Name),
   }
+  return applyVendorEnrichment(result, base)
 }
