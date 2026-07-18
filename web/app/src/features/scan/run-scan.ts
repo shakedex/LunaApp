@@ -1,4 +1,5 @@
 import { buildScanSummary, type DirectoryHandleLike, scanFolder } from '@luna-web/core'
+import { cancelProcessing } from '@/features/process/run-processing'
 import { rememberSource } from '@/persistence/recent-sources'
 import { ensureReadPermission } from './permissions'
 import { initialScanState, scanStore } from './store'
@@ -63,5 +64,6 @@ export async function scanFrom(handle: FileSystemDirectoryHandle): Promise<void>
 }
 
 export function resetScan(): void {
+  cancelProcessing()
   scanStore.setState(() => initialScanState)
 }
