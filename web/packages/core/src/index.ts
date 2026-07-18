@@ -10,6 +10,8 @@ export { mapMediaInfoToClipMetadata } from './metadata/mediainfo'
 export type { ClipMetadata } from './metadata/model'
 export type { PoolHandlers, PoolHooks, PoolOptions } from './pool/run-pool'
 export { runPool } from './pool/run-pool'
+export type { DetectedReel, ReelInput } from './reels/detect'
+export { detectReels, UNGROUPED_REEL } from './reels/detect'
 export type {
   BlobLike,
   DirectoryHandleLike,
