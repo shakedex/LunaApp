@@ -276,13 +276,17 @@ export async function runPool<L, T, R>(
         handlers.onItemStart?.(item)
         let attempt = 0
         for (;;) {
+          // Lane creation stays OUTSIDE the try: a createLane failure is a
+          // pool-level fault and must propagate, never masquerade as an item
+          // failure. (Fixed in review — commit ac2a8c2 added the regression
+          // tests: createLane-during-retry propagation + concurrency clamp.)
+          if (lane === null) lane = await hooks.createLane()
           try {
-            if (lane === null) lane = await hooks.createLane()
             const result = await hooks.run(lane, item)
             handlers.onItemSuccess(item, result)
             break
           } catch (err) {
-            if (lane !== null) hooks.destroyLane(lane)
+            hooks.destroyLane(lane)
             lane = null
             attempt += 1
             if (attempt >= maxAttempts) {
