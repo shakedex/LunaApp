@@ -56,6 +56,22 @@ Canon `.crm`: full camera block + a 2048×1080 preview — see `FINDINGS.md`.
 Note: exiftool is a native/Perl binary, so this is a Node/desktop path — it does
 not run in the browser.
 
+## `box-offsets.mjs`
+
+ISO-BMFF / QuickTime box walker. Maps a container's box tree (seek-only — never
+loads `mdat` or the multi-GB essence) and pinpoints every embedded preview /
+thumbnail JPEG with its absolute file offset, length, and pixel dimensions.
+Used to derive the exact byte offsets a browser box-reader targets — no
+dependency, no decode.
+
+```sh
+cd web
+bun tools/box-offsets.mjs clip.crm clip.mov
+```
+
+Verified offsets for the Canon `.crm` and DJI ProRes RAW previews are in
+`FINDINGS.md`.
+
 ## `FINDINGS.md`
 
 Living reference of what the payloads actually contain per camera/format and how

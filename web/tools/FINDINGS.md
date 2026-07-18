@@ -263,3 +263,43 @@ So "add crm support" for the local user is mostly **new code, not new packages**
 detect `.crm`/ProRes-RAW → read metadata via mediainfo → extract the embedded
 preview via a small box reader → same WebP thumbnail path as every other clip.
 BRAW/X-OCN/ARRIRAW stay metadata-only in the browser (placeholder frame).
+
+## Verified box offsets for the embedded previews (`tools/box-offsets.mjs`)
+
+Walked the containers (seek-only, never loading mdat) to pin exactly where each
+preview JPEG lives — the implementation spec for the browser box-reader.
+
+**Canon `.crm` (Cinema RAW Light)** — everything preview-related is in the first
+~1.2 MB, before `mdat`:
+
+| Image | Dims | File offset | Length | Box path |
+|---|---|---|---|---|
+| Thumbnail `THMB` | 160×120 | 10048 | 7 469 | `moov → uuid[85c0b687-820f-11e0-8111-f4ce462b6a48] → THMB` |
+| **Preview `PRVW`** | **2048×1080** | **94968** | **441 037** | top-level `uuid[eaf42b5e-1c98-4b88-b9fb-b7dc406e4d16]` @94912 (JPEG at box +56) |
+
+**DJI Ronin-4D ProRes RAW `.mov`** — `moov` is at the **end** of the file (after
+a 5.6 GB `mdat`); previews are in `moov/udta`:
+
+| Image | Dims | File offset | Length | Box path |
+|---|---|---|---|---|
+| Small preview | 448×240 | 5 625 738 358 | 79 899 | `moov → udta` |
+| **Full preview** | **1920×1012** | **5 625 818 281** | **1 098 815** | `moov → udta` |
+
+### Browser box-reader recipe (from the verified layouts)
+
+1. Read the first 16 bytes → confirm `ftyp`. Walk **top-level** boxes by reading
+   each 8/16-byte header and jumping by `size` (handle 32-bit, `size==1` 64-bit
+   `largesize`, `size==0` = to-EOF). **Skip `mdat` by its size — never read it.**
+2. **crm:** the walk stays in the first ~1.2 MB. Match the top-level
+   `uuid` whose 16-byte id is `eaf42b5e-1c98-4b88-b9fb-b7dc406e4d16`; the preview
+   JPEG starts 56 bytes into that box (`uuid` 16 + inner `PRVW` header 40).
+   Robust variant: `blob.slice()` the box and scan for `FF D8 FF … FF D9`.
+3. **mov:** the walk reaches `moov` at the tail (jumping over `mdat` via its
+   64-bit size — only a few small header reads to get there). `moov/udta` uses
+   `©`-prefixed / vendor atoms, so a strict box parser stops early — simplest is
+   to `blob.slice()` the ~1.2 MB `udta` and scan for JPEG SOI/EOI, then keep the
+   **largest** (skip the 448×240, take the 1920×1012).
+4. Both paths read only headers + one small slice (≤ ~1.2 MB) — no full-file
+   load. Hand the extracted JPEG bytes to the existing WebP thumbnail path.
+5. Grab pixel dims from the JPEG `SOF` marker if needed (see `jpegDims` in the
+   tool). BRAW has no such box → no browser thumbnail.
