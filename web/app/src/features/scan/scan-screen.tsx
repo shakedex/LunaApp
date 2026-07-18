@@ -5,6 +5,7 @@ import { StatTile } from '@/components/stat-tile'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Progress } from '@/components/ui/progress'
 import { Spinner } from '@/components/ui/spinner'
 import { startProcessing } from '@/features/process/run-processing'
 import { ReportWorkspace } from '@/features/report/report-workspace'
@@ -102,22 +103,37 @@ export function ScanScreen() {
       )}
 
       {(phase === 'processing' || phase === 'thumbnailing') && (
-        <section className="w-full">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-xl font-medium" aria-live="polite">
-              {phase === 'processing'
-                ? `Reading metadata… ${processedCount}/${clips.length}`
-                : `Generating thumbnails… ${thumbDoneCount}/${thumbTotal}`}
-            </h2>
-            <Button variant="outline" onClick={resetScan}>
-              Start over
-            </Button>
+        <section className="w-full space-y-4">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-medium" aria-live="polite">
+                {phase === 'processing'
+                  ? `Reading metadata… ${processedCount}/${clips.length}`
+                  : `Generating thumbnails… ${thumbDoneCount}/${thumbTotal}`}
+              </h2>
+              <Button variant="outline" size="sm" onClick={resetScan}>
+                Start over
+              </Button>
+            </div>
+            <Progress
+              value={
+                phase === 'processing'
+                  ? clips.length > 0
+                    ? (processedCount / clips.length) * 100
+                    : 0
+                  : thumbTotal > 0
+                    ? (thumbDoneCount / thumbTotal) * 100
+                    : 0
+              }
+            />
           </div>
-          <ul className="divide-y rounded-lg border">
-            {clips.map((c) => (
-              <ClipRow key={c.id} clipId={c.id} />
-            ))}
-          </ul>
+          <Card className="overflow-hidden py-0">
+            <ul className="divide-y">
+              {clips.map((c) => (
+                <ClipRow key={c.id} clipId={c.id} />
+              ))}
+            </ul>
+          </Card>
           <RawSection raw={raw} />
         </section>
       )}
