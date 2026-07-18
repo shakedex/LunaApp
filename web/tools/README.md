@@ -33,6 +33,29 @@ top of the script) — edit those paths for your machine.
 `out/` is regenerable, so it's git-ignored; commit distilled conclusions to
 `FINDINGS.md` instead.
 
+## `probe-exiftool.mjs`
+
+Companion for formats mediainfo can't fully read — notably Canon Cinema RAW
+Light `.crm`, whose `CRAW` frames aren't ffmpeg-decodable and whose camera
+metadata mediainfo doesn't surface. Uses `exiftool-vendored` to read vendor
+maker-note metadata (ISO/WB/lens/model/shutter, normalized across vendors) and
+to extract the **embedded preview/thumbnail JPEG** from a RAW container without
+debayering.
+
+```sh
+cd web
+bun tools/probe-exiftool.mjs                     # default: the S001 .crm
+bun tools/probe-exiftool.mjs path/to/clip.crm    # explicit files
+bun tools/probe-exiftool.mjs --out some/dir ...    # override output dir
+```
+
+Outputs to `tools/out/exiftool/` (git-ignored): `<clip>.exiftool.json` (every
+tag) and `<clip>.<Tag>.jpg` (each extractable embedded image). Verified on the
+Canon `.crm`: full camera block + a 2048×1080 preview — see `FINDINGS.md`.
+
+Note: exiftool is a native/Perl binary, so this is a Node/desktop path — it does
+not run in the browser.
+
 ## `FINDINGS.md`
 
 Living reference of what the payloads actually contain per camera/format and how

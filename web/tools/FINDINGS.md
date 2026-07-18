@@ -181,3 +181,27 @@ and run it on `S001/…CANONRAW.CRM` to confirm (a) Canon metadata fields and
 (b) an embedded preview JPEG we can use as the thumbnail. If preview quality is
 insufficient, fall back to LibRaw for a decoded frame. Same story applies to the
 **ProRes RAW** Ronin-4D clip (S006) — no ffmpeg decode; needs a vendor route.
+
+### exiftool test result — VERIFIED ✅ (2026-07-18)
+
+Added `exiftool-vendored` (dev dep) and ran `tools/probe-exiftool.mjs` on the
+S001 `.crm`. exiftool reads **277 tags** and solves *both* gaps mediainfo left:
+
+- **Full camera block** — `Make=Canon`, `Model=Canon EOS C400`, `ISO=800`,
+  `ColorTemperature=4300` (WB `Manual Temperature (Kelvin)`), `ShutterSpeed=1/100`,
+  `Aperture=1.2`, `FocalLength=50 mm`, `LensModel=RF50mm F1.2 L USM`,
+  `NDFilter=Off`, `VideoFrameRate=50`, `SerialNumber`, `CameraTemperature=49 C`.
+- **Embedded thumbnail without debayering** — `PreviewImage` extracted to a
+  **2048×1080 JPEG (~441 KB)** of the actual frame (real footage, not black),
+  plus a 160×120 `ThumbnailImage`. No Canon SDK, no LibRaw, no frame decode.
+
+So the plan for Canon Cinema RAW Light: **exiftool covers metadata + thumbnail.**
+LibRaw is only needed if we ever want a full-res debayered still. Because
+exiftool normalizes tags across vendors, `probe-exiftool.mjs` is also the tool
+to try against the other stubborn clip (ProRes RAW / Ronin-4D) and to enrich any
+format where mediainfo's `extra` comes up short.
+
+**Caveat for the app:** exiftool is a Perl/native binary (via `exiftool-vendored`),
+so it's a Node/desktop-side path — it does not run in the browser. Fine for a
+dev tool; if Luna Web needs `.crm` support client-side, that's a separate
+decision (server-side exiftool, or a WASM route).
