@@ -1,9 +1,9 @@
-import type { ClipRef } from '@luna-web/core'
-import { mapMediaInfoToClipMetadata } from '@luna-web/core'
+import { type ClipRef, mapMediaInfoToClipMetadata, runPool } from '@luna-web/core'
 import { type ScanState, scanStore } from '../scan/store'
 import { createMetadataWorker, type MetadataWorkerHandle } from './metadata-client'
+import { startThumbnails } from './run-thumbnails'
 
-const POOL_CAP = 4
+export const POOL_CAP = 4
 const METADATA_TIMEOUT_MS = 5 * 60_000 // spec §10.3: per-clip metadata timeout
 
 // Run token: bumped by every start and by cancelProcessing(). Loops from a
@@ -13,6 +13,40 @@ let currentRun = 0
 
 export function cancelProcessing(): void {
   currentRun += 1
+}
+
+export function isRunCurrent(run: number): boolean {
+  return run === currentRun
+}
+
+// Drop writes from superseded runs or after the pipeline left its active
+// phases ('processing' | 'thumbnailing').
+export function guardedUpdate(run: number, updater: (s: ScanState) => ScanState): void {
+  if (run !== currentRun) return
+  scanStore.setState((s) => (s.phase === 'processing' ? updater(s) : s)) // Task 6 adds 'thumbnailing' here
+}
+
+export function poolSizeFor(itemCount: number): number {
+  return Math.max(1, Math.min(POOL_CAP, navigator.hardwareConcurrency || 2, itemCount))
+}
+
+export function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject(new Error(`${label}: timed out after ${Math.round(ms / 1000)}s`)),
+      ms,
+    )
+    promise.then(
+      (v) => {
+        clearTimeout(timer)
+        resolve(v)
+      },
+      (e) => {
+        clearTimeout(timer)
+        reject(e)
+      },
+    )
+  })
 }
 
 export async function startProcessing(): Promise<void> {
@@ -30,71 +64,51 @@ export async function startProcessing(): Promise<void> {
     processedCount: 0,
   }))
 
-  const poolSize = Math.max(1, Math.min(POOL_CAP, navigator.hardwareConcurrency || 2, clips.length))
-  let nextIndex = 0
-
-  async function workerLoop(): Promise<void> {
-    let handle: MetadataWorkerHandle | null = null
-    try {
-      handle = createMetadataWorker()
-      for (;;) {
-        if (run !== currentRun) return // superseded: stop claiming clips
-        const index = nextIndex++
-        if (index >= clips.length) return
-        const clip = clips[index]
-        updateRun(run, (s) => ({ ...s, clipStatus: { ...s.clipStatus, [clip.id]: 'processing' } }))
-        let attempt = 0
-        for (;;) {
-          try {
-            if (handle === null) handle = createMetadataWorker()
-            const metadata = await analyzeClip(handle, clip)
-            updateRun(run, (s) => ({
-              ...s,
-              clipStatus: { ...s.clipStatus, [clip.id]: 'done' },
-              metadataById: { ...s.metadataById, [clip.id]: metadata },
-              processedCount: s.processedCount + 1,
-            }))
-            break
-          } catch (err) {
-            // Isolate the failure to this clip: recycle the worker (it may be
-            // wedged) and retry once on a fresh one (spec §15).
-            handle?.worker.terminate()
-            handle = null
-            attempt += 1
-            if (attempt >= 2) {
-              const message = err instanceof Error ? err.message : String(err)
-              updateRun(run, (s) => ({
-                ...s,
-                clipStatus: { ...s.clipStatus, [clip.id]: 'failed' },
-                clipErrors: { ...s.clipErrors, [clip.id]: message },
-                processedCount: s.processedCount + 1,
-              }))
-              break
-            }
-          }
-        }
-      }
-    } finally {
-      handle?.worker.terminate()
-    }
-  }
-
   try {
-    await Promise.all(Array.from({ length: poolSize }, () => workerLoop()))
-    updateRun(run, (s) => ({ ...s, phase: 'processed' }))
+    await runPool<MetadataWorkerHandle, ClipRef, Awaited<ReturnType<typeof analyzeClip>>>(
+      clips,
+      {
+        createLane: () => createMetadataWorker(),
+        destroyLane: (lane) => lane.worker.terminate(),
+        run: (lane, clip) => analyzeClip(lane, clip),
+      },
+      {
+        onItemStart: (clip) =>
+          guardedUpdate(run, (s) => ({
+            ...s,
+            clipStatus: { ...s.clipStatus, [clip.id]: 'processing' },
+          })),
+        onItemSuccess: (clip, metadata) =>
+          guardedUpdate(run, (s) => ({
+            ...s,
+            clipStatus: { ...s.clipStatus, [clip.id]: 'done' },
+            metadataById: { ...s.metadataById, [clip.id]: metadata },
+            processedCount: s.processedCount + 1,
+          })),
+        onItemFailure: (clip, err) => {
+          const message = err instanceof Error ? err.message : String(err)
+          guardedUpdate(run, (s) => ({
+            ...s,
+            clipStatus: { ...s.clipStatus, [clip.id]: 'failed' },
+            clipErrors: { ...s.clipErrors, [clip.id]: message },
+            processedCount: s.processedCount + 1,
+          }))
+        },
+      },
+      { concurrency: poolSizeFor(clips.length), isCancelled: () => run !== currentRun },
+    )
   } catch (err) {
-    // Top-level boundary: a worker-construction or other unexpected failure
-    // must surface as an error phase, never a forever-"processing" screen.
+    // Stop sibling lanes doing wasted work, then surface the failure.
+    cancelProcessing()
     const message = err instanceof Error ? err.message : String(err)
-    updateRun(run, (s) => ({ ...s, phase: 'error', error: message }))
+    scanStore.setState((s) =>
+      s.phase === 'processing' ? { ...s, phase: 'error', error: message } : s,
+    )
+    return
   }
-}
 
-// Apply an update only if this run is still current AND we're still in the
-// processing phase — late writes from orphaned loops are dropped.
-function updateRun(run: number, updater: (s: ScanState) => ScanState): void {
   if (run !== currentRun) return
-  scanStore.setState((s) => (s.phase === 'processing' ? updater(s) : s))
+  await startThumbnails(run)
 }
 
 async function analyzeClip(handle: MetadataWorkerHandle, clip: ClipRef) {
@@ -104,26 +118,4 @@ async function analyzeClip(handle: MetadataWorkerHandle, clip: ClipRef) {
   const file = (await clip.file.getFile()) as File
   const raw = await withTimeout(handle.api.analyze(file), METADATA_TIMEOUT_MS, clip.fileName)
   return mapMediaInfoToClipMetadata(raw)
-}
-
-function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(
-      () =>
-        reject(
-          new Error(`${label}: metadata extraction timed out after ${Math.round(ms / 1000)}s`),
-        ),
-      ms,
-    )
-    promise.then(
-      (v) => {
-        clearTimeout(timer)
-        resolve(v)
-      },
-      (e) => {
-        clearTimeout(timer)
-        reject(e)
-      },
-    )
-  })
 }
