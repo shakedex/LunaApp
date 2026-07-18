@@ -4,6 +4,8 @@
 // same item up to maxAttempts. Cancellation is cooperative: checked before
 // each claim; in-flight work finishes and its result is delivered to the
 // handlers (callers drop late writes via their own guards).
+// createLane failures are pool-level faults and always propagate; sibling
+// lanes are not pre-empted mid-item — callers stop them via isCancelled.
 export interface PoolHooks<L, T, R> {
   createLane(): L | Promise<L>
   destroyLane(lane: L): void
@@ -31,6 +33,7 @@ export async function runPool<L, T, R>(
   if (items.length === 0) return
   const maxAttempts = options.maxAttempts ?? 2
   const isCancelled = options.isCancelled ?? (() => false)
+  // Non-positive concurrency clamps to 1 lane
   const laneCount = Math.max(1, Math.min(options.concurrency, items.length))
   let nextIndex = 0
 
@@ -46,13 +49,13 @@ export async function runPool<L, T, R>(
         handlers.onItemStart?.(item)
         let attempt = 0
         for (;;) {
+          if (lane === null) lane = await hooks.createLane() // pool-level fault propagates outside try
           try {
-            if (lane === null) lane = await hooks.createLane()
             const result = await hooks.run(lane, item)
             handlers.onItemSuccess(item, result)
             break
           } catch (err) {
-            if (lane !== null) hooks.destroyLane(lane)
+            hooks.destroyLane(lane)
             lane = null
             attempt += 1
             if (attempt >= maxAttempts) {

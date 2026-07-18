@@ -136,4 +136,42 @@ describe('runPool', () => {
       ),
     ).rejects.toThrow('no lanes today')
   })
+
+  test('createLane rejection during a retry propagates (not swallowed as item failure)', async () => {
+    let createCalls = 0
+    const hooks = {
+      createLane: () => {
+        createCalls += 1
+        if (createCalls > 1) throw new Error('no lanes left')
+        return { id: 1 }
+      },
+      destroyLane: () => {},
+      run: async () => {
+        throw new Error('run always fails') // forces a retry → recreate
+      },
+    }
+    const failed: string[] = []
+    await expect(
+      runPool(
+        ['a'],
+        hooks,
+        { onItemSuccess: () => {}, onItemFailure: (i: string) => failed.push(i) },
+        { concurrency: 1 },
+      ),
+    ).rejects.toThrow('no lanes left')
+    expect(failed).toEqual([]) // the createLane fault must NOT masquerade as an item failure
+  })
+
+  test('non-positive concurrency clamps to one lane and still processes', async () => {
+    const t = makeHooks(async (_l, item) => `ok:${item}`)
+    const ok: string[] = []
+    await runPool(
+      ['a', 'b'],
+      t.hooks,
+      { onItemSuccess: (_i, r) => ok.push(r), onItemFailure: () => {} },
+      { concurrency: 0 },
+    )
+    expect(ok.sort()).toEqual(['ok:a', 'ok:b'])
+    expect(t.created.length).toBe(1)
+  })
 })
