@@ -2,6 +2,7 @@ import { buildReportModel } from '@luna-web/core'
 import { useStore } from '@tanstack/react-store'
 import { useMemo } from 'react'
 import { Button } from '@/components/ui/button'
+import { ExportButtons } from '@/features/export/export-buttons'
 import { ClipRow, RawSection } from '@/features/scan/clip-row'
 import { resetScan } from '@/features/scan/run-scan'
 import { scanStore } from '@/features/scan/store'
@@ -25,9 +26,12 @@ export function ReportWorkspace() {
     <section className="w-full">
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-xl font-medium">{model.cover.projectTitle || 'Camera report'}</h2>
-        <Button variant="outline" onClick={resetScan}>
-          Start over
-        </Button>
+        <div className="flex items-center gap-2">
+          <ExportButtons report={model} />
+          <Button variant="outline" onClick={resetScan}>
+            Start over
+          </Button>
+        </div>
       </div>
 
       <dl className="mb-6 grid grid-cols-5 gap-4 text-center">
@@ -47,8 +51,7 @@ export function ReportWorkspace() {
           <h3 className="mb-2 flex items-baseline gap-3 text-lg font-medium">
             {reel.name}
             <span className="text-muted-foreground text-sm">
-              {reel.clips.length} clips ·{' '}
-              {formatBytes(reel.clips.reduce((n, c) => n + c.sizeBytes, 0))}
+              {reel.clips.length} clips · {formatBytes(reel.stats.totalSizeBytes)}
             </span>
           </h3>
           <ul className="divide-y rounded-lg border">
@@ -61,7 +64,7 @@ export function ReportWorkspace() {
 
       <RawSection raw={model.raw} />
       <p className="text-muted-foreground mt-3 text-sm">
-        Exports (PDF/CSV) arrive in the next milestone.
+        PDF export arrives in the next milestone.
       </p>
     </section>
   )
