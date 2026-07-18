@@ -78,8 +78,11 @@ exactly what the desktop's `GenericCameraSupport` + FFmpeg path covers.
 
 1. **Chromium-only** (Chrome/Edge/Brave/etc.) because of the File System Access API.
 2. **No professional RAW** (ARRI/Sony/BRAW/RED) — see §2.
-3. **CPU-bound decode.** No native hardware acceleration except where the WebCodecs path
-   engages the browser's hardware decoders. Large cards on weak machines will be slow.
+3. **CPU-bound decode where WebCodecs can't reach.** The mediabunny path uses the browser's
+   hardware decoders (H.264/HEVC/VP9/AV1) and TurboRes for ProRes (WASM, benchmarked faster
+   than native FFmpeg even without cross-origin isolation); the ffmpeg.wasm fallback
+   (MXF/DNxHD/legacy) is pure software and noticeably slower. Large MXF cards on weak
+   machines will feel it.
 4. **First-visit WASM download.** The ffmpeg core (~31 MB) and mediainfo WASM are fetched
    from jsDelivr on first use, then cached in the browser (see §11). Subsequent visits and
    offline use are instant.
@@ -120,8 +123,10 @@ Browser (Chromium), all local
     ▼
   Worker pool  (size ≈ hardwareConcurrency, capped)
     ├── decode router per clip:
-    │     ├── WebCodecs + mp4box.js   (MP4/MOV, browser-supported codecs)
-    │     └── ffmpeg.wasm             (MXF/ProRes/DNxHD/other; core cached from jsDelivr)
+    │     ├── mediabunny (+@mediabunny/prores)  (MP4/M4V/MOV/MKV/WebM/3GP;
+    │     │     WebCodecs HW decode + TurboRes ProRes; CanvasSink thumbnails)
+    │     └── ffmpeg.wasm                        (MXF/DNxHD/AVI/MTS/legacy, and any
+    │           mediabunny failure cascades here; core cached from jsDelivr)
     ├── metadata: mediainfo.js (chunked) + ffmpeg metadata dict, merged
     └── thumbnail encode: OffscreenCanvas → WebP (screen) + JPEG (PDF)
     │
@@ -134,9 +139,11 @@ Data source is the local filesystem via the File System Access API. Files are **
 ffmpeg.wasm mounts the `File` via `WORKERFS` and seeks. This is what makes 100s-of-GB
 cards and multi-GB clips viable.
 
-**No `SharedArrayBuffer` / COOP / COEP required.** WebCodecs needs neither, and we use the
+**No `SharedArrayBuffer` / COOP / COEP required.** WebCodecs needs neither; we use the
 single-threaded ffmpeg core (parallelism comes from running several worker instances, not
-from in-core threads). This keeps hosting on any static host trivial.
+from in-core threads); and `@mediabunny/prores` runs without isolation in a degraded
+multithreading mode that is still ample for 3 frames per clip. This keeps hosting on any
+static host trivial. (Enabling COOP/COEP later is a pure ProRes speed upgrade, not a need.)
 
 ---
 
@@ -227,8 +234,9 @@ acceptable because Luna Web is open-source.
 
 | Job | Choice | License | Note |
 |---|---|---|---|
-| Demux + HW decode (MP4/MOV) | **WebCodecs** + **mp4box.js** | mp4box BSD-3 | browser-native, no WASM |
-| Decode (MXF/ProRes/DNxHD/other) | **ffmpeg.wasm** (`@ffmpeg/ffmpeg`) | wrapper MIT | stock `@ffmpeg/core` GPL-2.0, from jsDelivr + cache |
+| Demux + decode + thumbnails (MP4/M4V/MOV/MKV/WebM/3GP) | **mediabunny** | MPL-2.0 | pure TS, zero-dep; WebCodecs HW decode; `CanvasSink` frame extraction; `CustomVideoDecoder` registry |
+| ProRes decode (all profiles, 10/12-bit, alpha) | **@mediabunny/prores** (TurboRes, Zig→WASM) | MPL-2.0 | benchmarked faster than native FFmpeg; works without COOP/COEP in degraded-threading mode; ~50 kB gz + wasm bundled |
+| Decode fallback (MXF/DNxHD/AVI/MTS/legacy + any mediabunny failure) | **ffmpeg.wasm** (`@ffmpeg/ffmpeg`) | wrapper MIT | stock `@ffmpeg/core` GPL-2.0, from jsDelivr + Cache API |
 | Metadata | **mediainfo.js** | wrapper MIT, MediaInfoLib BSD-2 | chunked reads |
 | PDF export | **@react-pdf/renderer** | MIT | programmatic document |
 | CSV export | hand-rolled in `packages/core` | — | no dependency |
@@ -262,13 +270,17 @@ failed.
 
 ### 8.4 Decode router (in-worker) (`app/src/workers/decode`)
 Per clip, selects a path (see §10.2):
-- **WebCodecs path**: mp4box.js parses the MP4/MOV, locates samples near each target
-  timestamp, feeds `EncodedVideoChunk`s (from the preceding keyframe) to a `VideoDecoder`,
-  captures the target `VideoFrame`.
-- **ffmpeg path**: mounts the `File` via `WORKERFS`, seeks to each target timestamp,
-  extracts the frame. The ffmpeg core is loaded from jsDelivr and served from the browser
-  cache after first fetch.
-Both hand a decoded frame to the thumbnail encoder.
+- **mediabunny path** (MP4/M4V/MOV/MKV/WebM/3GP): mediabunny opens the file (Blob-backed
+  input, range reads), decodes via WebCodecs — or via the registered `@mediabunny/prores`
+  TurboRes decoder for ProRes — and `CanvasSink` (`width: 1280`, canvas pooling,
+  `samplesAtTimestamps`) yields the three target frames with keyframe seeking handled
+  internally.
+- **ffmpeg path** (MXF/DNxHD/AVI/MTS/M2TS/WMV/FLV, plus any clip the mediabunny path fails
+  on — the failure cascades here, mirroring the desktop generator-chain's cascade-on-
+  NoDecoder): mounts the `File` via `WORKERFS`, seeks to each target timestamp, extracts
+  scaled frames. The ffmpeg core is loaded from jsDelivr and served from the Cache API
+  after first fetch.
+Both hand frames to the thumbnail encoder.
 
 ### 8.5 Thumbnail encoder (`app/src/workers/decode`)
 Draws each decoded frame to an `OffscreenCanvas` scaled to 1280 px wide (aspect
@@ -421,20 +433,29 @@ system entries skipped.
 ### 10.2 Router decision (per clip)
 1. If extension is a pro-RAW type (`.r3d/.braw/.ari`) → `decodePath = none`, `notice`
    set, `ThumbnailOutcome = NoDecoder`.
-2. Else if container is MP4/MOV **and** `VideoDecoder.isConfigSupported(codec)` is true
-   → **WebCodecs** path.
-3. Else → **ffmpeg.wasm** path (covers MXF, ProRes, DNxHD, and anything WebCodecs rejects).
+2. Else if extension ∈ {`.mp4 .m4v .mov .mkv .webm .3gp`} → **mediabunny** path
+   (WebCodecs codecs + ProRes via `@mediabunny/prores`).
+3. Else (`.mxf .avi .mts .m2ts .wmv .flv`) → **ffmpeg.wasm** path (MXF, DNxHD, legacy).
+4. **Cascade:** a mediabunny failure (`ContainerOpenFailed`/`NoDecoder`) re-queues the
+   clip onto the ffmpeg path before it is marked failed — the web analog of the desktop
+   generator chain cascading on `NoDecoder`. (`.mts/.m2ts` route to ffmpeg by default:
+   AVCHD's 192-byte-packet BDAV variant is unverified in mediabunny.)
 
 ### 10.3 Thumbnail parameters (from desktop)
 - Count: **3** frames. Positions: **10% / 50% / 90%** of duration.
-- Width: **1280 px** (aspect preserved). Screen encode WebP q≈0.85; PDF encode JPEG.
-- Per-clip decode timeout: **30 s** (mirrors desktop `FfmpegThumbnailTimeout`); on timeout
-  → `SeekFailed`/`DecodeFailed` as appropriate. Per-clip metadata timeout: **5 min**.
+- Width: **1280 px** (aspect preserved). Screen encode WebP q≈0.85 (mediabunny path);
+  the ffmpeg path may emit JPEG directly. PDF export converts to JPEG at export time
+  (react-pdf accepts JPEG/PNG, not WebP) rather than double-encoding during processing.
+- Per-clip thumbnail timeout: **60 s** on the mediabunny path, **180 s** on the ffmpeg
+  path (wasm software decode of 4K MXF is legitimately slow; the desktop's native 30 s
+  budget doesn't translate). On timeout → `SeekFailed`/`DecodeFailed` as appropriate.
+  Per-clip metadata timeout: **5 min**.
 
 ### 10.4 Seeking
 Seek to nearest keyframe at/just before each target timestamp, decode forward to the
-target. ffmpeg path reuses the desktop's robust MXF strategy conceptually (byte seek →
-backward PTS seek fallbacks); WebCodecs path uses mp4box sample tables.
+target. The mediabunny path gets this from `CanvasSink`/`samplesAtTimestamps` (keyframe
+logic internal). The ffmpeg path uses input seeking (`-ss` before `-i`); the desktop's
+byte-seek/backward-PTS MXF fallbacks are adopted only if real-card QA shows seek failures.
 
 ---
 
@@ -446,7 +467,9 @@ cache — instant and offline-capable. Because these are fetched from a CDN rath
 served as Cloudflare static assets, the 25 MiB per-asset Workers limit never applies. A
 first-load progress indicator covers the initial download. Fetching program binaries from
 a CDN does not affect the "footage never leaves your device" guarantee — no user data is
-transmitted.
+transmitted. The mediainfo and `@mediabunny/prores` (TurboRes) WASM binaries are small
+enough to ship as bundled Vite assets — only the ~31 MB ffmpeg core rides the CDN, and it
+is fetched lazily, only the first time a clip actually routes to the ffmpeg path.
 
 ---
 
@@ -582,8 +605,8 @@ Starlight.
    recent sources (IndexedDB).
 3. **Core (pure)**: model, reel detection, CSV exporter, metadata mapping — with `bun test`.
 4. **Metadata**: mediainfo.js + ffmpeg dict in a worker; populate clips.
-5. **Decode**: worker pool + Comlink; ffmpeg.wasm path (WORKERFS) first, then WebCodecs
-   path + router; thumbnail encode.
+5. **Decode**: worker pool + Comlink; mediabunny (+`@mediabunny/prores`) path first, then
+   ffmpeg.wasm fallback (WORKERFS) + cascade router; thumbnail encode.
 6. **Results UI**: store, table+virtual grid, card view, live progress, cover form.
 7. **Exports**: PDF (react-pdf) + CSV wired to the registry; download / save.
 8. **Settings + activity**: settings form + persistence + migrations; activity/log view.
@@ -595,8 +618,13 @@ Starlight.
 
 ## 21. Open questions / future work
 
-- **WebCodecs codec coverage** varies by Chromium build; the router already falls back to
+- **WebCodecs codec coverage** varies by Chromium build; the router already cascades to
   ffmpeg, so this is a performance matter, not correctness.
+- **COOP/COEP as a ProRes speed upgrade**: `@mediabunny/prores` gains full shared-memory
+  multithreading under cross-origin isolation. If enabled later, the jsDelivr ffmpeg fetch
+  must be re-validated under COEP (CORP/CORS headers) or the core self-hosted/proxied.
+- **`.mts/.m2ts` in mediabunny**: test AVCHD's 192-byte BDAV variant against mediabunny's
+  MPEG-TS reader; if it works, move those extensions to the fast path.
 - **Future exporters**: JSON, checksum/MHL manifest (per-clip hashing is pure compute and a
   natural web addition), and a shareable HTML bundle if ever wanted.
 - **Per-clip checksums**: not in v1 scope, but the exporter registry and core model leave
