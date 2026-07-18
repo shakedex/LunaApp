@@ -5,6 +5,9 @@ export {
   SUPPORTED_MEDIA_EXTENSIONS,
   UNSUPPORTED_RAW_EXTENSIONS,
 } from './media/extensions'
+export type { MediaInfoObjectResult, MediaInfoTrack } from './metadata/mediainfo'
+export { mapMediaInfoToClipMetadata } from './metadata/mediainfo'
+export type { ClipMetadata } from './metadata/model'
 export type {
   BlobLike,
   DirectoryHandleLike,
