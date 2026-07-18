@@ -8,6 +8,8 @@ export {
 export type { MediaInfoObjectResult, MediaInfoTrack } from './metadata/mediainfo'
 export { mapMediaInfoToClipMetadata } from './metadata/mediainfo'
 export type { ClipMetadata } from './metadata/model'
+export type { PoolHandlers, PoolHooks, PoolOptions } from './pool/run-pool'
+export { runPool } from './pool/run-pool'
 export type {
   BlobLike,
   DirectoryHandleLike,
