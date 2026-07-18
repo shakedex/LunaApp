@@ -30,13 +30,25 @@ export function createFfmpegEngine(): FfmpegEngine {
         cachedBlobUrl(`${CORE_BASE}/ffmpeg-core.wasm`, 'application/wasm'),
       ])
       await ffmpeg.load({ coreURL, wasmURL })
-    })()
+    })().catch((err) => {
+      // A transient fetch/load failure must not permanently brick this engine:
+      // clear the cached promise so the next call retries.
+      loaded = null
+      throw err
+    })
     return loaded
   }
 
   return {
     async thumbnails(file, timestamps, width) {
       await ensureLoaded()
+      // Best-effort teardown of any leftovers from a previously-failed
+      // cleanup, then (re)create the mount dir. A genuine failure here
+      // surfaces on mount() below, inside the try, as a normal rejection
+      // the pool's retry handles. This engine is used one-clip-at-a-time
+      // per instance (pool lane, concurrency 1) — not concurrency-safe.
+      await ffmpeg.unmount(MOUNT_DIR).catch(() => {})
+      await ffmpeg.deleteDir(MOUNT_DIR).catch(() => {})
       await ffmpeg.createDir(MOUNT_DIR)
       // WORKERFS: ffmpeg reads the File lazily by range — no whole-file copy.
       await ffmpeg.mount(FFFSType.WORKERFS, { files: [file] }, MOUNT_DIR)
@@ -60,6 +72,7 @@ export function createFfmpegEngine(): FfmpegEngine {
             out,
           ])
           if (code !== 0) {
+            await ffmpeg.deleteFile(out).catch(() => {})
             frames.push({ positionRatio, timestampSeconds: t, outcome: 'SeekFailed' })
             continue
           }
