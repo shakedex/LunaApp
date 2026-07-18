@@ -1,6 +1,9 @@
 import { useForm } from '@tanstack/react-form'
 import { useStore } from '@tanstack/react-store'
 import { useEffect, useState } from 'react'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { coverStore, setCoverFields } from './cover-store'
 
 const TEXT_FIELDS = [
@@ -27,31 +30,37 @@ export function CoverForm() {
   })
 
   return (
-    <section className="w-full rounded-lg border p-6">
-      <h3 className="mb-4 text-lg font-medium">Report details</h3>
-      <div className="grid grid-cols-2 gap-4">
-        {TEXT_FIELDS.map(([name, label]) => (
-          <form.Field key={name} name={name}>
-            {(field) => (
-              <label className="flex flex-col gap-1 text-sm">
-                <span className="text-muted-foreground">{label}</span>
-                <input
-                  className="bg-background rounded-md border px-3 py-2"
-                  name={field.name}
-                  value={field.state.value}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                  onBlur={() => {
-                    field.handleBlur()
-                    setCoverFields({ [field.name]: field.state.value })
-                  }}
-                />
-              </label>
-            )}
-          </form.Field>
-        ))}
-        <LogoPicker />
-      </div>
-    </section>
+    <Card className="w-full">
+      <CardHeader>
+        <CardTitle>Report details</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-2 gap-4">
+          {TEXT_FIELDS.map(([name, label]) => (
+            <form.Field key={name} name={name}>
+              {(field) => (
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor={field.name} className="text-muted-foreground">
+                    {label}
+                  </Label>
+                  <Input
+                    id={field.name}
+                    name={field.name}
+                    value={field.state.value}
+                    onChange={(e) => field.handleChange(e.target.value)}
+                    onBlur={() => {
+                      field.handleBlur()
+                      setCoverFields({ [field.name]: field.state.value })
+                    }}
+                  />
+                </div>
+              )}
+            </form.Field>
+          ))}
+          <LogoPicker />
+        </div>
+      </CardContent>
+    </Card>
   )
 }
 
@@ -70,12 +79,15 @@ function LogoPicker() {
   }, [logo])
 
   return (
-    <label className="flex flex-col gap-1 text-sm">
-      <span className="text-muted-foreground">Logo</span>
+    <div className="flex flex-col gap-1.5">
+      <Label htmlFor="cover-logo" className="text-muted-foreground">
+        Logo
+      </Label>
       <input
+        id="cover-logo"
         type="file"
         accept="image/*"
-        className="text-sm"
+        className="text-muted-foreground file:bg-secondary file:text-secondary-foreground hover:file:bg-secondary/80 text-sm file:mr-3 file:rounded-md file:border-0 file:px-3 file:py-1.5 file:text-sm"
         onChange={(e) => {
           const file = e.target.files?.[0]
           if (file) setCoverFields({ logo: file })
@@ -88,6 +100,6 @@ function LogoPicker() {
           className="mt-1 h-10 w-auto object-contain"
         />
       )}
-    </label>
+    </div>
   )
 }

@@ -1,7 +1,9 @@
 import { buildReportModel } from '@luna-web/core'
 import { useStore } from '@tanstack/react-store'
 import { useMemo } from 'react'
+import { StatTile } from '@/components/stat-tile'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
 import { ExportButtons } from '@/features/export/export-buttons'
 import { ClipRow, RawSection } from '@/features/scan/clip-row'
 import { resetScan } from '@/features/scan/run-scan'
@@ -34,13 +36,17 @@ export function ReportWorkspace() {
         </div>
       </div>
 
-      <dl className="mb-6 grid grid-cols-5 gap-4 text-center">
-        <Stat label="Cards" value={String(model.stats.cardCount)} />
-        <Stat label="Clips" value={String(model.stats.clipCount)} />
-        <Stat label="Duration" value={formatDuration(model.stats.totalDurationSeconds)} />
-        <Stat label="Size" value={formatBytes(model.stats.totalSizeBytes)} />
-        <Stat label="RAW" value={String(model.stats.rawCount)} />
-      </dl>
+      <Card className="mb-6">
+        <CardContent>
+          <dl className="grid grid-cols-5 gap-4">
+            <StatTile label="Cards" value={String(model.stats.cardCount)} />
+            <StatTile label="Clips" value={String(model.stats.clipCount)} />
+            <StatTile label="Duration" value={formatDuration(model.stats.totalDurationSeconds)} />
+            <StatTile label="Size" value={formatBytes(model.stats.totalSizeBytes)} />
+            <StatTile label="RAW" value={String(model.stats.rawCount)} />
+          </dl>
+        </CardContent>
+      </Card>
 
       <div className="mb-6">
         <CoverForm />
@@ -48,33 +54,23 @@ export function ReportWorkspace() {
 
       {model.reels.map((reel) => (
         <section key={reel.name} className="mb-6">
-          <h3 className="mb-2 flex items-baseline gap-3 text-lg font-medium">
+          <h3 className="bg-background/80 sticky top-14 z-10 mb-2 flex items-baseline gap-3 py-2 text-lg font-medium backdrop-blur">
             {reel.name}
-            <span className="text-muted-foreground text-sm">
+            <span className="text-muted-foreground font-mono text-sm tabular-nums">
               {reel.clips.length} clips · {formatBytes(reel.stats.totalSizeBytes)}
             </span>
           </h3>
-          <ul className="divide-y rounded-lg border">
-            {reel.clips.map((clip) => (
-              <ClipRow key={clip.id} clipId={clip.id} />
-            ))}
-          </ul>
+          <Card className="overflow-hidden py-0">
+            <ul className="divide-y">
+              {reel.clips.map((clip) => (
+                <ClipRow key={clip.id} clipId={clip.id} />
+              ))}
+            </ul>
+          </Card>
         </section>
       ))}
 
       <RawSection raw={model.raw} />
-      <p className="text-muted-foreground mt-3 text-sm">
-        PDF export arrives in the next milestone.
-      </p>
     </section>
-  )
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <dt className="text-muted-foreground text-sm">{label}</dt>
-      <dd className="text-2xl">{value}</dd>
-    </div>
   )
 }

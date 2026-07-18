@@ -1,6 +1,7 @@
 import type { ReportModel } from '@luna-web/core'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { Spinner } from '@/components/ui/spinner'
 import { exporters, runExport } from './exporter'
 import './csv-exporter'
 import './pdf-exporter'
@@ -14,6 +15,7 @@ export function ExportButtons({ report }: { report: ReportModel<Blob> }) {
       {exporters.map((exporter) => (
         <Button
           key={exporter.id}
+          variant={exporter.id === 'pdf' ? 'default' : 'outline'}
           disabled={busy !== null}
           onClick={() => {
             setError(null)
@@ -23,7 +25,13 @@ export function ExportButtons({ report }: { report: ReportModel<Blob> }) {
               .finally(() => setBusy(null))
           }}
         >
-          {busy === exporter.id ? 'Exporting…' : `Export ${exporter.label}`}
+          {busy === exporter.id ? (
+            <>
+              <Spinner /> Exporting…
+            </>
+          ) : (
+            `Export ${exporter.label}`
+          )}
         </Button>
       ))}
       {error && <span className="text-destructive text-sm">{error}</span>}
