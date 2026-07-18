@@ -1,6 +1,7 @@
 import { useStore } from '@tanstack/react-store'
 import { Button } from '@/components/ui/button'
 import { formatBytes } from '@/lib/format'
+import { RecentList } from './recent-list'
 import { confirmScan, pickAndScan, resetScan } from './run-scan'
 import { scanStore } from './store'
 
@@ -17,6 +18,7 @@ export function ScanScreen() {
             Pick a footage folder — everything stays on this device.
           </p>
           <Button onClick={() => void pickAndScan()}>Pick folder</Button>
+          <RecentList />
         </>
       )}
 
