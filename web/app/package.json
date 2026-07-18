@@ -19,8 +19,10 @@
     "@tanstack/store": "^0.11.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "comlink": "^4.4.2",
     "idb": "^8.0.3",
     "lucide-react": "^1.25.0",
+    "mediainfo.js": "^0.3.7",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "tailwind-merge": "^3.6.0"
