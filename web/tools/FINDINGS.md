@@ -205,3 +205,61 @@ format where mediainfo's `extra` comes up short.
 so it's a Node/desktop-side path — it does not run in the browser. Fine for a
 dev tool; if Luna Web needs `.crm` support client-side, that's a separate
 decision (server-side exiftool, or a WASM route).
+
+## ProRes RAW + BRAW probes (exiftool, 2026-07-18)
+
+- **DJI Ronin-4D ProRes RAW `.mov` (S006)** — exiftool gives almost no camera
+  fields (just `VideoFrameRate=60`), but **extracts a real 1920×1012 `PreviewImage`
+  (~1 MB)** — verified genuine footage. So ProRes RAW gets a thumbnail from its
+  embedded poster frame without decoding the (undecodable) ProRes RAW essence.
+- **Blackmagic `.braw` (D_CAM)** — exiftool reads metadata (`LensType=Sigma
+  24-70…`, `ReelName`, fps) but **no embedded preview JPEG** (only BRAW-specific
+  binary blobs). BRAW frames need the Blackmagic RAW SDK (native) — no browser
+  thumbnail path.
+
+## Local-user (browser) strategy — do we need WASM?
+
+exiftool proved the data is *there*, but exiftool is native → test-only. Luna Web
+runs in the browser, so the shipping path must be browser-capable. What holds:
+
+- **Metadata is largely already solved in-browser.** `mediainfo.js` (WASM,
+  mature, already shipped) reads the camera block from `extra` for
+  ARRI/Sony/Canon-XF-AVC/BRAW and container basics for crm/ProRes RAW. No new
+  dep needed for the bulk of metadata.
+- **`exifr` (pure-JS) does NOT read `.crm`** — returns "Unknown file format" —
+  and it's an older/less-maintained lib, so it was rejected/removed.
+- **Thumbnails: extract the embedded preview, don't decode RAW.** Proven — `.crm`
+  embeds a 2048×1080 preview, ProRes RAW `.mov` embeds 1920×1012, both real
+  frames. Standard codecs (ProRes 422/4444, XF-AVC, H.264/265, DNxHR) keep
+  decoding through the `mediabunny` + `@ffmpeg/ffmpeg` we already ship.
+- **In-browser RAW *decoders* are not production-ready.** The only browser LibRaw
+  port (`ybouane/LibRaw-Wasm`) is ~6 months old and "90% AI-generated" — not
+  something to ship. Full debayering in-browser is off the table for now.
+- **BRAW / Sony X-OCN / ARRIRAW: no embedded JPEG and no browser decoder** → no
+  in-browser thumbnail; show a placeholder, metadata still via mediainfo.
+
+**Answer — do we need a WASM?** Mostly *no new one*. `mediainfo.js` (WASM) +
+`mediabunny` / `@ffmpeg/ffmpeg` (already shipped) + a small **zero-dependency
+ISO-BMFF/QuickTime box reader** to pull embedded previews covers crm + ProRes
+RAW for the local user. A RAW-decoder WASM (LibRaw) is only worth revisiting if
+embedded previews prove insufficient AND a trustworthy, maintained binding
+exists.
+
+### Package list to add `.crm` + broader format support (browser)
+
+Vetted, minimal — favour reuse over new supply-chain risk:
+
+| Need | Package | Status |
+|---|---|---|
+| Metadata (all formats) | `mediainfo.js` | **already installed** — maintained WASM |
+| Frame thumbnails (standard codecs) | `mediabunny` + `@ffmpeg/ffmpeg` | **already installed** |
+| Embedded preview extraction (crm, ProRes RAW) | *tiny in-repo box reader — no dep* | **recommended** (proven previews exist) |
+| — optional maintained parser instead of hand-rolling | `mp4box` (mp4box.js) | mature/active; verify it tolerates Canon's custom boxes |
+| RAW debayer in browser (crm full-res) | `LibRaw-Wasm` | **deferred** — young/AI-generated; pin+audit only if truly needed |
+| Dev/desktop metadata probing | `exiftool-vendored` | already added; **not shipped** in the app |
+| ~~Canon crm in pure JS~~ | ~~`exifr`~~ | **rejected** — doesn't read crm, stale |
+
+So "add crm support" for the local user is mostly **new code, not new packages**:
+detect `.crm`/ProRes-RAW → read metadata via mediainfo → extract the embedded
+preview via a small box reader → same WebP thumbnail path as every other clip.
+BRAW/X-OCN/ARRIRAW stay metadata-only in the browser (placeholder frame).
