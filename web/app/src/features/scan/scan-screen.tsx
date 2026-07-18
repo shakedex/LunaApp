@@ -1,5 +1,6 @@
-import type { ClipRef } from '@luna-web/core'
+import type { ClipRef, ThumbnailFrame } from '@luna-web/core'
 import { useStore } from '@tanstack/react-store'
+import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { startProcessing } from '@/features/process/run-processing'
 import { formatBytes, formatDuration } from '@/lib/format'
@@ -67,13 +68,17 @@ export function ScanScreen() {
         </section>
       )}
 
-      {(state.phase === 'processing' || state.phase === 'processed') && (
+      {(state.phase === 'processing' ||
+        state.phase === 'thumbnailing' ||
+        state.phase === 'processed') && (
         <section className="w-full">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-xl font-medium" aria-live="polite">
               {state.phase === 'processing'
                 ? `Reading metadata… ${state.processedCount}/${state.clips.length}`
-                : `${state.clips.length} clips processed`}
+                : state.phase === 'thumbnailing'
+                  ? `Generating thumbnails… ${state.thumbDoneCount}/${Object.keys(state.thumbStatus).length}`
+                  : `${state.clips.length} clips processed`}
             </h2>
             <Button variant="outline" onClick={resetScan}>
               Start over
@@ -97,11 +102,6 @@ export function ScanScreen() {
                 ))}
               </ul>
             </section>
-          )}
-          {state.phase === 'processed' && (
-            <p className="text-muted-foreground mt-3 text-sm">
-              Thumbnails arrive in the next milestone.
-            </p>
           )}
         </section>
       )}
@@ -131,27 +131,77 @@ function ClipTable({ state }: { state: ScanState }) {
 function ClipRow({ clip, state }: { clip: ClipRef; state: ScanState }) {
   const status = state.clipStatus[clip.id] ?? 'queued'
   const m = state.metadataById[clip.id]
+  const thumbStatus = state.thumbStatus[clip.id]
   return (
-    <li className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] items-center gap-x-4 px-4 py-2 text-sm">
-      <span className="truncate">{clip.relativePath}</span>
-      <span className="text-muted-foreground tabular-nums">
-        {m?.width !== undefined && m?.height !== undefined ? `${m.width}×${m.height}` : '—'}
-      </span>
-      <span className="text-muted-foreground">{m?.codec ?? '—'}</span>
-      <span className="text-muted-foreground tabular-nums">
-        {m?.frameRate !== undefined ? `${m.frameRate} fps` : '—'}
-      </span>
-      <span className="text-muted-foreground tabular-nums">
-        {m?.durationSeconds !== undefined ? formatDuration(m.durationSeconds) : '—'}
-      </span>
-      <span className="text-muted-foreground tabular-nums">
-        {status === 'done' ? (
-          formatBytes(clip.sizeBytes)
-        ) : (
-          <StatusBadge status={status} error={state.clipErrors[clip.id]} />
-        )}
-      </span>
+    <li className="flex flex-col gap-2 px-4 py-2 text-sm">
+      {thumbStatus === 'queued' || thumbStatus === 'decoding' ? (
+        <div className="flex gap-1">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="bg-muted h-14 w-24 animate-pulse rounded" />
+          ))}
+        </div>
+      ) : (
+        <ThumbStrip frames={state.thumbsById[clip.id]} />
+      )}
+      <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] items-center gap-x-4">
+        <span className="truncate">{clip.relativePath}</span>
+        <span className="text-muted-foreground tabular-nums">
+          {m?.width !== undefined && m?.height !== undefined ? `${m.width}×${m.height}` : '—'}
+        </span>
+        <span className="text-muted-foreground">{m?.codec ?? '—'}</span>
+        <span className="text-muted-foreground tabular-nums">
+          {m?.frameRate !== undefined ? `${m.frameRate} fps` : '—'}
+        </span>
+        <span className="text-muted-foreground tabular-nums">
+          {m?.durationSeconds !== undefined ? formatDuration(m.durationSeconds) : '—'}
+        </span>
+        <span className="text-muted-foreground tabular-nums">
+          {status === 'done' ? (
+            formatBytes(clip.sizeBytes)
+          ) : (
+            <StatusBadge status={status} error={state.clipErrors[clip.id]} />
+          )}
+        </span>
+      </div>
     </li>
+  )
+}
+
+function ThumbStrip({ frames }: { frames: ThumbnailFrame<Blob>[] | undefined }) {
+  const [urls, setUrls] = useState<string[]>([])
+
+  useEffect(() => {
+    if (!frames) return
+    const next = frames.map((f) => (f.image ? URL.createObjectURL(f.image) : ''))
+    setUrls(next)
+    return () => {
+      for (const u of next) if (u) URL.revokeObjectURL(u)
+    }
+  }, [frames])
+
+  if (!frames) return null
+  return (
+    <div className="flex gap-1">
+      {frames.map((f, i) =>
+        f.outcome === 'Success' && urls[i] ? (
+          <img
+            key={f.positionRatio}
+            src={urls[i]}
+            alt={`Frame at ${Math.round(f.positionRatio * 100)}%`}
+            className="h-14 rounded object-cover"
+            loading="lazy"
+          />
+        ) : (
+          <div
+            key={f.positionRatio}
+            className="bg-muted text-muted-foreground flex h-14 w-24 items-center justify-center rounded text-xs"
+            title={f.outcome}
+          >
+            {f.outcome === 'NotAttempted' ? 'RAW' : 'n/a'}
+          </div>
+        ),
+      )}
+    </div>
   )
 }
 

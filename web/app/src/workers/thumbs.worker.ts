@@ -4,6 +4,7 @@ import { THUMBNAIL_POSITIONS } from '@luna-web/core'
 import { registerProresDecoder } from '@mediabunny/prores'
 import * as Comlink from 'comlink'
 import { ALL_FORMATS, BlobSource, CanvasSink, Input } from 'mediabunny'
+import type { ThumbsWorkerApi } from '../features/process/thumbs-client'
 
 registerProresDecoder()
 
@@ -58,6 +59,6 @@ const api = {
       input.dispose()
     }
   },
-}
+} satisfies ThumbsWorkerApi
 
 Comlink.expose(api)

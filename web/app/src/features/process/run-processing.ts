@@ -23,7 +23,9 @@ export function isRunCurrent(run: number): boolean {
 // phases ('processing' | 'thumbnailing').
 export function guardedUpdate(run: number, updater: (s: ScanState) => ScanState): void {
   if (run !== currentRun) return
-  scanStore.setState((s) => (s.phase === 'processing' ? updater(s) : s)) // Task 6 adds 'thumbnailing' here
+  scanStore.setState((s) =>
+    s.phase === 'processing' || s.phase === 'thumbnailing' ? updater(s) : s,
+  )
 }
 
 export function poolSizeFor(itemCount: number): number {
@@ -62,6 +64,10 @@ export async function startProcessing(): Promise<void> {
     metadataById: {},
     clipErrors: {},
     processedCount: 0,
+    thumbStatus: {},
+    thumbsById: {},
+    thumbErrors: {},
+    thumbDoneCount: 0,
   }))
 
   try {
