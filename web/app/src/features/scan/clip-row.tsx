@@ -1,6 +1,8 @@
 import type { ClipRef, RawNotice, ThumbnailFrame } from '@luna-web/core'
 import { useStore } from '@tanstack/react-store'
 import { memo, useEffect, useState } from 'react'
+import { Badge } from '@/components/ui/badge'
+import { Skeleton } from '@/components/ui/skeleton'
 import { formatBytes, formatDuration } from '@/lib/format'
 import { scanStore } from './store'
 
@@ -31,25 +33,25 @@ export const ClipRow = memo(function ClipRow({ clipId }: { clipId: string }) {
       {thumbStatus === 'queued' || thumbStatus === 'decoding' ? (
         <div className="flex gap-1">
           {[0, 1, 2].map((i) => (
-            <div key={i} className="bg-muted h-14 w-24 animate-pulse rounded" />
+            <Skeleton key={i} className="h-14 w-24 rounded-md" />
           ))}
         </div>
       ) : (
         <ThumbStrip frames={frames} />
       )}
       <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] items-center gap-x-4">
-        <span className="truncate">{clip.relativePath}</span>
-        <span className="text-muted-foreground tabular-nums">
+        <span className="truncate font-mono text-[0.8rem]">{clip.relativePath}</span>
+        <span className="text-muted-foreground font-mono tabular-nums">
           {m?.width !== undefined && m?.height !== undefined ? `${m.width}×${m.height}` : '—'}
         </span>
-        <span className="text-muted-foreground">{m?.codec ?? '—'}</span>
-        <span className="text-muted-foreground tabular-nums">
+        <span className="text-muted-foreground font-mono">{m?.codec ?? '—'}</span>
+        <span className="text-muted-foreground font-mono tabular-nums">
           {m?.frameRate !== undefined ? `${m.frameRate} fps` : '—'}
         </span>
-        <span className="text-muted-foreground tabular-nums">
+        <span className="text-muted-foreground font-mono tabular-nums">
           {m?.durationSeconds !== undefined ? formatDuration(m.durationSeconds) : '—'}
         </span>
-        <span className="text-muted-foreground tabular-nums">
+        <span className="font-mono tabular-nums">
           {status === 'done' ? (
             formatBytes(clip.sizeBytes)
           ) : (
@@ -104,7 +106,7 @@ export function ThumbStrip({ frames }: { frames: ThumbnailFrame<Blob>[] | undefi
             key={f.positionRatio}
             src={urls[i]}
             alt={`Frame at ${Math.round(f.positionRatio * 100)}%`}
-            className="h-14 rounded object-cover"
+            className="border-border h-14 rounded border object-cover transition-transform hover:scale-[1.02]"
             loading="lazy"
           />
         ) : (
@@ -124,10 +126,14 @@ export function ThumbStrip({ frames }: { frames: ThumbnailFrame<Blob>[] | undefi
 export function StatusBadge({ status, error }: { status: string; error?: string }) {
   if (status === 'failed') {
     return (
-      <span className="text-destructive" title={error}>
+      <Badge variant="destructive" title={error}>
         failed
-      </span>
+      </Badge>
     )
   }
-  return <span className="text-muted-foreground">{status}…</span>
+  return (
+    <Badge variant="secondary" className="text-muted-foreground">
+      {status}…
+    </Badge>
+  )
 }
