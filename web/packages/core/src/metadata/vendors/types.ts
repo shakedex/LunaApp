@@ -30,3 +30,7 @@ export function extraOf(track: MediaInfoTrack | undefined): Record<string, unkno
   }
   return {}
 }
+
+export function vendorString(v: unknown): string | undefined {
+  return typeof v === 'string' && v.trim() !== '' ? v : undefined
+}
