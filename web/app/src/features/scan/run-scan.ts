@@ -16,6 +16,8 @@ export async function pickAndScan(): Promise<void> {
 }
 
 export async function scanFrom(handle: FileSystemDirectoryHandle): Promise<void> {
+  const phase = scanStore.state.phase
+  if (phase === 'scanning' || phase === 'processing') return
   if (!(await ensureReadPermission(handle))) {
     scanStore.setState((s) => ({
       ...s,
@@ -58,10 +60,6 @@ export async function scanFrom(handle: FileSystemDirectoryHandle): Promise<void>
   rememberSource(handle, Date.now()).catch(() => {
     // best-effort: losing a recent-sources entry must never sink a completed scan
   })
-}
-
-export function confirmScan(): void {
-  scanStore.setState((s) => (s.phase === 'summary' ? { ...s, phase: 'confirmed' } : s))
 }
 
 export function resetScan(): void {

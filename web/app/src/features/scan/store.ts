@@ -1,7 +1,9 @@
-import type { ClipRef, RawNotice, ScanSummary } from '@luna-web/core'
+import type { ClipMetadata, ClipRef, RawNotice, ScanSummary } from '@luna-web/core'
 import { Store } from '@tanstack/store'
 
-export type ScanPhase = 'idle' | 'scanning' | 'summary' | 'confirmed' | 'error'
+export type ScanPhase = 'idle' | 'scanning' | 'summary' | 'processing' | 'processed' | 'error'
+
+export type ClipProcessStatus = 'queued' | 'processing' | 'done' | 'failed'
 
 export interface ScanState {
   phase: ScanPhase
@@ -11,6 +13,10 @@ export interface ScanState {
   raw: RawNotice[]
   summary: ScanSummary | null
   error: string | null
+  clipStatus: Record<string, ClipProcessStatus>
+  metadataById: Record<string, ClipMetadata>
+  clipErrors: Record<string, string>
+  processedCount: number
 }
 
 export const initialScanState: ScanState = {
@@ -21,6 +27,10 @@ export const initialScanState: ScanState = {
   raw: [],
   summary: null,
   error: null,
+  clipStatus: {},
+  metadataById: {},
+  clipErrors: {},
+  processedCount: 0,
 }
 
 export const scanStore = new Store<ScanState>(initialScanState)
