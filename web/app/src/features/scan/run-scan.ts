@@ -29,14 +29,13 @@ export async function scanFrom(handle: FileSystemDirectoryHandle): Promise<void>
     // Boundary cast: the real FileSystemDirectoryHandle satisfies DirectoryHandleLike
     // at runtime; TS's lib types yield base FileSystemHandle from entries().
     const result = await scanFolder(handle as unknown as DirectoryHandleLike, (p) => {
-      if (p.filesSeen % PROGRESS_EVERY === 0) {
+      if (p.filesSeen === 1 || p.filesSeen % PROGRESS_EVERY === 0) {
         scanStore.setState((s) => ({
           ...s,
           progress: { filesSeen: p.filesSeen, clipsFound: p.clipsFound },
         }))
       }
     })
-    await rememberSource(handle, Date.now())
     scanStore.setState((s) => ({
       ...s,
       phase: 'summary',
@@ -54,7 +53,11 @@ export async function scanFrom(handle: FileSystemDirectoryHandle): Promise<void>
       phase: 'error',
       error: err instanceof Error ? err.message : String(err),
     }))
+    return
   }
+  rememberSource(handle, Date.now()).catch(() => {
+    // best-effort: losing a recent-sources entry must never sink a completed scan
+  })
 }
 
 export function confirmScan(): void {
