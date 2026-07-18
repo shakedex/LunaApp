@@ -301,7 +301,12 @@ export async function runPool<L, T, R>(
     }
   }
 
-  await Promise.all(Array.from({ length: laneCount }, () => laneLoop()))
+  // Settle ALL lanes before surfacing a pool-level rejection: callers observe
+  // a fully-quiesced pool, never racing stragglers. (Fixed in review — commit
+  // 77a308d added the regression test.)
+  const results = await Promise.allSettled(Array.from({ length: laneCount }, () => laneLoop()))
+  const rejection = results.find((r): r is PromiseRejectedResult => r.status === 'rejected')
+  if (rejection) throw rejection.reason
 }
 ```
 
@@ -983,7 +988,10 @@ export async function startThumbnails(run: number): Promise<void> {
   }))
 
   // Cascade queue: mediabunny container/codec failures retry on ffmpeg.
+  // cascadedIds guards the pool-failure sweep from double-terminaling a clip
+  // that legitimately re-queued (fixed in review — commit 77a308d).
   const cascaded: ClipRef[] = []
+  const cascadedIds = new Set<string>()
 
   const mediabunnyPass = runPool<ThumbsWorkerHandle, ClipRef, ThumbnailFrame<Blob>[]>(
     mediabunnyClips,
@@ -1010,23 +1018,29 @@ export async function startThumbnails(run: number): Promise<void> {
         const message = err instanceof Error ? err.message : String(err)
         if (message.includes('NO_DECODER') || /format|recognized|container/i.test(message)) {
           cascaded.push(clip)
+          cascadedIds.add(clip.id)
           setThumbStatus(run, clip.id, 'queued')
         } else {
           failClip(run, clip.id, message)
         }
       },
     },
-    { concurrency: poolSizeFor(mediabunnyClips.length), isCancelled: () => !isRunCurrent(run) },
+    {
+      concurrency: poolSizeFor(mediabunnyClips.length),
+      // deterministic NO_DECODER must not retry — the ffmpeg cascade IS the retry
+      maxAttempts: 1,
+      isCancelled: () => !isRunCurrent(run),
+    },
   )
 
   await mediabunnyPass.catch((err) => {
-    // Pool-level failure (e.g. worker construction): fail remaining clips
-    // via the ffmpeg queue where possible; report, don't wedge.
+    // runPool settles all lanes before rejecting, so no stragglers are
+    // running here: statuses are final and the cascade list is complete.
     const message = err instanceof Error ? err.message : String(err)
     for (const clip of mediabunnyClips) {
-      if (scanStore.state.thumbStatus[clip.id] === 'queued' || scanStore.state.thumbStatus[clip.id] === 'decoding') {
-        failClip(run, clip.id, message)
-      }
+      if (cascadedIds.has(clip.id)) continue // legitimately re-queued for ffmpeg
+      const st = scanStore.state.thumbStatus[clip.id]
+      if (st === 'queued' || st === 'decoding') failClip(run, clip.id, message)
     }
   })
 
