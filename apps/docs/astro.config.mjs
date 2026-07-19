@@ -15,6 +15,30 @@ export default defineConfig({
     starlight({
       title: 'Luna',
       description: 'Camera reports in your browser. Nothing leaves your device.',
+      // Tab icon + link/share icon (the Luna cat+moon mark).
+      favicon: '/favicon.ico',
+      head: [
+        {
+          tag: 'link',
+          attrs: { rel: 'apple-touch-icon', href: '/docs/apple-touch-icon.png' },
+        },
+        {
+          tag: 'meta',
+          attrs: { property: 'og:image', content: 'https://luna.ozer2.one/docs/og.png' },
+        },
+        {
+          tag: 'meta',
+          attrs: { property: 'og:image:width', content: '1200' },
+        },
+        {
+          tag: 'meta',
+          attrs: { property: 'og:image:height', content: '630' },
+        },
+        {
+          tag: 'meta',
+          attrs: { name: 'twitter:image', content: 'https://luna.ozer2.one/docs/og.png' },
+        },
+      ],
       plugins: [
         starlightThemeBlack({
           // Off-brand clutter for a product docs site — no AI-tool buttons.
