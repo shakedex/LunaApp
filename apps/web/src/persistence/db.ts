@@ -9,18 +9,26 @@ interface LunaDb extends DBSchema {
   // One record ('log') holding the persisted ActivitySnapshot; `unknown` for
   // the same reason as settings — normalizeActivitySnapshot is the only reader.
   activity: { key: string; value: unknown }
+  // Report Library: summaries are tiny and listed often; models carry the
+  // frame Blobs and are only read when a saved report is opened.
+  reportSummaries: { key: string; value: unknown }
+  reportModels: { key: string; value: unknown }
 }
 
 let dbPromise: Promise<IDBPDatabase<LunaDb>> | null = null
 
 export function getDb(): Promise<IDBPDatabase<LunaDb>> {
-  dbPromise ??= openDB<LunaDb>('luna-web', 3, {
+  dbPromise ??= openDB<LunaDb>('luna-web', 4, {
     upgrade(db, oldVersion) {
       // Guard each store by the version that introduced it: fresh installs
       // enter with oldVersion 0 and must create everything.
       if (oldVersion < 1) db.createObjectStore('recentSources', { autoIncrement: true })
       if (oldVersion < 2) db.createObjectStore('settings')
       if (oldVersion < 3) db.createObjectStore('activity')
+      if (oldVersion < 4) {
+        db.createObjectStore('reportSummaries')
+        db.createObjectStore('reportModels')
+      }
     },
   })
   return dbPromise
