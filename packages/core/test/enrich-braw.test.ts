@@ -3,7 +3,7 @@ import { detectReels } from '../src'
 import { mapMediaInfoToClipMetadata } from '../src/metadata/mediainfo'
 
 // Blackmagic RAW (.braw) — corpus-confirmed shape (D_CAM_D001_D001_09150935_C013.braw,
-// web/tools/out/): General.extra carries manufacturer/camera_type/lens_type/reel_name/
+// tools/analysis/out/): General.extra carries manufacturer/camera_type/lens_type/reel_name/
 // viewing_gamma. The dump's only shutter-adjacent key is `shutter_type: "Angle"` — a mode
 // string, not a value — so `shutter` stays blank (FINDINGS: never guess). `analog_gain` is
 // the only exposure-adjacent field; it is gain, not ISO, so `iso` stays blank too.

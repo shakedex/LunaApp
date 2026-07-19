@@ -45,10 +45,10 @@ describe('thumbnailRouteFor', () => {
   })
 
   describe('ProRes RAW detection on a mediabunny-set extension', () => {
-    // web/tools/out/S_cam_S006_A003C0011_210922_0000_ronin4d_proresraw.mov.json
+    // tools/analysis/out/S_cam_S006_A003C0011_210922_0000_ronin4d_proresraw.mov.json
     // (DJI Ronin-4D ProRes RAW) — mediainfo Video track:
     //   Format = "ProRes", Format_Profile = "RAW", CodecID = "aprn"
-    // web/tools/out/CAMERA_RONIN-4D_A001C0004_..._4K_ProRes4444_25FPS.mov.json
+    // tools/analysis/out/CAMERA_RONIN-4D_A001C0004_..._4K_ProRes4444_25FPS.mov.json
     // (plain ProRes 4444), same Video track shape:
     //   Format = "ProRes", Format_Profile = "4444", CodecID = "ap4h"
     // `mapMediaInfoToClipMetadata` (commit 80efa25) now threads Format_Profile

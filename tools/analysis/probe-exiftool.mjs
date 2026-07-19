@@ -25,7 +25,7 @@ import { basename, join, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { exiftool } from 'exiftool-vendored'
 
-const HERE = fileURLToPath(new URL('.', import.meta.url)) // web/tools/
+const HERE = fileURLToPath(new URL('.', import.meta.url)) // tools/analysis/
 const DEFAULT_FILES = [
   'D:/LUNA_TEST/TEST_PROJECT_LUNA/CAMERA/S_cam/S001/S_0001C038X241003_1807575U_CANONRAW.CRM',
 ]

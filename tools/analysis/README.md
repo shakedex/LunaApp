@@ -1,4 +1,4 @@
-# web/tools — metadata diagnostics
+# tools/analysis — metadata diagnostics
 
 Dev/debug tooling for Luna Web's metadata parser. **Not shipped** in the app
 bundle — kept in-repo so we can inspect real camera files, keep compatibility,
@@ -7,23 +7,22 @@ and extend support for more cameras/models as we encounter them.
 ## `analyze-clips.mjs`
 
 Drives the **same** `mediainfo.js` the app's metadata worker uses and the
-**same** [`mapMediaInfoToClipMetadata`](../packages/core/src/metadata/mediainfo.ts)
+**same** [`mapMediaInfoToClipMetadata`](../../packages/core/src/metadata/mediainfo.ts)
 mapper from `@luna-web/core`, so "what mediainfo reads" and "what Luna currently
 keeps" sit side by side. Also surfaces sidecars (Sony `.xml`, Avid `.ale`/`.bin`)
 sitting next to each clip.
 
 ```sh
-cd web
-bun tools/analyze-clips.mjs                        # default corpora
-bun tools/analyze-clips.mjs "D:/path/to/CAMERA"     # a folder (walked recursively)
-bun tools/analyze-clips.mjs clipA.mxf clipB.mov     # explicit files
-bun tools/analyze-clips.mjs --out some/dir ...       # override output dir
+bun tools/analysis/analyze-clips.mjs                        # default corpora
+bun tools/analysis/analyze-clips.mjs "D:/path/to/CAMERA"     # a folder (walked recursively)
+bun tools/analysis/analyze-clips.mjs clipA.mxf clipB.mov     # explicit files
+bun tools/analysis/analyze-clips.mjs --out some/dir ...       # override output dir
 ```
 
 With no arguments it scans the default on-set corpora (`DEFAULT_ROOTS` at the
 top of the script) — edit those paths for your machine.
 
-### Outputs (`tools/out/`, git-ignored)
+### Outputs (`tools/analysis/out/`, git-ignored)
 
 - `<clip>.json` — full mediainfo payload + current `ClipMetadata` mapping +
   sidecar text, per clip.
@@ -43,13 +42,12 @@ to extract the **embedded preview/thumbnail JPEG** from a RAW container without
 debayering.
 
 ```sh
-cd web
-bun tools/probe-exiftool.mjs                     # default: the S001 .crm
-bun tools/probe-exiftool.mjs path/to/clip.crm    # explicit files
-bun tools/probe-exiftool.mjs --out some/dir ...    # override output dir
+bun tools/analysis/probe-exiftool.mjs                     # default: the S001 .crm
+bun tools/analysis/probe-exiftool.mjs path/to/clip.crm    # explicit files
+bun tools/analysis/probe-exiftool.mjs --out some/dir ...    # override output dir
 ```
 
-Outputs to `tools/out/exiftool/` (git-ignored): `<clip>.exiftool.json` (every
+Outputs to `tools/analysis/out/exiftool/` (git-ignored): `<clip>.exiftool.json` (every
 tag) and `<clip>.<Tag>.jpg` (each extractable embedded image). Verified on the
 Canon `.crm`: full camera block + a 2048×1080 preview — see `FINDINGS.md`.
 
@@ -65,8 +63,7 @@ Used to derive the exact byte offsets a browser box-reader targets — no
 dependency, no decode.
 
 ```sh
-cd web
-bun tools/box-offsets.mjs clip.crm clip.mov
+bun tools/analysis/box-offsets.mjs clip.crm clip.mov
 ```
 
 Verified offsets for the Canon `.crm` and DJI ProRes RAW previews are in

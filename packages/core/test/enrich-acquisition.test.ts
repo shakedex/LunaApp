@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import { mapMediaInfoToClipMetadata } from '../src/metadata/mediainfo'
 
 // Sony/Canon acquisition track (RDD 18 "Acquisition Metadata") — corpus-confirmed shape
-// (CAMERA_BURANO_.../web/tools/out/CAMERA_BURANO_BURANO_XOCN_LT_Clip_2.mxf.json): every value
+// (CAMERA_BURANO_.../tools/analysis/out/CAMERA_BURANO_BURANO_XOCN_LT_Clip_2.mxf.json): every value
 // is a string, several ship a display-ready `_String` sibling. Values below are taken verbatim
 // from that dump (ISO 800, WB 3600, shutter 180.0°/1:48, IrisTNumber 1.922025, focal 50.000,
 // TransferCharacteristics "Linear").

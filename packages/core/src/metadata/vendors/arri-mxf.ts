@@ -4,7 +4,7 @@ import { generalTrack, vendorString, videoTrack } from './types'
 // SMPTE UL (Video.transfer_characteristics) -> gamma display name. ARRI .mxf
 // (ALEXA 35 / Mini LF) does not embed ISO/WB/shutter (FINDINGS: "not embedded"),
 // but the container's transfer-characteristics UL is a real color-pipeline
-// signal we can map. Seed confirmed from corpus (ALEXA 35, web/tools/out/):
+// signal we can map. Seed confirmed from corpus (ALEXA 35, tools/analysis/out/):
 // "0E17010204020000" -> LogC4. Add more ULs here as new corpus clips confirm them.
 export const arriTransferUlToGamma: Record<string, string> = {
   '0E17010204020000': 'LogC4',

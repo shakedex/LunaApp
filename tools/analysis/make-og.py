@@ -1,5 +1,5 @@
-# Disposable: composes web/app/public/og.png (1200x630) = Luna logo centered
-# on the app background color. Run once: python web/tools/make-og.py
+# Disposable: composes apps/web/public/og.png (1200x630) = Luna logo centered
+# on the app background color. Run once: python tools/analysis/make-og.py
 from PIL import Image
 
 W, H = 1200, 630
@@ -12,5 +12,5 @@ target_h = int(H * 0.46)
 scale = target_h / logo.height
 logo = logo.resize((int(logo.width * scale), target_h), Image.LANCZOS)
 canvas.alpha_composite(logo, ((W - logo.width) // 2, (H - logo.height) // 2))
-canvas.convert("RGB").save("web/app/public/og.png", "PNG")
-print("wrote web/app/public/og.png")
+canvas.convert("RGB").save("apps/web/public/og.png", "PNG")
+print("wrote apps/web/public/og.png")

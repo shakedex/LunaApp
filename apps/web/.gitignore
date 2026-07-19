@@ -12,6 +12,10 @@ dist
 dist-ssr
 *.local
 
+# generated
+routeTree.gen.ts
+*.tsbuildinfo
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

@@ -21,7 +21,7 @@ const arriMov = {
   },
 }
 
-// ARRI .mxf (ALEXA 35 / Mini LF) — corpus-confirmed shape (A_CAM_A001..., web/tools/out/):
+// ARRI .mxf (ALEXA 35 / Mini LF) — corpus-confirmed shape (A_CAM_A001..., tools/analysis/out/):
 // General track carries Encoded_Application_CompanyName/_Name (no com_arri_camera_* atoms —
 // those are QuickTime-only), and Video.transfer_characteristics carries a SMPTE UL for gamma.
 const arriMxf = {

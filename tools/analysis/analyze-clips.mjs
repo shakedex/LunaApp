@@ -35,14 +35,14 @@ import {
   fileExtensionOf,
   SUPPORTED_MEDIA_EXTENSIONS,
   UNSUPPORTED_RAW_EXTENSIONS,
-} from '../packages/core/src/media/extensions.ts'
-import { mapMediaInfoToClipMetadata } from '../packages/core/src/metadata/mediainfo.ts'
+} from '../../packages/core/src/media/extensions.ts'
+import { mapMediaInfoToClipMetadata } from '../../packages/core/src/metadata/mediainfo.ts'
 
-const HERE = dirname(fileURLToPath(import.meta.url)) // web/tools
-const WEB = resolve(HERE, '..')
+const HERE = dirname(fileURLToPath(import.meta.url)) // tools/analysis
+const ROOT = resolve(HERE, '..', '..')
 
 // Resolve mediainfo.js exactly as the app would (from app's dependency graph).
-const requireFromApp = createRequire(join(WEB, 'app', 'package.json'))
+const requireFromApp = createRequire(join(ROOT, 'apps', 'web', 'package.json'))
 const mediaInfoFactoryMod = requireFromApp('mediainfo.js')
 const mediaInfoFactory = mediaInfoFactoryMod.default ?? mediaInfoFactoryMod
 const wasmPath = requireFromApp.resolve('mediainfo.js/MediaInfoModule.wasm')

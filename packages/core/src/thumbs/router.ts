@@ -16,10 +16,10 @@ const PREVIEW_ONLY_EXTENSIONS = new Set(['.crm', '.r3d'])
 // need the Blackmagic RAW SDK") — clip with a placeholder thumbnail.
 const NO_THUMBNAIL_EXTENSIONS = new Set(['.braw'])
 
-// Verified against web/tools/out/S_cam_S006_A003C0011_210922_0000_ronin4d_proresraw.mov.json
+// Verified against tools/analysis/out/S_cam_S006_A003C0011_210922_0000_ronin4d_proresraw.mov.json
 // (DJI Ronin-4D ProRes RAW, mediainfo `Video` track): Format = "ProRes",
 // Format_Profile = "RAW", CodecID = "aprn". Contrast with
-// web/tools/out/CAMERA_RONIN-4D_..._4K_ProRes4444_25FPS.mov.json (plain ProRes
+// tools/analysis/out/CAMERA_RONIN-4D_..._4K_ProRes4444_25FPS.mov.json (plain ProRes
 // 4444): Format = "ProRes", Format_Profile = "4444", CodecID = "ap4h" — same
 // `Format`, different profile/codecID. `mapMediaInfoToClipMetadata`
 // (src/metadata/mediainfo.ts, commit 80efa25) now threads this distinction

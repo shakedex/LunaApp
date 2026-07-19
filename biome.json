@@ -7,7 +7,14 @@
   },
   "files": {
     "ignoreUnknown": false,
-    "includes": ["**", "!docs", "!**/*.css", "!**/*.svg", "!app/src/components/ui"]
+    "includes": [
+      "**",
+      "!apps/docs",
+      "!docs",
+      "!**/*.css",
+      "!**/*.svg",
+      "!apps/web/src/components/ui"
+    ]
   },
   "formatter": {
     "enabled": true,

@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import { mapMediaInfoToClipMetadata } from '../src/metadata/mediainfo'
 
 // Panasonic P2-style ClipMetadata XML atom — corpus-confirmed shape
-// (S_cam/S002/lumix_s5.mov, web/tools/out/S_cam_S002_lumix_s5.mov.json):
+// (S_cam/S002/lumix_s5.mov, tools/analysis/out/S_cam_S002_lumix_s5.mov.json):
 // General.extra.com_panasonic_SemiPro_metadata_xml carries the WHOLE clip
 // metadata document as a single string (mediainfo.js joins the atom's
 // original newlines with " / "). Camera-block fields genuinely present in
