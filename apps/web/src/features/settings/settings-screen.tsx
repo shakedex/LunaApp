@@ -42,6 +42,8 @@ export function SettingsScreen() {
   const generateThumbnails = useSelector(settingsStore, (s) => s.generateThumbnails)
   const coverDefaults = useSelector(settingsStore, (s) => s.coverDefaults)
   const [confirmingClear, setConfirmingClear] = useState(false)
+  const [clearing, setClearing] = useState(false)
+  const [resetNonce, setResetNonce] = useState(0)
   const cores = navigator.hardwareConcurrency || 2
 
   const patchDefault = (key: (typeof DEFAULT_FIELDS)[number]['key'], value: string) => {
@@ -111,6 +113,7 @@ export function SettingsScreen() {
               <div key={key} className="flex flex-col gap-1.5">
                 <Label htmlFor={`default-${key}`}>{label}</Label>
                 <Input
+                  key={`${key}-${resetNonce}`}
                   id={`default-${key}`}
                   defaultValue={coverDefaults[key] ?? ''}
                   onBlur={(event) => {
@@ -124,6 +127,7 @@ export function SettingsScreen() {
               <Label htmlFor="default-logo">Logo</Label>
               <div className="flex items-center gap-2">
                 <Input
+                  key={`logo-${resetNonce}`}
                   id="default-logo"
                   type="file"
                   accept="image/*"
@@ -155,9 +159,10 @@ export function SettingsScreen() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() =>
+              onClick={() => {
                 void updateSettings({ coverDefaults: coverDefaultsFrom(coverStore.state) })
-              }
+                setResetNonce((n) => n + 1)
+              }}
             >
               Copy from current cover
             </Button>
@@ -165,7 +170,10 @@ export function SettingsScreen() {
               variant="ghost"
               size="sm"
               disabled={Object.keys(coverDefaults).length === 0}
-              onClick={() => void updateSettings({ coverDefaults: {} })}
+              onClick={() => {
+                void updateSettings({ coverDefaults: {} })
+                setResetNonce((n) => n + 1)
+              }}
             >
               Clear defaults
             </Button>
@@ -187,10 +195,23 @@ export function SettingsScreen() {
               <span className="text-destructive text-sm">
                 Delete all locally stored Luna data and reload?
               </span>
-              <Button variant="destructive" size="sm" onClick={() => void clearLocalData()}>
-                Delete everything
+              <Button
+                variant="destructive"
+                size="sm"
+                disabled={clearing}
+                onClick={() => {
+                  setClearing(true)
+                  void clearLocalData()
+                }}
+              >
+                {clearing ? 'Deleting…' : 'Delete everything'}
               </Button>
-              <Button variant="ghost" size="sm" onClick={() => setConfirmingClear(false)}>
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={clearing}
+                onClick={() => setConfirmingClear(false)}
+              >
                 Cancel
               </Button>
             </div>
