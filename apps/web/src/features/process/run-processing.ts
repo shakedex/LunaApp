@@ -102,7 +102,9 @@ export async function startProcessing(): Promise<void> {
           })),
         onItemFailure: (clip, err) => {
           const message = err instanceof Error ? err.message : String(err)
-          logger.warn(`Metadata failed for ${clip.fileName}`, message)
+          // Guarded: a superseded run's late failure must not log under the
+          // new operation that has since begun.
+          if (isRunCurrent(run)) logger.warn(`Metadata failed for ${clip.fileName}`, message)
           guardedUpdate(run, (s) => ({
             ...s,
             clipStatus: { ...s.clipStatus, [clip.id]: 'failed' },

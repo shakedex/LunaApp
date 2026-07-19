@@ -112,12 +112,13 @@ export async function startThumbnails(run: number): Promise<void> {
         // cascade, spec §10.2). Other errors fail the clip.
         const message = err instanceof Error ? err.message : String(err)
         if (isDecoderFailure(message)) {
-          logger.debug(`Cascading ${clip.fileName} to ffmpeg`, message)
+          // Guarded: superseded-run stragglers must not log under the new operation.
+          if (isRunCurrent(run)) logger.debug(`Cascading ${clip.fileName} to ffmpeg`, message)
           cascaded.push(clip)
           cascadedIds.add(clip.id)
           setThumbStatus(run, clip.id, 'queued')
         } else {
-          logger.warn(`Thumbnails failed for ${clip.fileName}`, message)
+          if (isRunCurrent(run)) logger.warn(`Thumbnails failed for ${clip.fileName}`, message)
           failClip(run, clip.id, message)
         }
       },
@@ -173,10 +174,13 @@ export async function startThumbnails(run: number): Promise<void> {
           if (cascadedIds.has(clip.id) && isDecoderFailure(message)) {
             salvage.push(clip)
             salvageIds.add(clip.id)
-            logger.info(`No browser decoder for ${clip.fileName} — trying embedded preview`)
+            // Guarded: superseded-run stragglers must not log under the new operation.
+            if (isRunCurrent(run)) {
+              logger.info(`No browser decoder for ${clip.fileName} — trying embedded preview`)
+            }
             setThumbStatus(run, clip.id, 'queued')
           } else {
-            logger.warn(`Thumbnails failed for ${clip.fileName}`, message)
+            if (isRunCurrent(run)) logger.warn(`Thumbnails failed for ${clip.fileName}`, message)
             failClip(run, clip.id, message)
           }
         },
@@ -201,7 +205,7 @@ export async function startThumbnails(run: number): Promise<void> {
         createLane: () => ({}),
         destroyLane: () => {},
         run: (_lane, clip) =>
-          withTimeout(buildPreviewFrame(clip), PREVIEW_TIMEOUT_MS, clip.fileName),
+          withTimeout(buildPreviewFrame(run, clip), PREVIEW_TIMEOUT_MS, clip.fileName),
       },
       {
         onItemStart: (clip) => setThumbStatus(run, clip.id, 'decoding'),
@@ -237,7 +241,7 @@ function noDecoderFrame(): ThumbnailFrame<Blob> {
 // not be slurped into memory whole (P8 final-review carry-forward).
 const RTN_MAX_BYTES = 8 * 1024 * 1024
 
-async function buildPreviewFrame(clip: ClipRef): Promise<ThumbnailFrame<Blob>> {
+async function buildPreviewFrame(run: number, clip: ClipRef): Promise<ThumbnailFrame<Blob>> {
   let preview: EmbeddedPreview | null
   if (clip.extension === '.crm') {
     preview = await extractCrmPreview(await clip.file.getFile())
@@ -245,7 +249,12 @@ async function buildPreviewFrame(clip: ClipRef): Promise<ThumbnailFrame<Blob>> {
     if (clip.previewSidecar) {
       const sidecar = await clip.previewSidecar.getFile()
       if (sidecar.size > RTN_MAX_BYTES) {
-        logger.warn(`${clip.fileName}: .rtn sidecar is ${sidecar.size} bytes — too large, skipping`)
+        // Guarded: superseded-run stragglers must not log under the new operation.
+        if (isRunCurrent(run)) {
+          logger.warn(
+            `${clip.fileName}: .rtn sidecar is ${sidecar.size} bytes — too large, skipping`,
+          )
+        }
         preview = null
       } else {
         preview = extractRtnJpeg(new Uint8Array(await sidecar.arrayBuffer()))
@@ -261,7 +270,9 @@ async function buildPreviewFrame(clip: ClipRef): Promise<ThumbnailFrame<Blob>> {
     preview = await extractMovTailPreview(await clip.file.getFile())
   }
   if (!preview) {
-    logger.info(`No embedded preview in ${clip.fileName} — placeholder frame used`)
+    // Guarded: superseded-run stragglers must not log under the new operation.
+    if (isRunCurrent(run))
+      logger.info(`No embedded preview in ${clip.fileName} — placeholder frame used`)
     return noDecoderFrame()
   }
   return await previewToFrame(preview)
