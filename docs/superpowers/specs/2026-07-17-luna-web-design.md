@@ -517,12 +517,12 @@ IndexedDB database `luna-web`, object stores `settings` and `recentSources`, `ve
 ```ts
 interface Settings {
   schemaVersion: number         // for migrations
-  theme: 'dark' | 'light' | 'system'
-  workerPoolCap: number         // default 4
-  coverDefaults: Partial<CoverFields>   // logo stored as Blob
-  defaultExport: { pdf: boolean; csv: boolean }
+  workerPoolCap: number         // default 4, clamped 1–8
+  coverDefaults: Partial<CoverFields>   // logo stored as Blob; `date` is never persisted (always seeded to today)
 }
 ```
+
+_Amended at Plan 09 scoping (maintainer-approved): `theme` is dropped — Luna Web is Cinema Dark, dark-only by design (visual-design spec); `defaultExport` is dropped — with a two-button export toolbar a "default export" toggle controls nothing. Either can return as a schema v2 migration if ever needed._
 
 Migrations run in IndexedDB's `onupgradeneeded`, keyed off `schemaVersion`, each migration
 a pure transform from vN to vN+1. Unknown/newer versions are handled defensively (load
