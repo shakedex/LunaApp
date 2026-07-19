@@ -1,5 +1,5 @@
 {
-  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "luna-web-docs",
   "compatibility_date": "2026-07-19",
   // Assets-only Worker: no `main`, no Vite plugin — Astro owns the build.
