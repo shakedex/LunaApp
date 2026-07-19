@@ -17,10 +17,15 @@ export function AppShell({ children }: { children: ReactNode }) {
             <Link to="/settings" className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }))}>
               Settings
             </Link>
+            <Link to="/activity" className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }))}>
+              Activity
+            </Link>
             <a href="/docs" className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }))}>
               Docs
             </a>
-            <span className="tabular-nums">v{__APP_VERSION__}</span>
+            <Link to="/credits" className="hover:text-foreground tabular-nums transition-colors">
+              v{__APP_VERSION__}
+            </Link>
           </nav>
         </div>
       </header>
