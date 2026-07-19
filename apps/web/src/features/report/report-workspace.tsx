@@ -111,6 +111,28 @@ export function ReportWorkspace() {
               <ClipCard key={clip.id} clip={clip} />
             ))}
           </div>
+          {reel.otherFiles.length > 0 && (
+            <div className="mt-4">
+              <h3 className="text-muted-foreground mb-2 text-sm font-medium">Other files</h3>
+              <Card className="overflow-hidden py-0">
+                <table className="w-full text-sm">
+                  <tbody className="divide-y">
+                    {reel.otherFiles.map((f) => (
+                      <tr key={f.relativePath}>
+                        <td className="px-4 py-2 font-medium whitespace-nowrap">{f.fileName}</td>
+                        <td className="text-muted-foreground w-full truncate px-4 py-2">
+                          {f.relativePath}
+                        </td>
+                        <td className="text-muted-foreground px-4 py-2 text-right font-mono whitespace-nowrap tabular-nums">
+                          {formatBytes(f.sizeBytes)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </Card>
+            </div>
+          )}
         </section>
       ))}
     </section>

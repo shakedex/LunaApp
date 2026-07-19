@@ -86,6 +86,17 @@ const styles = StyleSheet.create({
   timecode: { fontFamily: GEIST_MONO, marginBottom: 2 },
   thumb: { width: 104, height: 58, objectFit: 'contain' },
 
+  otherFilesEyebrow: {
+    color: C.muted,
+    fontSize: 7,
+    letterSpacing: 2,
+    marginTop: 6,
+    marginBottom: 3,
+    paddingHorizontal: 10,
+  },
+  otherFileName: { fontSize: 9, fontWeight: 500, marginBottom: 2 },
+  otherFileSize: { fontFamily: GEIST_MONO, color: C.muted, fontSize: 8 },
+
   footerLeft: {
     position: 'absolute',
     bottom: 20,
@@ -170,6 +181,24 @@ function ReelSection({ reel, root }: { reel: PdfReel; root: string }) {
       {reel.clips.map((clip, i) => (
         <ClipBand key={clip.relativePath} clip={clip} index={i} root={root} />
       ))}
+      {reel.otherFiles.length > 0 ? (
+        <View>
+          <Text style={styles.otherFilesEyebrow}>OTHER FILES</Text>
+          {reel.otherFiles.map((f, i) => (
+            <View
+              key={f.relativePath}
+              style={i % 2 === 0 ? [styles.band, styles.bandAlt] : styles.band}
+              wrap={false}
+            >
+              <View style={{ flexGrow: 1, paddingRight: 10 }}>
+                <Text style={styles.otherFileName}>{f.fileName}</Text>
+                <Text style={styles.clipPath}>{breakablePath(joinPath(root, f.relativePath))}</Text>
+              </View>
+              <Text style={styles.otherFileSize}>{formatBytes(f.sizeBytes)}</Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
     </View>
   )
 }

@@ -35,6 +35,9 @@ export interface ReelStats {
 export interface Reel<TImage = unknown> {
   name: string
   clips: ReportClip<TImage>[]
+  // Listed per-file (name, path, size), not just counted: the report is a 1:1
+  // inventory of the card, so every file appears where it was discovered.
+  otherFiles: OtherFileRef[]
   stats: ReelStats
 }
 
@@ -101,15 +104,16 @@ export function buildReportModel<TImage = unknown>(
   let otherFileSizeBytes = 0
   for (const f of input.otherFiles) otherFileSizeBytes += f.sizeBytes
 
-  // Other files group by top folder (they carry no reelName metadata) and roll
-  // into their reel's counts + sizes; folders holding only other files still
-  // become (clipless) reels so their bytes are never dropped.
-  const otherByReel = new Map<string, { count: number; sizeBytes: number }>()
+  // Other files group by top folder (they carry no reelName metadata) and are
+  // listed inside their reel; folders holding only other files still become
+  // (clipless) reels so their bytes are never dropped. detectReels already
+  // sorts each group by relativePath.
+  const otherByReel = new Map<string, OtherFileRef[]>()
   for (const group of detectReels(input.otherFiles)) {
-    let sizeBytes = 0
-    for (const f of group.clips) sizeBytes += f.sizeBytes
-    otherByReel.set(group.name, { count: group.clips.length, sizeBytes })
+    otherByReel.set(group.name, group.clips)
   }
+  const sumBytes = (files: readonly OtherFileRef[]) =>
+    files.reduce((sum, f) => sum + f.sizeBytes, 0)
 
   const reels: Reel<TImage>[] = detectReels(reportClips).map((reel) => {
     const clips = reel.clips.map(({ reelName: _drop, ...clip }) => clip)
@@ -119,16 +123,17 @@ export function buildReportModel<TImage = unknown>(
       sizeBytes += clip.sizeBytes
       durationSeconds += clip.metadata.durationSeconds ?? 0
     }
-    const others = otherByReel.get(reel.name) ?? { count: 0, sizeBytes: 0 }
+    const others = otherByReel.get(reel.name) ?? []
     otherByReel.delete(reel.name)
     return {
       name: reel.name,
       clips,
+      otherFiles: others,
       stats: {
         clipCount: clips.length,
-        otherFileCount: others.count,
-        otherFileSizeBytes: others.sizeBytes,
-        totalSizeBytes: sizeBytes + others.sizeBytes,
+        otherFileCount: others.length,
+        otherFileSizeBytes: sumBytes(others),
+        totalSizeBytes: sizeBytes + sumBytes(others),
         totalDurationSeconds: durationSeconds,
       },
     }
@@ -137,11 +142,12 @@ export function buildReportModel<TImage = unknown>(
     reels.push({
       name,
       clips: [],
+      otherFiles: others,
       stats: {
         clipCount: 0,
-        otherFileCount: others.count,
-        otherFileSizeBytes: others.sizeBytes,
-        totalSizeBytes: others.sizeBytes,
+        otherFileCount: others.length,
+        otherFileSizeBytes: sumBytes(others),
+        totalSizeBytes: sumBytes(others),
         totalDurationSeconds: 0,
       },
     })

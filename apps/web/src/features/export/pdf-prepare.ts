@@ -1,5 +1,6 @@
 import type {
   ClipMetadata,
+  OtherFileRef,
   ReelStats,
   ReportModel,
   ReportStats,
@@ -23,6 +24,7 @@ export interface PdfReel {
   name: string
   stats: ReelStats
   clips: PdfClip[]
+  otherFiles: OtherFileRef[]
 }
 
 export interface PdfReport {
@@ -123,7 +125,7 @@ export async function prepareReportForPdf(
         frames,
       })
     }
-    reels.push({ name: reel.name, stats: reel.stats, clips })
+    reels.push({ name: reel.name, stats: reel.stats, clips, otherFiles: reel.otherFiles })
   }
 
   let logoDataUrl: string | null = null

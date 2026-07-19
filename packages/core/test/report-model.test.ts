@@ -71,8 +71,20 @@ describe('buildReportModel', () => {
     expect(three?.metadata).toEqual({}) // failed metadata → empty, present
     expect(three?.thumbnails).toEqual([])
     expect(model.cover.projectTitle).toBe('Test')
-    // Other files roll into their top-folder reel's counts + sizes (option b).
+    // Other files are LISTED inside their top-folder reel — name, path, size.
+    // The report is a 1:1 inventory of the card; a bare count is not enough.
     const a001 = model.reels.find((r) => r.name === 'A001')
+    expect(a001?.otherFiles.map((f) => f.relativePath)).toEqual([
+      'A001/grade.cube',
+      'A001/sound.wav',
+    ])
+    expect(a001?.otherFiles[1]).toEqual({
+      fileName: 'sound.wav',
+      relativePath: 'A001/sound.wav',
+      extension: '.wav',
+      sizeBytes: 200,
+    })
+    expect(model.reels.find((r) => r.name === 'CUSTOM')?.otherFiles).toEqual([])
     expect(a001?.stats).toEqual({
       clipCount: 1,
       otherFileCount: 2,
@@ -101,6 +113,7 @@ describe('buildReportModel', () => {
     expect(model.reels.map((r) => r.name)).toEqual(['A001', 'SOUND'])
     const sound = model.reels.find((r) => r.name === 'SOUND')
     expect(sound?.clips).toEqual([])
+    expect(sound?.otherFiles.map((f) => f.fileName)).toEqual(['day1.wav'])
     expect(sound?.stats).toEqual({
       clipCount: 0,
       otherFileCount: 1,
@@ -122,6 +135,7 @@ describe('buildReportModel', () => {
       cover: {},
     })
     expect(model.reels.map((r) => r.name)).toEqual(['Ungrouped'])
+    expect(model.reels[0]?.otherFiles.map((f) => f.fileName)).toEqual(['manifest.xml'])
     expect(model.stats.totalSizeBytes).toBe(12)
     expect(model.stats.cardCount).toBe(1)
   })

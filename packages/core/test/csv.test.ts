@@ -36,6 +36,7 @@ const model: ReportModel = {
   reels: [
     {
       name: 'A001',
+      otherFiles: [],
       stats: {
         clipCount: 2,
         otherFileCount: 0,
@@ -110,6 +111,26 @@ describe('generateReportCsv', () => {
       'A001,one.mov,A001/one.mov,10:20:30:00,1920,1080,ProRes,25,10,100,,"Cam ""A"", unit 1",,,,,,,,Success',
     )
     expect(lines[2]).toBe('A001,two.mov,A001/two.mov,,,,,,5,50,,,,,,,,,,NotAttempted')
+  })
+
+  test('other files appear as inventory rows in their reel — name, path, size', () => {
+    const withOthers = structuredClone(model)
+    const reel = withOthers.reels[0]
+    if (reel) {
+      reel.otherFiles = [
+        {
+          fileName: 'sound.wav',
+          relativePath: 'A001/sound.wav',
+          extension: '.wav',
+          sizeBytes: 200,
+        },
+      ]
+    }
+    const lines = generateReportCsv(withOthers).split('\r\n')
+    expect(lines).toHaveLength(4) // header + 2 clips + 1 other file
+    // Metadata/thumbnail columns stay blank — this row exists so the CSV is a
+    // complete 1:1 inventory of the card, not because a WAV has a codec.
+    expect(lines[3]).toBe('A001,sound.wav,A001/sound.wav,,,,,,,200,,,,,,,,,,')
   })
 
   test('leading formula characters are neutralized', () => {

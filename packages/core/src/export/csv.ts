@@ -72,6 +72,22 @@ export function generateReportCsv(report: ReportModel): string {
           .join(','),
       )
     }
+    // Other files are inventory rows — name, path, size only. They make the
+    // CSV a complete 1:1 account of the card; metadata columns stay blank.
+    for (const f of reel.otherFiles) {
+      lines.push(
+        [
+          reel.name,
+          f.fileName,
+          f.relativePath,
+          ...Array<undefined>(6).fill(undefined), // startTimecode…durationSeconds
+          f.sizeBytes,
+          ...Array<undefined>(10).fill(undefined), // colorSpace…thumbnailOutcome
+        ]
+          .map(field)
+          .join(','),
+      )
+    }
   }
   return lines.join('\r\n')
 }
