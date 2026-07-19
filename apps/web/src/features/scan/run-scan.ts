@@ -1,5 +1,6 @@
 import { buildScanSummary, type DirectoryHandleLike, scanFolder } from '@luna-web/core'
 import { cancelProcessing } from '@/features/process/run-processing'
+import { settingsStore } from '@/features/settings/settings-store'
 import { beginOperation, logger } from '@/lib/logger'
 import { markSourceStale, rememberSource } from '@/persistence/recent-sources'
 import { ensureReadPermission } from './permissions'
@@ -49,6 +50,7 @@ export async function scanFrom(
     scanStore.setState((s) => ({
       ...s,
       phase: 'summary',
+      generateThumbnails: settingsStore.state.generateThumbnails,
       clips: result.clips,
       otherFiles: result.otherFiles,
       progress: {

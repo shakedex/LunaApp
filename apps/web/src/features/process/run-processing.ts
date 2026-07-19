@@ -130,7 +130,12 @@ export async function startProcessing(): Promise<void> {
 
   if (run !== currentRun) return
   try {
-    await startThumbnails(run)
+    if (scanStore.state.generateThumbnails) {
+      await startThumbnails(run)
+    } else {
+      logger.info('Thumbnails skipped (disabled for this run) — tech-data-only report')
+      guardedUpdate(run, (s) => ({ ...s, phase: 'processed' }))
+    }
   } catch (err) {
     // Same boundary as the metadata pass: never leave the UI wedged in
     // 'thumbnailing' — surface the failure and stop sibling work.

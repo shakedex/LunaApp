@@ -19,11 +19,20 @@ export function ReportWorkspace() {
   const otherFiles = useSelector(scanStore, (s) => s.otherFiles)
   const metadataById = useSelector(scanStore, (s) => s.metadataById)
   const thumbsById = useSelector(scanStore, (s) => s.thumbsById)
+  const sourceName = useSelector(scanStore, (s) => s.sourceName)
   const cover = useSelector(coverStore)
 
   const model = useMemo(
-    () => buildReportModel<Blob>({ clips, otherFiles, metadataById, thumbsById, cover }),
-    [clips, otherFiles, metadataById, thumbsById, cover],
+    () =>
+      buildReportModel<Blob>({
+        clips,
+        otherFiles,
+        metadataById,
+        thumbsById,
+        cover,
+        sourceRoot: sourceName ?? '',
+      }),
+    [clips, otherFiles, metadataById, thumbsById, cover, sourceName],
   )
 
   const metaLine = [

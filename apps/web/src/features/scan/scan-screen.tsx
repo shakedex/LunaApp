@@ -26,6 +26,7 @@ export function ScanScreen() {
   const progress = useSelector(scanStore, (s) => s.progress)
   const summary = useSelector(scanStore, (s) => s.summary)
   const error = useSelector(scanStore, (s) => s.error)
+  const generateThumbnails = useSelector(scanStore, (s) => s.generateThumbnails)
 
   return (
     <div
@@ -67,6 +68,18 @@ export function ScanScreen() {
               <StatTile label="Other files" value={String(summary.otherFileCount)} />
               <StatTile label="Total size" value={formatBytes(summary.totalSizeBytes)} />
             </div>
+            <label className="text-muted-foreground flex w-fit cursor-pointer items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                className="accent-primary size-4"
+                checked={generateThumbnails}
+                onChange={(e) => {
+                  const checked = e.currentTarget.checked
+                  scanStore.setState((s) => ({ ...s, generateThumbnails: checked }))
+                }}
+              />
+              Generate thumbnails (uncheck for a tech-data-only report)
+            </label>
             <div className="flex gap-3">
               <Button
                 size="lg"

@@ -23,6 +23,9 @@ export type ThumbStatus = 'queued' | 'decoding' | 'done' | 'failed'
 export interface ScanState {
   phase: ScanPhase
   sourceName: string | null
+  // Per-run thumbnail switch: seeded from settings when a scan completes,
+  // overridable on the summary screen before processing starts.
+  generateThumbnails: boolean
   progress: { filesSeen: number; clipsFound: number } | null
   clips: ClipRef[]
   otherFiles: OtherFileRef[]
@@ -41,6 +44,7 @@ export interface ScanState {
 export const initialScanState: ScanState = {
   phase: 'idle',
   sourceName: null,
+  generateThumbnails: true,
   progress: null,
   clips: [],
   otherFiles: [],
