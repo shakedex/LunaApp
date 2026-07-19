@@ -44,6 +44,7 @@ export default defineConfig({
         { label: 'Supported formats', slug: 'supported-formats' },
         { label: 'Limitations', slug: 'limitations' },
         { label: 'FAQ', slug: 'faq' },
+        { label: 'Changelog', slug: 'changelog' },
       ],
     }),
   ],
