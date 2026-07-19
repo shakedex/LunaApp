@@ -9,6 +9,7 @@ import {
   thumbnailRouteFor,
   thumbnailTimestamps,
 } from '@luna-web/core'
+import { logger } from '@/lib/logger'
 import { scanStore } from '../scan/store'
 import { createFfmpegEngine, type FfmpegEngine } from './ffmpeg-engine'
 import { previewToFrame } from './preview-frame'
@@ -19,6 +20,13 @@ const THUMB_WIDTH = 1280
 const MEDIABUNNY_TIMEOUT_MS = 60_000 // spec §10.3
 const FFMPEG_TIMEOUT_MS = 180_000 // spec §10.3
 const PREVIEW_TIMEOUT_MS = 30_000
+
+// A decoder/container failure is a routing fact, not a clip defect — it feeds
+// the cascade (mediabunny → ffmpeg) and the preview salvage (ffmpeg → embedded
+// preview). Timeouts and I/O errors are real failures and must NOT match.
+function isDecoderFailure(message: string): boolean {
+  return message.includes('NO_DECODER') || /format|recognized|container/i.test(message)
+}
 
 export async function startThumbnails(run: number): Promise<void> {
   if (!isRunCurrent(run)) return
@@ -41,6 +49,11 @@ export async function startThumbnails(run: number): Promise<void> {
     else if (route === 'none') noPreviewClips.push(clip)
   }
 
+  logger.info(
+    'Thumbnail pass started',
+    `${mediabunnyClips.length} via WebCodecs, ${ffmpegClips.length} via ffmpeg, ${previewClips.length} via embedded preview, ${noPreviewClips.length} placeholders`,
+  )
+
   if (
     mediabunnyClips.length === 0 &&
     ffmpegClips.length === 0 &&
@@ -62,8 +75,13 @@ export async function startThumbnails(run: number): Promise<void> {
     ),
   }))
 
-  for (const clip of noPreviewClips) {
-    finishClip(run, clip.id, [noDecoderFrame()])
+  if (noPreviewClips.length > 0) {
+    logger.info(
+      `${noPreviewClips.length} clip(s) have no browser decode path (BRAW) — placeholder frames used`,
+    )
+    for (const clip of noPreviewClips) {
+      finishClip(run, clip.id, [noDecoderFrame()])
+    }
   }
 
   // Cascade queue: mediabunny container/codec failures retry on ffmpeg.
@@ -93,11 +111,13 @@ export async function startThumbnails(run: number): Promise<void> {
         // Container/codec failure → cascade to ffmpeg (desktop NoDecoder
         // cascade, spec §10.2). Other errors fail the clip.
         const message = err instanceof Error ? err.message : String(err)
-        if (message.includes('NO_DECODER') || /format|recognized|container/i.test(message)) {
+        if (isDecoderFailure(message)) {
+          logger.debug(`Cascading ${clip.fileName} to ffmpeg`, message)
           cascaded.push(clip)
           cascadedIds.add(clip.id)
           setThumbStatus(run, clip.id, 'queued')
         } else {
+          logger.warn(`Thumbnails failed for ${clip.fileName}`, message)
           failClip(run, clip.id, message)
         }
       },
@@ -120,6 +140,13 @@ export async function startThumbnails(run: number): Promise<void> {
     }
   })
 
+  // Clips that BOTH decoders rejected (e.g. ProRes RAW whose metadata pass
+  // failed, so codec routing never sent them to the preview path) get one last
+  // chance: the embedded tail preview. Only decoder failures qualify — real
+  // errors stay failed.
+  const salvage: ClipRef[] = []
+  const salvageIds = new Set<string>()
+
   const ffmpegQueue = [...ffmpegClips, ...cascaded]
   if (ffmpegQueue.length > 0 && isRunCurrent(run)) {
     await runPool<FfmpegEngine, ClipRef, ThumbnailFrame<Blob>[]>(
@@ -141,23 +168,35 @@ export async function startThumbnails(run: number): Promise<void> {
       {
         onItemStart: (clip) => setThumbStatus(run, clip.id, 'decoding'),
         onItemSuccess: (clip, frames) => finishClip(run, clip.id, frames),
-        onItemFailure: (clip, err) =>
-          failClip(run, clip.id, err instanceof Error ? err.message : String(err)),
+        onItemFailure: (clip, err) => {
+          const message = err instanceof Error ? err.message : String(err)
+          if (cascadedIds.has(clip.id) && isDecoderFailure(message)) {
+            salvage.push(clip)
+            salvageIds.add(clip.id)
+            logger.info(`No browser decoder for ${clip.fileName} — trying embedded preview`)
+            setThumbStatus(run, clip.id, 'queued')
+          } else {
+            logger.warn(`Thumbnails failed for ${clip.fileName}`, message)
+            failClip(run, clip.id, message)
+          }
+        },
       },
       // Each ffmpeg lane instantiates a ~31 MB wasm — keep it to ONE lane.
       { concurrency: 1, isCancelled: () => !isRunCurrent(run) },
     ).catch((err) => {
       const message = err instanceof Error ? err.message : String(err)
       for (const clip of ffmpegQueue) {
+        if (salvageIds.has(clip.id)) continue // legitimately re-queued for preview
         const st = scanStore.state.thumbStatus[clip.id]
         if (st === 'queued' || st === 'decoding') failClip(run, clip.id, message)
       }
     })
   }
 
-  if (previewClips.length > 0 && isRunCurrent(run)) {
+  const previewQueue = [...previewClips, ...salvage]
+  if (previewQueue.length > 0 && isRunCurrent(run)) {
     await runPool<object, ClipRef, ThumbnailFrame<Blob>>(
-      previewClips,
+      previewQueue,
       {
         createLane: () => ({}),
         destroyLane: () => {},
@@ -175,13 +214,14 @@ export async function startThumbnails(run: number): Promise<void> {
       // Mirrors the ffmpeg pool-failure sweep — no cascade target here, so
       // straggling queued/decoding preview clips just fail terminally.
       const message = err instanceof Error ? err.message : String(err)
-      for (const clip of previewClips) {
+      for (const clip of previewQueue) {
         const st = scanStore.state.thumbStatus[clip.id]
         if (st === 'queued' || st === 'decoding') failClip(run, clip.id, message)
       }
     })
   }
 
+  logger.info('Thumbnail pass complete')
   guardedUpdate(run, (s) => ({ ...s, phase: 'processed' }))
 }
 
@@ -192,21 +232,38 @@ function noDecoderFrame(): ThumbnailFrame<Blob> {
   return { positionRatio: 0.5, timestampSeconds: 0, outcome: 'NoDecoder' }
 }
 
+// A `.rtn` is a ~50 KB thumbnail sidecar; anything huge is not a .rtn and must
+// not be slurped into memory whole (P8 final-review carry-forward).
+const RTN_MAX_BYTES = 8 * 1024 * 1024
+
 async function buildPreviewFrame(clip: ClipRef): Promise<ThumbnailFrame<Blob>> {
   let preview: EmbeddedPreview | null
   if (clip.extension === '.crm') {
     preview = await extractCrmPreview(await clip.file.getFile())
   } else if (clip.extension === '.r3d') {
-    preview = clip.previewSidecar
-      ? extractRtnJpeg(new Uint8Array(await (await clip.previewSidecar.getFile()).arrayBuffer()))
-      : null
+    if (clip.previewSidecar) {
+      const sidecar = await clip.previewSidecar.getFile()
+      if (sidecar.size > RTN_MAX_BYTES) {
+        logger.warn(`${clip.fileName}: .rtn sidecar is ${sidecar.size} bytes — too large, skipping`)
+        preview = null
+      } else {
+        preview = extractRtnJpeg(new Uint8Array(await sidecar.arrayBuffer()))
+      }
+    } else {
+      preview = null
+    }
   } else {
     // Any other route === 'preview' clip is a mediabunny-container extension
-    // whose codec matched PRORES_RAW_CODEC_PATTERN (thumbnailRouteFor) — the
-    // tail-of-container embedded preview (ProRes RAW's moov/udta).
+    // whose codec matched PRORES_RAW_CODEC_PATTERN (thumbnailRouteFor), or a
+    // salvage clip both decoders rejected — the tail-of-container embedded
+    // preview (ProRes RAW's moov/udta) is the last honest source of pixels.
     preview = await extractMovTailPreview(await clip.file.getFile())
   }
-  return preview ? await previewToFrame(preview) : noDecoderFrame()
+  if (!preview) {
+    logger.info(`No embedded preview in ${clip.fileName} — placeholder frame used`)
+    return noDecoderFrame()
+  }
+  return await previewToFrame(preview)
 }
 
 function setThumbStatus(run: number, id: string, status: 'queued' | 'decoding'): void {

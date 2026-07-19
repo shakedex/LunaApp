@@ -1,5 +1,6 @@
 import { buildScanSummary, type DirectoryHandleLike, scanFolder } from '@luna-web/core'
 import { cancelProcessing } from '@/features/process/run-processing'
+import { logger } from '@/lib/logger'
 import { rememberSource } from '@/persistence/recent-sources'
 import { ensureReadPermission } from './permissions'
 import { initialScanState, scanStore } from './store'
@@ -20,6 +21,7 @@ export async function scanFrom(handle: FileSystemDirectoryHandle): Promise<void>
   const phase = scanStore.state.phase
   if (phase === 'scanning' || phase === 'processing') return
   if (!(await ensureReadPermission(handle))) {
+    logger.warn(`Read permission denied for "${handle.name}"`)
     scanStore.setState((s) => ({
       ...s,
       phase: 'error',
@@ -28,6 +30,7 @@ export async function scanFrom(handle: FileSystemDirectoryHandle): Promise<void>
     return
   }
   scanStore.setState(() => ({ ...initialScanState, phase: 'scanning', sourceName: handle.name }))
+  logger.info(`Scanning "${handle.name}"…`)
   try {
     // Boundary cast: the real FileSystemDirectoryHandle satisfies DirectoryHandleLike
     // at runtime; TS's lib types yield base FileSystemHandle from entries().
@@ -50,7 +53,12 @@ export async function scanFrom(handle: FileSystemDirectoryHandle): Promise<void>
       },
       summary: buildScanSummary(result.clips, result.raw),
     }))
+    logger.info(
+      `Scan of "${handle.name}" complete`,
+      `${result.clips.length} clips, ${result.raw.length} RAW notices`,
+    )
   } catch (err) {
+    logger.error('Scan failed', err instanceof Error ? err.message : String(err))
     scanStore.setState((s) => ({
       ...s,
       phase: 'error',
@@ -64,6 +72,7 @@ export async function scanFrom(handle: FileSystemDirectoryHandle): Promise<void>
 }
 
 export function resetScan(): void {
+  logger.debug('Start over — scan state reset')
   cancelProcessing()
   scanStore.setState(() => initialScanState)
 }

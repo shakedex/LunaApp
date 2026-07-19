@@ -1,4 +1,5 @@
 import { type ClipRef, mapMediaInfoToClipMetadata, runPool } from '@luna-web/core'
+import { logger } from '@/lib/logger'
 import { type ScanState, scanStore } from '../scan/store'
 import { settingsStore } from '../settings/settings-store'
 import { createMetadataWorker, type MetadataWorkerHandle } from './metadata-client'
@@ -72,6 +73,10 @@ export async function startProcessing(): Promise<void> {
     thumbErrors: {},
     thumbDoneCount: 0,
   }))
+  logger.info(
+    'Metadata pass started',
+    `${clips.length} clips, ${poolSizeFor(clips.length)} workers`,
+  )
 
   try {
     await runPool<MetadataWorkerHandle, ClipRef, Awaited<ReturnType<typeof analyzeClip>>>(
@@ -96,6 +101,7 @@ export async function startProcessing(): Promise<void> {
           })),
         onItemFailure: (clip, err) => {
           const message = err instanceof Error ? err.message : String(err)
+          logger.warn(`Metadata failed for ${clip.fileName}`, message)
           guardedUpdate(run, (s) => ({
             ...s,
             clipStatus: { ...s.clipStatus, [clip.id]: 'failed' },
@@ -110,11 +116,13 @@ export async function startProcessing(): Promise<void> {
     // Stop sibling lanes doing wasted work, then surface the failure.
     cancelProcessing()
     const message = err instanceof Error ? err.message : String(err)
+    logger.error('Processing failed', message)
     scanStore.setState((s) =>
       s.phase === 'processing' ? { ...s, phase: 'error', error: message } : s,
     )
     return
   }
+  logger.info('Metadata pass complete')
 
   if (run !== currentRun) return
   try {
@@ -124,6 +132,7 @@ export async function startProcessing(): Promise<void> {
     // 'thumbnailing' — surface the failure and stop sibling work.
     cancelProcessing()
     const message = err instanceof Error ? err.message : String(err)
+    logger.error('Processing failed', message)
     scanStore.setState((s) =>
       s.phase === 'thumbnailing' || s.phase === 'processing'
         ? { ...s, phase: 'error', error: message }

@@ -1,6 +1,7 @@
 import { defaultSettings, type Settings } from '@luna-web/core'
 import { Store } from '@tanstack/store'
 import { setCoverFields } from '@/features/report/cover-store'
+import { logger } from '@/lib/logger'
 import { loadSettings, saveSettings } from '@/persistence/settings'
 
 export const settingsStore = new Store<Settings<Blob>>(defaultSettings<Blob>())
@@ -22,4 +23,5 @@ export async function updateSettings(
 ): Promise<void> {
   settingsStore.setState((s) => ({ ...s, ...patch }))
   await saveSettings(settingsStore.state)
+  logger.debug('Settings saved')
 }
