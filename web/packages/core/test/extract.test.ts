@@ -85,10 +85,13 @@ function minimalJpeg(width: number, height: number): number[] {
 const WRONG_UUID = Uint8Array.from(Array.from({ length: 16 }, () => 0x00))
 
 describe('extractCrmPreview', () => {
-  test('finds the primary JPEG at box start + headerSize(24) + PRVW header(40)', async () => {
+  test('finds the primary JPEG at box start + headerSize(24) + PRVW header(32) = +56', async () => {
+    // Mirrors the real corpus file (task-p8-3-report.md probe): uuid box
+    // headerSize 24, JPEG SOI at box.start + 56, i.e. a 32-byte inner PRVW
+    // header filler between the uuid id and the JPEG.
     const ftyp = box('ftyp', [0x69, 0x73, 0x6f, 0x6d])
     const filler = box('free', [1, 2, 3, 4])
-    const prvwHeaderFiller = Array(40).fill(0xab)
+    const prvwHeaderFiller = Array(32).fill(0xab)
     const jpeg = minimalJpeg(2048, 1080)
     const crmBox = uuidBox(CRM_PREVIEW_UUID, prvwHeaderFiller, jpeg)
     const blob = fakeBlobOf([...ftyp, ...filler, ...crmBox])
@@ -103,7 +106,7 @@ describe('extractCrmPreview', () => {
 
   test('returns null when no top-level uuid box matches CRM_PREVIEW_UUID', async () => {
     const ftyp = box('ftyp', [0x69, 0x73, 0x6f, 0x6d])
-    const prvwHeaderFiller = Array(40).fill(0xab)
+    const prvwHeaderFiller = Array(32).fill(0xab)
     const jpeg = minimalJpeg(2048, 1080)
     const wrongBox = uuidBox(WRONG_UUID, prvwHeaderFiller, jpeg)
     const blob = fakeBlobOf([...ftyp, ...wrongBox])
@@ -112,10 +115,10 @@ describe('extractCrmPreview', () => {
   })
 
   test('falls back to the largest valid JPEG in the slice when the primary offset misses', async () => {
-    // Deliberately shift the JPEG so it does NOT sit at headerSize+40 — the
+    // Deliberately shift the JPEG so it does NOT sit at headerSize+32 — the
     // primary lookup misses, but findValidJpegs still finds it in the slice.
     const ftyp = box('ftyp', [0x69, 0x73, 0x6f, 0x6d])
-    const shiftedFiller = Array(48).fill(0xcd) // 8 bytes more than the real PRVW header
+    const shiftedFiller = Array(40).fill(0xcd) // 8 bytes more than the real PRVW header
     const jpeg = minimalJpeg(1024, 768)
     const crmBox = uuidBox(CRM_PREVIEW_UUID, shiftedFiller, jpeg)
     const blob = fakeBlobOf([...ftyp, ...crmBox])

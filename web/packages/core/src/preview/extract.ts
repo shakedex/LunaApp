@@ -27,9 +27,31 @@ export const CRM_PREVIEW_UUID: Uint8Array = Uint8Array.from([
 // or hostile size fields.
 const SLICE_CAP_BYTES = 16 * 1024 * 1024
 
-// Inner `PRVW` header length inside the crm uuid box's payload (FINDINGS.md:
-// "uuid 16 + inner PRVW header 40" = the 56-byte figure quoted there).
-const PRVW_HEADER_SIZE = 40
+// Inner `PRVW` header length inside the crm uuid box's payload.
+//
+// Empirically verified against the real corpus file
+// (D:/LUNA_TEST/.../S001/S_0001C038X241003_1807575U_CANONRAW.CRM, see
+// task-p8-3-report.md probe output): the top-level uuid box's absolute
+// `size`+`type` prefix starts at file offset 94912 (confirmed by reading its
+// header bytes directly: `size=441096`, `type="uuid"`, then the 16-byte
+// CRM_PREVIEW_UUID) — this is exactly `BoxHeader.start` (boxes.ts:
+// `header.start = offset`, the offset passed to `readBoxHeaderAt`, i.e. the
+// size+type field itself, NOT the uuid id). `BoxHeader.headerSize` for a
+// uuid box is 24 (8-byte base header + 16-byte id). The probe found `FF D8
+// FF` (a JPEG SOI) at absolute offset 94968 and NOT at 94976, i.e. at
+// `box.start + 56`, not `box.start + 64`. So the inner PRVW-header
+// contribution, measured from `box.start + box.headerSize` (94936), is
+// 94968 - 94936 = 32 bytes — not 40.
+//
+// This also reconciles with FINDINGS.md's own numbers ("uuid box @94912,
+// JPEG @94968 ... JPEG at box +56"): FINDINGS.md's box-offsets.mjs prints
+// the box's true absolute start (`pos` in that script, the size+type
+// offset) as "@94912" — the same convention as `BoxHeader.start` — so
+// FINDINGS' "+56" and our `box.start` are already the same reference point.
+// There is no 8-byte reconciliation needed; the previous version of this
+// comment (and the +64 constant it justified) incorrectly assumed
+// FINDINGS' reported offset excluded the size+type prefix.
+const PRVW_HEADER_SIZE = 32
 
 /**
  * Canon Cinema RAW Light (.crm): walk top-level boxes for the uuid box whose
@@ -37,23 +59,14 @@ const PRVW_HEADER_SIZE = 40
  * sits at the well-known primary offset; fall back to the largest valid JPEG
  * anywhere in the slice if that offset doesn't hold one.
  *
- * Arithmetic reconciliation with FINDINGS.md's "box start + 56" figure:
- * FINDINGS.md's box-offsets.mjs reports the uuid box's *id* offset as "box
- * start" (i.e. it excludes the leading 8-byte size+type prefix), so its "+56"
- * = 16 (uuid id) + 40 (PRVW header), measured from the id, not from the file
- * offset of the box's size+type field.
- *
- * Our `BoxHeader.start` (from boxes.ts) is the absolute offset of the box's
- * size+type prefix, and `BoxHeader.headerSize` for a uuid box is 24 (8-byte
- * base header + 16-byte id) and already includes those id bytes — per Task
- * 2's bridge note, "payload starts uniformly at start + headerSize". So here
- * the primary JPEG offset relative to `box.start` is:
- *   box.headerSize (24) + PRVW_HEADER_SIZE (40) = 64
- * not 56 — the two figures describe the exact same absolute file offset,
- * they just measure from different reference points (id-start vs.
- * size+type-start, an 8-byte difference). Verified against FINDINGS.md's
- * concrete numbers: uuid id offset 94912 + 56 = 94968 (the JPEG); box.start
- * (94912 - 8 = 94904) + 64 = 94968 — same offset.
+ * Primary offset, verified empirically: `box.start + 56`
+ * (`box.headerSize` (24) + `PRVW_HEADER_SIZE` (32), see the constant's
+ * comment for the byte-level derivation and the corpus probe that confirmed
+ * it). `BoxHeader.start` (boxes.ts) is the absolute offset of the box's
+ * size+type prefix — the same reference point FINDINGS.md's box-offsets.mjs
+ * reports as a box's "@offset" — so no unit conversion between the two is
+ * needed; both describe file offset 94912 for the real corpus file's uuid
+ * box, and the preview JPEG's SOI sits at 94968 = 94912 + 56.
  */
 export async function extractCrmPreview(blob: BlobLike): Promise<EmbeddedPreview | null> {
   let match: BoxHeader | null = null

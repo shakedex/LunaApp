@@ -88,6 +88,11 @@ describe('jpegDimensions', () => {
     const bytes = Uint8Array.from([0xff, 0xd8, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66])
     expect(jpegDimensions(bytes)).toBeNull()
   })
+
+  test('a second SOI before SOF makes the stream malformed', () => {
+    const real = minimalJpeg(320, 240)
+    expect(jpegDimensions(new Uint8Array([0xff, 0xd8, ...real]))).toBeNull()
+  })
 })
 
 describe('findValidJpegs', () => {
