@@ -14,7 +14,7 @@ and WebCodecs, which Firefox and Safari don't fully support yet. See
 No. Everything runs in your browser and your media never leaves your device. The only network
 requests fetch the program itself. See [Privacy](/docs/privacy/).
 
-## Why do some RAW clips have no thumbnail?
+## Why do some RAW clips show a placeholder instead of a frame?
 
 `.braw` and `.ari` can't be decoded to a frame in the browser without the camera vendor's SDK,
 so they show a placeholder. `.crm` and `.r3d` show an embedded or sidecar preview when the file

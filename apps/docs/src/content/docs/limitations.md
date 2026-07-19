@@ -13,7 +13,7 @@ APIs, so Luna doesn't run there.
 
 ## Software decode is slower
 
-Clips that go through the FFmpeg WASM path (`.mxf`, DNxHD, and other legacy containers) are
+Clips that go through the FFmpeg WASM path (`.mxf`, DNxHD, and other legacy formats) are
 decoded purely in software. Large MXF cards on a slower machine will feel it. Clips on the
 hardware path (H.264, HEVC, VP9, AV1, and ProRes) are much faster.
 
