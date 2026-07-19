@@ -117,7 +117,7 @@ export function ReportWorkspace() {
           </div>
           <div className="grid gap-4">
             {reel.clips.map((clip) => (
-              <ClipCard key={clip.id} clip={clip} />
+              <ClipCard key={clip.id} clip={clip} sourceRoot={model.sourceRoot} />
             ))}
           </div>
           {reel.otherFiles.length > 0 && (

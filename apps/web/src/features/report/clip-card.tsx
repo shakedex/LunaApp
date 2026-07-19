@@ -174,11 +174,17 @@ function FrameViewer({ frames }: { frames: ThumbnailFrame<Blob>[] }) {
   )
 }
 
-export function ClipCard({ clip }: { clip: ReportClip<Blob> }) {
+export function ClipCard({ clip, sourceRoot }: { clip: ReportClip<Blob>; sourceRoot: string }) {
+  const fullPath = sourceRoot ? `${sourceRoot}/${clip.relativePath}` : clip.relativePath
   return (
     <Card className="p-4">
       <div className="mb-3 flex items-baseline justify-between gap-3">
-        <span className="truncate font-mono text-sm font-medium">{clip.fileName}</span>
+        <div className="min-w-0">
+          <span className="truncate font-mono text-sm font-medium">{clip.fileName}</span>
+          <p className="text-muted-foreground truncate font-mono text-xs" title={fullPath}>
+            {fullPath}
+          </p>
+        </div>
         {clip.metadata.startTimecode && (
           <Badge variant="secondary" className="shrink-0 font-mono tabular-nums">
             TC {clip.metadata.startTimecode}

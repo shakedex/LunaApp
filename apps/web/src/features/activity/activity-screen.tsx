@@ -1,6 +1,13 @@
-import { formatLogText, type LogLevel, logLevelAtLeast } from '@luna-web/core'
+import {
+  formatLogText,
+  GENERAL_OPERATION,
+  groupLogByOperation,
+  type LogLevel,
+  logLevelAtLeast,
+  type OperationGroup,
+} from '@luna-web/core'
 import { useSelector } from '@tanstack/react-store'
-import { Download, Trash2 } from 'lucide-react'
+import { ChevronDown, Download, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { saveBlob } from '@/features/export/save'
@@ -24,10 +31,37 @@ function timeOf(timestamp: number): string {
   return new Date(timestamp).toLocaleTimeString(undefined, { hour12: false })
 }
 
+function operationTitle(group: OperationGroup): string {
+  if (group.operation.id === GENERAL_OPERATION.id) return GENERAL_OPERATION.label
+  return `${group.operation.label} — ${new Date(group.operation.startedAt).toLocaleString(undefined, { hour12: false })}`
+}
+
+// Download text: operation headings above their entries, newest operation first.
+function downloadText(groups: OperationGroup[]): string {
+  return groups
+    .map(
+      (g) => `${'='.repeat(4)} ${operationTitle(g)} ${'='.repeat(4)}\n${formatLogText(g.entries)}`,
+    )
+    .join('\n\n')
+}
+
 export function ActivityScreen() {
-  const entries = useSelector(activityStore, (s) => s.entries)
+  const snapshot = useSelector(activityStore, (s) => s)
   const [minLevel, setMinLevel] = useState<LogLevel>('info')
-  const visible = entries.filter((e) => logLevelAtLeast(e.level, minLevel))
+  const [collapsed, setCollapsed] = useState<ReadonlySet<number>>(new Set())
+
+  const allGroups = groupLogByOperation(snapshot.entries, snapshot.operations)
+  const groups = allGroups
+    .map((g) => ({ ...g, entries: g.entries.filter((e) => logLevelAtLeast(e.level, minLevel)) }))
+    .filter((g) => g.entries.length > 0)
+
+  const toggle = (id: number) =>
+    setCollapsed((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-4">
@@ -47,10 +81,10 @@ export function ActivityScreen() {
           <Button
             variant="outline"
             size="sm"
-            disabled={entries.length === 0}
+            disabled={snapshot.entries.length === 0}
             onClick={() =>
               void saveBlob(
-                new Blob([formatLogText(entries)], { type: 'text/plain' }),
+                new Blob([downloadText(allGroups)], { type: 'text/plain' }),
                 `luna-activity-${new Date().toISOString().slice(0, 10)}.txt`,
                 'text/plain',
               )
@@ -61,7 +95,7 @@ export function ActivityScreen() {
           <Button
             variant="ghost"
             size="sm"
-            disabled={entries.length === 0}
+            disabled={snapshot.entries.length === 0}
             onClick={clearActivity}
             aria-label="Clear activity log"
           >
@@ -70,27 +104,54 @@ export function ActivityScreen() {
         </div>
       </div>
 
-      {visible.length === 0 ? (
+      {groups.length === 0 ? (
         <p className="text-muted-foreground py-12 text-center text-sm">
-          {entries.length === 0
+          {snapshot.entries.length === 0
             ? 'Nothing logged yet — scan a folder and activity will show up here.'
             : 'No entries at this level.'}
         </p>
       ) : (
-        <ol className="flex flex-col-reverse gap-1 font-mono text-xs">
-          {visible.map((e) => (
-            <li key={e.seq} className="rounded px-2 py-1 leading-relaxed">
-              <span className="text-muted-foreground tabular-nums">{timeOf(e.timestamp)}</span>{' '}
-              <span className={`${LEVEL_CLASS[e.level]} uppercase`}>{e.level}</span>{' '}
-              <span>{e.message}</span>
-              {e.detail !== undefined && (
-                <div className="text-muted-foreground truncate pl-16" title={e.detail}>
-                  {e.detail}
-                </div>
-              )}
-            </li>
-          ))}
-        </ol>
+        <div className="flex flex-col gap-3">
+          {groups.map((group) => {
+            const isCollapsed = collapsed.has(group.operation.id)
+            return (
+              <section key={group.operation.id} className="bg-card rounded-lg border">
+                <button
+                  type="button"
+                  className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm font-medium"
+                  onClick={() => toggle(group.operation.id)}
+                  aria-expanded={!isCollapsed}
+                >
+                  <span className="truncate">{operationTitle(group)}</span>
+                  <span className="text-muted-foreground flex shrink-0 items-center gap-2 text-xs">
+                    {group.entries.length} entries
+                    <ChevronDown
+                      className={`size-4 transition-transform ${isCollapsed ? '-rotate-90' : ''}`}
+                    />
+                  </span>
+                </button>
+                {!isCollapsed && (
+                  <ol className="flex flex-col gap-1 border-t px-2 py-2 font-mono text-xs">
+                    {group.entries.map((e) => (
+                      <li key={e.seq} className="rounded px-2 py-0.5 leading-relaxed">
+                        <span className="text-muted-foreground tabular-nums">
+                          {timeOf(e.timestamp)}
+                        </span>{' '}
+                        <span className={`${LEVEL_CLASS[e.level]} uppercase`}>{e.level}</span>{' '}
+                        <span>{e.message}</span>
+                        {e.detail !== undefined && (
+                          <div className="text-muted-foreground truncate pl-16" title={e.detail}>
+                            {e.detail}
+                          </div>
+                        )}
+                      </li>
+                    ))}
+                  </ol>
+                )}
+              </section>
+            )
+          })}
+        </div>
       )}
     </div>
   )
