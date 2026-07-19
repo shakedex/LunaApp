@@ -221,7 +221,8 @@ export async function startThumbnails(run: number): Promise<void> {
     })
   }
 
-  logger.info('Thumbnail pass complete')
+  // Guarded: a superseded run must not stamp a false "complete" into /activity.
+  if (isRunCurrent(run)) logger.info('Thumbnail pass complete')
   guardedUpdate(run, (s) => ({ ...s, phase: 'processed' }))
 }
 

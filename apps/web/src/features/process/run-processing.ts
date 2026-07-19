@@ -122,7 +122,8 @@ export async function startProcessing(): Promise<void> {
     )
     return
   }
-  logger.info('Metadata pass complete')
+  // Guarded: a superseded run must not stamp a false "complete" into /activity.
+  if (isRunCurrent(run)) logger.info('Metadata pass complete')
 
   if (run !== currentRun) return
   try {
