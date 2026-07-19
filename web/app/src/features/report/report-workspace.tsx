@@ -1,5 +1,5 @@
 import { buildReportModel } from '@luna-web/core'
-import { useStore } from '@tanstack/react-store'
+import { useSelector } from '@tanstack/react-store'
 import { useMemo } from 'react'
 import { StatTile } from '@/components/stat-tile'
 import { Button } from '@/components/ui/button'
@@ -13,11 +13,11 @@ import { CoverForm } from './cover-form'
 import { coverStore } from './cover-store'
 
 export function ReportWorkspace() {
-  const clips = useStore(scanStore, (s) => s.clips)
-  const raw = useStore(scanStore, (s) => s.raw)
-  const metadataById = useStore(scanStore, (s) => s.metadataById)
-  const thumbsById = useStore(scanStore, (s) => s.thumbsById)
-  const cover = useStore(coverStore)
+  const clips = useSelector(scanStore, (s) => s.clips)
+  const raw = useSelector(scanStore, (s) => s.raw)
+  const metadataById = useSelector(scanStore, (s) => s.metadataById)
+  const thumbsById = useSelector(scanStore, (s) => s.thumbsById)
+  const cover = useSelector(coverStore)
 
   const model = useMemo(
     () => buildReportModel({ clips, raw, metadataById, thumbsById, cover }),

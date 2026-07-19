@@ -1,5 +1,5 @@
 import type { ClipRef, RawNotice, ThumbnailFrame } from '@luna-web/core'
-import { useStore } from '@tanstack/react-store'
+import { useSelector } from '@tanstack/react-store'
 import { TriangleAlert } from 'lucide-react'
 import { memo, useEffect, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
@@ -20,13 +20,13 @@ function clipById(clips: readonly ClipRef[], id: string): ClipRef | undefined {
 }
 
 export const ClipRow = memo(function ClipRow({ clipId }: { clipId: string }) {
-  const clips = useStore(scanStore, (s) => s.clips)
+  const clips = useSelector(scanStore, (s) => s.clips)
   const clip = clipById(clips, clipId)
-  const status = useStore(scanStore, (s) => s.clipStatus[clipId] ?? 'queued')
-  const m = useStore(scanStore, (s) => s.metadataById[clipId])
-  const thumbStatus = useStore(scanStore, (s) => s.thumbStatus[clipId])
-  const frames = useStore(scanStore, (s) => s.thumbsById[clipId])
-  const error = useStore(scanStore, (s) => s.clipErrors[clipId])
+  const status = useSelector(scanStore, (s) => s.clipStatus[clipId] ?? 'queued')
+  const m = useSelector(scanStore, (s) => s.metadataById[clipId])
+  const thumbStatus = useSelector(scanStore, (s) => s.thumbStatus[clipId])
+  const frames = useSelector(scanStore, (s) => s.thumbsById[clipId])
+  const error = useSelector(scanStore, (s) => s.clipErrors[clipId])
 
   if (!clip) return null
 

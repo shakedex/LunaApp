@@ -1,4 +1,4 @@
-import { useStore } from '@tanstack/react-store'
+import { useSelector } from '@tanstack/react-store'
 import { CircleAlert, TriangleAlert } from 'lucide-react'
 import { Logo } from '@/components/logo'
 import { StatTile } from '@/components/stat-tile'
@@ -24,16 +24,16 @@ import { pickAndScan, resetScan } from './run-scan'
 import { scanStore } from './store'
 
 export function ScanScreen() {
-  const phase = useStore(scanStore, (s) => s.phase)
-  const sourceName = useStore(scanStore, (s) => s.sourceName)
-  const progress = useStore(scanStore, (s) => s.progress)
-  const summary = useStore(scanStore, (s) => s.summary)
-  const error = useStore(scanStore, (s) => s.error)
-  const raw = useStore(scanStore, (s) => s.raw)
-  const processedCount = useStore(scanStore, (s) => s.processedCount)
-  const thumbDoneCount = useStore(scanStore, (s) => s.thumbDoneCount)
-  const clips = useStore(scanStore, (s) => s.clips)
-  const thumbTotal = useStore(scanStore, (s) => Object.keys(s.thumbStatus).length)
+  const phase = useSelector(scanStore, (s) => s.phase)
+  const sourceName = useSelector(scanStore, (s) => s.sourceName)
+  const progress = useSelector(scanStore, (s) => s.progress)
+  const summary = useSelector(scanStore, (s) => s.summary)
+  const error = useSelector(scanStore, (s) => s.error)
+  const raw = useSelector(scanStore, (s) => s.raw)
+  const processedCount = useSelector(scanStore, (s) => s.processedCount)
+  const thumbDoneCount = useSelector(scanStore, (s) => s.thumbDoneCount)
+  const clips = useSelector(scanStore, (s) => s.clips)
+  const thumbTotal = useSelector(scanStore, (s) => Object.keys(s.thumbStatus).length)
 
   return (
     <div

@@ -1,5 +1,5 @@
 import { useForm } from '@tanstack/react-form'
-import { useStore } from '@tanstack/react-store'
+import { useSelector } from '@tanstack/react-store'
 import { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -65,7 +65,7 @@ export function CoverForm() {
 }
 
 function LogoPicker() {
-  const logo = useStore(coverStore, (s) => s.logo)
+  const logo = useSelector(coverStore, (s) => s.logo)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
 
   useEffect(() => {
