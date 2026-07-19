@@ -1,37 +1,24 @@
 ---
 title: Overview
-description: What Luna is, who it's for, and how it turns a camera card into a report.
+description: What Luna does and how to use it.
 ---
 
-Luna is a camera-report tool that runs entirely in your browser. Point it at a folder of
-footage and it reads the card locally, groups clips into reels, extracts metadata and
-thumbnails, and produces a clean, shareable report — with no upload, no install, and no
-account.
+Luna builds a camera report from a folder of footage — reels, per-clip metadata, thumbnails,
+and totals — and exports it as PDF or CSV. It runs entirely in your browser; nothing uploads.
 
-## Who it's for
+## Using it
 
-Luna is built for DITs (digital imaging technicians) and camera assistants who need to hand
-off an accurate account of what's on a card: every file, its technical metadata, and a visual
-reference frame where one can be produced.
+1. Open Luna and pick a folder or card. Your browser asks for read access to it.
+2. Luna scans the folder and shows the clip count and total size. Confirm to continue.
+3. It reads metadata and generates thumbnails, a few clips at a time, with live progress.
+4. Clips are grouped into reels by reel name — or by top-level folder when there's no reel name.
+5. Fill in the cover fields and export **PDF** or **CSV**.
 
-## How a report comes together
+## What's in the report
 
-1. **Pick a folder.** Luna asks for read access to a folder through your browser's File System
-   Access API. Nothing is uploaded — the permission is local to your machine.
-2. **Scan.** Luna walks the folder, lists every clip, and shows a pre-scan summary (clip count
-   and total size) so you can confirm before any heavy work starts.
-3. **Process.** For each clip, Luna extracts metadata and renders evenly-spaced thumbnails,
-   running several clips in parallel. Progress and per-clip outcomes appear live.
-4. **Reels.** Clips are grouped into reels by their recorded reel name, falling back to the
-   top-level folder.
-5. **Export.** Fill in the cover and branding fields, then export a **PDF** and/or **CSV**
-   camera report. You save the file locally.
+Every file in the folder, grouped by reel, with:
 
-## What's in a report
-
-A report lists each reel and the clips within it, with per-clip technical metadata (camera,
-lens, ISO, shutter, color space, frame rate, duration, and more, wherever the file carries it),
-thumbnails where Luna can produce them, and totals — clip counts and byte-accurate sizes for
-every file on the card.
-
-Read next: [Privacy](/docs/privacy/) · [Supported formats](/docs/supported-formats/)
+- Camera, lens, ISO, shutter, white balance, color space, frame rate, codec, resolution, and
+  duration — whatever the file records.
+- A thumbnail where Luna can generate one.
+- Per-reel and total clip counts and sizes.

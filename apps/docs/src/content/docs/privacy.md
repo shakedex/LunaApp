@@ -1,33 +1,12 @@
 ---
 title: Privacy
-description: Why your footage never leaves your device.
+description: How local processing works.
 ---
 
-**Your footage never leaves your device.** Luna reads your media locally through the File
-System Access API and processes everything client-side. It does not upload footage, metadata,
-or reports to any server.
+Luna reads your footage directly from disk with the File System Access API and processes it in
+your browser. It never uploads footage, metadata, or reports, and has no analytics or telemetry.
 
-## What Luna sends about your media: nothing
+The only things it downloads are the app itself and its decoding engines — FFmpeg and MediaInfo,
+about 31 MB, fetched once from a CDN and then cached. After that first load, Luna works offline.
 
-Luna has no analytics, no telemetry, and makes no network requests carrying your data. The
-only network traffic is fetching the program itself:
-
-- The **app bundle** (HTML, JavaScript, CSS), served like any website.
-- The **WebAssembly engines** that decode media and read metadata, fetched from a public CDN
-  (jsDelivr) the first time they're needed.
-
-Neither carries anything about your footage — they are the same files for every visitor.
-
-## First visit, then offline
-
-On your first visit, Luna downloads its WebAssembly engines — the FFmpeg core (~31 MB) and the
-MediaInfo module. The browser caches them, so later visits are instant and Luna keeps working
-**offline**. Your media is read straight from disk on every run and held only in your browser's
-memory while a report is being built.
-
-:::note
-Reports are generated in your browser and saved by you to a location you choose. Luna never
-sees them.
-:::
-
-Read next: [Supported formats](/docs/supported-formats/) · [Limitations](/docs/limitations/)
+Reports are saved to a location you choose. Luna keeps nothing.

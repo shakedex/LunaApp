@@ -1,45 +1,37 @@
 ---
 title: FAQ
-description: Quick answers to the most common questions about Luna.
+description: Common questions, short answers.
 ---
 
 ## Which browsers work?
 
-Chromium-based browsers — Chrome, Edge, Brave, and Arc. Luna needs the File System Access API
-and WebCodecs, which Firefox and Safari don't fully support yet. See
-[Limitations](/docs/limitations/).
+Chrome, Edge, Brave, and Arc. Luna needs the File System Access API and WebCodecs, which Firefox
+and Safari don't support yet.
 
-## Does my footage get uploaded anywhere?
+## Does my footage get uploaded?
 
-No. Everything runs in your browser and your media never leaves your device. The only network
-requests fetch the program itself. See [Privacy](/docs/privacy/).
+No. Everything runs in your browser; footage never leaves your device. See [Privacy](/docs/privacy/).
 
 ## Why do some RAW clips show a placeholder instead of a frame?
 
-`.braw` and `.ari` can't be decoded to a frame in the browser without the camera vendor's SDK,
-so they show a placeholder. `.crm` and `.r3d` show an embedded or sidecar preview when the file
-has one. Either way the clip is fully listed with its metadata, path, and size. See
-[Supported formats](/docs/supported-formats/).
+BRAW and ARI can't be decoded in the browser without the manufacturer's SDK, so they get a
+placeholder. CRM and R3D show the preview frame the file already carries. All of them still get
+full metadata. See [Supported formats](/docs/supported-formats/).
 
 ## Why is a large MXF card slow?
 
-MXF and other legacy containers decode in software (FFmpeg WASM) rather than on your machine's
-hardware video decoders. It works, but it's slower than the hardware path used for H.264, HEVC,
-and ProRes.
+MXF and other older containers decode in software instead of on your GPU — it works, just slower
+than H.264, HEVC, or ProRes.
 
-## Does Luna work offline?
+## Does it work offline?
 
-Yes, after the first visit. Luna downloads its WebAssembly engines once (~31 MB), the browser
-caches them, and later runs work without a connection.
+Yes, after the first visit. The decoding engines (~31 MB) download once and are then cached.
 
-## Is Luna free and open-source?
+## Is it free and open source?
 
-Yes. Luna is licensed under the Apache License 2.0. The source is on
-[GitHub](https://github.com/shakedex/LunaApp).
+Yes, under the Apache License 2.0. Source is on [GitHub](https://github.com/shakedex/LunaApp).
 
-## Is Luna affiliated with ARRI, Blackmagic, Sony, or RED?
+## Is it affiliated with ARRI, Blackmagic, Sony, or RED?
 
-No. Luna is an independent open-source project and is not affiliated with, endorsed by, or
-sponsored by any camera manufacturer. All product names and trademarks belong to their
-respective owners. See the full
+No — Luna is an independent project, not affiliated with any camera manufacturer. See the
 [Disclaimer](https://github.com/shakedex/LunaApp/blob/master/DISCLAIMER.md).
