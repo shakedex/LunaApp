@@ -25,3 +25,11 @@ export function getDb(): Promise<IDBPDatabase<LunaDb>> {
   })
   return dbPromise
 }
+
+// Required before deleteDB: an open connection would block deletion forever.
+export async function closeDb(): Promise<void> {
+  if (!dbPromise) return
+  const db = await dbPromise.catch(() => null)
+  dbPromise = null
+  db?.close()
+}
