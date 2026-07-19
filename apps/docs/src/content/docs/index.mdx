@@ -1,9 +1,33 @@
 ---
 title: Luna Web
 description: Camera reports in your browser. Nothing leaves your device.
+template: splash
+hero:
+  tagline: Camera reports in your browser. Nothing leaves your device.
+  image:
+    alt: Luna
+    file: ../../assets/luna-logo-lg.webp
+  actions:
+    - text: Open Luna
+      link: https://luna.ozer2.one/
+      icon: right-arrow
+      variant: primary
+    - text: GitHub
+      link: https://github.com/shakedex/LunaApp
+      icon: external
+      variant: minimal
 ---
 
-Luna Web turns a camera card into a shareable PDF/CSV camera report — entirely in your
-browser. Your footage never leaves your device.
+import { CardGrid, LinkCard } from '@astrojs/starlight/components'
 
-This documentation covers supported formats, the privacy model, and known limitations.
+Luna turns a camera card into a shareable PDF/CSV camera report — entirely in your browser.
+Point it at a folder of clips and it detects reels, extracts metadata and thumbnails, and builds
+a clean report. Your footage never leaves your device.
+
+<CardGrid>
+	<LinkCard title="Overview" href="/docs/what-it-is/" description="What Luna is, who it's for, and how a report comes together." />
+	<LinkCard title="Privacy" href="/docs/privacy/" description="Why your footage never leaves your device." />
+	<LinkCard title="Supported formats" href="/docs/supported-formats/" description="Which containers and RAW formats Luna handles, and how." />
+	<LinkCard title="Limitations" href="/docs/limitations/" description="Honest constraints — browser support, speed, RAW thumbnails." />
+	<LinkCard title="FAQ" href="/docs/faq/" description="Quick answers to the most common questions." />
+</CardGrid>

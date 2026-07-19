@@ -13,12 +13,22 @@ export default defineConfig({
     starlight({
       title: 'Luna Web',
       description: 'Camera reports in your browser. Nothing leaves your device.',
+      logo: {
+        src: './src/assets/luna-logo-lg.webp',
+      },
       social: [
         { 
           icon: 'github',
           label: 'GitHub',
           href: 'https://github.com/shakedex/LunaApp'
         },
+      ],
+      sidebar: [
+        { label: 'Overview', slug: 'what-it-is' },
+        { label: 'Privacy', slug: 'privacy' },
+        { label: 'Supported formats', slug: 'supported-formats' },
+        { label: 'Limitations', slug: 'limitations' },
+        { label: 'FAQ', slug: 'faq' },
       ],
     }),
   ],
