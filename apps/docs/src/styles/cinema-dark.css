@@ -225,11 +225,26 @@
   }
 }
 
-/* Luna mark at the top of the Overview landing (brought back from the splash),
-   with the soft cyan glow. */
+/* Luna mark at the top of the Overview landing (brought back from the splash):
+   centered, scales with the viewport, soft cyan glow. */
 .overview-logo {
-  height: 76px;
-  width: auto;
-  margin-block: 0.25rem 1.25rem;
-  filter: drop-shadow(0 0 18px oklch(0.72 0.14 232 / 0.35));
+  display: block;
+  width: clamp(140px, 32vw, 200px);
+  height: auto;
+  margin: 0.5rem auto 1.75rem;
+  filter: drop-shadow(0 0 26px oklch(0.72 0.14 232 / 0.4));
+}
+
+/* Mobile header polish: icon-only hamburger, hamburger before the logo, and
+   restore the search control (the theme hides it below its breakpoint). */
+@media (max-width: 63.99rem) {
+  black-menu-button .label {
+    display: none;
+  }
+  black-menu-button {
+    order: -1;
+  }
+  site-search {
+    display: flex;
+  }
 }
