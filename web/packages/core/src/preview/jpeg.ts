@@ -157,7 +157,7 @@ function parseJpegAt(
 ): { length: number; width: number; height: number } | null {
   if (bytes[offset] !== 0xff || bytes[offset + 1] !== 0xd8) return null
   const result = walkMarkers(bytes, offset + 2, { stopAtSof: false })
-  if (!result || !result.dims) return null
+  if (!result?.dims) return null
   return { length: result.end - offset, width: result.dims.width, height: result.dims.height }
 }
 

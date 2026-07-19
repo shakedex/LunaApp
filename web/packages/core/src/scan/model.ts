@@ -7,6 +7,10 @@ export interface ClipRef {
   extension: string
   sizeBytes: number
   file: FileHandleLike
+  // Present only for `.r3d` clips that have a same-directory `.rtn` sidecar
+  // (REDCINE-X's embedded-JPEG thumbnail source — FINDINGS.md), associated by
+  // the walker after the scan completes.
+  previewSidecar?: FileHandleLike
 }
 
 export interface RawNotice {

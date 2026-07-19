@@ -78,3 +78,49 @@ describe('scanFolder', () => {
     expect(last?.clipsFound).toBe(3)
   })
 })
+
+describe('scanFolder .rtn sidecar association', () => {
+  test('associates a same-directory .rtn with its .r3d clip by basename', async () => {
+    const root = dir('ROOT', dir('A001', file('A001C001.R3D', 100), file('A001C001.rtn', 10)))
+    const { clips } = await scanFolder(root)
+    const clip = clips.find((c) => c.relativePath === 'A001/A001C001.R3D')
+    expect(clip?.previewSidecar).toBeDefined()
+    expect(clip?.previewSidecar?.name).toBe('A001C001.rtn')
+  })
+
+  test('matches basenames case-insensitively', async () => {
+    const root = dir('ROOT', dir('A001', file('a001c001.r3d', 100), file('A001C001.RTN', 10)))
+    const { clips } = await scanFolder(root)
+    const clip = clips.find((c) => c.relativePath === 'A001/a001c001.r3d')
+    expect(clip?.previewSidecar?.name).toBe('A001C001.RTN')
+  })
+
+  test('does not associate an .rtn from a different directory', async () => {
+    const root = dir(
+      'ROOT',
+      dir('A001', file('A001C001.R3D', 100)),
+      dir('A002', file('A001C001.rtn', 10)),
+    )
+    const { clips } = await scanFolder(root)
+    const clip = clips.find((c) => c.relativePath === 'A001/A001C001.R3D')
+    expect(clip?.previewSidecar).toBeUndefined()
+  })
+
+  test('does not associate an .rtn with a different basename in the same directory', async () => {
+    const root = dir('ROOT', dir('A001', file('A001C001.R3D', 100), file('A001C002.rtn', 10)))
+    const { clips } = await scanFolder(root)
+    const clip = clips.find((c) => c.relativePath === 'A001/A001C001.R3D')
+    expect(clip?.previewSidecar).toBeUndefined()
+  })
+
+  test('.rtn never appears as a clip or raw notice, but is counted in filesSeen', async () => {
+    const root = dir('ROOT', dir('A001', file('A001C001.R3D', 100), file('A001C001.rtn', 10)))
+    const seen: ScanProgress[] = []
+    const { clips, raw } = await scanFolder(root, (p) => seen.push({ ...p }))
+    expect(clips.map((c) => c.relativePath)).toEqual(['A001/A001C001.R3D'])
+    expect(raw).toEqual([])
+    const last = seen[seen.length - 1]
+    expect(last?.filesSeen).toBe(2) // the .r3d clip + the .rtn sidecar
+    expect(last?.clipsFound).toBe(1)
+  })
+})

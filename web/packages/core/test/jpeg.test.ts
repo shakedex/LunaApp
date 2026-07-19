@@ -136,7 +136,7 @@ describe('findValidJpegs', () => {
     expect(found).toHaveLength(1)
     expect(found[0]?.offset).toBe(5)
     // the reported span must itself re-parse as a valid JPEG:
-    const span = bytes.subarray(found[0]!.offset, found[0]!.offset + found[0]!.length)
+    const span = bytes.subarray(found[0].offset, found[0].offset + found[0].length)
     expect(jpegDimensions(span)).toEqual({ width: 640, height: 480 })
   })
 })

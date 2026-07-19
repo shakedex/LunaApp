@@ -16,6 +16,13 @@ export type { PoolHandlers, PoolHooks, PoolOptions } from './pool/run-pool'
 export { runPool } from './pool/run-pool'
 export type { BoxHeader } from './preview/boxes'
 export { findChildBox, readBoxHeaderAt, walkTopLevelBoxes } from './preview/boxes'
+export type { EmbeddedPreview } from './preview/extract'
+export {
+  CRM_PREVIEW_UUID,
+  extractCrmPreview,
+  extractMovTailPreview,
+  extractRtnJpeg,
+} from './preview/extract'
 export type { JpegCandidate } from './preview/jpeg'
 export { findValidJpegs, jpegDimensions } from './preview/jpeg'
 export type { DetectedReel, ReelInput } from './reels/detect'
