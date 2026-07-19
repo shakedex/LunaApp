@@ -93,11 +93,12 @@ export function ScanScreen() {
               <Alert className="border-amber-500/30 [&>svg]:text-amber-400">
                 <TriangleAlert />
                 <AlertTitle>
-                  {summary.rawCount} RAW file(s) can't be decoded in a browser
+                  {summary.rawCount} ARRIRAW frame file(s) detected — not listed as clips
                 </AlertTitle>
                 <AlertDescription>
-                  ARRIRAW / R3D / BRAW files were detected. They'll be listed in the report without
-                  thumbnails.
+                  .ari stills can't be decoded to a thumbnail in the browser, so they're excluded
+                  from the report. BRAW, R3D, and CRM clips are listed with full metadata —
+                  thumbnails come from embedded posters or .rtn sidecars where available.
                 </AlertDescription>
               </Alert>
             )}
