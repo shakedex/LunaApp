@@ -14,6 +14,9 @@ export function AppShell({ children }: { children: ReactNode }) {
             <span className="text-base font-semibold tracking-tight">Luna</span>
           </a>
           <nav className="text-muted-foreground flex items-center gap-2 text-sm">
+            <Link to="/reports/" className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }))}>
+              Reports
+            </Link>
             <Link to="/settings/" className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }))}>
               Settings
             </Link>
