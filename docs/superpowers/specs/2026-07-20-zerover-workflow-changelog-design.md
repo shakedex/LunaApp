@@ -1,7 +1,7 @@
 # Luna Web — ZeroVer Workflow + Changelog Design
 
 **Date:** 2026-07-20
-**Status:** Approved (brainstorming) — pending spec review
+**Status:** Approved — implementing (revised from `0.11.0` to `0.12.0` after milestone 12 shipped)
 **Depends on:** existing ZeroVer policy in `DEPLOY.md` §"Versioning (ZeroVer)" and design spec §18–19.
 
 ## 1. Motivation
@@ -21,26 +21,31 @@ release. This design turns the written policy into a working, low-ceremony workf
 | Decision | Choice |
 | --- | --- |
 | Version source of truth | `apps/web/package.json` `version` (already read by `__APP_VERSION__`) |
-| Starting version | **`0.11.0`** — one MINOR per shipped milestone (01–11) |
-| Baseline tag | Retroactive `v0.11.0` at commit `6d41b18` (last commit before any milestone-12 work) |
+| Starting version | **`0.12.0`** — one MINOR per shipped milestone (01–12) |
+| Baseline tag | `v0.12.0` on the release commit (the commit that sets `version` to 0.12.0) |
 | Changelog format | Keep a Changelog 1.1.0, hand-curated, plain user-facing language |
 | Canonical changelog file | `apps/docs/src/content/docs/changelog.md` (a Starlight page) |
 | Root `CHANGELOG.md` | Thin pointer to the canonical file + online URL |
 | Release mechanism | `bun run release <minor\|patch>` (`tools/release.ts`) + `RELEASING.md` |
 | Auto-generation | **None** — no git-cliff/conventional-changelog/changesets |
 
-### Why `0.11.0` and not `0.12.0`
+### Why `0.12.0`
 
-Verified against the tree on 2026-07-20: milestone 12 (Report Library) is **not
-complete**. Tasks 1–3 have landed (`db41cf2`, `69a785e`, `9c7bc42` — core summary,
-idb-v4 persistence, shared `ReportView` + Save button) but Task 4 (`/reports` list route)
-and Task 5 (saved-report read-only view) have not. The navigable Report Library does not
-yet exist, so the current shipped state is `0.11.0`; the report-library work is
-`[Unreleased]` and ships as `0.12.0` when Tasks 4–5 land and `bun run release minor` runs.
+Verified against the tree on 2026-07-20: milestone 12 (Report Library) is **complete**. All
+five tasks landed on `master` — `db41cf2` (core summary), `69a785e` (idb-v4 persistence),
+`9c7bc42` (shared `ReportView` + Save button), and `52d5d5b` (the `/reports` list route and
+the read-only saved-report view, `reports.index.tsx` + `reports.$reportId.tsx`). Twelve
+milestones are shipped, so the current state is `0.12.0`, and the Report Library is a
+shipped feature in its changelog entry — not `[Unreleased]`.
 
-The baseline tag anchors to the fixed historical commit `6d41b18`, so it is unaffected by
-the maintainer continuing to commit milestone-12 work on `master` in parallel.
-`git log v0.11.0..HEAD` therefore resolves to exactly the unreleased commits.
+The baseline tag is placed on the release commit itself (the commit that sets `version` to
+`0.12.0`) — the same way `bun run release` tags every future release. That captures all of
+milestone 12, including its refinements (e.g. the read-only saved-report view), and is
+robust against the maintainer continuing to commit on `master` in parallel. `[Unreleased]`
+starts empty.
+
+(Had milestone 12 still been unfinished, the version would have been `0.11.0` with the
+report-library work sitting under `[Unreleased]`. It finished, so `0.12.0` is correct.)
 
 ## 3. Component design
 
@@ -51,62 +56,31 @@ the maintainer continuing to commit milestone-12 work on `master` in parallel.
 never published to npm. No re-plumbing: `apps/web/vite.config.ts` already injects
 `__APP_VERSION__` from this field into the app header, Credits page, and PDF footer stamp.
 
-### 3.2 Baseline: adopt `0.11.0`
+### 3.2 Baseline: adopt `0.12.0`
 
-- Set `apps/web/package.json` `version` → `0.11.0`.
-- Create annotated tag `v0.11.0` at `6d41b18` (`git tag -a v0.11.0 6d41b18 -m "v0.11.0"`).
-- We do **not** fabricate `0.1.0`–`0.10.0` dated releases; they never happened. `0.11.0`
-  is the first *tracked* release, and its changelog entry consolidates milestones 01–11.
+- Set `apps/web/package.json` `version` → `0.12.0`.
+- Create annotated tag `v0.12.0` on the release commit (`git tag -a v0.12.0 -m "v0.12.0"`).
+- We do **not** fabricate `0.1.0`–`0.11.0` dated releases; they never happened. `0.12.0`
+  is the first *tracked* release, and its changelog entry consolidates milestones 01–12
+  (including the Report Library).
 
 ### 3.3 Changelog — canonical file lives in docs
 
 **File:** `apps/docs/src/content/docs/changelog.md` — a Starlight content page.
 
 Structure (Keep a Changelog 1.1.0), with the H1 omitted (Starlight renders the title from
-frontmatter):
+frontmatter): frontmatter (`title: Changelog`), an intro line, `## [Unreleased]`, then
+`## [0.12.0] - 2026-07-20` with an `### Added` group summarizing the app as shipped through
+milestone 12 in plain user-facing language, then the compare-link reference definitions.
 
-```markdown
----
-title: Changelog
-description: Notable changes to Luna Web, newest first.
----
-
-All notable changes to Luna Web. This format is based on
-[Keep a Changelog](https://keepachangelog.com); Luna Web follows
-[ZeroVer](https://0ver.org) — versions are `0.MINOR.PATCH` and there will never be a 1.0.
-
-## [Unreleased]
-
-## [0.11.0] - 2026-07-20
-
-### Added
-- <consolidated, user-facing summary of the app as shipped through milestone 11:
-  folder scanning, metadata extraction, thumbnails, reels & report workspace,
-  PDF/CSV export, RAW clips & embedded previews, persisted settings, activity log,
-  Cloudflare deploy readiness — written for a DIT, grouped Added/Changed as appropriate>
-
-[unreleased]: https://github.com/shakedex/LunaApp/compare/v0.11.0...HEAD
-[0.11.0]: https://github.com/shakedex/LunaApp/releases/tag/v0.11.0
-```
-
-- `[Unreleased]` starts empty. As report-library (and later) features become user-facing,
-  the maintainer adds `Added/Changed/Fixed` bullets there. `bun run release` promotes them.
-- Added to the Starlight sidebar in `apps/docs/astro.config.ts` as the final item:
+- `[Unreleased]` starts empty. As later features become user-facing, the maintainer adds
+  `Added/Changed/Fixed` bullets there. `bun run release` promotes them into a dated version.
+- Added to the Starlight sidebar in `apps/docs/astro.config.mjs` as the final item:
   `{ label: 'Changelog', slug: 'changelog' }`.
 - Compare links use `github.com/shakedex/LunaApp` (matches the docs GitHub social link).
 
 **Root `CHANGELOG.md`** — thin pointer so developers browsing the repo root find it:
-
-```markdown
-# Changelog
-
-The Luna Web changelog lives with the docs so it publishes to the site.
-
-- Online: https://luna.ozer2.one/docs/changelog/
-- Source: apps/docs/src/content/docs/changelog.md
-
-Versioning follows ZeroVer (0.MINOR.PATCH). See RELEASING.md for how releases are cut.
-```
+points at the online URL and the canonical source file, and notes ZeroVer + `RELEASING.md`.
 
 ### 3.4 Release mechanism — `tools/release.ts`
 
@@ -115,47 +89,43 @@ Invoked `bun run release <minor|patch>` (with `--dry-run` to preview without wri
 
 **Pure, unit-tested helpers** (keep git/fs side effects thin):
 
-- `parseVersion(s: string): { major: 0; minor: number; patch: number }` — asserts `major === 0`.
+- `parseVersion(s): { major: 0; minor; patch }` — asserts `major === 0` (ZeroVer).
 - `nextVersion(current, bump: 'minor' | 'patch'): string` — `minor` → `0.(minor+1).0`,
   `patch` → `0.minor.(patch+1)`. Major is hard-locked to `0`.
-- `rewriteChangelog(text, version, date): string` — renames `## [Unreleased]` → adds a
-  fresh empty `## [Unreleased]` above `## [version] - date`, moving existing unreleased
-  entries under the new version heading, and rewrites the `[unreleased]` / adds `[version]`
-  compare-link reference definitions.
+- `unreleasedBody(text): string` — the entries between `## [Unreleased]` and the next
+  `## [` heading (link defs stripped); empty string means nothing to release.
+- `rewriteChangelog(text, {version, date, prevVersion}): string` — renames `## [Unreleased]`
+  → adds a fresh empty `## [Unreleased]` above `## [version] - date`, moving existing
+  unreleased entries under the new version heading, and rewrites the `[unreleased]` / adds
+  `[version]` compare-link reference definitions.
 
 **`main()` flow:**
 
-1. Parse arg. Anything other than `minor` / `patch` → print usage and exit non-zero.
-   `major` (or any request that would reach `1.0.0`) → refuse with a ZeroVer message.
-2. Require a clean working tree (`git status --porcelain` empty) — else abort, so unrelated
-   in-flight changes never get bundled into the release commit.
-3. Read `apps/web/package.json` version; `parseVersion` (asserts `0.x.y`).
-4. Require `## [Unreleased]` in the changelog to have at least one entry — else abort
-   ("nothing to release; add entries under [Unreleased] first"). This is the enforcement
-   point that keeps the changelog actually maintained.
-5. Compute `next = nextVersion(...)`; write it back to `apps/web/package.json` (2-space
-   indent, trailing newline).
-6. `rewriteChangelog` the docs changelog file with `next` and today's date (`new Date()` —
-   a normal bun runtime, not a Workflow script, so the clock is available).
-7. Stage exactly `apps/web/package.json` and `apps/docs/src/content/docs/changelog.md`,
-   commit `chore(release): v<next>`, create annotated tag `v<next>`.
-8. Print the finish line: `Released v<next>. Push with: git push --follow-tags`.
-   The script does **not** push and does **not** deploy — deploys stay on the Cloudflare
-   dashboard git integration (per `DEPLOY.md`).
+1. Parse arg. Anything other than `minor` / `patch` → usage + exit non-zero. `major` (or
+   anything that would reach `1.0.0`) → refuse with a ZeroVer message.
+2. `--dry-run`: print `current -> next` and the current `[Unreleased]` body, then stop
+   (no clean-tree requirement, no writes).
+3. Real run preconditions: clean working tree (`git status --porcelain` empty) and a
+   non-empty `[Unreleased]` — else abort. This is the enforcement point that keeps the
+   changelog actually maintained.
+4. Write the bumped version into `apps/web/package.json` (regex-preserving formatting).
+5. `rewriteChangelog` the docs changelog with `next` and today's date (`new Date()` — a
+   normal bun runtime, not a Workflow script, so the clock is available).
+6. Stage exactly `apps/web/package.json` and the docs changelog, commit
+   `chore(release): v<next>`, create annotated tag `v<next>`.
+7. Print `Released v<next>. Push with: git push --follow-tags`. No push, no deploy —
+   deploys stay on the Cloudflare dashboard git integration (per `DEPLOY.md`).
 
-Implemented with Bun APIs (`Bun.file`, `Bun.$` for git). DOM-free, standalone.
-
-**Tests:** `tools/release.test.ts` (bun) covers `nextVersion` (minor + patch), the
-`major`/`1.0.0` rejection, and `rewriteChangelog` happy path (Unreleased → version + fresh
-Unreleased + link definitions).
+**Tests:** `tools/release.test.ts` (bun) covers `parseVersion` (0.x + the `1.0.0`
+rejection), `nextVersion` (minor + patch), `unreleasedBody` (present + empty), and
+`rewriteChangelog` (promotion + fresh Unreleased + link definitions).
 
 ### 3.5 Docs cross-references
 
-- `DEPLOY.md` "Versioning (ZeroVer)" section gains one line: "See `RELEASING.md` for the
-  release workflow (`bun run release`)."
-- `RELEASING.md` (new, repo root) documents: the one-command flow, the ZeroVer rule (major
-  locked at 0, never 1.0), how to write good `[Unreleased]` entries (curate as you land
-  user-facing work), and the fact that pushing the tag is a separate manual step.
+- `DEPLOY.md` "Versioning (ZeroVer)" section gains one line pointing to `RELEASING.md`.
+- `RELEASING.md` (new, repo root) documents the one-command flow, the ZeroVer rule (major
+  locked at 0, never 1.0), how to write `[Unreleased]` entries, and that pushing the tag
+  is a separate manual step.
 
 ## 4. Out of scope (YAGNI)
 
@@ -174,27 +144,24 @@ a deliberate local `bun run release`.
 - `RELEASING.md` — release runbook.
 
 **Modified**
-- `apps/web/package.json` — `version` `0.0.0` → `0.11.0`.
+- `apps/web/package.json` — `version` `0.0.0` → `0.12.0`.
 - `package.json` (root) — add `"release": "bun tools/release.ts"` script.
-- `apps/docs/astro.config.ts` — add `{ label: 'Changelog', slug: 'changelog' }` to sidebar.
+- `apps/docs/astro.config.mjs` — add `{ label: 'Changelog', slug: 'changelog' }` to sidebar.
 - `DEPLOY.md` — one-line pointer to `RELEASING.md`.
 
 **Git (not a file change)**
-- Annotated tag `v0.11.0` at `6d41b18`.
+- Annotated tag `v0.12.0` on the release commit.
 
 ## 6. Verification
 
-- `bun run lint && bun run typecheck && bun test && bun run build` green from repo root
-  (the release script/tests must not break the gates; the docs build must include the new
-  Changelog page).
-- `bun run release --dry-run patch` previews a bump against a seeded `[Unreleased]` entry
-  without writing (manual smoke check).
-- `apps/web` build shows `v0.11.0` in the header/Credits; docs site serves `/docs/changelog/`.
+- `bun run lint && bun run typecheck && bun test && bun run build` green from repo root.
+- `bun run release --dry-run patch` previews a bump without writing (manual smoke check).
+- `apps/web` build shows `v0.12.0` in the header/Credits; docs site serves `/docs/changelog/`.
 
 ## 7. Constraints honored
 
 - Windows, Git Bash, bun 1.3.14, TypeScript 6.0.3, `.gitattributes` LF pinning.
 - The maintainer works `master` in parallel: this work only touches the files listed in §5
-  (all clean at design time) and stages by explicit path — never `git add -A`.
+  and stages by explicit path — never `git add -A`.
 - `packages/core` untouched (stays DOM-free/clock-free). `apps/web/src/components/ui/`
   untouched.
