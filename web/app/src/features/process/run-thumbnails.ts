@@ -1,18 +1,24 @@
 import {
   type ClipRef,
-  decodePathFor,
+  type EmbeddedPreview,
+  extractCrmPreview,
+  extractMovTailPreview,
+  extractRtnJpeg,
   runPool,
   type ThumbnailFrame,
+  thumbnailRouteFor,
   thumbnailTimestamps,
 } from '@luna-web/core'
 import { scanStore } from '../scan/store'
 import { createFfmpegEngine, type FfmpegEngine } from './ffmpeg-engine'
+import { previewToFrame } from './preview-frame'
 import { guardedUpdate, isRunCurrent, poolSizeFor, withTimeout } from './run-processing'
 import { createThumbsWorker, type ThumbsWorkerHandle } from './thumbs-client'
 
 const THUMB_WIDTH = 1280
 const MEDIABUNNY_TIMEOUT_MS = 60_000 // spec §10.3
 const FFMPEG_TIMEOUT_MS = 180_000 // spec §10.3
+const PREVIEW_TIMEOUT_MS = 30_000
 
 export async function startThumbnails(run: number): Promise<void> {
   if (!isRunCurrent(run)) return
@@ -21,13 +27,26 @@ export async function startThumbnails(run: number): Promise<void> {
 
   const mediabunnyClips: ClipRef[] = []
   const ffmpegClips: ClipRef[] = []
+  const previewClips: ClipRef[] = []
+  // Route 'none' but still a real clip — currently only `.braw` (no decode
+  // path, no embedded preview, FINDINGS.md). Gets one NoDecoder placeholder
+  // frame immediately below, no queue.
+  const noPreviewClips: ClipRef[] = []
   for (const clip of clips) {
-    const path = decodePathFor(clip.extension)
-    if (path === 'mediabunny') mediabunnyClips.push(clip)
-    else if (path === 'ffmpeg') ffmpegClips.push(clip)
+    const codec = state.metadataById[clip.id]?.codec
+    const route = thumbnailRouteFor(clip.extension, codec)
+    if (route === 'mediabunny') mediabunnyClips.push(clip)
+    else if (route === 'ffmpeg') ffmpegClips.push(clip)
+    else if (route === 'preview') previewClips.push(clip)
+    else if (route === 'none') noPreviewClips.push(clip)
   }
 
-  if (mediabunnyClips.length === 0 && ffmpegClips.length === 0) {
+  if (
+    mediabunnyClips.length === 0 &&
+    ffmpegClips.length === 0 &&
+    previewClips.length === 0 &&
+    noPreviewClips.length === 0
+  ) {
     guardedUpdate(run, (s) => ({ ...s, phase: 'processed' }))
     return
   }
@@ -36,19 +55,16 @@ export async function startThumbnails(run: number): Promise<void> {
     ...s,
     phase: 'thumbnailing',
     thumbStatus: Object.fromEntries(
-      clips
-        .filter((c) => {
-          const path = decodePathFor(c.extension)
-          // decodePathFor can now return 'preview' (.crm/.r3d reclassified as
-          // clips, thumbs/router.ts). Task 4 wires the preview queue — treat
-          // 'preview' like 'none' for now so these clips aren't seeded into
-          // thumbStatus as 'queued' with no pool to ever resolve them (that
-          // would wedge thumbDoneCount/thumbTotal and the per-row spinner).
-          return path === 'mediabunny' || path === 'ffmpeg'
-        })
-        .map((c) => [c.id, 'queued' as const]),
+      [...mediabunnyClips, ...ffmpegClips, ...previewClips, ...noPreviewClips].map((c) => [
+        c.id,
+        'queued' as const,
+      ]),
     ),
   }))
+
+  for (const clip of noPreviewClips) {
+    finishClip(run, clip.id, [noDecoderFrame()])
+  }
 
   // Cascade queue: mediabunny container/codec failures retry on ffmpeg.
   const cascaded: ClipRef[] = []
@@ -139,7 +155,58 @@ export async function startThumbnails(run: number): Promise<void> {
     })
   }
 
+  if (previewClips.length > 0 && isRunCurrent(run)) {
+    await runPool<object, ClipRef, ThumbnailFrame<Blob>>(
+      previewClips,
+      {
+        createLane: () => ({}),
+        destroyLane: () => {},
+        run: (_lane, clip) =>
+          withTimeout(buildPreviewFrame(clip), PREVIEW_TIMEOUT_MS, clip.fileName),
+      },
+      {
+        onItemStart: (clip) => setThumbStatus(run, clip.id, 'decoding'),
+        onItemSuccess: (clip, frame) => finishClip(run, clip.id, [frame]),
+        onItemFailure: (clip, err) =>
+          failClip(run, clip.id, err instanceof Error ? err.message : String(err)),
+      },
+      { concurrency: 2, isCancelled: () => !isRunCurrent(run) },
+    ).catch((err) => {
+      // Mirrors the ffmpeg pool-failure sweep — no cascade target here, so
+      // straggling queued/decoding preview clips just fail terminally.
+      const message = err instanceof Error ? err.message : String(err)
+      for (const clip of previewClips) {
+        const st = scanStore.state.thumbStatus[clip.id]
+        if (st === 'queued' || st === 'decoding') failClip(run, clip.id, message)
+      }
+    })
+  }
+
   guardedUpdate(run, (s) => ({ ...s, phase: 'processed' }))
+}
+
+// Null preview (no embedded/sidecar frame found) is expected, not an error —
+// a single placeholder frame keeps rows/PDF showing a "no preview" tile with
+// status 'done' rather than 'failed'.
+function noDecoderFrame(): ThumbnailFrame<Blob> {
+  return { positionRatio: 0.5, timestampSeconds: 0, outcome: 'NoDecoder' }
+}
+
+async function buildPreviewFrame(clip: ClipRef): Promise<ThumbnailFrame<Blob>> {
+  let preview: EmbeddedPreview | null
+  if (clip.extension === '.crm') {
+    preview = await extractCrmPreview(await clip.file.getFile())
+  } else if (clip.extension === '.r3d') {
+    preview = clip.previewSidecar
+      ? extractRtnJpeg(new Uint8Array(await (await clip.previewSidecar.getFile()).arrayBuffer()))
+      : null
+  } else {
+    // Any other route === 'preview' clip is a mediabunny-container extension
+    // whose codec matched PRORES_RAW_CODEC_PATTERN (thumbnailRouteFor) — the
+    // tail-of-container embedded preview (ProRes RAW's moov/udta).
+    preview = await extractMovTailPreview(await clip.file.getFile())
+  }
+  return preview ? await previewToFrame(preview) : noDecoderFrame()
 }
 
 function setThumbStatus(run: number, id: string, status: 'queued' | 'decoding'): void {

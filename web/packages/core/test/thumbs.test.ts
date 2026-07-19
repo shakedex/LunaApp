@@ -51,12 +51,12 @@ describe('thumbnailRouteFor', () => {
     // web/tools/out/CAMERA_RONIN-4D_A001C0004_..._4K_ProRes4444_25FPS.mov.json
     // (plain ProRes 4444), same Video track shape:
     //   Format = "ProRes", Format_Profile = "4444", CodecID = "ap4h"
-    // Both dumps' mappedClipMetadata.codec (mapMediaInfoToClipMetadata's actual
-    // output) is the bare string "ProRes" for BOTH clips — Format_Profile/
-    // CodecID are not currently threaded onto ClipMetadata.codec. So this
-    // pattern is written against the real, cited profile/codecID strings, and
-    // deliberately does NOT match bare "ProRes" (else every ordinary ProRes
-    // 4444/422 clip would be misrouted to 'preview' too).
+    // `mapMediaInfoToClipMetadata` (commit 80efa25) now threads Format_Profile
+    // into ClipMetadata.codec: a "RAW" profile yields "ProRes RAW" for the
+    // S006 clip above, while the 4444 dump still maps to the bare "ProRes".
+    // So this pattern is written against the real, cited profile/codecID
+    // strings, and deliberately does NOT match bare "ProRes" (else every
+    // ordinary ProRes 4444/422 clip would be misrouted to 'preview' too).
     test('matches the real Format_Profile/CodecID strings from the S006 dump', () => {
       expect(PRORES_RAW_CODEC_PATTERN.test('RAW')).toBe(false) // bare profile alone is too ambiguous to match on its own
       expect(PRORES_RAW_CODEC_PATTERN.test('ProRes RAW')).toBe(true)
@@ -69,11 +69,13 @@ describe('thumbnailRouteFor', () => {
       expect(thumbnailRouteFor('.mov', 'aprn')).toBe('preview')
     })
 
-    test('plain "ProRes" (today\'s actual mapped codec for both RAW and non-RAW) does not match', () => {
-      // Documents the known gap: until a richer codec string is threaded
-      // through (mediainfo's Format_Profile/CodecID), this branch cannot fire
-      // from ClipMetadata.codec alone — the mediabunny->ffmpeg cascade is the
-      // safety net in the meantime (see router.ts comment on the pattern).
+    test('plain "ProRes" (the mapped codec when Format_Profile isn\'t RAW) does not match', () => {
+      // A bare "ProRes" string — e.g. the 4444/422 dumps above, or any caller
+      // that doesn't carry Format_Profile through — deliberately doesn't
+      // match: the mediainfo mapper only appends " RAW" when Format_Profile
+      // genuinely is "RAW" (commit 80efa25), so this is the correct negative
+      // case, not a known gap. The mediabunny->ffmpeg cascade remains the
+      // safety net for any codec string this pattern still misses.
       expect(thumbnailRouteFor('.mov', 'ProRes')).toBe('mediabunny')
     })
 

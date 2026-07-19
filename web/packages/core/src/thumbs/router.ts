@@ -21,16 +21,13 @@ const NO_THUMBNAIL_EXTENSIONS = new Set(['.braw'])
 // Format_Profile = "RAW", CodecID = "aprn". Contrast with
 // web/tools/out/CAMERA_RONIN-4D_..._4K_ProRes4444_25FPS.mov.json (plain ProRes
 // 4444): Format = "ProRes", Format_Profile = "4444", CodecID = "ap4h" — same
-// `Format`, different profile/codecID. IMPORTANT CAVEAT: today's
-// `mapMediaInfoToClipMetadata` (src/metadata/mediainfo.ts) only reads
-// `video.Format` into `ClipMetadata.codec`, so for BOTH clips above
-// `currentMapping.codec` is the bare string "ProRes" — the RAW/4444 distinction
-// is not yet preserved on that field. This pattern intentionally matches the
-// distinguishing profile/codecID strings (not bare "ProRes") so a caller must
-// supply a richer codec string (e.g. `${Format} ${Format_Profile}`, or the
-// CodecID) for the branch to fire; wiring that through is a follow-up (the
-// mediabunny→ffmpeg cascade is the safety net documented in the plan if
-// detection misses in the meantime).
+// `Format`, different profile/codecID. `mapMediaInfoToClipMetadata`
+// (src/metadata/mediainfo.ts, commit 80efa25) now threads this distinction
+// through: when `Format_Profile` is `"RAW"` it yields `${Format} RAW` (e.g.
+// `"ProRes RAW"`) instead of the bare `Format` string, so `ClipMetadata.codec`
+// already matches this pattern for the Ronin-4D clip above without the
+// caller needing to build a richer string itself. This pattern still also
+// matches the raw CodecID (`aprn`) directly, for callers that only have that.
 export const PRORES_RAW_CODEC_PATTERN = /prores\s*raw|\baprn\b/i
 
 export function thumbnailRouteFor(extension: string, codec?: string): ThumbnailRoute {
@@ -44,10 +41,13 @@ export function thumbnailRouteFor(extension: string, codec?: string): ThumbnailR
   return 'none'
 }
 
-/** @deprecated Use {@link thumbnailRouteFor}. Kept so existing callers compile;
- * migrate to `thumbnailRouteFor(extension, codec)` in Task 4. Note this now
- * genuinely returns `'preview'` for `.crm`/`.r3d` — it is a true delegate, not
- * a lossy narrowing to the old `'mediabunny' | 'ffmpeg' | 'none'` domain. */
+/** @deprecated Use {@link thumbnailRouteFor}. The app-side thumbnail queue
+ * (`run-thumbnails.ts`, Task 4) has migrated to
+ * `thumbnailRouteFor(clip.extension, codec)` and passes the clip's codec
+ * through; this alias is kept only so any other caller still compiles. Note
+ * this now genuinely returns `'preview'` for `.crm`/`.r3d` — it is a true
+ * delegate, not a lossy narrowing to the old
+ * `'mediabunny' | 'ffmpeg' | 'none'` domain. */
 export type DecodePath = ThumbnailRoute
 
 /** @deprecated Use {@link thumbnailRouteFor}. */
