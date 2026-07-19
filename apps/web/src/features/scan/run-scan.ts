@@ -1,7 +1,7 @@
 import { buildScanSummary, type DirectoryHandleLike, scanFolder } from '@luna-web/core'
 import { cancelProcessing } from '@/features/process/run-processing'
 import { logger } from '@/lib/logger'
-import { rememberSource } from '@/persistence/recent-sources'
+import { markSourceStale, rememberSource } from '@/persistence/recent-sources'
 import { ensureReadPermission } from './permissions'
 import { initialScanState, scanStore } from './store'
 
@@ -17,7 +17,10 @@ export async function pickAndScan(): Promise<void> {
   await scanFrom(handle)
 }
 
-export async function scanFrom(handle: FileSystemDirectoryHandle): Promise<void> {
+export async function scanFrom(
+  handle: FileSystemDirectoryHandle,
+  recentKey?: number,
+): Promise<void> {
   const phase = scanStore.state.phase
   if (phase === 'scanning' || phase === 'processing') return
   if (!(await ensureReadPermission(handle))) {
@@ -25,7 +28,7 @@ export async function scanFrom(handle: FileSystemDirectoryHandle): Promise<void>
     scanStore.setState((s) => ({
       ...s,
       phase: 'error',
-      error: 'Read permission was denied for this folder.',
+      error: `Luna needs read permission for "${handle.name}". Pick the folder again to re-authorize.`,
     }))
     return
   }
@@ -58,6 +61,19 @@ export async function scanFrom(handle: FileSystemDirectoryHandle): Promise<void>
       `${result.clips.length} clips, ${result.raw.length} RAW notices`,
     )
   } catch (err) {
+    // A recent-source handle whose folder was moved/renamed/removed throws
+    // NotFoundError (possibly mid-walk). Spec §15: mark the entry stale and
+    // say what happened — never surface a raw DOMException message.
+    if (err instanceof DOMException && err.name === 'NotFoundError') {
+      if (recentKey !== undefined) markSourceStale(recentKey).catch(() => {})
+      logger.warn(`Recent folder "${handle.name}" is no longer accessible`)
+      scanStore.setState((s) => ({
+        ...s,
+        phase: 'error',
+        error: `Luna can't find "${handle.name}" anymore — it may have been moved, renamed, or unplugged. Pick the folder again to continue.`,
+      }))
+      return
+    }
     logger.error('Scan failed', err instanceof Error ? err.message : String(err))
     scanStore.setState((s) => ({
       ...s,

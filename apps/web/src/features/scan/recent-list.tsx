@@ -1,4 +1,4 @@
-import { FolderOpen, X } from 'lucide-react'
+import { FolderOpen, TriangleAlert, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import {
@@ -6,7 +6,7 @@ import {
   listRecentSources,
   type StoredRecentSource,
 } from '@/persistence/recent-sources'
-import { scanFrom } from './run-scan'
+import { pickAndScan, scanFrom } from './run-scan'
 
 type Entry = { key: number } & StoredRecentSource
 
@@ -31,10 +31,25 @@ export function RecentList() {
               <button
                 type="button"
                 className="flex min-w-0 items-center gap-2 text-left text-sm"
-                onClick={() => void scanFrom(e.handle)}
+                onClick={() => void (e.stale ? pickAndScan() : scanFrom(e.handle, e.key))}
               >
-                <FolderOpen className="text-muted-foreground size-4 shrink-0" />
-                <span className="truncate">{e.name}</span>
+                {e.stale ? (
+                  <TriangleAlert className="size-4 shrink-0 text-amber-500" />
+                ) : (
+                  <FolderOpen className="text-muted-foreground size-4 shrink-0" />
+                )}
+                <span className="min-w-0">
+                  <span
+                    className={e.stale ? 'text-muted-foreground truncate block' : 'truncate block'}
+                  >
+                    {e.name}
+                  </span>
+                  {e.stale && (
+                    <span className="text-muted-foreground block text-xs">
+                      Folder unavailable — click to pick again
+                    </span>
+                  )}
+                </span>
               </button>
               <Button
                 variant="ghost"

@@ -4,6 +4,7 @@ export interface StoredRecentSource {
   name: string
   handle: FileSystemDirectoryHandle
   lastUsedAt: number
+  stale?: boolean
 }
 
 const MAX_RECENT = 10
@@ -52,4 +53,14 @@ export async function rememberSource(
 export async function forgetSource(key: number): Promise<void> {
   const db = await getDb()
   await db.delete('recentSources', key)
+}
+
+// Spec §15: a handle that turned out to be dead (folder moved/renamed/removed)
+// is marked, not deleted — the user should see what broke and choose to re-pick
+// or remove it. A successful re-pick of the same folder self-heals via the
+// isSameEntry dedupe in rememberSource (fresh entry replaces the stale one).
+export async function markSourceStale(key: number): Promise<void> {
+  const db = await getDb()
+  const existing = await db.get('recentSources', key)
+  if (existing) await db.put('recentSources', { ...existing, stale: true }, key)
 }
