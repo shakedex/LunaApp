@@ -34,24 +34,26 @@ The script:
 2. Writes the bumped version back to `apps/web/package.json`.
 3. Promotes `## [Unreleased]` in the changelog to `## [x.y.z] - <today>`, leaves a fresh
    empty `[Unreleased]`, and updates the compare links.
-4. Commits `chore(release): vx.y.z` (staging only those two files) and creates the
-   annotated tag `vx.y.z`.
+4. Commits `chore(release): vx.y.z` (staging only those two files), creates the annotated
+   tag `vx.y.z`, and **pushes** (`git push --follow-tags`).
 
-It **does not push and does not deploy.** Preview without writing anything:
+That single command is the whole release. Preview without writing anything:
 
 ```bash
 bun run release --dry-run minor
 ```
 
-## After the script
+Cut a release but hold the push (e.g. to eyeball the commit first):
 
 ```bash
-git push --follow-tags
+bun run release minor --no-push   # then: git push --follow-tags
 ```
 
-Deployment then happens on its own: Cloudflare Workers Builds rebuilds the app and docs
-from `master` via the dashboard git integration (see [`DEPLOY.md`](DEPLOY.md)). Nothing in
-this repo runs `wrangler deploy`.
+## Deployment is automatic
+
+Once the tag is pushed, Cloudflare Workers Builds rebuilds the app and docs from `master`
+via the dashboard git integration (see [`DEPLOY.md`](DEPLOY.md)) — the new version and the
+changelog go live on their own. Nothing in this repo runs `wrangler deploy`.
 
 ## Guardrails
 

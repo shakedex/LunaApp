@@ -2,11 +2,11 @@
 /**
  * Luna Web release tool — ZeroVer (0.MINOR.PATCH, there is never a 1.0).
  *
- *   bun run release <minor|patch> [--dry-run]
+ *   bun run release <minor|patch> [--dry-run] [--no-push]
  *
  * Bumps apps/web/package.json, promotes the changelog's [Unreleased] section to a dated
- * version, commits, and tags. It never pushes and never deploys — deploys run from the
- * Cloudflare dashboard git integration (see DEPLOY.md).
+ * version, commits, tags, and pushes (`--no-push` to skip). Deploys then run from the
+ * Cloudflare dashboard git integration (see DEPLOY.md); nothing here runs wrangler deploy.
  */
 import { $ } from 'bun'
 
@@ -87,13 +87,14 @@ export function rewriteChangelog(
 }
 
 function usage(): never {
-  console.error('Usage: bun run release <minor|patch> [--dry-run]')
+  console.error('Usage: bun run release <minor|patch> [--dry-run] [--no-push]')
   process.exit(1)
 }
 
 async function main(): Promise<void> {
   const argv = process.argv.slice(2)
   const dryRun = argv.includes('--dry-run')
+  const noPush = argv.includes('--no-push')
   const bump = argv.find((a) => !a.startsWith('--'))
 
   if (bump === 'major') {
@@ -133,7 +134,15 @@ async function main(): Promise<void> {
   await $`git add -- ${PKG_PATH} ${CHANGELOG_PATH}`
   await $`git commit -m ${`chore(release): v${next}`}`
   await $`git tag -a ${`v${next}`} -m ${`v${next}`}`
-  console.log(`Released v${next}. Push with: git push --follow-tags`)
+
+  if (noPush) {
+    console.log(`Released v${next} locally (--no-push). Push with: git push --follow-tags`)
+    return
+  }
+  await $`git push --follow-tags`
+  console.log(
+    `Released and pushed v${next}. Cloudflare rebuilds master automatically (see DEPLOY.md).`,
+  )
 }
 
 if (import.meta.main) {
