@@ -1,0 +1,210 @@
+/* Cinema Dark for Starlight — a faithful port of the Luna webapp's design
+   tokens (apps/web/src/index.css) into Starlight's CSS variables. Dark-only:
+   the light values are intentionally identical to dark, exactly as the app
+   does it today, so the theme toggle is a harmless no-op. */
+
+@import '@fontsource-variable/geist';
+@import '@fontsource-variable/geist-mono';
+
+:root,
+:root[data-theme='light'] {
+  /* ---- Typography (Geist, matching the app) ---- */
+  --sl-font: 'Geist Variable', ui-sans-serif, system-ui, sans-serif;
+  --sl-font-mono: 'Geist Mono Variable', ui-monospace, 'SFMono-Regular', monospace;
+
+  /* ---- Gray ramp (light → dark as index rises) ----
+     Derived from the app's cool near-black scale (hue 285). Starlight builds
+     bg/text/surfaces from these, so overriding the ramp cascades everywhere. */
+  --sl-color-white: oklch(0.94 0.003 285);   /* headings / strong text */
+  --sl-color-gray-1: oklch(0.88 0.004 285);
+  --sl-color-gray-2: oklch(0.80 0.006 285);  /* body text */
+  --sl-color-gray-3: oklch(0.64 0.010 285);  /* muted / secondary text (app --muted-foreground) */
+  --sl-color-gray-4: oklch(0.40 0.008 285);
+  --sl-color-gray-5: oklch(0.24 0.006 285);  /* borders-ish / inline-code bg (app --secondary) */
+  --sl-color-gray-6: oklch(0.17 0.005 285);  /* raised surface (app --card) */
+  --sl-color-black: oklch(0.13 0.005 285);   /* page background (app --background) */
+
+  /* ---- Accent (the app's single sky-blue --primary, hue 226) ---- */
+  --sl-color-accent-low: oklch(0.28 0.05 226);
+  --sl-color-accent: oklch(0.79 0.09 226);
+  --sl-color-accent-high: oklch(0.87 0.08 226);
+
+  /* ---- Explicit surfaces / hairlines to match the app precisely ---- */
+  --sl-color-bg-nav: oklch(0.15 0.005 285);      /* app --sidebar */
+  --sl-color-bg-sidebar: oklch(0.15 0.005 285);
+  --sl-color-hairline: oklch(1 0 0 / 8%);        /* app --border: white @ 8% */
+  --sl-color-hairline-light: oklch(1 0 0 / 6%);
+  --sl-color-hairline-shade: oklch(1 0 0 / 6%);
+}
+
+/* Keep native form controls / scrollbars dark under the forced palette. */
+:root {
+  color-scheme: dark;
+}
+
+/* Text selection in the brand accent. */
+::selection {
+  background: oklch(0.79 0.09 226 / 0.28);
+  color: var(--sl-color-white);
+}
+
+/* ---------------------------------------------------------------------------
+   Splash hero — cinematic logo glow + accent CTA
+--------------------------------------------------------------------------- */
+.hero {
+  position: relative;
+}
+
+/* Soft accent glow rising behind the hero, like the app's dark stage. */
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: -30% -10% auto -10%;
+  height: 420px;
+  background: radial-gradient(
+    58% 100% at 50% 0%,
+    oklch(0.79 0.09 226 / 0.15),
+    transparent 72%
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+
+.hero > * {
+  position: relative;
+  z-index: 1;
+}
+
+.hero img {
+  filter: drop-shadow(0 0 44px oklch(0.79 0.09 226 / 0.28));
+}
+
+/* Primary CTA = filled sky-blue with dark text, mirroring the app button. */
+.hero .sl-link-button.primary {
+  background: var(--sl-color-accent);
+  border: 1px solid var(--sl-color-accent);
+  color: oklch(0.16 0.02 240);
+  transition:
+    background-color 0.18s ease,
+    border-color 0.18s ease,
+    transform 0.18s ease;
+}
+.hero .sl-link-button.primary:hover {
+  background: var(--sl-color-accent-high);
+  border-color: var(--sl-color-accent-high);
+  transform: translateY(-1px);
+}
+
+/* Secondary/minimal CTA = ghost with a hairline that lights up on hover. */
+.hero .sl-link-button.minimal {
+  border: 1px solid var(--sl-color-hairline);
+  color: var(--sl-color-white);
+  transition:
+    background-color 0.18s ease,
+    border-color 0.18s ease;
+}
+.hero .sl-link-button.minimal:hover {
+  background: var(--sl-color-gray-6);
+  border-color: var(--sl-color-accent);
+}
+
+/* ---------------------------------------------------------------------------
+   Cards & link cards — raised surface, hairline, accent-lit hover
+--------------------------------------------------------------------------- */
+.card,
+.sl-link-card {
+  background: var(--sl-color-gray-6);
+  border: 1px solid var(--sl-color-hairline);
+  border-radius: 0.5rem;
+  transition:
+    border-color 0.2s ease,
+    background-color 0.2s ease,
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.sl-link-card:hover {
+  border-color: var(--sl-color-accent);
+  background: oklch(0.19 0.005 285);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px oklch(0 0 0 / 0.35);
+}
+
+/* Card icon takes the accent (Starlight tints it via currentColor). */
+.card .icon {
+  color: var(--sl-color-accent);
+  border-color: var(--sl-color-hairline);
+}
+
+/* ---------------------------------------------------------------------------
+   Asides / callouts — accent left rule, restrained surface
+--------------------------------------------------------------------------- */
+.starlight-aside {
+  border-radius: 0.5rem;
+  border-inline-start-width: 3px;
+  background: oklch(0.16 0.005 285);
+}
+.starlight-aside--note {
+  --sl-color-asides-text-accent: var(--sl-color-accent-high);
+  border-inline-start-color: var(--sl-color-accent);
+}
+.starlight-aside--tip {
+  border-inline-start-color: oklch(0.7 0.1 200);
+}
+
+/* ---------------------------------------------------------------------------
+   Inline code, tables — technical, mono, tabular
+--------------------------------------------------------------------------- */
+.sl-markdown-content code:not(:where(.expressive-code *)) {
+  background: oklch(0.20 0.005 285);
+  border: 1px solid var(--sl-color-hairline);
+  border-radius: 0.3rem;
+  padding: 0.1em 0.36em;
+  font-size: 0.86em;
+  color: var(--sl-color-gray-1);
+}
+
+.sl-markdown-content table {
+  border-radius: 0.5rem;
+  overflow: hidden;
+  font-variant-numeric: tabular-nums;
+}
+.sl-markdown-content th {
+  background: var(--sl-color-gray-6);
+  color: var(--sl-color-white);
+  font-weight: 600;
+}
+.sl-markdown-content td,
+.sl-markdown-content th {
+  border-color: var(--sl-color-hairline);
+}
+.sl-markdown-content tr:hover td {
+  background: oklch(0.16 0.005 285);
+}
+
+/* ---------------------------------------------------------------------------
+   Navigation polish — active item glows in the accent
+--------------------------------------------------------------------------- */
+.sidebar-content a[aria-current='page'] {
+  background: var(--sl-color-accent-low);
+  color: var(--sl-color-white);
+  font-weight: 600;
+}
+.site-title {
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+/* Respect users who prefer reduced motion. */
+@media (prefers-reduced-motion: reduce) {
+  .hero .action.primary,
+  .hero .action.minimal,
+  .card,
+  .sl-link-card {
+    transition: none;
+  }
+  .sl-link-card:hover,
+  .hero .action.primary:hover {
+    transform: none;
+  }
+}

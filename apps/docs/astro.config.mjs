@@ -13,6 +13,7 @@ export default defineConfig({
     starlight({
       title: 'Luna Web',
       description: 'Camera reports in your browser. Nothing leaves your device.',
+      customCss: ['./src/styles/cinema-dark.css'],
       logo: {
         src: './src/assets/luna-logo-lg.webp',
       },
