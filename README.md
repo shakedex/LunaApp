@@ -4,15 +4,16 @@
 
 # Luna
 
-**Camera Report Generator for Filmsets**
+**Camera reports in your browser. Nothing leaves your device.**
 
-A cross-platform DIT tool that ingests camera media, extracts metadata and thumbnails, and generates production-ready PDF and HTML camera reports.
+Luna ingests camera media entirely client-side, extracts metadata and
+thumbnails, and generates production-ready camera reports — no upload,
+no install, no account.
 
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
-![Platform: Windows | macOS](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-lightgrey)
-![.NET 10](https://img.shields.io/badge/.NET-10-512BD4)
+![Runs in: Chromium](https://img.shields.io/badge/runs%20in-Chromium-4285F4)
 
-[Download](https://github.com/shakedex/LunaApp/releases/latest) · [Installation Guide](docs/INSTALLATION.md) · [Camera Support](docs/CAMERA_SUPPORT.md) · [Disclaimer](DISCLAIMER.md)
+[Open Luna](https://luna.ozer2.one) · [Docs](https://luna.ozer2.one/docs) · [Disclaimer](DISCLAIMER.md)
 
 </div>
 
@@ -20,111 +21,78 @@ A cross-platform DIT tool that ingests camera media, extracts metadata and thumb
 
 ## What Luna Does
 
-Luna is built for DITs and camera assistants. Point it at a card or a folder of clips and it will:
+Luna is built for DITs and camera assistants. Point it at a card or a folder
+of clips — everything runs locally in the browser:
 
-- Detect reels and group clips per camera roll
-- Extract per-clip metadata (camera, lens, ISO, shutter, color space, frame rate, duration, …)
-- Generate evenly-spaced thumbnails with accurate seeking
-- Produce a clean, sharable PDF or HTML report
-- Auto-update via Velopack
+- Detects reels and groups clips per camera roll
+- Extracts per-clip metadata (camera, lens, ISO, shutter, color space, frame rate, duration, …)
+- Generates evenly-spaced thumbnails with accurate seeking
+- Produces clean, sharable camera reports with PDF and HTML export
+- Raw formats (ARRIRAW, BRAW, Sony RAW) get metadata-aware handling; generic
+  codecs (ProRes, H.264/265, DNxHD, …) get the full decode pipeline
 
-## Supported Cameras
+**Browser support:** Chromium-based browsers (Chrome, Edge, Arc, Brave) — Luna
+relies on the File System Access API and WebCodecs.
 
-| Family             | Status     | Notes                                                          |
-| ------------------ | ---------- | -------------------------------------------------------------- |
-| ARRI ALEXA         | Ready      | ARRIRAW (`.ari`), ProRes MXF/MOV — uses ARRI ART CLI           |
-| Blackmagic BRAW    | Ready      | `.braw` — uses Blackmagic RAW SDK                              |
-| Sony VENICE / FX   | Ready      | Sony RAW Viewer integration                                    |
-| Generic (FFmpeg)   | Ready      | ProRes, H.264/265, DNxHD, and most container/codec combos      |
+## Repo Layout
 
-See [docs/CAMERA_SUPPORT.md](docs/CAMERA_SUPPORT.md) for the architecture and how to add a vendor.
+Bun workspace:
 
-## Install
+| Path | Package | What it is |
+| --- | --- | --- |
+| `apps/web` | `@luna-web/app` | The tool — Vite + React 19 + TanStack Router |
+| `apps/docs` | `@luna-web/docs` | Docs site — Astro Starlight |
+| `packages/core` | `@luna-web/core` | Pure logic: scanning, reels, metadata, report model |
+| `tools/analysis` | — | Throwaway clip-analysis scripts |
 
-Download a release for your platform:
+## Develop
 
-| Platform   | Asset                                |
-| ---------- | ------------------------------------ |
-| Windows    | `Luna-X.X.X-win-x64-Setup.exe`       |
-| macOS ARM  | `Luna-X.X.X-osx-arm64.dmg`           |
-
-Full instructions including SmartScreen / Gatekeeper bypass: [docs/INSTALLATION.md](docs/INSTALLATION.md).
-
-> Luna is not code-signed. The installer/app bundle is unsigned indie software — see the install guide for the standard "run anyway" steps.
-
-### Vendor SDKs (optional, user-supplied)
-
-Luna does **not** redistribute proprietary vendor SDKs. To enable a vendor's native pipeline, the user installs the SDK separately. See [DISCLAIMER.md](DISCLAIMER.md#third-party-sdks) for details.
-
-| Vendor               | Component             | Where to obtain                  |
-| -------------------- | --------------------- | -------------------------------- |
-| ARRI                 | ART CLI (`art-cmd`)   | ARRI website (registration)      |
-| Blackmagic Design    | Blackmagic RAW SDK    | Blackmagic Developer site        |
-| Sony                 | Sony RAW Viewer       | Sony Pro support site            |
-
-If a vendor SDK is missing, Luna degrades gracefully and emits a typed `UnsupportedFormatNotice` for those clips instead of dropping them silently.
-
-## Build From Source
-
-Requirements:
-
-- .NET 10 SDK
-- Windows 10 1809+ (x64) or macOS 12+ (Apple Silicon)
+Requires [Bun](https://bun.sh).
 
 ```bash
-git clone https://github.com/shakedex/LunaApp.git
-cd LunaApp
-dotnet restore
-dotnet build
-dotnet run
-```
-
-To produce signed-style installers via Velopack:
-
-```powershell
-.\build.ps1
+bun install
+bun --filter '@luna-web/app' dev    # run the app
+bun --filter '@luna-web/docs' dev   # run the docs site
+bun test                            # core unit tests
+bun run lint && bun run typecheck   # quality gates
+bun run build                       # build everything
 ```
 
 ## Tech Stack
 
-- [Avalonia 11](https://avaloniaui.net/) — cross-platform UI
-- [.NET 10](https://dotnet.microsoft.com/) — runtime, self-contained deployment
-- [SkiaSharp](https://github.com/mono/SkiaSharp) — image processing
-- [FFmpeg.AutoGen](https://github.com/Ruslan-B/FFmpeg.AutoGen) — frame decoding (FFmpeg 7.x, LGPL)
-- [QuestPDF](https://www.questpdf.com/) — PDF generation
-- [Velopack](https://github.com/velopack/velopack) — installer & auto-update
-- [CommunityToolkit.Mvvm](https://github.com/CommunityToolkit/dotnet) — MVVM source generators
-- [Serilog](https://serilog.net/) — structured logging
-- [MediaInfo.Wrapper.Core](https://github.com/Yortw/MediaInfo.Wrapper) — container metadata
-- [Material.Icons.Avalonia](https://github.com/SKProCH/Material.Icons.Avalonia) — iconography
+- [React 19](https://react.dev/) + [Vite](https://vite.dev/) + [TanStack Router/Store/Form](https://tanstack.com/)
+- [Tailwind CSS 4](https://tailwindcss.com/) + [Base UI](https://base-ui.com/) + shadcn-style components
+- [mediabunny](https://github.com/vanilagy/mediabunny) + WebCodecs — decode & thumbnails
+- [mediainfo.js](https://mediainfo.js.org/) + [ffmpeg.wasm](https://ffmpegwasm.netlify.app/) — container/codec metadata
+- [@react-pdf/renderer](https://react-pdf.org/) — PDF reports
+- [Astro Starlight](https://starlight.astro.build/) — documentation site
+
+## The Desktop App (retired)
+
+Luna started life as a .NET/Avalonia desktop app. It has been retired in
+favor of the web version and is preserved in full:
+
+- Code: branch [`archive/dotnet`](https://github.com/shakedex/LunaApp/tree/archive/dotnet) / tag `dotnet-final`
+- Installers: existing [releases](https://github.com/shakedex/LunaApp/releases) remain downloadable but receive no further updates
 
 ## Contributing
 
-PRs welcome. Before opening one:
-
-1. File an issue describing the change so the design can be discussed.
-2. For new camera support: read [docs/CAMERA_SUPPORT.md](docs/CAMERA_SUPPORT.md) — the contract is one `ICameraSupport` class.
-3. Keep changes scoped. Cosmetic refactors mixed with functional changes will be asked to split.
-
-By submitting a contribution, you agree it is licensed under the same [Apache License 2.0](LICENSE) as the rest of the project (per Section 5 of the license).
+PRs welcome. File an issue first so the design can be discussed, and keep
+changes scoped. By submitting a contribution, you agree it is licensed under
+the same [Apache License 2.0](LICENSE) as the rest of the project.
 
 ## License
 
-Luna is licensed under the [Apache License 2.0](LICENSE). See [NOTICE](NOTICE) for required attribution.
-
-In plain English:
-
-- Use, modify, fork, and redistribute — commercially or non-commercially
-- Patent grant included (Section 3)
-- Forks and derivative works must retain the copyright, NOTICE, and license headers
-- No trademark grant — the name "Luna" and the logo are not licensed for use in derivative branding (Section 6)
-- Provided AS IS, without warranty of any kind
+Luna is licensed under the [Apache License 2.0](LICENSE). See [NOTICE](NOTICE)
+for required attribution. The name "Luna" and the logo are not licensed for
+use in derivative branding.
 
 ## Trademarks & Disclaimer
 
-Luna is an independent project and is **not affiliated with, endorsed by, or sponsored by** ARRI, Blackmagic Design, Sony, or any other camera manufacturer. All product names, logos, and brands are property of their respective owners.
-
-See [DISCLAIMER.md](DISCLAIMER.md) for the full notice and third-party attribution.
+Luna is an independent project and is **not affiliated with, endorsed by, or
+sponsored by** ARRI, Blackmagic Design, Sony, or any other camera
+manufacturer. All product names, logos, and brands are property of their
+respective owners. See [DISCLAIMER.md](DISCLAIMER.md).
 
 ---
 
