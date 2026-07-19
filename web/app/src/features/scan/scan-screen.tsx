@@ -1,10 +1,18 @@
 import { useStore } from '@tanstack/react-store'
-import { TriangleAlert } from 'lucide-react'
+import { CircleAlert, TriangleAlert } from 'lucide-react'
 import { Logo } from '@/components/logo'
 import { StatTile } from '@/components/stat-tile'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@/components/ui/empty'
 import { Progress } from '@/components/ui/progress'
 import { Spinner } from '@/components/ui/spinner'
 import { startProcessing } from '@/features/process/run-processing'
@@ -28,7 +36,10 @@ export function ScanScreen() {
   const thumbTotal = useStore(scanStore, (s) => Object.keys(s.thumbStatus).length)
 
   return (
-    <div className="flex animate-in fade-in slide-in-from-bottom-2 flex-col gap-6 duration-300">
+    <div
+      key={phase}
+      className="flex animate-in fade-in slide-in-from-bottom-2 flex-col gap-6 duration-200"
+    >
       {phase === 'idle' && (
         <div className="flex flex-col items-center gap-6 py-16 text-center">
           <Logo className="h-16 w-auto" />
@@ -73,11 +84,11 @@ export function ScanScreen() {
             <CardTitle className="truncate">{sourceName}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
-            <dl className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <StatTile label="Clips" value={String(summary.clipCount)} />
               <StatTile label="Total size" value={formatBytes(summary.totalClipSizeBytes)} />
               <StatTile label="RAW (unsupported)" value={String(summary.rawCount)} />
-            </dl>
+            </div>
             {summary.rawCount > 0 && (
               <Alert className="border-amber-500/30 [&>svg]:text-amber-400">
                 <TriangleAlert />
@@ -141,12 +152,20 @@ export function ScanScreen() {
       {phase === 'processed' && <ReportWorkspace />}
 
       {phase === 'error' && (
-        <section className="text-center">
-          <p className="text-destructive mb-4">{error}</p>
-          <Button variant="outline" onClick={resetScan}>
-            Back
-          </Button>
-        </section>
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <CircleAlert className="text-destructive" />
+            </EmptyMedia>
+            <EmptyTitle>Something went wrong</EmptyTitle>
+            <EmptyDescription>{error}</EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent>
+            <Button variant="outline" onClick={resetScan}>
+              Back
+            </Button>
+          </EmptyContent>
+        </Empty>
       )}
     </div>
   )

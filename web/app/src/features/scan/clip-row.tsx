@@ -1,7 +1,9 @@
 import type { ClipRef, RawNotice, ThumbnailFrame } from '@luna-web/core'
 import { useStore } from '@tanstack/react-store'
+import { TriangleAlert } from 'lucide-react'
 import { memo, useEffect, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
+import { Card } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatBytes, formatDuration } from '@/lib/format'
 import { scanStore } from './store'
@@ -70,17 +72,22 @@ export function RawSection({ raw }: { raw: RawNotice[] }) {
       <h3 className="text-muted-foreground mb-2 text-sm font-medium">
         RAW files (not decodable in browser)
       </h3>
-      <ul className="divide-y rounded-lg border">
-        {raw.map((r) => (
-          <li
-            key={r.id}
-            className="text-muted-foreground flex items-center justify-between px-4 py-2 text-sm"
-          >
-            <span className="truncate">{r.relativePath}</span>
-            <span className="ml-4 shrink-0">RAW · {formatBytes(r.sizeBytes)}</span>
-          </li>
-        ))}
-      </ul>
+      <Card className="overflow-hidden py-0">
+        <ul className="divide-y">
+          {raw.map((r) => (
+            <li
+              key={r.id}
+              className="text-muted-foreground flex items-center justify-between px-4 py-2 text-sm"
+            >
+              <span className="flex min-w-0 items-center gap-2">
+                <TriangleAlert className="size-4 shrink-0 text-amber-400" />
+                <span className="truncate">{r.relativePath}</span>
+              </span>
+              <span className="ml-4 shrink-0">RAW · {formatBytes(r.sizeBytes)}</span>
+            </li>
+          ))}
+        </ul>
+      </Card>
     </section>
   )
 }

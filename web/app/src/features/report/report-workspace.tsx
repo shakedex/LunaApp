@@ -38,13 +38,13 @@ export function ReportWorkspace() {
 
       <Card className="mb-6">
         <CardContent>
-          <dl className="grid grid-cols-5 gap-4">
+          <div className="grid grid-cols-5 gap-4">
             <StatTile label="Cards" value={String(model.stats.cardCount)} />
             <StatTile label="Clips" value={String(model.stats.clipCount)} />
             <StatTile label="Duration" value={formatDuration(model.stats.totalDurationSeconds)} />
             <StatTile label="Size" value={formatBytes(model.stats.totalSizeBytes)} />
             <StatTile label="RAW" value={String(model.stats.rawCount)} />
-          </dl>
+          </div>
         </CardContent>
       </Card>
 
