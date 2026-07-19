@@ -48,6 +48,16 @@ export type { ClipRef, RawNotice, ScanSummary } from './scan/model'
 export { buildScanSummary } from './scan/model'
 export type { ScanProgress, ScanResult } from './scan/walker'
 export { scanFolder } from './scan/walker'
+export type { Settings } from './settings/model'
+export {
+  clampWorkerPoolCap,
+  defaultSettings,
+  normalizeSettings,
+  SETTINGS_SCHEMA_VERSION,
+  WORKER_POOL_CAP_DEFAULT,
+  WORKER_POOL_CAP_MAX,
+  WORKER_POOL_CAP_MIN,
+} from './settings/model'
 export type { ThumbnailFrame, ThumbnailOutcome } from './thumbs/model'
 export { THUMBNAIL_POSITIONS, thumbnailTimestamps } from './thumbs/model'
 export type { DecodePath, ThumbnailRoute } from './thumbs/router'
