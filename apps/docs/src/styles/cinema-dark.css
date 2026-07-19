@@ -59,13 +59,105 @@
   color: var(--sl-color-text-accent);
 }
 
-/* The one glow the app permits: behind the single primary CTA, in the brighter
-   logo-glow cyan. No other shadows anywhere (the app's depth is surfaces + hairlines). */
-.hero .sl-link-button.primary {
-  box-shadow: 0 0 24px oklch(0.72 0.14 232 / 0.25);
-}
-
 /* Numeric/technical data reads as tabular, matching the app's metadata tables. */
 .sl-markdown-content table {
   font-variant-numeric: tabular-nums;
+}
+
+/* Header logo — a soft cyan glow separates the mark's dark body from the
+   near-black header so the cat+moon reads clearly. */
+.site-title img {
+  filter: drop-shadow(0 0 5px oklch(0.72 0.14 232 / 0.6));
+}
+
+/* Narrow, centered shell — cap the whole layout so it doesn't sprawl across a
+   wide monitor. The reading column stays ~40rem; this contains the frame. */
+@media (min-width: 72rem) {
+  .page {
+    max-width: 75rem;
+    margin-inline: auto;
+  }
+  header > .header {
+    max-width: 75rem;
+    margin-inline: auto;
+  }
+}
+
+/* Overview quick-links — lucide icons on themed cards. */
+.ql-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 0.85rem;
+  margin-block: 2rem;
+}
+.ql-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+  text-decoration: none;
+  transition:
+    border-color 0.2s ease,
+    background-color 0.2s ease,
+    transform 0.2s ease;
+}
+.ql-card:hover {
+  border-color: var(--primary);
+  background: var(--popover-background);
+  transform: translateY(-2px);
+}
+.ql-card svg {
+  width: 22px;
+  height: 22px;
+  color: var(--primary);
+}
+.ql-card .ql-title {
+  color: var(--foreground);
+  font-weight: 600;
+}
+.ql-card .ql-desc {
+  color: var(--muted-foreground);
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+/* Site footer (src/components/Footer.astro). */
+.luna-footer {
+  margin-top: 2.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-size: 0.82rem;
+}
+.luna-footer__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+.luna-footer__links a {
+  color: var(--sl-color-text-accent);
+  text-decoration: none;
+}
+.luna-footer__links a:hover {
+  text-decoration: underline;
+}
+.luna-footer__meta {
+  margin: 0;
+  color: var(--muted-foreground);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ql-card {
+    transition: none;
+  }
+  .ql-card:hover {
+    transform: none;
+  }
 }

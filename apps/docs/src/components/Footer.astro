@@ -1,0 +1,16 @@
+---
+// Keep Starlight's default footer (prev/next pagination, last-updated), then
+// add a Luna site footer beneath it.
+import Default from '@astrojs/starlight/components/Footer.astro'
+---
+
+<Default />
+
+<footer class="luna-footer not-content">
+	<nav class="luna-footer__links" aria-label="Footer">
+		<a href="https://luna.ozer2.one/">Open Luna</a>
+		<a href="https://github.com/shakedex/LunaApp">GitHub</a>
+		<a href="https://github.com/shakedex/LunaApp/blob/master/DISCLAIMER.md">Disclaimer</a>
+	</nav>
+	<p class="luna-footer__meta">Luna &middot; Apache-2.0 &middot; Built by Shaked Lipszyc</p>
+</footer>

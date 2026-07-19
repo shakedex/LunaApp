@@ -13,7 +13,7 @@ export default defineConfig({
   outDir: './dist/docs',
   integrations: [
     starlight({
-      title: 'Luna Web',
+      title: 'Luna',
       description: 'Camera reports in your browser. Nothing leaves your device.',
       plugins: [
         starlightThemeBlack({
@@ -23,6 +23,11 @@ export default defineConfig({
         }),
       ],
       customCss: ['./src/styles/cinema-dark.css'],
+      // Dark-only site: drop the theme toggle; add a Luna site footer.
+      components: {
+        ThemeSelect: './src/components/ThemeSelect.astro',
+        Footer: './src/components/Footer.astro',
+      },
       logo: {
         src: './src/assets/luna-logo-lg.webp',
       },
@@ -34,7 +39,7 @@ export default defineConfig({
         },
       ],
       sidebar: [
-        { label: 'Overview', slug: 'what-it-is' },
+        { label: 'Overview', link: '/' },
         { label: 'Privacy', slug: 'privacy' },
         { label: 'Supported formats', slug: 'supported-formats' },
         { label: 'Limitations', slug: 'limitations' },

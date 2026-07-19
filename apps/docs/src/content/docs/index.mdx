@@ -1,33 +1,47 @@
 ---
-title: Luna Web
-description: Camera reports in your browser. Nothing leaves your device.
-template: splash
-hero:
-  tagline: Camera reports in your browser. Nothing leaves your device.
-  image:
-    alt: Luna
-    file: ../../assets/luna-logo-lg.webp
-  actions:
-    - text: Open Luna
-      link: https://luna.ozer2.one/
-      icon: right-arrow
-      variant: primary
-    - text: GitHub
-      link: https://github.com/shakedex/LunaApp
-      icon: external
-      variant: minimal
+title: Overview
+description: What Luna does and how to use it.
 ---
 
-import { CardGrid, LinkCard } from '@astrojs/starlight/components'
+Luna builds a camera report from a folder of footage — reels, per-clip metadata, thumbnails,
+and totals — and exports it as PDF or CSV. It runs entirely in your browser; nothing uploads.
 
-Point Luna at a folder of footage and it builds a camera report — reels, per-clip metadata,
-thumbnails, and totals — then exports it as PDF or CSV. Everything runs in your browser;
-nothing uploads.
+<div class="ql-grid not-content">
+	<a class="ql-card" href="/docs/privacy/">
+		<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>
+		<span class="ql-title">Privacy</span>
+		<span class="ql-desc">How local processing works.</span>
+	</a>
+	<a class="ql-card" href="/docs/supported-formats/">
+		<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M7 3v18"/><path d="M3 7.5h4"/><path d="M3 12h18"/><path d="M3 16.5h4"/><path d="M17 3v18"/><path d="M17 7.5h4"/><path d="M17 16.5h4"/></svg>
+		<span class="ql-title">Supported formats</span>
+		<span class="ql-desc">Formats Luna reads and what you get.</span>
+	</a>
+	<a class="ql-card" href="/docs/limitations/">
+		<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+		<span class="ql-title">Limitations</span>
+		<span class="ql-desc">Browser support, speed, RAW thumbnails.</span>
+	</a>
+	<a class="ql-card" href="/docs/faq/">
+		<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+		<span class="ql-title">FAQ</span>
+		<span class="ql-desc">Common questions, short answers.</span>
+	</a>
+</div>
 
-<CardGrid>
-	<LinkCard title="Overview" href="/docs/what-it-is/" description="What Luna does and how to use it." />
-	<LinkCard title="Privacy" href="/docs/privacy/" description="How local processing works." />
-	<LinkCard title="Supported formats" href="/docs/supported-formats/" description="Formats Luna reads and what you get for each." />
-	<LinkCard title="Limitations" href="/docs/limitations/" description="Browser support, speed, and RAW thumbnails." />
-	<LinkCard title="FAQ" href="/docs/faq/" description="Common questions, short answers." />
-</CardGrid>
+## Using it
+
+1. Open Luna and pick a folder or card. Your browser asks for read access to it.
+2. Luna scans the folder and shows the clip count and total size. Confirm to continue.
+3. It reads metadata and generates thumbnails, a few clips at a time, with live progress.
+4. Clips are grouped into reels by reel name — or by top-level folder when there's no reel name.
+5. Fill in the cover fields and export **PDF** or **CSV**.
+
+## What's in the report
+
+Every file in the folder, grouped by reel, with:
+
+- Camera, lens, ISO, shutter, white balance, color space, frame rate, codec, resolution, and
+  duration — whatever the file records.
+- A thumbnail where Luna can generate one.
+- Per-reel and total clip counts and sizes.
