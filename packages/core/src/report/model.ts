@@ -54,6 +54,7 @@ export interface ReportStats {
 
 export interface ReportModel<TImage = unknown> {
   cover: CoverFields<TImage>
+  sourceRoot: string
   stats: ReportStats
   reels: Reel<TImage>[]
 }
@@ -76,6 +77,7 @@ export interface BuildReportInput<TImage = unknown> {
   metadataById: Readonly<Record<string, ClipMetadata>>
   thumbsById: Readonly<Record<string, ThumbnailFrame<TImage>[]>>
   cover: CoverFields<TImage>
+  sourceRoot?: string
 }
 
 export function buildReportModel<TImage = unknown>(
@@ -156,6 +158,7 @@ export function buildReportModel<TImage = unknown>(
 
   return {
     cover: input.cover,
+    sourceRoot: input.sourceRoot ?? '',
     stats: {
       cardCount: cardCountFrom([
         ...input.clips.map((c) => c.relativePath),

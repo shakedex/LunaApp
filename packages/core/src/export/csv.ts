@@ -7,6 +7,7 @@ export const CSV_COLUMNS: readonly string[] = [
   'reel',
   'fileName',
   'relativePath',
+  'path',
   'startTimecode',
   'width',
   'height',
@@ -50,6 +51,7 @@ export function generateReportCsv(report: ReportModel): string {
           reel.name,
           clip.fileName,
           clip.relativePath,
+          report.sourceRoot ? `${report.sourceRoot}/${clip.relativePath}` : clip.relativePath,
           m.startTimecode,
           m.width,
           m.height,
@@ -80,6 +82,7 @@ export function generateReportCsv(report: ReportModel): string {
           reel.name,
           f.fileName,
           f.relativePath,
+          report.sourceRoot ? `${report.sourceRoot}/${f.relativePath}` : f.relativePath,
           ...Array<undefined>(6).fill(undefined), // startTimecode…durationSeconds
           f.sizeBytes,
           ...Array<undefined>(10).fill(undefined), // colorSpace…thumbnailOutcome

@@ -158,4 +158,10 @@ describe('buildReportModel', () => {
     })
     expect(model.reels).toEqual([])
   })
+
+  test('sourceRoot flows through; absent input defaults to empty string', () => {
+    const base = { clips: [], otherFiles: [], metadataById: {}, thumbsById: {}, cover: {} }
+    expect(buildReportModel({ ...base, sourceRoot: 'CARD_A' }).sourceRoot).toBe('CARD_A')
+    expect(buildReportModel(base).sourceRoot).toBe('')
+  })
 })
