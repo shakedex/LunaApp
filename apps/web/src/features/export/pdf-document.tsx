@@ -1,7 +1,15 @@
 import { Document, Image, Page, StyleSheet, Text, View } from '@react-pdf/renderer'
 import { formatBytes, formatDuration } from '@/lib/format'
 import { GEIST, GEIST_MONO } from './pdf-fonts'
-import { breakablePath, joinPath, reelPath } from './pdf-format'
+import {
+  breakablePath,
+  cameraFacts,
+  type Fact,
+  fileFacts,
+  joinPath,
+  reelPath,
+  videoFacts,
+} from './pdf-format'
 import type { PdfClip, PdfReel, PdfReport } from './pdf-prepare'
 
 // Spec §3 palette — the app's Cinema Dark tokens, hex-resolved.
@@ -66,6 +74,17 @@ const styles = StyleSheet.create({
   bandAlt: { backgroundColor: C.band },
   clipName: { fontSize: 10, fontWeight: 600, marginBottom: 3 },
   clipPath: { color: C.muted, fontFamily: GEIST_MONO, fontSize: 7, marginTop: 3 },
+  bandLeft: { width: '40%', paddingRight: 10 },
+  bandRight: {
+    width: '60%',
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 4,
+  },
+  factLine: { marginBottom: 2, color: C.text },
+  factLabel: { color: C.muted },
+  timecode: { fontFamily: GEIST_MONO, marginBottom: 2 },
+  thumb: { width: 104, height: 58, objectFit: 'contain' },
 
   footerLeft: {
     position: 'absolute',
@@ -86,15 +105,45 @@ const styles = StyleSheet.create({
 
 const SEP = '  ·  '
 
-/** Temporary minimal band — Task 4 replaces this component and nothing else. */
+function FactLine({ facts }: { facts: Fact[] }) {
+  if (facts.length === 0) return null
+  return (
+    <Text style={styles.factLine}>
+      {facts.map((f, i) => (
+        <Text key={`${f.label ?? ''}${f.value}`}>
+          {i > 0 ? SEP : ''}
+          {f.label ? <Text style={styles.factLabel}>{f.label} </Text> : null}
+          <Text style={f.mono ? styles.mono : undefined}>{f.value}</Text>
+        </Text>
+      ))}
+    </Text>
+  )
+}
+
 function ClipBand({ clip, index, root }: { clip: PdfClip; index: number; root: string }) {
+  const frames = clip.frames.filter((f) => f.dataUrl !== null)
   return (
     <View style={index % 2 === 0 ? [styles.band, styles.bandAlt] : styles.band} wrap={false}>
-      <View style={{ width: '100%' }}>
+      <View style={frames.length > 0 ? styles.bandLeft : { width: '100%' }}>
         <Text style={styles.clipName}>{clip.fileName}</Text>
-        <Text style={styles.mono}>{formatBytes(clip.sizeBytes)}</Text>
+        <FactLine facts={fileFacts(clip)} />
+        <FactLine facts={videoFacts(clip.metadata)} />
+        {clip.metadata.startTimecode ? (
+          <Text style={styles.timecode}>
+            <Text style={styles.factLabel}>TC </Text>
+            {clip.metadata.startTimecode}
+          </Text>
+        ) : null}
+        <FactLine facts={cameraFacts(clip.metadata)} />
         <Text style={styles.clipPath}>{breakablePath(joinPath(root, clip.relativePath))}</Text>
       </View>
+      {frames.length > 0 ? (
+        <View style={styles.bandRight}>
+          {frames.map((frame, i) => (
+            <Image key={String(i)} src={frame.dataUrl as string} style={styles.thumb} />
+          ))}
+        </View>
+      ) : null}
     </View>
   )
 }
