@@ -1,9 +1,9 @@
 import { type ClipRef, mapMediaInfoToClipMetadata, runPool } from '@luna-web/core'
 import { type ScanState, scanStore } from '../scan/store'
+import { settingsStore } from '../settings/settings-store'
 import { createMetadataWorker, type MetadataWorkerHandle } from './metadata-client'
 import { startThumbnails } from './run-thumbnails'
 
-export const POOL_CAP = 4
 const METADATA_TIMEOUT_MS = 5 * 60_000 // spec §10.3: per-clip metadata timeout
 
 // Run token: bumped by every start and by cancelProcessing(). Loops from a
@@ -29,7 +29,10 @@ export function guardedUpdate(run: number, updater: (s: ScanState) => ScanState)
 }
 
 export function poolSizeFor(itemCount: number): number {
-  return Math.max(1, Math.min(POOL_CAP, navigator.hardwareConcurrency || 2, itemCount))
+  // Settings-driven cap (spec §14, default 4, clamped 1–8 at the source);
+  // hardwareConcurrency and the item count still bound it below that.
+  const cap = settingsStore.state.workerPoolCap
+  return Math.max(1, Math.min(cap, navigator.hardwareConcurrency || 2, itemCount))
 }
 
 export function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
