@@ -38,7 +38,7 @@ const styles = StyleSheet.create({
   coverMetaValue: { color: C.text },
   logo: { maxHeight: 32, maxWidth: 140, objectFit: 'contain' },
 
-  totals: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 10 },
+  totals: { marginBottom: 10 },
   totalValue: { fontFamily: GEIST_MONO, fontWeight: 500 },
   totalLabel: { color: C.muted },
 
@@ -100,6 +100,7 @@ function ClipBand({ clip, index, root }: { clip: PdfClip; index: number; root: s
 }
 
 function ReelSection({ reel, root }: { reel: PdfReel; root: string }) {
+  const path = reelPath(root, reel)
   const meta = [
     `${reel.stats.clipCount} clips`,
     reel.stats.otherFileCount > 0
@@ -116,7 +117,7 @@ function ReelSection({ reel, root }: { reel: PdfReel; root: string }) {
         <Text style={styles.reelName}>{reel.name}</Text>
         <Text style={styles.reelMeta}>{meta}</Text>
       </View>
-      <Text style={styles.pathBand}>{breakablePath(reelPath(root, reel))}</Text>
+      {path ? <Text style={styles.pathBand}>{breakablePath(path)}</Text> : null}
       {reel.clips.map((clip, i) => (
         <ClipBand key={clip.relativePath} clip={clip} index={i} root={root} />
       ))}
@@ -176,7 +177,7 @@ export function ReportDocument({ report }: { report: PdfReport }) {
           {cover.logoDataUrl ? <Image src={cover.logoDataUrl} style={styles.logo} /> : null}
         </View>
 
-        <View style={styles.totals}>
+        <Text style={styles.totals}>
           {totals.map(([value, label], i) => (
             <Text key={label}>
               {i > 0 ? SEP : ''}
@@ -184,7 +185,7 @@ export function ReportDocument({ report }: { report: PdfReport }) {
               <Text style={styles.totalLabel}> {label}</Text>
             </Text>
           ))}
-        </View>
+        </Text>
 
         {sourceRoot ? <Text style={styles.pathBand}>{breakablePath(sourceRoot)}</Text> : null}
 
