@@ -7,8 +7,8 @@
  * box paths + byte offsets. Seeks through the file (reads box headers and small
  * leaf payloads only) — never loads mdat or the multi-GB essence.
  *
- * Run (from web/):
- *   bun tools/box-offsets.mjs path/to/clip.crm path/to/clip.mov
+ * Run (from the repo root):
+ *   bun tools/analysis/box-offsets.mjs path/to/clip.crm path/to/clip.mov
  *
  * Prints the box tree (offset+size, mdat skipped) and every JPEG found with its
  * absolute file offset, length, and pixel dimensions.

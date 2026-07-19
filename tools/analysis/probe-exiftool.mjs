@@ -10,12 +10,12 @@
  *
  * Not shipped in the app — a dev/debug tool, like analyze-clips.mjs.
  *
- * Run (from web/):
- *   bun tools/probe-exiftool.mjs                    # default: the S001 .crm
- *   bun tools/probe-exiftool.mjs path/to/clip.crm   # explicit files
- *   bun tools/probe-exiftool.mjs --out tools/out/exiftool ...
+ * Run (from the repo root):
+ *   bun tools/analysis/probe-exiftool.mjs                    # default: the S001 .crm
+ *   bun tools/analysis/probe-exiftool.mjs path/to/clip.crm   # explicit files
+ *   bun tools/analysis/probe-exiftool.mjs --out tools/analysis/out/exiftool ...
  *
- * Outputs (git-ignored, tools/out/exiftool/ by default):
+ * Outputs (git-ignored, tools/analysis/out/exiftool/ by default):
  *   <label>.exiftool.json   — every tag exiftool read
  *   <label>.<Tag>.jpg       — each embedded image tag it could extract
  */

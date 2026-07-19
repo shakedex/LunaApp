@@ -14,13 +14,13 @@
  * mapMediaInfoToClipMetadata mapper from @luna-web/core, so "what we read"
  * and "what we currently keep" sit side by side.
  *
- * Run (from web/):
- *   bun tools/analyze-clips.mjs                       # default corpora
- *   bun tools/analyze-clips.mjs "D:/path/to/CAMERA"   # a folder (walked)
- *   bun tools/analyze-clips.mjs file1.mxf file2.mov   # explicit clips
- *   bun tools/analyze-clips.mjs --out tools/out ...    # output dir override
+ * Run (from the repo root):
+ *   bun tools/analysis/analyze-clips.mjs                       # default corpora
+ *   bun tools/analysis/analyze-clips.mjs "D:/path/to/CAMERA"   # a folder (walked)
+ *   bun tools/analysis/analyze-clips.mjs file1.mxf file2.mov   # explicit clips
+ *   bun tools/analysis/analyze-clips.mjs --out tools/analysis/out ...  # output dir override
  *
- * Outputs (git-ignored, tools/out/ by default):
+ * Outputs (git-ignored, tools/analysis/out/ by default):
  *   <label>.json  — full mediainfo payload + current mapping + sidecars, per clip
  *   _schema.json  — machine-readable union of tag keys per track type
  *   _schema.md    — human-readable schema/coverage tables
