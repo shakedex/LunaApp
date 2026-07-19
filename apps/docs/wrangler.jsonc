@@ -7,7 +7,10 @@
   // /docs URL path, so luna.ozer2.one/docs/x resolves dist/docs/x literally.
   "assets": {
     "directory": "./dist",
-    "not_found_handling": "404-page"
+    "not_found_handling": "404-page",
+    // Canonical URLs end in a slash: /docs → 307 → /docs/. Keeps the app's
+    // Docs link and Starlight's own links on one trailing-slash convention.
+    "html_handling": "force-trailing-slash"
   },
   // Routing is managed manually in the dashboard (see DEPLOY.md) — no
   // config routes, so deploys never clobber manual domain settings.

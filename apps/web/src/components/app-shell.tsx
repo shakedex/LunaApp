@@ -14,16 +14,16 @@ export function AppShell({ children }: { children: ReactNode }) {
             <span className="text-base font-semibold tracking-tight">Luna</span>
           </a>
           <nav className="text-muted-foreground flex items-center gap-2 text-sm">
-            <Link to="/settings" className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }))}>
+            <Link to="/settings/" className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }))}>
               Settings
             </Link>
-            <Link to="/activity" className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }))}>
+            <Link to="/activity/" className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }))}>
               Activity
             </Link>
-            <a href="/docs" className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }))}>
+            <a href="/docs/" className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }))}>
               Docs
             </a>
-            <Link to="/credits" className="hover:text-foreground tabular-nums transition-colors">
+            <Link to="/credits/" className="hover:text-foreground tabular-nums transition-colors">
               v{__APP_VERSION__}
             </Link>
           </nav>

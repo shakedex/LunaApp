@@ -28,7 +28,7 @@ export const Route = createRootRoute({
         <Link to="/" className={cn(buttonVariants({ variant: 'default' }))}>
           Back to Luna
         </Link>
-        <a href="/docs" className={cn(buttonVariants({ variant: 'outline' }))}>
+        <a href="/docs/" className={cn(buttonVariants({ variant: 'outline' }))}>
           Docs
         </a>
       </div>
