@@ -1,3 +1,5 @@
+export type { LogEntry, LogLevel } from './activity/log'
+export { appendLog, formatLogText, LOG_LEVELS, logLevelAtLeast } from './activity/log'
 export { aggregateThumbnailOutcome, CSV_COLUMNS, generateReportCsv } from './export/csv'
 export {
   fileExtensionOf,
