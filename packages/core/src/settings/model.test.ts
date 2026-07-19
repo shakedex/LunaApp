@@ -8,10 +8,11 @@ import {
 } from './model'
 
 describe('defaultSettings', () => {
-  test('returns schema v1 with default cap and empty cover defaults', () => {
+  test('returns schema v2 with default cap, thumbnails on, empty cover defaults', () => {
     expect(defaultSettings()).toEqual({
       schemaVersion: SETTINGS_SCHEMA_VERSION,
       workerPoolCap: WORKER_POOL_CAP_DEFAULT,
+      generateThumbnails: true,
       coverDefaults: {},
     })
   })
@@ -55,29 +56,58 @@ describe('normalizeSettings', () => {
     expect(normalizeSettings(42)).toEqual(defaultSettings())
   })
 
-  test('unknown/newer schemaVersion yields defaults (spec §14 defensive load)', () => {
+  test('newer/unknown schemaVersion yields defaults (spec §14 defensive load)', () => {
     expect(normalizeSettings({ schemaVersion: 99, workerPoolCap: 2 })).toEqual(defaultSettings())
     expect(normalizeSettings({ workerPoolCap: 2 })).toEqual(defaultSettings())
+  })
+
+  test('v1 records migrate: fields preserved, generateThumbnails defaults on', () => {
+    const migrated = normalizeSettings({
+      schemaVersion: 1,
+      workerPoolCap: 6,
+      coverDefaults: { dit: 'Shaked' },
+    })
+    expect(migrated).toEqual({
+      schemaVersion: 2,
+      workerPoolCap: 6,
+      generateThumbnails: true,
+      coverDefaults: { dit: 'Shaked' },
+    })
+  })
+
+  test('generateThumbnails must be a real boolean; junk falls back to true', () => {
+    expect(
+      normalizeSettings({ schemaVersion: 2, workerPoolCap: 4, generateThumbnails: false })
+        .generateThumbnails,
+    ).toBe(false)
+    expect(
+      normalizeSettings({ schemaVersion: 2, workerPoolCap: 4, generateThumbnails: 'no' })
+        .generateThumbnails,
+    ).toBe(true)
+    expect(normalizeSettings({ schemaVersion: 2, workerPoolCap: 4 }).generateThumbnails).toBe(true)
   })
 
   test('valid record passes through with cap clamped', () => {
     const logo = { marker: 'image' }
     const result = normalizeSettings<{ marker: string }>({
-      schemaVersion: 1,
+      schemaVersion: 2,
       workerPoolCap: 99,
+      generateThumbnails: true,
       coverDefaults: { dit: 'Shaked', projectTitle: 'Luna', logo },
     })
     expect(result).toEqual({
-      schemaVersion: 1,
+      schemaVersion: 2,
       workerPoolCap: 8,
+      generateThumbnails: true,
       coverDefaults: { dit: 'Shaked', projectTitle: 'Luna', logo },
     })
   })
 
   test('cover defaults drop empty strings, non-strings, and unknown keys', () => {
     const result = normalizeSettings({
-      schemaVersion: 1,
+      schemaVersion: 2,
       workerPoolCap: 4,
+      generateThumbnails: true,
       coverDefaults: { dit: '', director: 7, bogus: 'x', dp: 'Dana' },
     })
     expect(result.coverDefaults).toEqual({ dp: 'Dana' })
@@ -85,15 +115,21 @@ describe('normalizeSettings', () => {
 
   test('cover defaults never carry a persisted date', () => {
     const result = normalizeSettings({
-      schemaVersion: 1,
+      schemaVersion: 2,
       workerPoolCap: 4,
+      generateThumbnails: true,
       coverDefaults: { date: '2020-01-01', dit: 'Shaked' },
     })
     expect(result.coverDefaults).toEqual({ dit: 'Shaked' })
   })
 
   test('garbage coverDefaults collapses to empty object', () => {
-    const result = normalizeSettings({ schemaVersion: 1, workerPoolCap: 4, coverDefaults: 'nope' })
+    const result = normalizeSettings({
+      schemaVersion: 2,
+      workerPoolCap: 4,
+      generateThumbnails: true,
+      coverDefaults: 'nope',
+    })
     expect(result.coverDefaults).toEqual({})
   })
 })

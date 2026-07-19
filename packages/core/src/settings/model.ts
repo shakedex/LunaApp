@@ -1,17 +1,18 @@
 import type { CoverFields } from '../report/model'
 
-export const SETTINGS_SCHEMA_VERSION = 1
+export const SETTINGS_SCHEMA_VERSION = 2
 
 export const WORKER_POOL_CAP_MIN = 1
 export const WORKER_POOL_CAP_MAX = 8
 export const WORKER_POOL_CAP_DEFAULT = 4
 
-// Settings v1 (spec §14, as amended at Plan 09 scoping): no `theme` (the app
+// Settings v2 (spec §14, as amended at Plan 09 scoping): no `theme` (the app
 // is dark-only by design) and no `defaultExport` (nothing for it to control).
 // Adding either later is a schemaVersion bump + migration, not a breaking edit.
 export interface Settings<TImage = unknown> {
   schemaVersion: typeof SETTINGS_SCHEMA_VERSION
   workerPoolCap: number
+  generateThumbnails: boolean
   coverDefaults: Partial<CoverFields<TImage>>
 }
 
@@ -19,6 +20,7 @@ export function defaultSettings<TImage = unknown>(): Settings<TImage> {
   return {
     schemaVersion: SETTINGS_SCHEMA_VERSION,
     workerPoolCap: WORKER_POOL_CAP_DEFAULT,
+    generateThumbnails: true,
     coverDefaults: {},
   }
 }
@@ -39,16 +41,26 @@ const COVER_DEFAULT_TEXT_KEYS = [
   'dp',
 ] as const
 
+// Migration chain (spec §14): each migration is a pure transform vN → vN+1 on
+// the RAW record; normalization of field values happens once, at the end.
+// Records newer than the current version (or unversioned junk) collapse to
+// defaults — we cannot downgrade what a future deploy wrote.
+function migrateV1toV2(record: Record<string, unknown>): Record<string, unknown> {
+  return { ...record, schemaVersion: 2, generateThumbnails: true }
+}
+
 // Defensive load (spec §14): any record we did not write in this exact schema
 // version — including newer versions from a future deploy — collapses to
 // defaults rather than crashing or half-loading.
 export function normalizeSettings<TImage = unknown>(raw: unknown): Settings<TImage> {
   if (typeof raw !== 'object' || raw === null) return defaultSettings<TImage>()
-  const record = raw as Record<string, unknown>
+  let record = raw as Record<string, unknown>
+  if (record.schemaVersion === 1) record = migrateV1toV2(record)
   if (record.schemaVersion !== SETTINGS_SCHEMA_VERSION) return defaultSettings<TImage>()
   return {
     schemaVersion: SETTINGS_SCHEMA_VERSION,
     workerPoolCap: clampWorkerPoolCap(record.workerPoolCap),
+    generateThumbnails: record.generateThumbnails !== false,
     coverDefaults: normalizeCoverDefaults<TImage>(record.coverDefaults),
   }
 }
