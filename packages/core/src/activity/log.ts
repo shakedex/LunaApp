@@ -9,6 +9,7 @@ export interface LogEntry {
   level: LogLevel
   message: string
   detail?: string
+  operationId?: number // groups entries under a user operation (0/absent = general)
 }
 
 // Capped append over an immutable array — the app holds entries in a TanStack

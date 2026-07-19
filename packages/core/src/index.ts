@@ -1,5 +1,17 @@
 export type { LogEntry, LogLevel } from './activity/log'
 export { appendLog, formatLogText, LOG_LEVELS, logLevelAtLeast } from './activity/log'
+export type {
+  ActivitySnapshot,
+  Operation,
+  OperationGroup,
+  OperationKind,
+} from './activity/operations'
+export {
+  capActivitySnapshot,
+  GENERAL_OPERATION,
+  groupLogByOperation,
+  normalizeActivitySnapshot,
+} from './activity/operations'
 export { aggregateThumbnailOutcome, CSV_COLUMNS, generateReportCsv } from './export/csv'
 export {
   fileExtensionOf,
