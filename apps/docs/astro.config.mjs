@@ -1,5 +1,6 @@
 import starlight from '@astrojs/starlight'
 import { defineConfig } from 'astro/config'
+import starlightThemeBlack from 'starlight-theme-black'
 
 export default defineConfig({
   site: 'https://luna.ozer2.one',
@@ -14,6 +15,13 @@ export default defineConfig({
     starlight({
       title: 'Luna Web',
       description: 'Camera reports in your browser. Nothing leaves your device.',
+      plugins: [
+        starlightThemeBlack({
+          // Off-brand clutter for a product docs site — no AI-tool buttons.
+          docs: { showMarkdownActions: false },
+          navLinks: [{ label: 'Open Luna', link: 'https://luna.ozer2.one/' }],
+        }),
+      ],
       customCss: ['./src/styles/cinema-dark.css'],
       logo: {
         src: './src/assets/luna-logo-lg.webp',

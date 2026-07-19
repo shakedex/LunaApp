@@ -13,10 +13,9 @@
   },
   "dependencies": {
     "@astrojs/starlight": "^0.41.3",
-    "@fontsource-variable/geist": "^5.3.0",
-    "@fontsource-variable/geist-mono": "^5.3.0",
     "astro": "^7.0.2",
-    "sharp": "^0.34.5"
+    "sharp": "^0.34.5",
+    "starlight-theme-black": "^0.7.0"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.9",
