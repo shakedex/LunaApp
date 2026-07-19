@@ -5,7 +5,6 @@ import { StatTile } from '@/components/stat-tile'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { ExportButtons } from '@/features/export/export-buttons'
-import { RawSection } from '@/features/scan/raw-section'
 import { resetScan } from '@/features/scan/run-scan'
 import { scanStore } from '@/features/scan/store'
 import { formatBytes, formatDuration } from '@/lib/format'
@@ -17,14 +16,14 @@ const slug = (s: string) => s.replace(/[^a-z0-9]+/gi, '-').toLowerCase()
 
 export function ReportWorkspace() {
   const clips = useSelector(scanStore, (s) => s.clips)
-  const raw = useSelector(scanStore, (s) => s.raw)
+  const otherFiles = useSelector(scanStore, (s) => s.otherFiles)
   const metadataById = useSelector(scanStore, (s) => s.metadataById)
   const thumbsById = useSelector(scanStore, (s) => s.thumbsById)
   const cover = useSelector(coverStore)
 
   const model = useMemo(
-    () => buildReportModel<Blob>({ clips, raw, metadataById, thumbsById, cover }),
-    [clips, raw, metadataById, thumbsById, cover],
+    () => buildReportModel<Blob>({ clips, otherFiles, metadataById, thumbsById, cover }),
+    [clips, otherFiles, metadataById, thumbsById, cover],
   )
 
   const metaLine = [
@@ -62,9 +61,10 @@ export function ReportWorkspace() {
 
       <Card className="mb-6">
         <CardContent>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
             <StatTile label="Cards" value={String(model.stats.cardCount)} />
             <StatTile label="Clips" value={String(model.stats.clipCount)} />
+            <StatTile label="Other files" value={String(model.stats.otherFileCount)} />
             <StatTile label="Duration" value={formatDuration(model.stats.totalDurationSeconds)} />
             <StatTile label="Size" value={formatBytes(model.stats.totalSizeBytes)} />
           </div>
@@ -97,8 +97,12 @@ export function ReportWorkspace() {
           <div className="bg-background/80 sticky top-14 z-10 mb-3 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b py-2 backdrop-blur">
             <h2 className="text-lg font-semibold">{reel.name}</h2>
             <span className="text-muted-foreground font-mono text-sm tabular-nums">
-              {reel.stats.clipCount} {reel.stats.clipCount === 1 ? 'clip' : 'clips'} ·{' '}
-              {formatDuration(reel.stats.totalDurationSeconds)} ·{' '}
+              {reel.stats.clipCount} {reel.stats.clipCount === 1 ? 'clip' : 'clips'}
+              {reel.stats.otherFileCount > 0 &&
+                ` · ${reel.stats.otherFileCount} other ${
+                  reel.stats.otherFileCount === 1 ? 'file' : 'files'
+                }`}{' '}
+              · {formatDuration(reel.stats.totalDurationSeconds)} ·{' '}
               {formatBytes(reel.stats.totalSizeBytes)}
             </span>
           </div>
@@ -109,8 +113,6 @@ export function ReportWorkspace() {
           </div>
         </section>
       ))}
-
-      <RawSection raw={model.raw} />
     </section>
   )
 }

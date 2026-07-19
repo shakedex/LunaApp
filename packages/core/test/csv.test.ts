@@ -25,12 +25,24 @@ describe('aggregateThumbnailOutcome', () => {
 
 const model: ReportModel = {
   cover: {},
-  stats: { cardCount: 1, clipCount: 2, rawCount: 0, totalDurationSeconds: 15, totalSizeBytes: 150 },
-  raw: [],
+  stats: {
+    cardCount: 1,
+    clipCount: 2,
+    otherFileCount: 0,
+    otherFileSizeBytes: 0,
+    totalDurationSeconds: 15,
+    totalSizeBytes: 150,
+  },
   reels: [
     {
       name: 'A001',
-      stats: { clipCount: 2, totalSizeBytes: 150, totalDurationSeconds: 15 },
+      stats: {
+        clipCount: 2,
+        otherFileCount: 0,
+        otherFileSizeBytes: 0,
+        totalSizeBytes: 150,
+        totalDurationSeconds: 15,
+      },
       clips: [
         {
           id: 'A001/one.mov',

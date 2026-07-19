@@ -2,14 +2,12 @@ import { useSelector } from '@tanstack/react-store'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { ClipTile } from './clip-tile'
-import { RawSection } from './raw-section'
 import { resetScan } from './run-scan'
 import { scanStore } from './store'
 
 export function ProcessingView() {
   const phase = useSelector(scanStore, (s) => s.phase)
   const clips = useSelector(scanStore, (s) => s.clips)
-  const raw = useSelector(scanStore, (s) => s.raw)
   const processedCount = useSelector(scanStore, (s) => s.processedCount)
   const thumbDoneCount = useSelector(scanStore, (s) => s.thumbDoneCount)
   const thumbTotal = useSelector(scanStore, (s) => Object.keys(s.thumbStatus).length)
@@ -43,8 +41,6 @@ export function ProcessingView() {
           <ClipTile key={clip.id} clip={clip} />
         ))}
       </div>
-
-      <RawSection raw={raw} />
     </section>
   )
 }

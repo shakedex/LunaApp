@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { buildReportModel, cardCountFrom } from '../src/report/model'
 import type { BlobLike, FileHandleLike } from '../src/scan/handles'
-import type { ClipRef } from '../src/scan/model'
+import type { ClipRef, OtherFileRef } from '../src/scan/model'
 
 const fakeBlob: BlobLike = {
   size: 0,
@@ -16,6 +16,12 @@ const ref = (relativePath: string, sizeBytes: number): ClipRef => ({
   extension: `.${relativePath.split('.').pop() ?? ''}`,
   sizeBytes,
   file: fakeFile,
+})
+const other = (relativePath: string, sizeBytes: number): OtherFileRef => ({
+  fileName: relativePath.split('/').pop() ?? relativePath,
+  relativePath,
+  extension: `.${relativePath.split('.').pop() ?? ''}`,
+  sizeBytes,
 })
 
 describe('cardCountFrom', () => {
@@ -34,11 +40,12 @@ describe('cardCountFrom', () => {
 })
 
 describe('buildReportModel', () => {
-  test('merges metadata + thumbnails, groups reels, sums stats', () => {
+  test('merges metadata + thumbnails, groups reels, sums stats over ALL files', () => {
     const clips = [ref('A001/one.mov', 100), ref('A001/two.mov', 50), ref('B002/three.mxf', 25)]
+    const otherFiles = [other('A001/sound.wav', 200), other('A001/grade.cube', 4)]
     const model = buildReportModel({
       clips,
-      raw: [],
+      otherFiles,
       metadataById: {
         'A001/one.mov': { durationSeconds: 10, reelName: 'CUSTOM' },
         'A001/two.mov': { durationSeconds: 5 },
@@ -51,9 +58,11 @@ describe('buildReportModel', () => {
     expect(model.stats).toEqual({
       cardCount: 2,
       clipCount: 3,
-      rawCount: 0,
+      otherFileCount: 2,
+      otherFileSizeBytes: 204,
       totalDurationSeconds: 15, // missing duration contributes 0, never fabricated
-      totalSizeBytes: 175,
+      // Byte-for-byte honesty: clips (175) + other files (204).
+      totalSizeBytes: 379,
     })
     expect(model.reels.map((r) => r.name)).toEqual(['A001', 'B002', 'CUSTOM'])
     const custom = model.reels.find((r) => r.name === 'CUSTOM')
@@ -62,16 +71,65 @@ describe('buildReportModel', () => {
     expect(three?.metadata).toEqual({}) // failed metadata → empty, present
     expect(three?.thumbnails).toEqual([])
     expect(model.cover.projectTitle).toBe('Test')
+    // Other files roll into their top-folder reel's counts + sizes (option b).
     const a001 = model.reels.find((r) => r.name === 'A001')
-    expect(a001?.stats).toEqual({ clipCount: 1, totalSizeBytes: 50, totalDurationSeconds: 5 })
+    expect(a001?.stats).toEqual({
+      clipCount: 1,
+      otherFileCount: 2,
+      otherFileSizeBytes: 204,
+      totalSizeBytes: 254,
+      totalDurationSeconds: 5,
+    })
     const customStats = model.reels.find((r) => r.name === 'CUSTOM')?.stats
-    expect(customStats).toEqual({ clipCount: 1, totalSizeBytes: 100, totalDurationSeconds: 10 })
+    expect(customStats).toEqual({
+      clipCount: 1,
+      otherFileCount: 0,
+      otherFileSizeBytes: 0,
+      totalSizeBytes: 100,
+      totalDurationSeconds: 10,
+    })
+  })
+
+  test('other files in a folder with no clips still form a reel — bytes are never dropped', () => {
+    const model = buildReportModel({
+      clips: [ref('A001/one.mov', 100)],
+      otherFiles: [other('SOUND/day1.wav', 500)],
+      metadataById: {},
+      thumbsById: {},
+      cover: {},
+    })
+    expect(model.reels.map((r) => r.name)).toEqual(['A001', 'SOUND'])
+    const sound = model.reels.find((r) => r.name === 'SOUND')
+    expect(sound?.clips).toEqual([])
+    expect(sound?.stats).toEqual({
+      clipCount: 0,
+      otherFileCount: 1,
+      otherFileSizeBytes: 500,
+      totalSizeBytes: 500,
+      totalDurationSeconds: 0,
+    })
+    // The clipless folder is still a card, and its bytes are in the total.
+    expect(model.stats.cardCount).toBe(2)
+    expect(model.stats.totalSizeBytes).toBe(600)
+  })
+
+  test('root-level other files group as Ungrouped', () => {
+    const model = buildReportModel({
+      clips: [],
+      otherFiles: [other('manifest.xml', 12)],
+      metadataById: {},
+      thumbsById: {},
+      cover: {},
+    })
+    expect(model.reels.map((r) => r.name)).toEqual(['Ungrouped'])
+    expect(model.stats.totalSizeBytes).toBe(12)
+    expect(model.stats.cardCount).toBe(1)
   })
 
   test('empty input produces an empty, zeroed model', () => {
     const model = buildReportModel({
       clips: [],
-      raw: [],
+      otherFiles: [],
       metadataById: {},
       thumbsById: {},
       cover: {},
@@ -79,7 +137,8 @@ describe('buildReportModel', () => {
     expect(model.stats).toEqual({
       cardCount: 0,
       clipCount: 0,
-      rawCount: 0,
+      otherFileCount: 0,
+      otherFileSizeBytes: 0,
       totalDurationSeconds: 0,
       totalSizeBytes: 0,
     })

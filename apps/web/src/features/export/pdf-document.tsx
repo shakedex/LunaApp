@@ -174,8 +174,8 @@ export function ReportDocument({ report }: { report: PdfReport }) {
             <Text style={styles.statLabel}>Size</Text>
           </View>
           <View>
-            <Text style={styles.statValue}>{report.rawCount}</Text>
-            <Text style={styles.statLabel}>RAW</Text>
+            <Text style={styles.statValue}>{stats.otherFileCount}</Text>
+            <Text style={styles.statLabel}>Other files</Text>
           </View>
         </View>
 
@@ -185,7 +185,11 @@ export function ReportDocument({ report }: { report: PdfReport }) {
               {reel.name}
               {'  '}
               <Text style={styles.reelMeta}>
-                {reel.stats.clipCount} clips · {formatBytes(reel.stats.totalSizeBytes)} ·{' '}
+                {reel.stats.clipCount} clips
+                {reel.stats.otherFileCount > 0
+                  ? ` · ${reel.stats.otherFileCount} other files (${formatBytes(reel.stats.otherFileSizeBytes)})`
+                  : ''}{' '}
+                · {formatBytes(reel.stats.totalSizeBytes)} ·{' '}
                 {formatDuration(reel.stats.totalDurationSeconds)}
               </Text>
             </Text>

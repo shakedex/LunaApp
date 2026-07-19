@@ -13,31 +13,43 @@ export interface ClipRef {
   previewSidecar?: FileHandleLike
 }
 
-export interface RawNotice {
-  id: string
+// A non-media file on the card (WAV, LUT, sidecar, anything). Surfaced so the
+// report accounts for every delivered byte; rolled into per-reel/report counts
+// and sizes rather than listed per-file (2026-07-19 backlog, option b).
+export interface OtherFileRef {
   fileName: string
   relativePath: string
   extension: string
   sizeBytes: number
-  file: FileHandleLike
 }
 
 export interface ScanSummary {
   clipCount: number
-  rawCount: number
-  totalClipSizeBytes: number
+  otherFileCount: number
+  otherFileSizeBytes: number
+  // Sum of EVERY surfaced file — clips and other files. The report's whole
+  // point is byte-for-byte comparability with the source card.
+  totalSizeBytes: number
   byExtension: Record<string, number>
 }
 
 export function buildScanSummary(
   clips: readonly ClipRef[],
-  raw: readonly RawNotice[],
+  otherFiles: readonly OtherFileRef[],
 ): ScanSummary {
   const byExtension: Record<string, number> = {}
-  let totalClipSizeBytes = 0
+  let totalSizeBytes = 0
   for (const c of clips) {
-    totalClipSizeBytes += c.sizeBytes
+    totalSizeBytes += c.sizeBytes
     byExtension[c.extension] = (byExtension[c.extension] ?? 0) + 1
   }
-  return { clipCount: clips.length, rawCount: raw.length, totalClipSizeBytes, byExtension }
+  let otherFileSizeBytes = 0
+  for (const f of otherFiles) otherFileSizeBytes += f.sizeBytes
+  return {
+    clipCount: clips.length,
+    otherFileCount: otherFiles.length,
+    otherFileSizeBytes,
+    totalSizeBytes: totalSizeBytes + otherFileSizeBytes,
+    byExtension,
+  }
 }

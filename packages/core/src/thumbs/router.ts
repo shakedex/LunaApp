@@ -13,8 +13,10 @@ const PREVIEW_ONLY_EXTENSIONS = new Set(['.crm', '.r3d'])
 
 // `.braw` gets full metadata (BRAW enricher) but no browser-decodable frame and
 // no embedded preview (FINDINGS.md: "no embedded preview tag... BRAW frames
-// need the Blackmagic RAW SDK") — clip with a placeholder thumbnail.
-const NO_THUMBNAIL_EXTENSIONS = new Set(['.braw'])
+// need the Blackmagic RAW SDK") — clip with a placeholder thumbnail. `.ari`
+// (single-frame ARRIRAW stills) is the same story: first-class clip, no
+// browser-paintable preview.
+const NO_THUMBNAIL_EXTENSIONS = new Set(['.braw', '.ari'])
 
 // Verified against tools/analysis/out/S_cam_S006_A003C0011_210922_0000_ronin4d_proresraw.mov.json
 // (DJI Ronin-4D ProRes RAW, mediainfo `Video` track): Format = "ProRes",

@@ -36,9 +36,9 @@ export async function startThumbnails(run: number): Promise<void> {
   const mediabunnyClips: ClipRef[] = []
   const ffmpegClips: ClipRef[] = []
   const previewClips: ClipRef[] = []
-  // Route 'none' but still a real clip — currently only `.braw` (no decode
-  // path, no embedded preview, FINDINGS.md). Gets one NoDecoder placeholder
-  // frame immediately below, no queue.
+  // Route 'none' but still a real clip — `.braw` and `.ari` (no decode path,
+  // no embedded preview, FINDINGS.md). Gets one NoDecoder placeholder frame
+  // immediately below, no queue.
   const noPreviewClips: ClipRef[] = []
   for (const clip of clips) {
     const codec = state.metadataById[clip.id]?.codec
@@ -77,7 +77,7 @@ export async function startThumbnails(run: number): Promise<void> {
 
   if (noPreviewClips.length > 0) {
     logger.info(
-      `${noPreviewClips.length} clip(s) have no browser decode path (BRAW) — placeholder frames used`,
+      `${noPreviewClips.length} clip(s) have no browser decode path (BRAW/ARRIRAW) — placeholder frames used`,
     )
     for (const clip of noPreviewClips) {
       finishClip(run, clip.id, [noDecoderFrame()])

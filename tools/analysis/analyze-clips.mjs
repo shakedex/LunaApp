@@ -34,7 +34,6 @@ import { fileURLToPath } from 'node:url'
 import {
   fileExtensionOf,
   SUPPORTED_MEDIA_EXTENSIONS,
-  UNSUPPORTED_RAW_EXTENSIONS,
 } from '../../packages/core/src/media/extensions.ts'
 import { mapMediaInfoToClipMetadata } from '../../packages/core/src/metadata/mediainfo.ts'
 
@@ -48,7 +47,7 @@ const mediaInfoFactory = mediaInfoFactoryMod.default ?? mediaInfoFactoryMod
 const wasmPath = requireFromApp.resolve('mediainfo.js/MediaInfoModule.wasm')
 
 const DEFAULT_ROOTS = ['D:/LUNA_TEST/TEST_PROJECT_LUNA/CAMERA', 'E:/Coding/LunaApp/docs']
-const MEDIA_EXTS = new Set([...SUPPORTED_MEDIA_EXTENSIONS, ...UNSUPPORTED_RAW_EXTENSIONS])
+const MEDIA_EXTS = new Set(SUPPORTED_MEDIA_EXTENSIONS)
 // Camera-raw extensions Luna core doesn't list yet, but the diagnostic should
 // still probe on a directory walk (does mediainfo read them at all?). Presence
 // here means "worth inspecting", NOT "supported" — keep it in the tool, not core.

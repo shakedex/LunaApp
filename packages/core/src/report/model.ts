@@ -1,6 +1,6 @@
 import type { ClipMetadata } from '../metadata/model'
 import { detectReels } from '../reels/detect'
-import type { ClipRef, RawNotice } from '../scan/model'
+import type { ClipRef, OtherFileRef } from '../scan/model'
 import type { ThumbnailFrame } from '../thumbs/model'
 
 export interface CoverFields<TImage = unknown> {
@@ -25,6 +25,9 @@ export interface ReportClip<TImage = unknown> {
 
 export interface ReelStats {
   clipCount: number
+  otherFileCount: number
+  otherFileSizeBytes: number
+  // ALL bytes in this reel — clips plus other files.
   totalSizeBytes: number
   totalDurationSeconds: number
 }
@@ -38,8 +41,11 @@ export interface Reel<TImage = unknown> {
 export interface ReportStats {
   cardCount: number
   clipCount: number
-  rawCount: number
+  otherFileCount: number
+  otherFileSizeBytes: number
   totalDurationSeconds: number
+  // Sum of EVERY surfaced file on the card — the number a DIT compares
+  // byte-for-byte against the delivered backup. Never a subset.
   totalSizeBytes: number
 }
 
@@ -47,7 +53,6 @@ export interface ReportModel<TImage = unknown> {
   cover: CoverFields<TImage>
   stats: ReportStats
   reels: Reel<TImage>[]
-  raw: RawNotice[]
 }
 
 // spec §8.8: a "card" is a top-level media subfolder; media at the root with
@@ -64,7 +69,7 @@ export function cardCountFrom(relativePaths: readonly string[]): number {
 
 export interface BuildReportInput<TImage = unknown> {
   clips: readonly ClipRef[]
-  raw: readonly RawNotice[]
+  otherFiles: readonly OtherFileRef[]
   metadataById: Readonly<Record<string, ClipMetadata>>
   thumbsById: Readonly<Record<string, ThumbnailFrame<TImage>[]>>
   cover: CoverFields<TImage>
@@ -88,37 +93,74 @@ export function buildReportModel<TImage = unknown>(
   })
 
   let totalDurationSeconds = 0
-  let totalSizeBytes = 0
+  let clipSizeBytes = 0
   for (const clip of reportClips) {
     totalDurationSeconds += clip.metadata.durationSeconds ?? 0
-    totalSizeBytes += clip.sizeBytes
+    clipSizeBytes += clip.sizeBytes
+  }
+  let otherFileSizeBytes = 0
+  for (const f of input.otherFiles) otherFileSizeBytes += f.sizeBytes
+
+  // Other files group by top folder (they carry no reelName metadata) and roll
+  // into their reel's counts + sizes; folders holding only other files still
+  // become (clipless) reels so their bytes are never dropped.
+  const otherByReel = new Map<string, { count: number; sizeBytes: number }>()
+  for (const group of detectReels(input.otherFiles)) {
+    let sizeBytes = 0
+    for (const f of group.clips) sizeBytes += f.sizeBytes
+    otherByReel.set(group.name, { count: group.clips.length, sizeBytes })
   }
 
-  const reels = detectReels(reportClips).map((reel) => {
+  const reels: Reel<TImage>[] = detectReels(reportClips).map((reel) => {
     const clips = reel.clips.map(({ reelName: _drop, ...clip }) => clip)
-    let totalSizeBytes = 0
-    let totalDurationSeconds = 0
+    let sizeBytes = 0
+    let durationSeconds = 0
     for (const clip of clips) {
-      totalSizeBytes += clip.sizeBytes
-      totalDurationSeconds += clip.metadata.durationSeconds ?? 0
+      sizeBytes += clip.sizeBytes
+      durationSeconds += clip.metadata.durationSeconds ?? 0
     }
+    const others = otherByReel.get(reel.name) ?? { count: 0, sizeBytes: 0 }
+    otherByReel.delete(reel.name)
     return {
       name: reel.name,
       clips,
-      stats: { clipCount: clips.length, totalSizeBytes, totalDurationSeconds },
+      stats: {
+        clipCount: clips.length,
+        otherFileCount: others.count,
+        otherFileSizeBytes: others.sizeBytes,
+        totalSizeBytes: sizeBytes + others.sizeBytes,
+        totalDurationSeconds: durationSeconds,
+      },
     }
   })
+  for (const [name, others] of otherByReel) {
+    reels.push({
+      name,
+      clips: [],
+      stats: {
+        clipCount: 0,
+        otherFileCount: others.count,
+        otherFileSizeBytes: others.sizeBytes,
+        totalSizeBytes: others.sizeBytes,
+        totalDurationSeconds: 0,
+      },
+    })
+  }
+  reels.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
 
   return {
     cover: input.cover,
     stats: {
-      cardCount: cardCountFrom(input.clips.map((c) => c.relativePath)),
+      cardCount: cardCountFrom([
+        ...input.clips.map((c) => c.relativePath),
+        ...input.otherFiles.map((f) => f.relativePath),
+      ]),
       clipCount: input.clips.length,
-      rawCount: input.raw.length,
+      otherFileCount: input.otherFiles.length,
+      otherFileSizeBytes,
       totalDurationSeconds,
-      totalSizeBytes,
+      totalSizeBytes: clipSizeBytes + otherFileSizeBytes,
     },
     reels,
-    raw: [...input.raw],
   }
 }

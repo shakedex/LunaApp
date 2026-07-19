@@ -49,16 +49,16 @@ export async function scanFrom(
       ...s,
       phase: 'summary',
       clips: result.clips,
-      raw: result.raw,
+      otherFiles: result.otherFiles,
       progress: {
-        filesSeen: result.clips.length + result.raw.length,
+        filesSeen: result.clips.length + result.otherFiles.length,
         clipsFound: result.clips.length,
       },
-      summary: buildScanSummary(result.clips, result.raw),
+      summary: buildScanSummary(result.clips, result.otherFiles),
     }))
     logger.info(
       `Scan of "${handle.name}" complete`,
-      `${result.clips.length} clips, ${result.raw.length} RAW notices`,
+      `${result.clips.length} clips, ${result.otherFiles.length} other files`,
     )
   } catch (err) {
     // A recent-source handle whose folder was moved/renamed/removed throws

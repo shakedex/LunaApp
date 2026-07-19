@@ -11,17 +11,14 @@ export const SUPPORTED_MEDIA_EXTENSIONS = [
   '.webm',
   '.wmv',
   '.flv',
-  // Reclassified: RAW formats become first-class clips with metadata + a
-  // content-aware thumbnail route (mediainfo/exiftool + embedded-preview
-  // extraction) instead of a raw-notice dead end (FINDINGS.md, Plan 08).
+  // RAW formats are first-class clips ("a file is a file", 2026-07-19
+  // backlog): metadata where extractable, honest placeholder thumbnails where
+  // the browser can't paint a frame (.braw, .ari — FINDINGS.md).
   '.braw',
   '.r3d',
   '.crm',
+  '.ari',
 ] as const
-
-// `.ari` (single-frame ARRIRAW stills) is the only extension left here — no
-// embedded preview, no metadata worth surfacing as a clip (FINDINGS.md).
-export const UNSUPPORTED_RAW_EXTENSIONS = ['.ari'] as const
 
 export function fileExtensionOf(fileName: string): string {
   const dot = fileName.lastIndexOf('.')
@@ -30,8 +27,4 @@ export function fileExtensionOf(fileName: string): string {
 
 export function isSupportedMediaExtension(fileName: string): boolean {
   return (SUPPORTED_MEDIA_EXTENSIONS as readonly string[]).includes(fileExtensionOf(fileName))
-}
-
-export function isKnownRawExtension(fileName: string): boolean {
-  return (UNSUPPORTED_RAW_EXTENSIONS as readonly string[]).includes(fileExtensionOf(fileName))
 }

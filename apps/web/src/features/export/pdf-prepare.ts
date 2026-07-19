@@ -37,7 +37,6 @@ export interface PdfReport {
   }
   stats: ReportStats
   reels: PdfReel[]
-  rawCount: number
 }
 
 function blobToDataUrl(blob: Blob): Promise<string> {
@@ -142,6 +141,5 @@ export async function prepareReportForPdf(report: ReportModel<Blob>): Promise<Pd
     },
     stats: report.stats,
     reels,
-    rawCount: report.raw.length,
   }
 }

@@ -1,4 +1,10 @@
-import type { ClipMetadata, ClipRef, RawNotice, ScanSummary, ThumbnailFrame } from '@luna-web/core'
+import type {
+  ClipMetadata,
+  ClipRef,
+  OtherFileRef,
+  ScanSummary,
+  ThumbnailFrame,
+} from '@luna-web/core'
 import { Store } from '@tanstack/store'
 
 export type ScanPhase =
@@ -19,7 +25,7 @@ export interface ScanState {
   sourceName: string | null
   progress: { filesSeen: number; clipsFound: number } | null
   clips: ClipRef[]
-  raw: RawNotice[]
+  otherFiles: OtherFileRef[]
   summary: ScanSummary | null
   error: string | null
   clipStatus: Record<string, ClipProcessStatus>
@@ -37,7 +43,7 @@ export const initialScanState: ScanState = {
   sourceName: null,
   progress: null,
   clips: [],
-  raw: [],
+  otherFiles: [],
   summary: null,
   error: null,
   clipStatus: {},

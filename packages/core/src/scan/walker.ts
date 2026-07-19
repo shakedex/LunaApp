@@ -1,11 +1,7 @@
-import {
-  fileExtensionOf,
-  isKnownRawExtension,
-  isSupportedMediaExtension,
-} from '../media/extensions'
+import { fileExtensionOf, isSupportedMediaExtension } from '../media/extensions'
 import type { DirectoryHandleLike, FileHandleLike } from './handles'
 import { isJunkName } from './junk'
-import type { ClipRef, RawNotice } from './model'
+import type { ClipRef, OtherFileRef } from './model'
 
 export interface ScanProgress {
   filesSeen: number
@@ -15,7 +11,8 @@ export interface ScanProgress {
 
 export interface ScanResult {
   clips: ClipRef[]
-  raw: RawNotice[]
+  // Every non-junk, non-media file — nothing on the card is silently dropped.
+  otherFiles: OtherFileRef[]
 }
 
 const RTN_EXTENSION = '.rtn'
@@ -25,9 +22,10 @@ export async function scanFolder(
   onProgress?: (p: ScanProgress) => void,
 ): Promise<ScanResult> {
   const clips: ClipRef[] = []
-  const raw: RawNotice[] = []
-  // `.rtn` sidecars are never clips or raw notices — just tracked so they can
-  // be associated with their `.r3d` clip once the whole tree is known.
+  const otherFiles: OtherFileRef[] = []
+  // `.rtn` sidecars are also tracked separately so they can be associated with
+  // their `.r3d` clip once the whole tree is known — but their bytes still
+  // count as other files (they were delivered on the card).
   const rtnFiles: { relativePath: string; file: FileHandleLike }[] = []
   let filesSeen = 0
 
@@ -42,10 +40,17 @@ export async function scanFolder(
       const relativePath = `${prefix}${entry.name}`
       if (isSupportedMediaExtension(entry.name)) {
         clips.push(await toRef(entry, relativePath))
-      } else if (isKnownRawExtension(entry.name)) {
-        raw.push(await toRef(entry, relativePath))
-      } else if (fileExtensionOf(entry.name) === RTN_EXTENSION) {
-        rtnFiles.push({ relativePath, file: entry })
+      } else {
+        const { size } = await entry.getFile()
+        otherFiles.push({
+          fileName: entry.name,
+          relativePath,
+          extension: fileExtensionOf(entry.name),
+          sizeBytes: size,
+        })
+        if (fileExtensionOf(entry.name) === RTN_EXTENSION) {
+          rtnFiles.push({ relativePath, file: entry })
+        }
       }
       onProgress?.({ filesSeen, clipsFound: clips.length, currentDir: prefix })
     }
@@ -53,7 +58,7 @@ export async function scanFolder(
 
   await walk(root, '')
   associateRtnSidecars(clips, rtnFiles)
-  return { clips, raw }
+  return { clips, otherFiles }
 }
 
 /** A clip's directory prefix, e.g. `'A001/A001C001.r3d'` -> `'A001/'`. */

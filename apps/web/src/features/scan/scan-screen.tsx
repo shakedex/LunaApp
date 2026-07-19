@@ -1,7 +1,6 @@
 import { useSelector } from '@tanstack/react-store'
-import { CircleAlert, FolderCheck, TriangleAlert } from 'lucide-react'
+import { CircleAlert, FolderCheck } from 'lucide-react'
 import { StatTile } from '@/components/stat-tile'
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -65,22 +64,9 @@ export function ScanScreen() {
           <CardContent className="space-y-6">
             <div className="grid grid-cols-3 gap-4">
               <StatTile label="Clips" value={String(summary.clipCount)} />
-              <StatTile label="Total size" value={formatBytes(summary.totalClipSizeBytes)} />
-              <StatTile label="RAW (unsupported)" value={String(summary.rawCount)} />
+              <StatTile label="Other files" value={String(summary.otherFileCount)} />
+              <StatTile label="Total size" value={formatBytes(summary.totalSizeBytes)} />
             </div>
-            {summary.rawCount > 0 && (
-              <Alert className="border-amber-500/30 [&>svg]:text-amber-400">
-                <TriangleAlert />
-                <AlertTitle>
-                  {summary.rawCount} ARRIRAW frame file(s) detected — not listed as clips
-                </AlertTitle>
-                <AlertDescription>
-                  .ari stills can't be decoded to a thumbnail in the browser, so they're excluded
-                  from the report. BRAW, R3D, and CRM clips are listed with full metadata —
-                  thumbnails come from embedded posters or .rtn sidecars where available.
-                </AlertDescription>
-              </Alert>
-            )}
             <div className="flex gap-3">
               <Button
                 size="lg"
