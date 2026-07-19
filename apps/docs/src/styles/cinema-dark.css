@@ -70,14 +70,26 @@
   filter: drop-shadow(0 0 5px oklch(0.72 0.14 232 / 0.6));
 }
 
-/* Narrow, centered shell. The sidebar and the on-this-page TOC are both
-   position:fixed to the viewport, so we can't center the content flow (that
-   detaches the sidebar). Instead, offset all three — sidebar, content, TOC —
-   by a matching gutter so the whole group stays together and centers on wide
-   monitors. Only kicks in once there's room to spare. */
-@media (min-width: 82rem) {
+/* Narrow, centered layout.
+   Starlight ships no built-in max-width/centering (withastro/starlight
+   discussion #2180) and this theme is full-width by design — its own demo even
+   overflows the "On this page" TOC off the right edge (issue #3513). These docs
+   are short, so we drop that low-value TOC and center the sidebar + reading
+   column as a tight pair, offsetting the fixed sidebar and the content start by
+   a matching gutter (the sidebar/TOC are position:fixed to the viewport, so
+   they must be shifted explicitly rather than by centering the content flow). */
+@media (min-width: 50rem) {
+  .right-sidebar-container {
+    display: none;
+  }
+  /* Reclaim the width the TOC layout reserved. */
+  [data-has-sidebar][data-has-toc] .main-pane {
+    max-width: var(--sl-content-width);
+  }
+}
+@media (min-width: 62rem) {
   :root {
-    --luna-max: 84rem;
+    --luna-max: 59rem; /* sidebar (~18.75rem) + reading column (40rem) */
     --luna-gutter: max(0px, calc((100vw - var(--luna-max)) / 2));
   }
   header > .header {
@@ -88,10 +100,12 @@
     inset-inline-start: var(--luna-gutter);
   }
   .main-frame {
-    padding-inline-start: calc(var(--sl-sidebar-width, 18.75rem) + var(--luna-gutter));
+    padding-inline-start: calc(var(--sl-content-inline-start) + var(--luna-gutter));
   }
-  .right-sidebar {
-    inset-inline-end: var(--luna-gutter);
+  /* Sit the reading column against the sidebar instead of centering it in the
+     now-empty area to the right. */
+  .main-pane {
+    margin-inline: 0;
   }
 }
 
