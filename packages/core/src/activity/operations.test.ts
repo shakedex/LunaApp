@@ -80,4 +80,17 @@ describe('capActivitySnapshot', () => {
     const snapshot = { operations: [op(1)], entries: [entry(1, 1), entry(2, 1), entry(3, 1)] }
     expect(capActivitySnapshot(snapshot, 5, 2).entries.map((e) => e.seq)).toEqual([2, 3])
   })
+
+  test('caps of zero (or negative) keep nothing', () => {
+    const snapshot = { operations: [op(1)], entries: [entry(1, 1)] }
+    expect(capActivitySnapshot(snapshot, 0, 0)).toEqual({ operations: [], entries: [] })
+    expect(capActivitySnapshot(snapshot, -1, -1)).toEqual({ operations: [], entries: [] })
+  })
+
+  test('explicit operationId 0 entries survive operation eviction', () => {
+    const snapshot = { operations: [op(1), op(2)], entries: [entry(1, 0), entry(2, 1)] }
+    const capped = capActivitySnapshot(snapshot, 1, 10)
+    expect(capped.operations.map((o) => o.id)).toEqual([2])
+    expect(capped.entries.map((e) => e.seq)).toEqual([1])
+  })
 })

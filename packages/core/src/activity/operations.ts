@@ -90,17 +90,20 @@ function isValidEntry(value: unknown): value is LogEntry {
   )
 }
 
+const keepNewest = <T>(items: readonly T[], max: number): T[] => (max <= 0 ? [] : items.slice(-max))
+
 export function capActivitySnapshot(
   snapshot: ActivitySnapshot,
   maxOperations: number,
   maxEntries: number,
 ): ActivitySnapshot {
-  const operations = [...snapshot.operations]
-    .sort((a, b) => a.startedAt - b.startedAt || a.id - b.id)
-    .slice(-Math.max(0, maxOperations))
+  const operations = keepNewest(
+    [...snapshot.operations].sort((a, b) => a.startedAt - b.startedAt || a.id - b.id),
+    maxOperations,
+  )
   const kept = new Set(operations.map((o) => o.id))
-  const entries = snapshot.entries
-    .slice(-Math.max(0, maxEntries))
-    .filter((e) => e.operationId === undefined || e.operationId === 0 || kept.has(e.operationId))
+  const entries = keepNewest(snapshot.entries, maxEntries).filter(
+    (e) => e.operationId === undefined || e.operationId === 0 || kept.has(e.operationId),
+  )
   return { operations, entries }
 }
