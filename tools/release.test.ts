@@ -82,8 +82,6 @@ describe('rewriteChangelog', () => {
   })
 
   test('adds a compare link for the new version', () => {
-    expect(out).toContain(
-      '[0.13.0]: https://github.com/shakedex/LunaApp/compare/v0.12.0...v0.13.0',
-    )
+    expect(out).toContain('[0.13.0]: https://github.com/shakedex/LunaApp/compare/v0.12.0...v0.13.0')
   })
 })

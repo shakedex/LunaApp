@@ -97,9 +97,7 @@ async function main(): Promise<void> {
   const bump = argv.find((a) => !a.startsWith('--'))
 
   if (bump === 'major') {
-    throw new Error(
-      'ZeroVer: no major bumps. Luna Web is 0.x forever — use "minor" or "patch".',
-    )
+    throw new Error('ZeroVer: no major bumps. Luna Web is 0.x forever — use "minor" or "patch".')
   }
   if (bump !== 'minor' && bump !== 'patch') usage()
 
@@ -122,9 +120,7 @@ async function main(): Promise<void> {
     throw new Error('Working tree is dirty. Commit or stash before releasing.')
   }
   if (!body) {
-    throw new Error(
-      'Nothing to release: add entries under [Unreleased] in the changelog first.',
-    )
+    throw new Error('Nothing to release: add entries under [Unreleased] in the changelog first.')
   }
 
   const date = new Date().toISOString().slice(0, 10)
