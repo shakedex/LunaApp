@@ -1,5 +1,5 @@
 import type { ReportModel } from '@luna-web/core'
-import { logger } from '@/lib/logger'
+import { beginOperation, logger } from '@/lib/logger'
 import { reportFileName, saveBlob } from './save'
 
 export interface Exporter {
@@ -15,6 +15,7 @@ export interface Exporter {
 export const exporters: Exporter[] = []
 
 export async function runExport(exporter: Exporter, report: ReportModel<Blob>): Promise<void> {
+  beginOperation('export', `Export ${exporter.label}: ${report.cover.projectTitle ?? 'report'}`)
   logger.info(`Export started: ${exporter.label}`)
   try {
     const blob = await exporter.generate(report)

@@ -1,5 +1,5 @@
 import { type ClipRef, mapMediaInfoToClipMetadata, runPool } from '@luna-web/core'
-import { logger } from '@/lib/logger'
+import { beginOperation, logger } from '@/lib/logger'
 import { type ScanState, scanStore } from '../scan/store'
 import { settingsStore } from '../settings/settings-store'
 import { createMetadataWorker, type MetadataWorkerHandle } from './metadata-client'
@@ -59,6 +59,7 @@ export async function startProcessing(): Promise<void> {
   const state = scanStore.state
   if (state.phase !== 'summary') return
   const clips = state.clips
+  beginOperation('process', `Process: ${state.sourceName ?? 'card'} (${clips.length} clips)`)
   const run = ++currentRun
 
   scanStore.setState((s) => ({

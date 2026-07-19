@@ -1,6 +1,6 @@
 import { buildScanSummary, type DirectoryHandleLike, scanFolder } from '@luna-web/core'
 import { cancelProcessing } from '@/features/process/run-processing'
-import { logger } from '@/lib/logger'
+import { beginOperation, logger } from '@/lib/logger'
 import { markSourceStale, rememberSource } from '@/persistence/recent-sources'
 import { ensureReadPermission } from './permissions'
 import { initialScanState, scanStore } from './store'
@@ -32,6 +32,7 @@ export async function scanFrom(
     }))
     return
   }
+  beginOperation('scan', `Scan: ${handle.name}`)
   scanStore.setState(() => ({ ...initialScanState, phase: 'scanning', sourceName: handle.name }))
   logger.info(`Scanning "${handle.name}"…`)
   try {

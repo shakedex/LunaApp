@@ -25,7 +25,7 @@ function timeOf(timestamp: number): string {
 }
 
 export function ActivityScreen() {
-  const entries = useSelector(activityStore, (s) => s)
+  const entries = useSelector(activityStore, (s) => s.entries)
   const [minLevel, setMinLevel] = useState<LogLevel>('info')
   const visible = entries.filter((e) => logLevelAtLeast(e.level, minLevel))
 

@@ -6,17 +6,21 @@ interface LunaDb extends DBSchema {
   // Value is `unknown` on purpose: records may have been written by any past
   // or future app version — normalizeSettings() is the only trusted reader.
   settings: { key: string; value: unknown }
+  // One record ('log') holding the persisted ActivitySnapshot; `unknown` for
+  // the same reason as settings — normalizeActivitySnapshot is the only reader.
+  activity: { key: string; value: unknown }
 }
 
 let dbPromise: Promise<IDBPDatabase<LunaDb>> | null = null
 
 export function getDb(): Promise<IDBPDatabase<LunaDb>> {
-  dbPromise ??= openDB<LunaDb>('luna-web', 2, {
+  dbPromise ??= openDB<LunaDb>('luna-web', 3, {
     upgrade(db, oldVersion) {
       // Guard each store by the version that introduced it: fresh installs
       // enter with oldVersion 0 and must create everything.
       if (oldVersion < 1) db.createObjectStore('recentSources', { autoIncrement: true })
       if (oldVersion < 2) db.createObjectStore('settings')
+      if (oldVersion < 3) db.createObjectStore('activity')
     },
   })
   return dbPromise
