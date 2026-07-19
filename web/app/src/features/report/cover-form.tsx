@@ -1,9 +1,11 @@
 import { useForm } from '@tanstack/react-form'
 import { useSelector } from '@tanstack/react-store'
-import { useEffect, useState } from 'react'
+import { ImageUp } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { cn } from '@/lib/utils'
 import { coverStore, setCoverFields } from './cover-store'
 
 const TEXT_FIELDS = [
@@ -14,6 +16,8 @@ const TEXT_FIELDS = [
   ['dp', 'Director of photography'],
   ['date', 'Date'],
 ] as const
+
+type FieldName = (typeof TEXT_FIELDS)[number][0]
 
 export function CoverForm() {
   const cover = coverStore.state
@@ -29,44 +33,57 @@ export function CoverForm() {
     },
   })
 
+  const renderField = (name: FieldName, label: string) => (
+    <form.Field key={name} name={name}>
+      {(field) => (
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor={field.name} className="text-muted-foreground">
+            {label}
+          </Label>
+          <Input
+            id={field.name}
+            name={field.name}
+            type={name === 'date' ? 'date' : 'text'}
+            value={field.state.value}
+            onChange={(e) => field.handleChange(e.target.value)}
+            onBlur={() => {
+              field.handleBlur()
+              setCoverFields({ [field.name]: field.state.value })
+            }}
+          />
+        </div>
+      )}
+    </form.Field>
+  )
+
   return (
     <Card className="w-full">
       <CardHeader>
         <CardTitle>Report details</CardTitle>
+        <p className="text-muted-foreground text-sm">
+          Shown on the report cover and in the exported PDF.
+        </p>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-2 gap-4">
-          {TEXT_FIELDS.map(([name, label]) => (
-            <form.Field key={name} name={name}>
-              {(field) => (
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor={field.name} className="text-muted-foreground">
-                    {label}
-                  </Label>
-                  <Input
-                    id={field.name}
-                    name={field.name}
-                    value={field.state.value}
-                    onChange={(e) => field.handleChange(e.target.value)}
-                    onBlur={() => {
-                      field.handleBlur()
-                      setCoverFields({ [field.name]: field.state.value })
-                    }}
-                  />
-                </div>
-              )}
-            </form.Field>
-          ))}
-          <LogoPicker />
+        <div className="grid gap-6 md:grid-cols-[1fr_11rem]">
+          <div className="space-y-4">
+            {renderField('projectTitle', 'Project title')}
+            <div className="grid gap-4 sm:grid-cols-2">
+              {TEXT_FIELDS.slice(1).map(([name, label]) => renderField(name, label))}
+            </div>
+          </div>
+          <LogoDropWell />
         </div>
       </CardContent>
     </Card>
   )
 }
 
-function LogoPicker() {
+function LogoDropWell() {
   const logo = useSelector(coverStore, (s) => s.logo)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [dragging, setDragging] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (!logo) {
@@ -78,28 +95,65 @@ function LogoPicker() {
     return () => URL.revokeObjectURL(url)
   }, [logo])
 
+  const accept = (file: File | undefined) => {
+    if (file?.type.startsWith('image/')) setCoverFields({ logo: file })
+  }
+
   return (
     <div className="flex flex-col gap-1.5">
       <Label htmlFor="cover-logo" className="text-muted-foreground">
         Logo
       </Label>
+      <button
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        onDragOver={(e) => {
+          e.preventDefault()
+          setDragging(true)
+        }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={(e) => {
+          e.preventDefault()
+          setDragging(false)
+          accept(e.dataTransfer.files?.[0])
+        }}
+        className={cn(
+          'focus-visible:border-ring focus-visible:ring-ring/50 flex aspect-[4/3] w-full cursor-pointer flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed p-3 text-center outline-none transition focus-visible:ring-3',
+          dragging
+            ? 'border-primary bg-primary/5'
+            : 'border-border hover:border-input hover:bg-muted/30',
+        )}
+      >
+        {previewUrl ? (
+          <img
+            src={previewUrl}
+            alt="Report logo"
+            className="max-h-full max-w-full object-contain"
+          />
+        ) : (
+          <>
+            <ImageUp className="text-muted-foreground size-5" />
+            <span className="text-muted-foreground text-xs">Drop or click</span>
+          </>
+        )}
+      </button>
+      {previewUrl && (
+        <button
+          type="button"
+          onClick={() => setCoverFields({ logo: undefined })}
+          className="text-muted-foreground hover:text-foreground text-xs underline-offset-2 hover:underline"
+        >
+          Remove logo
+        </button>
+      )}
       <input
+        ref={inputRef}
         id="cover-logo"
         type="file"
         accept="image/*"
-        className="text-muted-foreground file:bg-secondary file:text-secondary-foreground hover:file:bg-secondary/80 text-sm file:mr-3 file:rounded-md file:border-0 file:px-3 file:py-1.5 file:text-sm"
-        onChange={(e) => {
-          const file = e.target.files?.[0]
-          if (file) setCoverFields({ logo: file })
-        }}
+        className="hidden"
+        onChange={(e) => accept(e.target.files?.[0])}
       />
-      {previewUrl && (
-        <img
-          src={previewUrl}
-          alt="Report logo preview"
-          className="mt-1 h-10 w-auto object-contain"
-        />
-      )}
     </div>
   )
 }

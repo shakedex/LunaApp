@@ -1,5 +1,5 @@
 import { useSelector } from '@tanstack/react-store'
-import { CircleAlert, TriangleAlert } from 'lucide-react'
+import { CircleAlert, FolderCheck, TriangleAlert } from 'lucide-react'
 import { StatTile } from '@/components/stat-tile'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -52,7 +52,15 @@ export function ScanScreen() {
       {phase === 'summary' && summary && (
         <Card className="w-full">
           <CardHeader>
-            <CardTitle className="truncate">{sourceName}</CardTitle>
+            <div className="flex items-center gap-3">
+              <span className="bg-primary/10 text-primary flex size-9 shrink-0 items-center justify-center rounded-lg">
+                <FolderCheck className="size-5" />
+              </span>
+              <div className="min-w-0">
+                <CardTitle className="truncate">{sourceName}</CardTitle>
+                <p className="text-muted-foreground text-sm">Ready to process</p>
+              </div>
+            </div>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="grid grid-cols-3 gap-4">
@@ -74,10 +82,14 @@ export function ScanScreen() {
               </Alert>
             )}
             <div className="flex gap-3">
-              <Button onClick={() => void startProcessing()}>
+              <Button
+                size="lg"
+                onClick={() => void startProcessing()}
+                style={{ boxShadow: '0 0 24px oklch(0.72 0.14 245 / 0.25)' }}
+              >
                 Process {summary.clipCount} clips
               </Button>
-              <Button variant="outline" onClick={resetScan}>
+              <Button variant="outline" size="lg" onClick={resetScan}>
                 Cancel
               </Button>
             </div>
