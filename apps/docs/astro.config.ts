@@ -8,7 +8,13 @@ export default defineConfig({
     starlight({
       title: 'Luna Web',
       description: 'Camera reports in your browser. Nothing leaves your device.',
-      social: [],
+      social: [
+        { 
+          icon: 'github',
+          label: 'GitHub',
+          href: 'https://github.com/shakedex/LunaApp'
+        },
+      ],
     }),
   ],
 })
