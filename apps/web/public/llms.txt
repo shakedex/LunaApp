@@ -1,0 +1,19 @@
+# Luna
+
+> Luna builds a camera report from a folder of footage — reels, per-clip metadata, thumbnails, and totals — and exports it as PDF or CSV. It runs entirely in your browser; nothing uploads.
+
+Luna is a free, open-source (Apache 2.0) web app for DITs and camera crews. It reads footage directly from disk with the File System Access API, extracts metadata and generates thumbnails locally, groups clips into reels, and exports a report. No footage, metadata, or reports ever leave the device, and there is no analytics or telemetry. Luna runs in Chromium browsers (Chrome, Edge, Brave, Arc), which provide the File System Access API and WebCodecs it depends on.
+
+## Docs
+
+- [Overview](https://luna.ozer2.one/docs/): What Luna does, the step-by-step workflow, and what a report contains.
+- [Privacy](https://luna.ozer2.one/docs/privacy/): Local in-browser processing; no upload, analytics, or telemetry; offline after first load.
+- [Supported formats](https://luna.ozer2.one/docs/supported-formats/): Which video and RAW formats Luna reads, and the thumbnail and metadata you get for each.
+- [Limitations](https://luna.ozer2.one/docs/limitations/): Chromium-only support, slower software decoding for older containers, and RAW thumbnail caveats.
+- [FAQ](https://luna.ozer2.one/docs/faq/): Short answers on browser support, uploads, RAW placeholders, offline use, and licensing.
+- [Changelog](https://luna.ozer2.one/docs/changelog/): Notable changes, newest first (ZeroVer: 0.MINOR.PATCH, never a 1.0).
+
+## Optional
+
+- [Open Luna](https://luna.ozer2.one/): The app itself.
+- [Source on GitHub](https://github.com/shakedex/LunaApp): Apache 2.0 source and issue tracker.
