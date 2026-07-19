@@ -36,6 +36,9 @@ export interface PdfReport {
     logoDataUrl: string | null
   }
   stats: ReportStats
+  /** The scanned root folder's name — '' when unknown. Browsers cannot see the
+   *  absolute disk path; this is the deepest prefix we can honestly print (§2). */
+  sourceRoot: string
   reels: PdfReel[]
 }
 
@@ -89,7 +92,10 @@ async function logoToPngDataUrl(logo: Blob): Promise<string> {
   }
 }
 
-export async function prepareReportForPdf(report: ReportModel<Blob>): Promise<PdfReport> {
+export async function prepareReportForPdf(
+  report: ReportModel<Blob>,
+  sourceRoot: string,
+): Promise<PdfReport> {
   const reels: PdfReel[] = []
   for (const reel of report.reels) {
     const clips: PdfClip[] = []
@@ -140,6 +146,7 @@ export async function prepareReportForPdf(report: ReportModel<Blob>): Promise<Pd
       logoDataUrl,
     },
     stats: report.stats,
+    sourceRoot,
     reels,
   }
 }
