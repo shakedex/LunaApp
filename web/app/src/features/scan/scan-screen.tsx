@@ -28,7 +28,7 @@ export function ScanScreen() {
   const thumbTotal = useStore(scanStore, (s) => Object.keys(s.thumbStatus).length)
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex animate-in fade-in slide-in-from-bottom-2 flex-col gap-6 duration-300">
       {phase === 'idle' && (
         <div className="flex flex-col items-center gap-6 py-16 text-center">
           <Logo className="h-16 w-auto" />
