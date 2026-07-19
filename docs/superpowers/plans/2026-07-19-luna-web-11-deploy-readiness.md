@@ -362,6 +362,13 @@ cd apps/docs && bun run build && bunx wrangler dev
 # then check /docs/ and /docs/<missing> (styled 404)
 ```
 
+## Versioning (ZeroVer)
+
+Luna Web follows **ZeroVer (0ver)**: the major version stays 0 permanently; releases
+are `0.MINOR.PATCH` (MINOR for features, PATCH for fixes). A release is a bump of
+`apps/web/package.json` `version` — it surfaces in the app header
+(`__APP_VERSION__`) and the PDF footer stamp. There will never be a 1.0.
+
 ## First-deploy checklist
 
 1. Connect both Workers per the table above; push (or "Retry build") on `master`.
@@ -375,7 +382,7 @@ cd apps/docs && bun run build && bunx wrangler dev
 
 - [ ] **Step 3: Amend spec §18**
 
-In `docs/superpowers/specs/2026-07-17-luna-web-design.md` §18, make exactly three edits (verify the current text matches before editing; if it drifted, STOP and report):
+In `docs/superpowers/specs/2026-07-17-luna-web-design.md` §18, make exactly four edits (verify the current text matches before editing; if it drifted, STOP and report):
 
 Edit 1 — the App bullet:
 
@@ -419,6 +426,17 @@ NEW:
   `DEPLOY.md` for the exact dashboard settings.
 ```
 
+Edit 4 — append a new bullet at the end of the §18 bullet list (after the Deploys
+bullet inserted by Edit 3):
+
+```
+NEW (appended bullet):
+- **Versioning**: **ZeroVer (0ver)** — the major version stays 0 permanently;
+  releases are `0.MINOR.PATCH` (MINOR for features, PATCH for fixes). A release is a
+  bump of `apps/web/package.json` `version`, surfaced in the app header
+  (`__APP_VERSION__`) and the PDF footer stamp. There will never be a 1.0.
+```
+
 - [ ] **Step 4: Gates from repo root**
 
 Run: `cd /e/Coding/LunaApp && bun run lint && bun run typecheck && bun test && bun run build`
@@ -452,6 +470,6 @@ git commit -m "docs: DEPLOY.md dashboard runbook + spec §18 Workers Builds amen
 
 ## Self-review notes
 
-- Spec coverage: §2.2 app config + §2.3 plugin (T1), §2.1/§2.4 docs nesting + config (T2), §3 deps (T1/T2, bun-resolved), §4 DEPLOY.md + §7 spec amendment (T3), §5 edge cases encoded as T1 Step 7 / T2 Step 6 verifications, §6 local verification embedded per task. Both spec VERIFY items have explicit steps + fallbacks (T1 S6, T2 S6).
+- Spec coverage: §2.2 app config + §2.3 plugin (T1), §2.1/§2.4 docs nesting + config (T2), §3 deps (T1/T2, bun-resolved), §4 DEPLOY.md + §7 spec amendment (T3), §5 edge cases encoded as T1 Step 7 / T2 Step 6 verifications, §6 local verification embedded per task. Both spec VERIFY items have explicit steps + fallbacks (T1 S6, T2 S6). Maintainer-dictated additions folded in post-review: ZeroVer versioning policy (T3: DEPLOY.md section + spec §18 Edit 4); single-Worker consolidation was proposed, pushed back on, and REJECTED by the maintainer — two Workers stand.
 - Type/name consistency: `luna-web` / `luna-web-docs` identical across T1/T2 configs, T3 DEPLOY.md, and QA; ports 4173/8788 used once each; `compatibility_date` 2026-07-19 in both configs.
 - Deliberate choices: `assets.directory` omitted in the app input config (plugin populates it — documented Cloudflare behavior) with an in-task fallback; `$schema` uses the hoisted root `node_modules` path (editor nicety only); docs Worker deliberately has no Vite plugin; DEPLOY.md lives at repo root (visible next to README, outside the gitignored `docs/*` carve-out — `DEPLOY.md` is not under `docs/`).
