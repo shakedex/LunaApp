@@ -20,6 +20,7 @@
       },
       "devDependencies": {
         "@astrojs/check": "^0.9.9",
+        "wrangler": "^4.112.0",
       },
     },
     "apps/web": {

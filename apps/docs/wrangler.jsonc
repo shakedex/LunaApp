@@ -1,0 +1,15 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "luna-web-docs",
+  "compatibility_date": "2026-07-19",
+  // Assets-only Worker: no `main`, no Vite plugin — Astro owns the build.
+  // directory is ./dist (NOT ./dist/docs): the tree inside it mirrors the
+  // /docs URL path, so luna.ozer2.one/docs/x resolves dist/docs/x literally.
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "404-page"
+  },
+  "routes": [{ "pattern": "luna.ozer2.one/docs*", "zone_name": "ozer2.one" }],
+  "workers_dev": false,
+  "preview_urls": true
+}
