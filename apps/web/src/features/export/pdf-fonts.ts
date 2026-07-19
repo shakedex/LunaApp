@@ -32,6 +32,9 @@ Font.register({
   ],
 })
 
-// Spec §3: no mid-word hyphenation, ever. Paths wrap at '/' via zero-width
-// spaces inserted in pdf-format.ts, not via hyphenation.
-Font.registerHyphenationCallback((word) => [word])
+// Spec §3: no mid-word hyphenation, ever. breakablePath() marks legal break
+// points with zero-width spaces after each '/'; splitting on them here makes
+// those the only break opportunities — textkit then wraps at segment
+// boundaries without appending the "-" glyph it adds to forced mid-word
+// breaks (and the ZWSP itself never reaches the page).
+Font.registerHyphenationCallback((word) => word.split('\u200B'))
