@@ -573,10 +573,14 @@ the **`/docs` path on the same host** (not a subdomain). This requires `ozer2.on
 Cloudflare-managed zone.
 
 - **Monorepo tasks** via Bun: `bun --filter '*' build`, `bun --filter app dev`, etc.
-- **App**: Vite build → static assets → Cloudflare Worker via `wrangler.toml` `assets`
-  binding. No special headers needed (no cross-origin isolation).
-- **Docs**: Astro Starlight build → static → a **separate** Cloudflare Worker, built with
-  Astro `base: '/docs'` so all asset URLs and internal links are `/docs`-prefixed.
+- **App**: Vite build (with `@cloudflare/vite-plugin`) → static assets → Cloudflare
+  Worker configured by `apps/web/wrangler.jsonc` (assets-only, SPA fallback). No
+  special headers needed (no cross-origin isolation).
+- **Docs**: Astro Starlight build → static → a **separate** Cloudflare Worker
+  (`apps/docs/wrangler.jsonc`), built with Astro `base: '/docs'` so URLs are
+  `/docs`-prefixed AND `outDir: './dist/docs'` so the emitted tree mirrors the
+  `/docs` path (static-assets Workers match URL paths literally against the asset
+  directory).
 - **Path routing (two Workers, one host)**: Cloudflare **Workers routes** split traffic by
   path on `luna.ozer2.one` — `luna.ozer2.one/docs*` → docs Worker, `luna.ozer2.one/*` →
   app Worker. Cloudflare resolves the more specific `/docs*` route first, so the app SPA
@@ -584,8 +588,15 @@ Cloudflare-managed zone.
   independent builds and deploys; only the route patterns tie them to the shared hostname.
 - **Free plan headroom**: 100k requests/day and 20k files/Worker are ample for a
   client-side app (a handful of requests per session; the heavy WASM is CDN + cached).
-- **CI/CD**: GitHub Actions builds and deploys both Workers via Wrangler on merge to the
-  branch's mainline.
+- **Deploys**: Cloudflare **Workers Builds** (dashboard Git integration) — one
+  connection per Worker with per-Worker root directories (`apps/web`, `apps/docs`);
+  routing is config-as-code in the two `wrangler.jsonc` files. Nothing in the repo or
+  CI runs `wrangler deploy`; GitHub Actions remains quality gates only. See
+  `DEPLOY.md` for the exact dashboard settings.
+- **Versioning**: **ZeroVer (0ver)** — the major version stays 0 permanently;
+  releases are `0.MINOR.PATCH` (MINOR for features, PATCH for fixes). A release is a
+  bump of `apps/web/package.json` `version`, surfaced in the app header
+  (`__APP_VERSION__`) and the PDF footer stamp. There will never be a 1.0.
 
 ---
 
