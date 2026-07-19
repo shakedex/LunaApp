@@ -581,18 +581,22 @@ Cloudflare-managed zone.
   `/docs`-prefixed AND `outDir: './dist/docs'` so the emitted tree mirrors the
   `/docs` path (static-assets Workers match URL paths literally against the asset
   directory).
-- **Path routing (two Workers, one host)**: Cloudflare **Workers routes** split traffic by
-  path on `luna.ozer2.one` — `luna.ozer2.one/docs*` → docs Worker, `luna.ozer2.one/*` →
-  app Worker. Cloudflare resolves the more specific `/docs*` route first, so the app SPA
-  never receives `/docs` requests (they are handled at the edge). The two Workers keep
-  independent builds and deploys; only the route patterns tie them to the shared hostname.
+- **Path routing (two Workers, one host)**: `luna.ozer2.one` is attached to the app
+  Worker as a dashboard **Custom Domain** (creates DNS + cert automatically); the docs
+  Worker gets a dashboard **route** `luna.ozer2.one/docs*` (Custom Domains cannot carry
+  path patterns; the route's DNS need is satisfied by the app's Custom Domain).
+  Cloudflare resolves the more specific `/docs*` route first, so the app SPA never
+  receives `/docs` requests (they are handled at the edge). The two Workers keep
+  independent builds and deploys. Routing is deliberately NOT declared in the wrangler
+  configs — config routes re-assert on every deploy and clobber manual dashboard
+  domain settings (observed in practice).
 - **Free plan headroom**: 100k requests/day and 20k files/Worker are ample for a
   client-side app (a handful of requests per session; the heavy WASM is CDN + cached).
 - **Deploys**: Cloudflare **Workers Builds** (dashboard Git integration) — one
   connection per Worker with per-Worker root directories (`apps/web`, `apps/docs`);
-  routing is config-as-code in the two `wrangler.jsonc` files. Nothing in the repo or
-  CI runs `wrangler deploy`; GitHub Actions remains quality gates only. See
-  `DEPLOY.md` for the exact dashboard settings.
+  domains/routes are attached manually in the dashboard (see Path routing above).
+  Nothing in the repo or CI runs `wrangler deploy`; GitHub Actions remains quality
+  gates only. See `DEPLOY.md` for the exact dashboard settings.
 - **Versioning**: **ZeroVer (0ver)** — the major version stays 0 permanently;
   releases are `0.MINOR.PATCH` (MINOR for features, PATCH for fixes). A release is a
   bump of `apps/web/package.json` `version`, surfaced in the app header

@@ -9,7 +9,8 @@
     "directory": "./dist",
     "not_found_handling": "404-page"
   },
-  "routes": [{ "pattern": "luna.ozer2.one/docs*", "zone_name": "ozer2.one" }],
+  // Routing is managed manually in the dashboard (see DEPLOY.md) — no
+  // config routes, so deploys never clobber manual domain settings.
   "workers_dev": false,
   "preview_urls": true
 }

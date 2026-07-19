@@ -7,9 +7,9 @@
   "assets": {
     "not_found_handling": "single-page-application"
   },
-  // Config-as-code routing (approved decision). Applied by the dashboard's
-  // deploy step; requires zone ozer2.one in the connected Cloudflare account.
-  "routes": [{ "pattern": "luna.ozer2.one/*", "zone_name": "ozer2.one" }],
+  // Routing is deliberately NOT declared here: domains/routes are managed
+  // manually in the Cloudflare dashboard, and config routes would re-assert
+  // themselves on every deploy, clobbering those manual settings.
   // Keep production off workers.dev, but keep preview URLs for non-prod branches.
   "workers_dev": false,
   "preview_urls": true
