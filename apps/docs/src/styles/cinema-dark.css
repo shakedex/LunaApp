@@ -187,3 +187,49 @@
     transform: none;
   }
 }
+
+/* Header title in white, not the cyan link accent. My --sl-color-text-accent
+   override (for body links) was bleeding into the site-title anchor. */
+.site-title {
+  color: var(--foreground);
+}
+
+/* The theme hides the whole site-title below 64rem; keep the Luna mark visible
+   in the header on mobile. */
+@media (max-width: 63.99rem) {
+  .site-title {
+    display: flex;
+  }
+}
+
+/* Fix the theme's broken mobile menu. Its <black-menu-button> toggles
+   aria-expanded but ships no CSS to reveal the nav (a v0.7.0 bug, present on
+   the theme's own demo — the only dialog is search). Show the sidebar as a
+   drawer when the button is expanded. */
+@media (max-width: 63.99rem) {
+  .page:has(black-menu-button button[aria-expanded='true']) nav.sidebar {
+    display: block;
+  }
+  .page:has(black-menu-button button[aria-expanded='true']) .sidebar-pane {
+    visibility: visible;
+    position: fixed;
+    inset: var(--sl-nav-height) 0 0 0;
+    width: auto;
+    height: auto;
+    max-width: none;
+    background: var(--sl-color-bg-nav);
+    border-top: 1px solid var(--border);
+    padding: 1.25rem 1.5rem;
+    overflow-y: auto;
+    z-index: 50;
+  }
+}
+
+/* Luna mark at the top of the Overview landing (brought back from the splash),
+   with the soft cyan glow. */
+.overview-logo {
+  height: 76px;
+  width: auto;
+  margin-block: 0.25rem 1.25rem;
+  filter: drop-shadow(0 0 18px oklch(0.72 0.14 232 / 0.35));
+}
