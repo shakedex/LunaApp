@@ -1,3 +1,4 @@
+import { Link } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
 import { Logo } from '@/components/logo'
 import { buttonVariants } from '@/components/ui/button'
@@ -13,6 +14,9 @@ export function AppShell({ children }: { children: ReactNode }) {
             <span className="text-base font-semibold tracking-tight">Luna</span>
           </a>
           <nav className="text-muted-foreground flex items-center gap-2 text-sm">
+            <Link to="/settings" className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }))}>
+              Settings
+            </Link>
             <a href="/docs" className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }))}>
               Docs
             </a>
