@@ -30,8 +30,7 @@ export function Dropzone() {
         <Logo className="mx-auto h-14 w-auto" />
         <h1 className="text-2xl font-semibold tracking-tight">Camera reports, in your browser</h1>
         <p className="text-muted-foreground mx-auto max-w-md text-sm leading-relaxed">
-          Point Luna at a camera card or footage folder. It reads every clip and builds a per-clip
-          thumbnail and metadata report you can export as PDF or CSV — processed on this device.
+          Choose your footage folder and Luna will scan and generate a camera report with per-clip metadata, thumbnails, and totals. Export as PDF or CSV.
         </p>
       </div>
 
