@@ -1,8 +1,15 @@
-import geist400 from '@fontsource/geist/files/geist-latin-400-normal.woff2'
-import geist500 from '@fontsource/geist/files/geist-latin-500-normal.woff2'
-import geist600 from '@fontsource/geist/files/geist-latin-600-normal.woff2'
-import geistMono400 from '@fontsource/geist-mono/files/geist-mono-latin-400-normal.woff2'
-import geistMono500 from '@fontsource/geist-mono/files/geist-mono-latin-500-normal.woff2'
+// .woff, not .woff2: react-pdf's fontkit-based WOFF2 subsetter throws
+// "RangeError: Out of bounds access" while embedding these Geist faces the
+// moment the document contains a middle dot (·, used throughout as a
+// separator) or the zero-width space breakablePath() inserts after every
+// '/'. No .ttf ships in this @fontsource package version to use as the
+// originally-planned fallback; .woff is the equivalent supported format
+// (@react-pdf/font reads TTF/WOFF/WOFF2 alike) and does not hit the bug.
+import geist400 from '@fontsource/geist/files/geist-latin-400-normal.woff'
+import geist500 from '@fontsource/geist/files/geist-latin-500-normal.woff'
+import geist600 from '@fontsource/geist/files/geist-latin-600-normal.woff'
+import geistMono400 from '@fontsource/geist-mono/files/geist-mono-latin-400-normal.woff'
+import geistMono500 from '@fontsource/geist-mono/files/geist-mono-latin-500-normal.woff'
 import { Font } from '@react-pdf/renderer'
 
 export const GEIST = 'Geist'
