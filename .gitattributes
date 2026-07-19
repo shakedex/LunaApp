@@ -1,0 +1,4 @@
+# Keep the working tree LF everywhere: Biome formats to LF, and autocrlf
+# checkouts (Windows) otherwise turn every moved/re-checked-out file CRLF,
+# breaking `bun run lint` locally while blobs and CI stay LF.
+* text=auto eol=lf
