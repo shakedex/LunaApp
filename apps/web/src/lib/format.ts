@@ -1,11 +1,11 @@
 const UNITS = ['B', 'KB', 'MB', 'GB', 'TB'] as const
 
 export function formatBytes(n: number): string {
-  if (n < 1024) return `${n} B`
+  if (n < 1000) return `${n} B`
   let value = n
   let unit = 0
-  while (value >= 1024 && unit < UNITS.length - 1) {
-    value /= 1024
+  while (value >= 1000 && unit < UNITS.length - 1) {
+    value /= 1000
     unit += 1
   }
   return `${value.toFixed(1)} ${UNITS[unit]}`
@@ -21,7 +21,10 @@ export function formatDuration(seconds: number): string {
   return h > 0 ? `${h}:${mm}:${ss}` : `${m}:${ss}`
 }
 
-/** Today as YYYY-MM-DD (UTC) — the cover-date default and export-filename stamp. */
+/** Today as YYYY-MM-DD in local time — the cover-date default and export-filename stamp. */
 export function todayIso(): string {
-  return new Date().toISOString().slice(0, 10)
+  const now = new Date()
+  const mm = String(now.getMonth() + 1).padStart(2, '0')
+  const dd = String(now.getDate()).padStart(2, '0')
+  return `${now.getFullYear()}-${mm}-${dd}`
 }
