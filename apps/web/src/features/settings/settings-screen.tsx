@@ -216,8 +216,7 @@ export function SettingsScreen() {
                 <AlertDialogAction
                   variant="destructive"
                   disabled={clearing}
-                  onClick={(e) => {
-                    e.preventDefault() // keep the dialog open while clearing runs; page reloads on completion
+                  onClick={() => {
                     setClearing(true)
                     void clearLocalData()
                   }}
