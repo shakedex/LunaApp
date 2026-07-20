@@ -7,11 +7,15 @@ export function LogoDropWell({
   id,
   value,
   onChange,
+  // Compact lays the well out horizontally at form-field height, for use inside
+  // input grids (Settings). The default tall well suits dedicated columns.
+  compact = false,
   className,
 }: {
   id: string
   value: Blob | undefined
   onChange: (file: Blob | undefined) => void
+  compact?: boolean
   className?: string
 }) {
   const previewUrl = useObjectUrl(value)
@@ -38,7 +42,8 @@ export function LogoDropWell({
           accept(e.dataTransfer.files?.[0])
         }}
         className={cn(
-          'focus-visible:border-ring focus-visible:ring-ring/50 flex aspect-[4/3] w-full cursor-pointer flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed p-3 text-center outline-none transition focus-visible:ring-3',
+          'focus-visible:border-ring focus-visible:ring-ring/50 w-full cursor-pointer items-center justify-center rounded-lg border border-dashed text-center outline-none transition focus-visible:ring-3',
+          compact ? 'flex h-24 flex-row gap-3 px-4' : 'flex aspect-[4/3] flex-col gap-1.5 p-3',
           dragging
             ? 'border-primary bg-primary/5'
             : 'border-border hover:border-input hover:bg-muted/30',
@@ -46,11 +51,18 @@ export function LogoDropWell({
         )}
       >
         {previewUrl ? (
-          <img
-            src={previewUrl}
-            alt="Report logo"
-            className="max-h-full max-w-full object-contain"
-          />
+          compact ? (
+            <>
+              <img src={previewUrl} alt="Report logo" className="h-16 max-w-32 object-contain" />
+              <span className="text-muted-foreground text-xs">Drop or click to replace</span>
+            </>
+          ) : (
+            <img
+              src={previewUrl}
+              alt="Report logo"
+              className="max-h-full max-w-full object-contain"
+            />
+          )
         ) : (
           <>
             <ImageUp className="text-muted-foreground size-5" />

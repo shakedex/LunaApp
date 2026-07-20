@@ -1,9 +1,11 @@
 import type { ClipRef } from '@luna-web/core'
 import { useSelector } from '@tanstack/react-store'
-import { Check } from 'lucide-react'
+import { Check, ImageOff, TriangleAlert } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
+import { Spinner } from '@/components/ui/spinner'
 import { useObjectUrl } from '@/lib/use-object-url'
+import { cn } from '@/lib/utils'
 import { ClipTile } from './clip-tile'
 import { resetScan } from './run-scan'
 import { scanStore } from './store'
@@ -52,16 +54,26 @@ export function ProcessingView() {
         <Progress value={pct} />
       </div>
 
+      {/* The metadata phase never produces images, so everything renders as
+          compact chips. Only the thumbnail phase shows image-shaped elements. */}
       {active.length > 0 && (
         <div>
           <h2 className="text-muted-foreground mb-2 text-xs font-medium tracking-wide uppercase">
             In progress
           </h2>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-            {active.map((clip) => (
-              <ClipTile key={clip.id} clip={clip} />
-            ))}
-          </div>
+          {inThumb ? (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+              {active.map((clip) => (
+                <ClipTile key={clip.id} clip={clip} />
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center gap-1.5">
+              {active.map((clip) => (
+                <ClipChip key={clip.id} clip={clip} icon="active" />
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -93,7 +105,9 @@ export function ProcessingView() {
           <div className="flex flex-wrap items-center gap-1.5">
             {inThumb
               ? doneClips.slice(-12).map((clip) => <DoneThumb key={clip.id} clip={clip} />)
-              : doneClips.slice(-12).map((clip) => <ClipChip key={clip.id} clip={clip} done />)}
+              : doneClips
+                  .slice(-12)
+                  .map((clip) => <ClipChip key={clip.id} clip={clip} icon="done" />)}
             {doneClips.length > 12 && (
               <span className="text-muted-foreground self-center font-mono text-xs tabular-nums">
                 +{doneClips.length - 12} more
@@ -109,42 +123,63 @@ export function ProcessingView() {
             Failed
             <span className="ml-1.5 font-mono tabular-nums">{failed.length}</span>
           </h2>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-            {failed.map((clip) => (
-              <ClipTile key={clip.id} clip={clip} />
-            ))}
-          </div>
+          {inThumb ? (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+              {failed.map((clip) => (
+                <ClipTile key={clip.id} clip={clip} />
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center gap-1.5">
+              {failed.map((clip) => (
+                <ClipChip key={clip.id} clip={clip} icon="failed" />
+              ))}
+            </div>
+          )}
         </div>
       )}
     </section>
   )
 }
 
-// Compact filename chip for queued/completed clips when there is no thumbnail to show.
-function ClipChip({ clip, done = false }: { clip: ClipRef; done?: boolean }) {
+// Compact filename chip — the metadata phase's only clip representation, and the
+// queued list's in both phases. Never used inside the thumbnail strip.
+function ClipChip({ clip, icon }: { clip: ClipRef; icon?: 'active' | 'done' | 'failed' }) {
   return (
     <span
-      className="bg-card text-muted-foreground inline-flex max-w-48 items-center gap-1 rounded border px-2 py-0.5 font-mono text-2xs"
+      className={cn(
+        'bg-card text-muted-foreground inline-flex max-w-48 items-center gap-1 rounded border px-2 py-0.5 font-mono text-2xs',
+        icon === 'failed' && 'border-destructive/40 text-destructive',
+      )}
       title={clip.fileName}
     >
-      {done && <Check className="text-primary size-3 shrink-0" />}
+      {icon === 'active' && <Spinner className="size-3 shrink-0" />}
+      {icon === 'done' && <Check className="text-primary size-3 shrink-0" />}
+      {icon === 'failed' && <TriangleAlert className="size-3 shrink-0" />}
       <span className="truncate">{clip.fileName}</span>
     </span>
   )
 }
 
-// Compact strip thumb for a finished clip — fades in as the worker completes it.
+// Strip thumb for a finished clip — fades in as the worker completes it. A clip
+// with no usable frame keeps the thumb shape with an icon, so the strip stays
+// visually uniform (no text among images).
 function DoneThumb({ clip }: { clip: ClipRef }) {
   const frames = useSelector(scanStore, (s) => s.thumbsById[clip.id])
   const first = frames?.find((f) => f.outcome === 'Success' && f.image)?.image
   const url = useObjectUrl(first)
-  if (!url) return <ClipChip clip={clip} done />
   return (
     <div
       className="bg-card animate-in fade-in zoom-in-95 aspect-video w-16 overflow-hidden rounded border duration-200"
       title={clip.fileName}
     >
-      <img src={url} alt="" className="h-full w-full object-cover" />
+      {url ? (
+        <img src={url} alt="" className="h-full w-full object-cover" />
+      ) : (
+        <div className="text-muted-foreground flex h-full w-full items-center justify-center">
+          <ImageOff className="size-3.5" />
+        </div>
+      )}
     </div>
   )
 }

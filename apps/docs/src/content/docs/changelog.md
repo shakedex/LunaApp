@@ -33,8 +33,9 @@ All notable changes to Luna Web. This format is based on
 ### Fixed
 
 - The report date no longer shows tomorrow's date when working near midnight (it used UTC; it now uses your local date).
-- Clips that finish without a preview show their filename in the processing strip and a labeled placeholder elsewhere, instead of blank gray boxes.
-- The logo preview in Settings no longer balloons to fill its column.
+- Clips without a usable preview show a labeled image placeholder instead of blank gray boxes — in the processing strip and the report's frame viewer.
+- The metadata phase no longer shows thumbnail-shaped boxes; clips appear as compact name chips with their status while metadata is read.
+- The logo field in Settings is a compact drop well that sits at form height instead of a large panel.
 
 ## [0.13.0] - 2026-07-20
 
