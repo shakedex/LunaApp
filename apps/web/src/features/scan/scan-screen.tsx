@@ -94,7 +94,7 @@ export function ScanScreen() {
               <FolderCheck className="size-5" />
             </span>
             <div className="min-w-0 flex-1">
-              <div className="truncate font-medium">{sourceName}</div>
+              <h1 className="truncate font-medium">{sourceName}</h1>
               <div className="text-muted-foreground truncate font-mono text-xs">
                 {formatSummaryLine(summary.byExtension)}
               </div>

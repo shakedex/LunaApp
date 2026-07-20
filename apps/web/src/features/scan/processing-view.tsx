@@ -22,9 +22,9 @@ export function ProcessingView() {
       <div className="space-y-3">
         <div className="flex items-end justify-between gap-4">
           <div>
-            <h2 className="text-lg font-semibold" aria-live="polite">
+            <h1 className="text-lg font-semibold" aria-live="polite">
               {inThumb ? 'Generating thumbnails' : 'Reading metadata'}
-            </h2>
+            </h1>
             <p className="text-muted-foreground font-mono text-sm tabular-nums">
               {done} / {total} clips
             </p>
