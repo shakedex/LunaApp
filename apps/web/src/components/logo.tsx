@@ -1,7 +1,7 @@
 export function Logo({ className }: { className?: string }) {
   return (
     <img
-      src="/luna-logo.webp"
+      src="/luna-logo-lg.webp"
       alt="Luna"
       width={317}
       height={333}

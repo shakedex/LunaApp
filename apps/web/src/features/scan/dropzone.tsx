@@ -27,7 +27,7 @@ export function Dropzone() {
   return (
     <div className="flex flex-col items-center gap-8 py-10 text-center">
       <div className="space-y-3">
-        <Logo className="mx-auto h-14 w-auto" />
+        <Logo className="mx-auto h-20 w-auto" />
         <h1 className="text-2xl font-semibold tracking-tight">Camera reports, in your browser</h1>
         <p className="text-muted-foreground mx-auto max-w-md text-sm leading-relaxed">
           Choose your footage folder and Luna will scan and generate a camera report with per-clip
