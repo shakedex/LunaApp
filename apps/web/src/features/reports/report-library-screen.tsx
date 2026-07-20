@@ -1,4 +1,3 @@
-import { AlertDialog as AlertDialogPrimitive } from '@base-ui/react/alert-dialog'
 import type { ReportSummary } from '@luna-web/core'
 import { Link } from '@tanstack/react-router'
 import { Trash2 } from 'lucide-react'
@@ -6,6 +5,7 @@ import { useEffect, useState } from 'react'
 import {
   AlertDialog,
   AlertDialogCancel,
+  AlertDialogClose,
   AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
@@ -113,9 +113,8 @@ export function ReportLibraryScreen() {
                       </AlertDialogHeader>
                       <AlertDialogFooter>
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogPrimitive.Close
-                          data-slot="alert-dialog-action"
-                          render={<Button variant="destructive" />}
+                        <AlertDialogClose
+                          variant="destructive"
                           onClick={() => {
                             void deleteReport(s.id).then(() =>
                               listReportSummaries().then(setSummaries),
@@ -123,7 +122,7 @@ export function ReportLibraryScreen() {
                           }}
                         >
                           Delete
-                        </AlertDialogPrimitive.Close>
+                        </AlertDialogClose>
                       </AlertDialogFooter>
                     </AlertDialogContent>
                   </AlertDialog>

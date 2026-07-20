@@ -65,9 +65,9 @@ export function ReportView({
             {model.cover.projectTitle || 'Camera report'}
           </h1>
           <p className="text-muted-foreground mt-1.5 font-mono text-sm tabular-nums">
-            {model.cover.date} · {model.stats.cardCount}{' '}
-            {model.stats.cardCount === 1 ? 'card' : 'cards'} · {model.stats.clipCount}{' '}
-            {model.stats.clipCount === 1 ? 'clip' : 'clips'} ·{' '}
+            {model.cover.date && `${model.cover.date} · `}
+            {model.stats.cardCount} {model.stats.cardCount === 1 ? 'card' : 'cards'} ·{' '}
+            {model.stats.clipCount} {model.stats.clipCount === 1 ? 'clip' : 'clips'} ·{' '}
             {formatDuration(model.stats.totalDurationSeconds)} ·{' '}
             {formatBytes(model.stats.totalSizeBytes)}
           </p>

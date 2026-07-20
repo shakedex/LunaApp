@@ -55,6 +55,7 @@ export function SettingsScreen() {
   const generateThumbnails = useSelector(settingsStore, (s) => s.generateThumbnails)
   const coverDefaults = useSelector(settingsStore, (s) => s.coverDefaults)
   const [clearing, setClearing] = useState(false)
+  const [clearError, setClearError] = useState<string | null>(null)
   const [resetNonce, setResetNonce] = useState(0)
   const cores = navigator.hardwareConcurrency || 2
 
@@ -198,6 +199,7 @@ export function SettingsScreen() {
                   Deletes settings, report defaults, recent folders, the activity log, saved
                   reports, and the cached decode engine on this device, then reloads Luna.
                 </AlertDialogDescription>
+                {clearError && <p className="text-destructive text-sm">{clearError}</p>}
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel disabled={clearing}>Cancel</AlertDialogCancel>
@@ -206,7 +208,13 @@ export function SettingsScreen() {
                   disabled={clearing}
                   onClick={() => {
                     setClearing(true)
-                    void clearLocalData()
+                    setClearError(null)
+                    void clearLocalData().catch((error: unknown) => {
+                      setClearing(false)
+                      setClearError(
+                        error instanceof Error ? error.message : 'Failed to clear local data.',
+                      )
+                    })
                   }}
                 >
                   {clearing ? 'Deleting…' : 'Delete everything'}
