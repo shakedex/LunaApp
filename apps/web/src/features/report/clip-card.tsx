@@ -25,6 +25,7 @@ import {
 import { useEffect, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { formatBytes, formatDuration } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
@@ -70,39 +71,65 @@ function cameraRows(clip: ReportClip<Blob>): Row[] {
   return CAMERA_FIELDS.map((f) => ({ icon: CAMERA_ICONS[f.key], label: f.label, value: m[f.key] }))
 }
 
-function MetaColumn({
-  title,
-  rows,
-  emptyNote,
-}: {
-  title: string
-  rows: Row[]
-  emptyNote?: string
-}) {
-  const present = rows.filter((r) => r.value)
+function MetaRow({ icon: Icon, label, value }: { icon: LucideIcon; label: string; value: string }) {
   return (
-    <div className="min-w-0">
-      <div className="text-muted-foreground mb-2 text-2xs font-medium tracking-wider uppercase">
-        {title}
-      </div>
-      {present.length === 0 ? (
-        <p className="text-muted-foreground-dim text-xs italic">{emptyNote ?? '—'}</p>
-      ) : (
-        <dl className="space-y-1">
-          {present.map(({ icon: Icon, label, value }) => (
-            <div
-              key={label}
-              className="border-border/40 flex items-baseline justify-between gap-3 border-b pb-1 text-sm"
-            >
-              <dt className="text-muted-foreground flex items-center gap-1.5">
-                <Icon className="size-3.5 shrink-0" />
-                {label}
-              </dt>
-              <dd className="truncate text-right font-mono tabular-nums">{value}</dd>
-            </div>
-          ))}
-        </dl>
-      )}
+    <div className="border-border/40 flex items-baseline justify-between gap-3 border-b py-1 text-sm break-inside-avoid">
+      <dt className="text-muted-foreground flex items-center gap-1.5">
+        <Icon className="size-3.5 shrink-0" />
+        {label}
+      </dt>
+      <dd className="min-w-0">
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <span
+                // biome-ignore lint/a11y/noNoninteractiveTabindex: Base UI's TooltipTrigger renders a <button> by default; swapping to a <span> via `render` needs an explicit tabIndex so the tooltip still opens on keyboard focus (Base UI does not inject one for custom render elements).
+                tabIndex={0}
+                className="block max-w-56 truncate text-right font-mono tabular-nums"
+              />
+            }
+          >
+            {value}
+          </TooltipTrigger>
+          <TooltipContent className="font-mono">{value}</TooltipContent>
+        </Tooltip>
+      </dd>
+    </div>
+  )
+}
+
+function MetaList({ clip }: { clip: ReportClip<Blob> }) {
+  const groups = [
+    { title: 'Technical', rows: technicalRows(clip).filter((r) => r.value), emptyNote: undefined },
+    {
+      title: 'Camera',
+      rows: cameraRows(clip).filter((r) => r.value),
+      emptyNote: 'No camera metadata in this file',
+    },
+  ] as const
+  return (
+    <div className="gap-x-6 self-start sm:columns-2">
+      {groups.map(({ title, rows, emptyNote }) => (
+        <section key={title} className="mb-3">
+          <div className="text-muted-foreground mb-2 text-2xs font-medium tracking-wider uppercase">
+            {title}
+          </div>
+          {rows.length === 0 ? (
+            <p className="text-muted-foreground-dim text-xs italic">{emptyNote ?? '—'}</p>
+          ) : (
+            <dl>
+              {rows.map((row) => (
+                <MetaRow
+                  key={row.label}
+                  icon={row.icon}
+                  label={row.label}
+                  value={row.value as string}
+                />
+              ))}
+            </dl>
+          )}
+        </section>
+      ))}
     </div>
   )
 }
@@ -161,7 +188,7 @@ function FrameViewer({ frames }: { frames: ThumbnailFrame<Blob>[] }) {
               aria-label={`Show frame at ${formatDuration(f.timestampSeconds)}`}
               onClick={() => setActive(i)}
               className={cn(
-                'aspect-video w-20 shrink-0 overflow-hidden rounded border transition',
+                'aspect-video w-20 shrink-0 overflow-hidden rounded border outline-none transition focus-visible:ring-3 focus-visible:ring-ring/50',
                 i === active
                   ? 'border-primary ring-primary ring-1'
                   : 'border-border opacity-60 hover:opacity-100',
@@ -201,14 +228,7 @@ export function ClipCard({ clip, sourceRoot }: { clip: ReportClip<Blob>; sourceR
       </div>
       <div className="grid gap-5 lg:grid-cols-[1.1fr_1fr]">
         <FrameViewer frames={clip.thumbnails} />
-        <div className="grid grid-cols-2 gap-x-6 gap-y-4 self-start">
-          <MetaColumn title="Technical" rows={technicalRows(clip)} />
-          <MetaColumn
-            title="Camera"
-            rows={cameraRows(clip)}
-            emptyNote="No camera metadata in this file"
-          />
-        </div>
+        <MetaList clip={clip} />
       </div>
     </Card>
   )
