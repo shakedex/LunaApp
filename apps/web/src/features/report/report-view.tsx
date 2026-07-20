@@ -2,6 +2,7 @@ import type { ReportModel } from '@luna-web/core'
 import type { ReactNode } from 'react'
 import { StatTile } from '@/components/stat-tile'
 import { Card, CardContent } from '@/components/ui/card'
+import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table'
 import { formatBytes, formatDuration } from '@/lib/format'
 import { useObjectUrl } from '@/lib/use-object-url'
 import { ClipCard } from './clip-card'
@@ -103,21 +104,21 @@ export function ReportView({
             <div className="mt-4">
               <h3 className="text-muted-foreground mb-2 text-sm font-medium">Other files</h3>
               <Card className="overflow-hidden py-0">
-                <table className="w-full text-sm">
-                  <tbody className="divide-y">
+                <Table>
+                  <TableBody>
                     {reel.otherFiles.map((f) => (
-                      <tr key={f.relativePath}>
-                        <td className="px-4 py-2 font-medium whitespace-nowrap">{f.fileName}</td>
-                        <td className="text-muted-foreground w-full truncate px-4 py-2">
+                      <TableRow key={f.relativePath}>
+                        <TableCell className="px-4 font-medium">{f.fileName}</TableCell>
+                        <TableCell className="text-muted-foreground w-full truncate px-4">
                           {f.relativePath}
-                        </td>
-                        <td className="text-muted-foreground px-4 py-2 text-right font-mono whitespace-nowrap tabular-nums">
+                        </TableCell>
+                        <TableCell className="text-muted-foreground px-4 text-right font-mono tabular-nums">
                           {formatBytes(f.sizeBytes)}
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     ))}
-                  </tbody>
-                </table>
+                  </TableBody>
+                </Table>
               </Card>
             </div>
           )}
