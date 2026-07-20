@@ -2,6 +2,7 @@ import { useSelector } from '@tanstack/react-store'
 import { ArrowRight, CircleAlert, FolderCheck } from 'lucide-react'
 import { useEffect } from 'react'
 import { StatTile } from '@/components/stat-tile'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import {
@@ -98,10 +99,13 @@ export function ScanScreen() {
                 {formatSummaryLine(summary.byExtension)}
               </div>
             </div>
-            <span className="bg-primary/10 text-primary inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium">
+            <Badge
+              variant="secondary"
+              className="bg-primary/10 text-primary gap-1.5 rounded-full px-2.5"
+            >
               <span className="bg-primary size-1.5 rounded-full" />
               Ready
-            </span>
+            </Badge>
           </div>
 
           <div className="divide-border grid grid-cols-3 divide-x border-t">
