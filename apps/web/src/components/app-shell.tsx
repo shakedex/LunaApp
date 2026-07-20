@@ -5,6 +5,11 @@ import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
 export function AppShell({ children }: { children: ReactNode }) {
+  const navLink = cn(
+    buttonVariants({ variant: 'ghost', size: 'sm' }),
+    'data-[status=active]:bg-secondary data-[status=active]:text-foreground',
+  )
+
   return (
     <div className="flex min-h-dvh flex-col">
       <header className="bg-background/80 sticky top-0 z-40 border-b backdrop-blur">
@@ -14,13 +19,13 @@ export function AppShell({ children }: { children: ReactNode }) {
             <span className="text-base font-semibold tracking-tight">Luna</span>
           </a>
           <nav className="text-muted-foreground flex items-center gap-2 text-sm">
-            <Link to="/reports/" className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }))}>
+            <Link to="/reports/" className={navLink}>
               Reports
             </Link>
-            <Link to="/settings/" className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }))}>
+            <Link to="/settings/" className={navLink}>
               Settings
             </Link>
-            <Link to="/activity/" className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }))}>
+            <Link to="/activity/" className={navLink}>
               Activity
             </Link>
             <a href="/docs/" className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }))}>
