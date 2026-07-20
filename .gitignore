@@ -17,12 +17,9 @@ Thumbs.db
 .superpowers/
 .worktrees/
 
-# Local-only reference material: sample media, vendor SDKs, scratch output.
-# Plans/specs stay under version control; the rest of docs/ stays local.
-# (Files already tracked inside docs/ — file_proccessing, branding — remain
-# tracked; new files there need `git add -f`.)
-docs/*
-!docs/superpowers/
+# Local-only working docs: branding, file-processing samples, plans/specs.
+# Kept on disk but not published to the remote.
+docs/
 tools/arri/
 old/
 
