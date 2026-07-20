@@ -1,5 +1,6 @@
 import type { ClipRef } from '@luna-web/core'
 import { useSelector } from '@tanstack/react-store'
+import { Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { useObjectUrl } from '@/lib/use-object-url'
@@ -25,7 +26,7 @@ export function ProcessingView() {
   })
   const failed = clips.filter((c) => statusOf(c.id) === 'failed')
   const doneClips = clips.filter((c) => statusOf(c.id) === 'done')
-  const queuedCount = clips.length - active.length - failed.length - doneClips.length
+  const queued = clips.filter((c) => statusOf(c.id) === 'queued')
 
   const done = inThumb ? thumbDoneCount : processedCount
   const total = inThumb ? Object.keys(thumbStatus).length || clips.length : clips.length
@@ -41,7 +42,7 @@ export function ProcessingView() {
             </h1>
             <p className="text-muted-foreground font-mono text-sm tabular-nums">
               {done} / {total} clips
-              {queuedCount > 0 && ` · ${queuedCount} queued`}
+              {queued.length > 0 && ` · ${queued.length} queued`}
             </p>
           </div>
           <Button variant="outline" size="sm" onClick={resetScan}>
@@ -64,6 +65,25 @@ export function ProcessingView() {
         </div>
       )}
 
+      {queued.length > 0 && (
+        <div>
+          <h2 className="text-muted-foreground mb-2 text-xs font-medium tracking-wide uppercase">
+            Queued
+            <span className="ml-1.5 font-mono tabular-nums">{queued.length}</span>
+          </h2>
+          <div className="flex flex-wrap gap-1.5">
+            {queued.slice(0, 12).map((clip) => (
+              <ClipChip key={clip.id} clip={clip} />
+            ))}
+            {queued.length > 12 && (
+              <span className="text-muted-foreground self-center font-mono text-xs tabular-nums">
+                +{queued.length - 12} more
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
       {doneClips.length > 0 && (
         <div>
           <h2 className="text-muted-foreground mb-2 text-xs font-medium tracking-wide uppercase">
@@ -71,9 +91,9 @@ export function ProcessingView() {
             <span className="ml-1.5 font-mono tabular-nums">{doneClips.length}</span>
           </h2>
           <div className="flex flex-wrap gap-1.5">
-            {doneClips.slice(-12).map((clip) => (
-              <DoneThumb key={clip.id} clip={clip} />
-            ))}
+            {inThumb
+              ? doneClips.slice(-12).map((clip) => <DoneThumb key={clip.id} clip={clip} />)
+              : doneClips.slice(-12).map((clip) => <ClipChip key={clip.id} clip={clip} done />)}
             {doneClips.length > 12 && (
               <span className="text-muted-foreground self-center font-mono text-xs tabular-nums">
                 +{doneClips.length - 12} more
@@ -97,6 +117,19 @@ export function ProcessingView() {
         </div>
       )}
     </section>
+  )
+}
+
+// Compact filename chip for queued/completed clips when there is no thumbnail to show.
+function ClipChip({ clip, done = false }: { clip: ClipRef; done?: boolean }) {
+  return (
+    <span
+      className="bg-card text-muted-foreground inline-flex max-w-48 items-center gap-1 rounded border px-2 py-0.5 font-mono text-2xs"
+      title={clip.fileName}
+    >
+      {done && <Check className="text-primary size-3 shrink-0" />}
+      <span className="truncate">{clip.fileName}</span>
+    </span>
   )
 }
 
