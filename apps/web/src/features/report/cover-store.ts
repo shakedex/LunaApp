@@ -1,5 +1,6 @@
 import type { CoverFields } from '@luna-web/core'
 import { Store } from '@tanstack/store'
+import { todayIso } from '@/lib/format'
 
 // Deliberately separate from scanStore: a DIT types the cover once per day;
 // "Start over" (resetScan) must never clobber it. Persisted cover defaults
@@ -8,7 +9,7 @@ import { Store } from '@tanstack/store'
 // from the start — without this, model.cover.date is undefined unless the
 // field is blurred, while the UI shows today (final-review finding, Plan 05).
 export const coverStore = new Store<CoverFields<Blob>>({
-  date: new Date().toISOString().slice(0, 10),
+  date: todayIso(),
 })
 
 export function setCoverFields(patch: Partial<CoverFields<Blob>>): void {

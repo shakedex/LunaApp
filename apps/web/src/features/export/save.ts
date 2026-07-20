@@ -1,3 +1,5 @@
+import { todayIso } from '@/lib/format'
+
 export function reportFileName(
   projectTitle: string | undefined,
   date: string | undefined,
@@ -7,7 +9,7 @@ export function reportFileName(
     .toLowerCase()
     .replaceAll(/\s+/g, '-')
     .replaceAll(/[^a-z0-9-]/g, '')
-  const day = date ?? new Date().toISOString().slice(0, 10)
+  const day = date ?? todayIso()
   return `${slug || 'luna-report'}-${day}.${extension}`
 }
 

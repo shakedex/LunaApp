@@ -11,6 +11,7 @@ import { ChevronDown, Download, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { saveBlob } from '@/features/export/save'
+import { todayIso } from '@/lib/format'
 import { activityStore, clearActivity } from '@/lib/logger'
 
 const FILTERS: ReadonlyArray<{ min: LogLevel; label: string }> = [
@@ -85,7 +86,7 @@ export function ActivityScreen() {
             onClick={() =>
               void saveBlob(
                 new Blob([downloadText(allGroups)], { type: 'text/plain' }),
-                `luna-activity-${new Date().toISOString().slice(0, 10)}.txt`,
+                `luna-activity-${todayIso()}.txt`,
                 'text/plain',
               )
             }

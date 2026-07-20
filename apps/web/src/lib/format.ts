@@ -20,3 +20,8 @@ export function formatDuration(seconds: number): string {
   const ss = String(s).padStart(2, '0')
   return h > 0 ? `${h}:${mm}:${ss}` : `${m}:${ss}`
 }
+
+/** Today as YYYY-MM-DD (UTC) — the cover-date default and export-filename stamp. */
+export function todayIso(): string {
+  return new Date().toISOString().slice(0, 10)
+}

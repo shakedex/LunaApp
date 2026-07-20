@@ -6,6 +6,7 @@ import type {
   ReportStats,
   ThumbnailOutcome,
 } from '@luna-web/core'
+import { todayIso } from '@/lib/format'
 
 export interface PdfFrame {
   dataUrl: string | null
@@ -144,7 +145,7 @@ export async function prepareReportForPdf(
       dit: report.cover.dit,
       director: report.cover.director,
       dp: report.cover.dp,
-      date: report.cover.date ?? new Date().toISOString().slice(0, 10),
+      date: report.cover.date ?? todayIso(),
       logoDataUrl,
     },
     stats: report.stats,

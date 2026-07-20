@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { todayIso } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { coverStore, setCoverFields } from './cover-store'
 
@@ -29,7 +30,7 @@ export function CoverForm() {
       dit: cover.dit ?? '',
       director: cover.director ?? '',
       dp: cover.dp ?? '',
-      date: cover.date ?? new Date().toISOString().slice(0, 10),
+      date: cover.date ?? todayIso(),
     },
   })
 
