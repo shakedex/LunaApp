@@ -33,7 +33,7 @@ export function reelPath(root: string, reel: PdfReel): string {
 /** `MOV · 1443 frames (57.7s) · 7.09 GB` — size always exists (§4.5 line 1). */
 export function fileFacts(clip: PdfClip): Fact[] {
   const facts: Fact[] = []
-  const ext = fileExtensionOf(clip.relativePath).slice(1).toUpperCase()
+  const ext = fileExtensionOf(clip.fileName).slice(1).toUpperCase()
   if (ext) facts.push({ value: ext })
   const { durationSeconds, frameRate } = clip.metadata
   if (durationSeconds !== undefined && frameRate !== undefined) {
