@@ -1,3 +1,4 @@
+import { joinPath } from '@luna-web/core'
 import { Document, Image, Link, Page, StyleSheet, Text, View } from '@react-pdf/renderer'
 import { formatBytes, formatDuration } from '@/lib/format'
 import { GEIST, GEIST_MONO } from './pdf-fonts'
@@ -6,7 +7,6 @@ import {
   cameraFacts,
   type Fact,
   fileFacts,
-  joinPath,
   reelPath,
   videoFacts,
 } from './pdf-format'

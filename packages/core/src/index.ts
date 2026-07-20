@@ -18,6 +18,7 @@ export {
   isSupportedMediaExtension,
   SUPPORTED_MEDIA_EXTENSIONS,
 } from './media/extensions'
+export { joinPath } from './media/paths'
 export type { MediaInfoObjectResult, MediaInfoTrack } from './metadata/mediainfo'
 export { mapMediaInfoToClipMetadata } from './metadata/mediainfo'
 export type { ClipMetadata } from './metadata/model'

@@ -1,4 +1,4 @@
-import type { ReportClip, ThumbnailFrame } from '@luna-web/core'
+import { joinPath, type ReportClip, type ThumbnailFrame } from '@luna-web/core'
 import {
   Aperture,
   Camera,
@@ -175,7 +175,7 @@ function FrameViewer({ frames }: { frames: ThumbnailFrame<Blob>[] }) {
 }
 
 export function ClipCard({ clip, sourceRoot }: { clip: ReportClip<Blob>; sourceRoot: string }) {
-  const fullPath = sourceRoot ? `${sourceRoot}/${clip.relativePath}` : clip.relativePath
+  const fullPath = joinPath(sourceRoot, clip.relativePath)
   return (
     <Card className="p-4">
       <div className="mb-3 flex items-baseline justify-between gap-3">

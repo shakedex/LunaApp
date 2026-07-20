@@ -1,3 +1,4 @@
+import { fileExtensionOf } from '@luna-web/core'
 import { todayIso } from '@/lib/format'
 
 export function reportFileName(
@@ -22,7 +23,7 @@ type AcceptRecord = Record<`${string}/${string}`, `.${string}`[]>
 export async function saveBlob(blob: Blob, fileName: string, mime: string): Promise<void> {
   if ('showSaveFilePicker' in window) {
     try {
-      const ext = fileName.split('.').pop() ?? ''
+      const ext = fileExtensionOf(fileName).slice(1)
       const accept = { [mime]: [`.${ext}`] } as AcceptRecord
       const handle = await window.showSaveFilePicker({
         suggestedName: fileName,

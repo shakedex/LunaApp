@@ -1,4 +1,4 @@
-import type { ClipMetadata } from '@luna-web/core'
+import { type ClipMetadata, fileExtensionOf, joinPath } from '@luna-web/core'
 import { formatBytes, formatDuration } from '@/lib/format'
 import type { PdfClip, PdfReel } from './pdf-prepare'
 
@@ -7,10 +7,6 @@ export interface Fact {
   label?: string
   value: string
   mono?: boolean
-}
-
-export function joinPath(root: string, relative: string): string {
-  return root ? `${root}/${relative}` : relative
 }
 
 /** Zero-width space after each '/' so paths wrap at segment boundaries (§3). */
@@ -31,7 +27,7 @@ export function reelPath(root: string, reel: PdfReel): string {
 /** `MOV · 1443 frames (57.7s) · 7.09 GB` — size always exists (§4.5 line 1). */
 export function fileFacts(clip: PdfClip): Fact[] {
   const facts: Fact[] = []
-  const ext = clip.relativePath.slice(clip.relativePath.lastIndexOf('.') + 1).toUpperCase()
+  const ext = fileExtensionOf(clip.relativePath).slice(1).toUpperCase()
   if (ext) facts.push({ value: ext })
   const { durationSeconds, frameRate } = clip.metadata
   if (durationSeconds !== undefined && frameRate !== undefined) {
