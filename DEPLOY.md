@@ -71,7 +71,7 @@ cd apps/docs && bun run build && bunx wrangler dev
 Luna Web follows **ZeroVer (0ver)**: the major version stays 0 permanently; releases
 are `0.MINOR.PATCH` (MINOR for features, PATCH for fixes). A release is a bump of
 `apps/web/package.json` `version` — it surfaces in the app header
-(`__APP_VERSION__`) and the PDF footer stamp. There will never be a 1.0.
+(`__APP_VERSION__`), the Credits page, and the PDF footer stamp. There will never be a 1.0.
 
 See `RELEASING.md` for the release workflow (`bun run release <minor|patch>`) and the
 curated changelog that publishes to `/docs/changelog/`.

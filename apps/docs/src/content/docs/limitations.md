@@ -14,4 +14,5 @@ a placeholder plus full metadata. CRM and R3D show their embedded preview.
 
 **Metadata varies by format.** A field only appears when the file records it.
 
-**First load downloads ~31 MB** of decoding engines, cached afterward for offline use.
+**First load downloads the decoding engines** (~31 MB, mostly the FFmpeg core), cached
+afterward for offline use.

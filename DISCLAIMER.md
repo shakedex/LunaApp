@@ -22,6 +22,9 @@ Luna is an independent open-source project. It is **not affiliated with, endorse
 
 - **ARRI** — ARRI ALEXA, ARRIRAW, ART, and the ARRI logo are trademarks of Arnold & Richter Cine Technik GmbH & Co. Betriebs KG.
 - **Blackmagic Design** — Blackmagic, BRAW, Blackmagic RAW, URSA, and the Blackmagic Design logo are trademarks of Blackmagic Design Pty. Ltd.
+- **Canon** — Canon, Cinema RAW Light, and the Canon logo are trademarks of Canon Inc.
+- **Panasonic** — Panasonic, VariCam, and the Panasonic logo are trademarks of Panasonic Holdings Corporation.
+- **RED** — RED, REDCODE, R3D, and the RED logo are trademarks of RED Digital Cinema, LLC.
 - **Sony** — Sony, VENICE, CineAlta, and the Sony logo are trademarks of Sony Corporation.
 - **Apple** — Apple, macOS, ProRes, and the Apple logo are trademarks of Apple Inc.
 

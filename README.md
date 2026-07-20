@@ -27,8 +27,8 @@ of clips — everything runs locally in the browser:
 - Detects reels and groups clips per camera roll
 - Extracts per-clip metadata (camera, lens, ISO, shutter, color space, frame rate, duration, …)
 - Generates evenly-spaced thumbnails with accurate seeking
-- Produces clean, sharable camera reports with PDF and HTML export
-- Raw formats (ARRIRAW, BRAW, Sony RAW) get metadata-aware handling; generic
+- Produces clean, sharable camera reports with PDF and CSV export
+- Raw formats (ARRIRAW, BRAW, R3D, Canon RAW) get metadata-aware handling; generic
   codecs (ProRes, H.264/265, DNxHD, …) get the full decode pipeline
 
 **Browser support:** Chromium-based browsers (Chrome, Edge, Arc, Brave) — Luna

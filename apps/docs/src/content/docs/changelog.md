@@ -15,7 +15,7 @@ All notable changes to Luna Web. This format is based on
 
 - Scan a folder of footage entirely in your browser — files never leave your device.
 - Camera reports grouped into reels, with per-reel and overall totals (clips, duration, size).
-- Metadata extraction across common cinema formats, with vendor enrichment for ARRI, Sony, Canon, Panasonic, and RED.
+- Metadata extraction across common cinema formats, with vendor enrichment for ARRI, Sony, Canon, Blackmagic, and Panasonic.
 - RAW clip support (ARRIRAW, Canon RAW, R3D, Blackmagic RAW, and more) with embedded-preview thumbnails.
 - Thumbnail generation with an automatic FFmpeg fallback for clips the primary decoder can't handle.
 - Export reports to PDF and CSV.
