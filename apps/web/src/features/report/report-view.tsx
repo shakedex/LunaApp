@@ -1,12 +1,15 @@
 import type { ReportModel } from '@luna-web/core'
+import { LayoutGrid, Rows3 } from 'lucide-react'
 import { type ReactNode, useEffect, useState } from 'react'
 import { StatTile } from '@/components/stat-tile'
 import { Card, CardContent } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { formatBytes, formatDuration } from '@/lib/format'
 import { useObjectUrl } from '@/lib/use-object-url'
 import { cn } from '@/lib/utils'
 import { ClipCard } from './clip-card'
+import { ClipTable } from './clip-table'
 
 const slug = (s: string) => s.replace(/[^a-z0-9]+/gi, '-').toLowerCase()
 
@@ -31,6 +34,7 @@ export function ReportView({
   const multiReel = model.reels.length > 1
 
   const [activeReel, setActiveReel] = useState<string | null>(null)
+  const [density, setDensity] = useState<'cards' | 'table'>('cards')
 
   // A new/changed model (different reels) re-scans the DOM for sections to observe.
   // biome-ignore lint/correctness/useExhaustiveDependencies: model identity change is the re-scan trigger, not its fields
@@ -91,6 +95,23 @@ export function ReportView({
 
       {children}
 
+      <div className="mb-3 flex justify-end">
+        <ToggleGroup
+          value={[density]}
+          onValueChange={(v) => {
+            if (v.length > 0) setDensity(v[0] as 'cards' | 'table')
+          }}
+          aria-label="Clip display density"
+        >
+          <ToggleGroupItem value="cards">
+            <LayoutGrid className="size-4" /> Cards
+          </ToggleGroupItem>
+          <ToggleGroupItem value="table">
+            <Rows3 className="size-4" /> Table
+          </ToggleGroupItem>
+        </ToggleGroup>
+      </div>
+
       {multiReel && (
         <nav
           aria-label="Reels"
@@ -145,11 +166,15 @@ export function ReportView({
               {formatBytes(reel.stats.totalSizeBytes)}
             </span>
           </div>
-          <div className="grid gap-4">
-            {reel.clips.map((clip) => (
-              <ClipCard key={clip.id} clip={clip} sourceRoot={model.sourceRoot} />
-            ))}
-          </div>
+          {density === 'cards' ? (
+            <div className="grid gap-4">
+              {reel.clips.map((clip) => (
+                <ClipCard key={clip.id} clip={clip} sourceRoot={model.sourceRoot} />
+              ))}
+            </div>
+          ) : (
+            <ClipTable clips={reel.clips} />
+          )}
           {reel.otherFiles.length > 0 && (
             <div className="mt-4">
               <h3 className="text-muted-foreground mb-2 text-sm font-medium">Other files</h3>
