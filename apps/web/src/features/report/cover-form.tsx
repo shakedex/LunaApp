@@ -1,11 +1,12 @@
 import { useForm } from '@tanstack/react-form'
 import { useSelector } from '@tanstack/react-store'
 import { ImageUp } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { todayIso } from '@/lib/format'
+import { useObjectUrl } from '@/lib/use-object-url'
 import { cn } from '@/lib/utils'
 import { coverStore, setCoverFields } from './cover-store'
 
@@ -82,19 +83,9 @@ export function CoverForm() {
 
 function LogoDropWell() {
   const logo = useSelector(coverStore, (s) => s.logo)
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const previewUrl = useObjectUrl(logo)
   const [dragging, setDragging] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    if (!logo) {
-      setPreviewUrl(null)
-      return
-    }
-    const url = URL.createObjectURL(logo)
-    setPreviewUrl(url)
-    return () => URL.revokeObjectURL(url)
-  }, [logo])
 
   const accept = (file: File | undefined) => {
     if (file?.type.startsWith('image/')) setCoverFields({ logo: file })

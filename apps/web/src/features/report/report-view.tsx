@@ -1,9 +1,9 @@
 import type { ReportModel } from '@luna-web/core'
 import type { ReactNode } from 'react'
-import { useEffect, useState } from 'react'
 import { StatTile } from '@/components/stat-tile'
 import { Card, CardContent } from '@/components/ui/card'
 import { formatBytes, formatDuration } from '@/lib/format'
+import { useObjectUrl } from '@/lib/use-object-url'
 import { ClipCard } from './clip-card'
 
 const slug = (s: string) => s.replace(/[^a-z0-9]+/gi, '-').toLowerCase()
@@ -128,17 +128,7 @@ export function ReportView({
 }
 
 function CoverLogo({ logo }: { logo: Blob | undefined }) {
-  const [url, setUrl] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (!logo) {
-      setUrl(null)
-      return
-    }
-    const u = URL.createObjectURL(logo)
-    setUrl(u)
-    return () => URL.revokeObjectURL(u)
-  }, [logo])
+  const url = useObjectUrl(logo)
 
   if (!url) return null
   return <img src={url} alt="Production logo" className="h-10 w-auto object-contain" />

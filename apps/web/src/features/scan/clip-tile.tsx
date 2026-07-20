@@ -1,9 +1,10 @@
 import type { ClipRef } from '@luna-web/core'
 import { useSelector } from '@tanstack/react-store'
 import { TriangleAlert } from 'lucide-react'
-import { memo, useEffect, useState } from 'react'
+import { memo } from 'react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Spinner } from '@/components/ui/spinner'
+import { useObjectUrl } from '@/lib/use-object-url'
 import { scanStore } from './store'
 
 export const ClipTile = memo(function ClipTile({ clip }: { clip: ClipRef }) {
@@ -13,17 +14,7 @@ export const ClipTile = memo(function ClipTile({ clip }: { clip: ClipRef }) {
   const m = useSelector(scanStore, (s) => s.metadataById[clip.id])
 
   const firstImage = frames?.find((f) => f.outcome === 'Success' && f.image)?.image
-  const [url, setUrl] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (!firstImage) {
-      setUrl(null)
-      return
-    }
-    const u = URL.createObjectURL(firstImage)
-    setUrl(u)
-    return () => URL.revokeObjectURL(u)
-  }, [firstImage])
+  const url = useObjectUrl(firstImage)
 
   const failed = status === 'failed' || thumbStatus === 'failed'
 
