@@ -4,6 +4,7 @@ import { Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty'
 import { formatBytes } from '@/lib/format'
 import { deleteReport, listReportSummaries } from '@/persistence/report-library'
 
@@ -35,9 +36,12 @@ export function ReportLibraryScreen() {
       </div>
 
       {summaries === null ? null : summaries.length === 0 ? (
-        <p className="text-muted-foreground py-12 text-center text-sm">
-          No saved reports yet — finish a run and use "Save report" to keep it here.
-        </p>
+        <Empty className="py-12">
+          <EmptyHeader>
+            <EmptyTitle>No saved reports yet</EmptyTitle>
+            <EmptyDescription>Finish a run and use "Save report" to keep it here.</EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       ) : (
         <ul className="flex flex-col gap-2">
           {summaries.map((s) => (

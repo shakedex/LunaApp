@@ -10,6 +10,7 @@ import { useSelector } from '@tanstack/react-store'
 import { ChevronDown, Download, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty'
 import { saveBlob } from '@/features/export/save'
 import { todayIso } from '@/lib/format'
 import { activityStore, clearActivity } from '@/lib/logger'
@@ -106,11 +107,16 @@ export function ActivityScreen() {
       </div>
 
       {groups.length === 0 ? (
-        <p className="text-muted-foreground py-12 text-center text-sm">
-          {snapshot.entries.length === 0
-            ? 'Nothing logged yet — scan a folder and activity will show up here.'
-            : 'No entries at this level.'}
-        </p>
+        <Empty className="py-12">
+          <EmptyHeader>
+            <EmptyTitle>
+              {snapshot.entries.length === 0 ? 'Nothing logged yet' : 'No entries at this level'}
+            </EmptyTitle>
+            {snapshot.entries.length === 0 && (
+              <EmptyDescription>Scan a folder and activity will show up here.</EmptyDescription>
+            )}
+          </EmptyHeader>
+        </Empty>
       ) : (
         <div className="flex flex-col gap-3">
           {groups.map((group) => {

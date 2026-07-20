@@ -2,6 +2,13 @@ import type { ReportModel } from '@luna-web/core'
 import { Link } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { buttonVariants } from '@/components/ui/button'
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from '@/components/ui/empty'
 import { ExportButtons } from '@/features/export/export-buttons'
 import { ReportView } from '@/features/report/report-view'
 import { cn } from '@/lib/utils'
@@ -28,15 +35,19 @@ export function SavedReportScreen({ reportId }: { reportId: string }) {
 
   if (state.status === 'missing') {
     return (
-      <div className="flex flex-col items-center gap-4 py-24 text-center">
-        <h1 className="text-2xl font-semibold tracking-tight">Report not found</h1>
-        <p className="text-muted-foreground max-w-sm text-sm">
-          This saved report doesn't exist anymore — it may have been deleted.
-        </p>
-        <Link to="/reports/" className={cn(buttonVariants({ variant: 'outline' }))}>
-          Back to Reports
-        </Link>
-      </div>
+      <Empty className="py-24">
+        <EmptyHeader>
+          <EmptyTitle className="text-2xl">Report not found</EmptyTitle>
+          <EmptyDescription>
+            This saved report doesn't exist anymore — it may have been deleted.
+          </EmptyDescription>
+        </EmptyHeader>
+        <EmptyContent>
+          <Link to="/reports/" className={cn(buttonVariants({ variant: 'outline' }))}>
+            Back to Reports
+          </Link>
+        </EmptyContent>
+      </Empty>
     )
   }
 
