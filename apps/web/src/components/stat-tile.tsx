@@ -25,7 +25,7 @@ export function StatTile({
         className={cn(
           'font-mono text-2xl tabular-nums',
           accent && 'text-primary',
-          dim && 'text-muted-foreground/70',
+          dim && 'text-muted-foreground-dim',
         )}
       >
         {value}

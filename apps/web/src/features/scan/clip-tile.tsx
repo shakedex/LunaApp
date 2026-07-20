@@ -44,7 +44,7 @@ export const ClipTile = memo(function ClipTile({ clip }: { clip: ClipRef }) {
         <p className="truncate font-mono text-xs" title={clip.relativePath}>
           {clip.fileName}
         </p>
-        <p className="text-muted-foreground mt-0.5 truncate font-mono text-[0.7rem] tabular-nums">
+        <p className="text-muted-foreground mt-0.5 truncate font-mono text-2xs tabular-nums">
           {m?.width && m?.height ? `${m.width}×${m.height}` : '—'}
           {m?.codec ? ` · ${m.codec}` : ''}
         </p>

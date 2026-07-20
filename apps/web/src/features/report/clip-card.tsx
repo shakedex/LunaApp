@@ -82,11 +82,11 @@ function MetaColumn({
   const present = rows.filter((r) => r.value)
   return (
     <div className="min-w-0">
-      <div className="text-muted-foreground mb-2 text-[0.65rem] font-medium tracking-wider uppercase">
+      <div className="text-muted-foreground mb-2 text-2xs font-medium tracking-wider uppercase">
         {title}
       </div>
       {present.length === 0 ? (
-        <p className="text-muted-foreground/70 text-xs italic">{emptyNote ?? '—'}</p>
+        <p className="text-muted-foreground-dim text-xs italic">{emptyNote ?? '—'}</p>
       ) : (
         <dl className="space-y-1">
           {present.map(({ icon: Icon, label, value }) => (
@@ -147,7 +147,7 @@ function FrameViewer({ frames }: { frames: ThumbnailFrame<Blob>[] }) {
           </div>
         )}
         {activeFrame && (
-          <span className="bg-background/70 absolute right-2 bottom-2 rounded px-1.5 py-0.5 font-mono text-[0.7rem] tabular-nums backdrop-blur">
+          <span className="bg-background/70 absolute right-2 bottom-2 rounded px-1.5 py-0.5 font-mono text-2xs tabular-nums backdrop-blur">
             {formatDuration(activeFrame.timestampSeconds)}
           </span>
         )}
@@ -170,7 +170,7 @@ function FrameViewer({ frames }: { frames: ThumbnailFrame<Blob>[] }) {
               {urls[i] ? (
                 <img src={urls[i] as string} alt="" className="h-full w-full object-cover" />
               ) : (
-                <span className="bg-muted text-muted-foreground flex h-full items-center justify-center text-[0.6rem]">
+                <span className="bg-muted text-muted-foreground flex h-full items-center justify-center text-2xs">
                   n/a
                 </span>
               )}
