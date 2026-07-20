@@ -12,6 +12,8 @@ All notable changes to Luna Web. This format is based on
 ### Added
 
 - Switch a report between card view and a compact table view — one row per clip with timecode, resolution, codec, frame rate, ISO, white balance, lens, and size.
+- Recent folders on the scan screen have quick actions: scan again, open the folder's saved report (when one exists), and remove — as icon buttons with tooltips.
+- While processing, queued clips are listed by name so you can see what's still waiting, not just a count.
 - The reel list stays docked while you scroll a report, highlights the reel you're in, and jumps to a reel on click.
 - Hover or keyboard-focus a cut-off metadata value (long lens names) to see the full text.
 - The header nav highlights the page you're on.
