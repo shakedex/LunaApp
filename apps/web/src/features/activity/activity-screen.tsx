@@ -24,7 +24,7 @@ const FILTERS: ReadonlyArray<{ min: LogLevel; label: string }> = [
 const LEVEL_CLASS: Record<LogLevel, string> = {
   debug: 'text-muted-foreground',
   info: 'text-foreground',
-  warn: 'text-amber-500',
+  warn: 'text-warning',
   error: 'text-destructive',
 }
 

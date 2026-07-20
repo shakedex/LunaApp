@@ -34,7 +34,7 @@ export function RecentList() {
                 onClick={() => void (e.stale ? pickAndScan() : scanFrom(e.handle, e.key))}
               >
                 {e.stale ? (
-                  <TriangleAlert className="size-4 shrink-0 text-amber-500" />
+                  <TriangleAlert className="size-4 shrink-0 text-warning" />
                 ) : (
                   <FolderOpen className="text-muted-foreground size-4 shrink-0" />
                 )}

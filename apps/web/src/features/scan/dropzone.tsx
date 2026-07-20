@@ -68,10 +68,7 @@ export function Dropzone() {
             or click anywhere to choose one
           </span>
         </span>
-        <span
-          className="bg-primary text-primary-foreground mt-1 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium"
-          style={{ boxShadow: '0 0 24px oklch(0.72 0.14 245 / 0.25)' }}
-        >
+        <span className="bg-primary text-primary-foreground shadow-glow mt-1 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium">
           <FolderOpen className="size-4" /> Pick folder
         </span>
       </button>

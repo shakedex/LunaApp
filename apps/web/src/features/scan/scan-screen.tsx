@@ -163,11 +163,7 @@ export function ScanScreen() {
           </div>
 
           <div className="flex items-center gap-3 border-t px-5 py-4">
-            <Button
-              size="lg"
-              onClick={() => void startProcessing()}
-              style={{ boxShadow: '0 0 24px oklch(0.72 0.14 245 / 0.25)' }}
-            >
+            <Button size="lg" className="shadow-glow" onClick={() => void startProcessing()}>
               Process {summary.clipCount} {summary.clipCount === 1 ? 'clip' : 'clips'}
               <ArrowRight className="size-4" />
             </Button>
