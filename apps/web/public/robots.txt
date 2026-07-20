@@ -1,0 +1,11 @@
+# robots.txt for https://luna.ozer2.one/
+#
+# Luna is a free, open-source, entirely client-side web app — crawling and
+# indexing are welcome. This file sits at the host root, so it also governs
+# the documentation served under /docs/ on the same host.
+
+User-agent: *
+Allow: /
+
+# Root sitemap index — covers the web app's pages and the docs sitemap.
+Sitemap: https://luna.ozer2.one/sitemap.xml
