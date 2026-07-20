@@ -1,4 +1,10 @@
-import { type ClipMetadata, fileExtensionOf, joinPath } from '@luna-web/core'
+import {
+  CAMERA_FIELDS,
+  type CameraFieldKey,
+  type ClipMetadata,
+  fileExtensionOf,
+  joinPath,
+} from '@luna-web/core'
 import { formatBytes, formatDuration } from '@/lib/format'
 import type { PdfClip, PdfReel } from './pdf-prepare'
 
@@ -56,17 +62,32 @@ export function videoFacts(metadata: ClipMetadata): Fact[] {
   return facts
 }
 
+// PDF-only presentation: short labels where a bare value is ambiguous, mono
+// for numeric-ish values. Field set and order come from CAMERA_FIELDS.
+const PDF_CAMERA_PRESENTATION: Record<CameraFieldKey, { label?: string; mono?: boolean }> = {
+  camera: {},
+  iso: { label: 'ISO', mono: true },
+  whiteBalance: { label: 'WB', mono: true },
+  lens: {},
+  focalLength: { mono: true },
+  aperture: { mono: true },
+  shutter: { label: 'Shutter', mono: true },
+  gamma: {},
+}
+
 /** Camera extras, only what exists (§4.5 line 4). */
 export function cameraFacts(metadata: ClipMetadata): Fact[] {
   const facts: Fact[] = []
-  if (metadata.camera) facts.push({ value: metadata.camera })
-  if (metadata.iso) facts.push({ label: 'ISO', value: metadata.iso, mono: true })
-  if (metadata.whiteBalance) facts.push({ label: 'WB', value: metadata.whiteBalance, mono: true })
-  if (metadata.lens) facts.push({ value: metadata.lens })
-  if (metadata.focalLength) facts.push({ value: metadata.focalLength, mono: true })
-  if (metadata.aperture) facts.push({ value: metadata.aperture, mono: true })
-  if (metadata.shutter) facts.push({ label: 'Shutter', value: metadata.shutter, mono: true })
-  if (metadata.gamma) facts.push({ value: metadata.gamma })
+  for (const f of CAMERA_FIELDS) {
+    const value = metadata[f.key]
+    if (!value) continue
+    const p = PDF_CAMERA_PRESENTATION[f.key]
+    facts.push({
+      ...(p.label !== undefined && { label: p.label }),
+      value,
+      ...(p.mono && { mono: true }),
+    })
+  }
   if (metadata.colorSpace) facts.push({ value: metadata.colorSpace })
   return facts
 }

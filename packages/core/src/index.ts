@@ -19,6 +19,8 @@ export {
   SUPPORTED_MEDIA_EXTENSIONS,
 } from './media/extensions'
 export { joinPath } from './media/paths'
+export type { CameraFieldKey } from './metadata/fields'
+export { CAMERA_FIELDS } from './metadata/fields'
 export type { MediaInfoObjectResult, MediaInfoTrack } from './metadata/mediainfo'
 export { mapMediaInfoToClipMetadata } from './metadata/mediainfo'
 export type { ClipMetadata } from './metadata/model'

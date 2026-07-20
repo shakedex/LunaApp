@@ -1,4 +1,10 @@
-import { joinPath, type ReportClip, type ThumbnailFrame } from '@luna-web/core'
+import {
+  CAMERA_FIELDS,
+  type CameraFieldKey,
+  joinPath,
+  type ReportClip,
+  type ThumbnailFrame,
+} from '@luna-web/core'
 import {
   Aperture,
   Camera,
@@ -48,18 +54,20 @@ function technicalRows(clip: ReportClip<Blob>): Row[] {
   ]
 }
 
+const CAMERA_ICONS: Record<CameraFieldKey, LucideIcon> = {
+  camera: Camera,
+  iso: Film,
+  whiteBalance: Thermometer,
+  lens: Focus,
+  focalLength: Ruler,
+  aperture: Aperture,
+  shutter: Timer,
+  gamma: SlidersHorizontal,
+}
+
 function cameraRows(clip: ReportClip<Blob>): Row[] {
   const m = clip.metadata
-  return [
-    { icon: Camera, label: 'Camera', value: m.camera },
-    { icon: Film, label: 'ISO', value: m.iso },
-    { icon: Thermometer, label: 'White balance', value: m.whiteBalance },
-    { icon: Focus, label: 'Lens', value: m.lens },
-    { icon: Ruler, label: 'Focal length', value: m.focalLength },
-    { icon: Aperture, label: 'Aperture', value: m.aperture },
-    { icon: Timer, label: 'Shutter', value: m.shutter },
-    { icon: SlidersHorizontal, label: 'Gamma', value: m.gamma },
-  ]
+  return CAMERA_FIELDS.map((f) => ({ icon: CAMERA_ICONS[f.key], label: f.label, value: m[f.key] }))
 }
 
 function MetaColumn({
