@@ -1,6 +1,7 @@
 import { buildScanSummary, type DirectoryHandleLike, scanFolder } from '@luna-web/core'
 import { cancelProcessing } from '@/features/process/run-processing'
 import { settingsStore } from '@/features/settings/settings-store'
+import { errorMessage } from '@/lib/errors'
 import { beginOperation, logger } from '@/lib/logger'
 import { markSourceStale, rememberSource } from '@/persistence/recent-sources'
 import { ensureReadPermission } from './permissions'
@@ -77,11 +78,11 @@ export async function scanFrom(
       }))
       return
     }
-    logger.error('Scan failed', err instanceof Error ? err.message : String(err))
+    logger.error('Scan failed', errorMessage(err))
     scanStore.setState((s) => ({
       ...s,
       phase: 'error',
-      error: err instanceof Error ? err.message : String(err),
+      error: errorMessage(err),
     }))
     return
   }

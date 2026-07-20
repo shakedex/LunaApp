@@ -9,6 +9,7 @@ import {
   thumbnailRouteFor,
   thumbnailTimestamps,
 } from '@luna-web/core'
+import { errorMessage } from '@/lib/errors'
 import { logger } from '@/lib/logger'
 import { scanStore } from '../scan/store'
 import { createFfmpegEngine, type FfmpegEngine } from './ffmpeg-engine'
@@ -110,7 +111,7 @@ export async function startThumbnails(run: number): Promise<void> {
       onItemFailure: (clip, err) => {
         // Container/codec failure → cascade to ffmpeg (desktop NoDecoder
         // cascade, spec §10.2). Other errors fail the clip.
-        const message = err instanceof Error ? err.message : String(err)
+        const message = errorMessage(err)
         if (isDecoderFailure(message)) {
           // Guarded: superseded-run stragglers must not log under the new operation.
           if (isRunCurrent(run)) logger.debug(`Cascading ${clip.fileName} to ffmpeg`, message)
@@ -133,7 +134,7 @@ export async function startThumbnails(run: number): Promise<void> {
   await mediabunnyPass.catch((err) => {
     // runPool settles all lanes before rejecting, so no stragglers are
     // running here: statuses are final and the cascade list is complete.
-    const message = err instanceof Error ? err.message : String(err)
+    const message = errorMessage(err)
     for (const clip of mediabunnyClips) {
       if (cascadedIds.has(clip.id)) continue // legitimately re-queued for ffmpeg
       const st = scanStore.state.thumbStatus[clip.id]
@@ -170,7 +171,7 @@ export async function startThumbnails(run: number): Promise<void> {
         onItemStart: (clip) => setThumbStatus(run, clip.id, 'decoding'),
         onItemSuccess: (clip, frames) => finishClip(run, clip.id, frames),
         onItemFailure: (clip, err) => {
-          const message = err instanceof Error ? err.message : String(err)
+          const message = errorMessage(err)
           if (cascadedIds.has(clip.id) && isDecoderFailure(message)) {
             salvage.push(clip)
             salvageIds.add(clip.id)
@@ -188,7 +189,7 @@ export async function startThumbnails(run: number): Promise<void> {
       // Each ffmpeg lane instantiates a ~31 MB wasm — keep it to ONE lane.
       { concurrency: 1, isCancelled: () => !isRunCurrent(run) },
     ).catch((err) => {
-      const message = err instanceof Error ? err.message : String(err)
+      const message = errorMessage(err)
       for (const clip of ffmpegQueue) {
         if (salvageIds.has(clip.id)) continue // legitimately re-queued for preview
         const st = scanStore.state.thumbStatus[clip.id]
@@ -210,14 +211,13 @@ export async function startThumbnails(run: number): Promise<void> {
       {
         onItemStart: (clip) => setThumbStatus(run, clip.id, 'decoding'),
         onItemSuccess: (clip, frame) => finishClip(run, clip.id, [frame]),
-        onItemFailure: (clip, err) =>
-          failClip(run, clip.id, err instanceof Error ? err.message : String(err)),
+        onItemFailure: (clip, err) => failClip(run, clip.id, errorMessage(err)),
       },
       { concurrency: 2, isCancelled: () => !isRunCurrent(run) },
     ).catch((err) => {
       // Mirrors the ffmpeg pool-failure sweep — no cascade target here, so
       // straggling queued/decoding preview clips just fail terminally.
-      const message = err instanceof Error ? err.message : String(err)
+      const message = errorMessage(err)
       for (const clip of previewQueue) {
         const st = scanStore.state.thumbStatus[clip.id]
         if (st === 'queued' || st === 'decoding') failClip(run, clip.id, message)

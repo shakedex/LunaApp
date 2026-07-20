@@ -6,5 +6,6 @@
     "types": ["vite/client", "wicg-file-system-access"],
     "paths": { "@/*": ["./src/*"] }
   },
-  "include": ["src"]
+  "include": ["src"],
+  "exclude": ["**/*.test.ts", "**/*.test.tsx"]
 }

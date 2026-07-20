@@ -1,4 +1,5 @@
 import type { ReportModel } from '@luna-web/core'
+import { errorMessage } from '@/lib/errors'
 import { beginOperation, logger } from '@/lib/logger'
 import { reportFileName, saveBlob } from './save'
 
@@ -26,10 +27,7 @@ export async function runExport(exporter: Exporter, report: ReportModel<Blob>): 
     )
     logger.info(`Export finished: ${exporter.label}`)
   } catch (err) {
-    logger.error(
-      `Export failed: ${exporter.label}`,
-      err instanceof Error ? err.message : String(err),
-    )
+    logger.error(`Export failed: ${exporter.label}`, errorMessage(err))
     throw err
   }
 }

@@ -1,4 +1,5 @@
 import { type ClipRef, mapMediaInfoToClipMetadata, runPool } from '@luna-web/core'
+import { errorMessage } from '@/lib/errors'
 import { beginOperation, logger } from '@/lib/logger'
 import { type ScanState, scanStore } from '../scan/store'
 import { settingsStore } from '../settings/settings-store'
@@ -101,7 +102,7 @@ export async function startProcessing(): Promise<void> {
             processedCount: s.processedCount + 1,
           })),
         onItemFailure: (clip, err) => {
-          const message = err instanceof Error ? err.message : String(err)
+          const message = errorMessage(err)
           // Guarded: a superseded run's late failure must not log under the
           // new operation that has since begun.
           if (isRunCurrent(run)) logger.warn(`Metadata failed for ${clip.fileName}`, message)
@@ -118,7 +119,7 @@ export async function startProcessing(): Promise<void> {
   } catch (err) {
     // Stop sibling lanes doing wasted work, then surface the failure.
     cancelProcessing()
-    const message = err instanceof Error ? err.message : String(err)
+    const message = errorMessage(err)
     logger.error('Processing failed', message)
     scanStore.setState((s) =>
       s.phase === 'processing' ? { ...s, phase: 'error', error: message } : s,
@@ -140,7 +141,7 @@ export async function startProcessing(): Promise<void> {
     // Same boundary as the metadata pass: never leave the UI wedged in
     // 'thumbnailing' — surface the failure and stop sibling work.
     cancelProcessing()
-    const message = err instanceof Error ? err.message : String(err)
+    const message = errorMessage(err)
     logger.error('Processing failed', message)
     scanStore.setState((s) =>
       s.phase === 'thumbnailing' || s.phase === 'processing'
