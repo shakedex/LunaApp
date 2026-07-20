@@ -9,6 +9,7 @@ import {
   EmptyHeader,
   EmptyTitle,
 } from '@/components/ui/empty'
+import { Skeleton } from '@/components/ui/skeleton'
 import { ExportButtons } from '@/features/export/export-buttons'
 import { ReportView } from '@/features/report/report-view'
 import { cn } from '@/lib/utils'
@@ -31,7 +32,19 @@ export function SavedReportScreen({ reportId }: { reportId: string }) {
     }
   }, [reportId])
 
-  if (state.status === 'loading') return null
+  if (state.status === 'loading') {
+    return (
+      <div className="flex flex-col gap-6" aria-hidden>
+        <div className="space-y-2">
+          <Skeleton className="h-3 w-24" />
+          <Skeleton className="h-8 w-64" />
+          <Skeleton className="h-4 w-80" />
+        </div>
+        <Skeleton className="h-28 w-full rounded-xl" />
+        <Skeleton className="h-96 w-full rounded-xl" />
+      </div>
+    )
+  }
 
   if (state.status === 'missing') {
     return (

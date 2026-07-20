@@ -1,5 +1,6 @@
 import type { ReportModel } from '@luna-web/core'
 import { useEffect, useState } from 'react'
+import { Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { logger } from '@/lib/logger'
 import { saveReport } from '@/persistence/report-library'
@@ -41,7 +42,15 @@ export function SaveReportButton({ model }: { model: ReportModel<Blob> }) {
             })
         }}
       >
-        {state === 'saving' ? 'Saving…' : state === 'saved' ? 'Saved ✓' : 'Save report'}
+        {state === 'saving' ? (
+          'Saving…'
+        ) : state === 'saved' ? (
+          <>
+            <Check className="size-4" /> Saved
+          </>
+        ) : (
+          'Save report'
+        )}
       </Button>
       {error && <span className="text-destructive text-sm">{error}</span>}
     </div>

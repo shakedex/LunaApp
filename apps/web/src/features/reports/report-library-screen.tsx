@@ -16,6 +16,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty'
+import { Skeleton } from '@/components/ui/skeleton'
 import { formatBytes } from '@/lib/format'
 import { deleteReport, listReportSummaries } from '@/persistence/report-library'
 
@@ -45,7 +46,22 @@ export function ReportLibraryScreen() {
         )}
       </div>
 
-      {summaries === null ? null : summaries.length === 0 ? (
+      {summaries === null ? (
+        <div className="flex flex-col gap-2" aria-hidden>
+          {[0, 1, 2].map((i) => (
+            <div
+              key={i}
+              className="bg-card flex items-center justify-between gap-3 rounded-lg border px-4 py-3"
+            >
+              <div className="min-w-0 flex-1 space-y-2">
+                <Skeleton className="h-4 w-48" />
+                <Skeleton className="h-3 w-72" />
+              </div>
+              <Skeleton className="h-5 w-28" />
+            </div>
+          ))}
+        </div>
+      ) : summaries.length === 0 ? (
         <Empty className="py-12">
           <EmptyHeader>
             <EmptyTitle>No saved reports yet</EmptyTitle>
