@@ -47,7 +47,17 @@ const MODEL_CODE_PATTERN = /\bMPC-\d{4}\b/
 // Tight charset so binary noise can't fake a match.
 const MODEL_NAME_ATTR_PATTERN = /\bmodelName="([A-Za-z0-9-]{2,32})"/
 
-const LATIN1 = new TextDecoder('latin1')
+// latin1 is a 1:1 byte→char-code mapping, decoded by hand so core stays free
+// of platform decoder types (TextDecoder's encoding union differs per lib).
+// Chunked: String.fromCharCode takes arguments on the stack.
+const DECODE_CHUNK = 0x8000
+function latin1Decode(bytes: Uint8Array): string {
+  let out = ''
+  for (let i = 0; i < bytes.length; i += DECODE_CHUNK) {
+    out += String.fromCharCode(...bytes.subarray(i, i + DECODE_CHUNK))
+  }
+  return out
+}
 
 /**
  * Maps a scanned payload (any text containing a Sony device code — a
@@ -111,7 +121,7 @@ export async function extractSonyMxfCameraModel(blob: BlobLike): Promise<string 
       const valueEnd = Math.min(header.valueStart + header.valueLength, blob.size)
       if (valueEnd > header.valueStart) {
         const value = new Uint8Array(await blob.slice(header.valueStart, valueEnd).arrayBuffer())
-        const model = sonyCameraDisplayName(LATIN1.decode(value))
+        const model = sonyCameraDisplayName(latin1Decode(value))
         if (model) return model
       }
     }
