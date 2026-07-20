@@ -15,10 +15,10 @@ import {
 } from '@/components/ui/empty'
 import { Kbd } from '@/components/ui/kbd'
 import { Spinner } from '@/components/ui/spinner'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { startProcessing } from '@/features/process/run-processing'
 import { ReportWorkspace } from '@/features/report/report-workspace'
 import { formatBytes } from '@/lib/format'
-import { cn } from '@/lib/utils'
 import { CompositionBar } from './composition-bar'
 import { Dropzone } from './dropzone'
 import { ProcessingView } from './processing-view'
@@ -138,32 +138,28 @@ export function ScanScreen() {
                 Off skips frame decoding for a faster, metadata-only report.
               </div>
             </div>
-            <fieldset
+            <ToggleGroup
+              value={generateThumbnails ? ['on'] : ['off']}
+              onValueChange={(v) => {
+                if (v.length > 0)
+                  scanStore.setState((s) => ({ ...s, generateThumbnails: v[0] === 'on' }))
+              }}
               aria-label="Thumbnails"
-              className="bg-secondary flex shrink-0 gap-0.5 rounded-lg border p-0.5"
+              className="bg-secondary shrink-0 gap-0.5 rounded-lg border p-0.5"
             >
-              {(
-                [
-                  ['On', true],
-                  ['Off', false],
-                ] as const
-              ).map(([text, on]) => (
-                <button
-                  key={text}
-                  type="button"
-                  aria-pressed={generateThumbnails === on}
-                  onClick={() => scanStore.setState((s) => ({ ...s, generateThumbnails: on }))}
-                  className={cn(
-                    'rounded-md px-3 py-1.5 text-sm font-medium transition',
-                    generateThumbnails === on
-                      ? 'bg-primary text-primary-foreground'
-                      : 'text-muted-foreground hover:text-foreground',
-                  )}
-                >
-                  {text}
-                </button>
-              ))}
-            </fieldset>
+              <ToggleGroupItem
+                value="on"
+                className="data-pressed:bg-primary data-pressed:text-primary-foreground rounded-md px-3"
+              >
+                On
+              </ToggleGroupItem>
+              <ToggleGroupItem
+                value="off"
+                className="data-pressed:bg-primary data-pressed:text-primary-foreground rounded-md px-3"
+              >
+                Off
+              </ToggleGroupItem>
+            </ToggleGroup>
           </div>
 
           <div className="flex items-center gap-3 border-t px-5 py-4">

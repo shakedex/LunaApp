@@ -6,8 +6,20 @@ import {
 } from '@luna-web/core'
 import { useSelector } from '@tanstack/react-store'
 import { useState } from 'react'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { coverStore } from '@/features/report/cover-store'
@@ -41,7 +53,6 @@ export function SettingsScreen() {
   const workerPoolCap = useSelector(settingsStore, (s) => s.workerPoolCap)
   const generateThumbnails = useSelector(settingsStore, (s) => s.generateThumbnails)
   const coverDefaults = useSelector(settingsStore, (s) => s.coverDefaults)
-  const [confirmingClear, setConfirmingClear] = useState(false)
   const [clearing, setClearing] = useState(false)
   const [resetNonce, setResetNonce] = useState(0)
   const cores = navigator.hardwareConcurrency || 2
@@ -87,15 +98,13 @@ export function SettingsScreen() {
               {WORKER_POOL_CAP_MIN}–{WORKER_POOL_CAP_MAX}
             </span>
           </div>
-          <label className="text-muted-foreground flex w-fit cursor-pointer items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              className="accent-primary size-4"
+          <Label className="text-muted-foreground flex w-fit cursor-pointer items-center gap-2 text-sm font-normal">
+            <Checkbox
               checked={generateThumbnails}
-              onChange={(e) => void updateSettings({ generateThumbnails: e.currentTarget.checked })}
+              onCheckedChange={(checked) => void updateSettings({ generateThumbnails: checked })}
             />
             Generate thumbnails by default (override per run on the scan summary)
-          </label>
+          </Label>
         </CardContent>
       </Card>
 
@@ -190,36 +199,34 @@ export function SettingsScreen() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {confirmingClear ? (
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-destructive text-sm">
-                Delete all locally stored Luna data and reload?
-              </span>
-              <Button
-                variant="destructive"
-                size="sm"
-                disabled={clearing}
-                onClick={() => {
-                  setClearing(true)
-                  void clearLocalData()
-                }}
-              >
-                {clearing ? 'Deleting…' : 'Delete everything'}
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                disabled={clearing}
-                onClick={() => setConfirmingClear(false)}
-              >
-                Cancel
-              </Button>
-            </div>
-          ) : (
-            <Button variant="outline" size="sm" onClick={() => setConfirmingClear(true)}>
+          <AlertDialog>
+            <AlertDialogTrigger render={<Button variant="outline" size="sm" />}>
               Clear local data…
-            </Button>
-          )}
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Clear all local data?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Deletes settings, report defaults, recent folders, the activity log, saved
+                  reports, and the cached decode engine on this device, then reloads Luna.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={clearing}>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  variant="destructive"
+                  disabled={clearing}
+                  onClick={(e) => {
+                    e.preventDefault() // keep the dialog open while clearing runs; page reloads on completion
+                    setClearing(true)
+                    void clearLocalData()
+                  }}
+                >
+                  {clearing ? 'Deleting…' : 'Delete everything'}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </CardContent>
       </Card>
     </div>

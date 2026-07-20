@@ -11,6 +11,7 @@ import { ChevronDown, Download, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { saveBlob } from '@/features/export/save'
 import { todayIso } from '@/lib/format'
 import { activityStore, clearActivity } from '@/lib/logger'
@@ -70,16 +71,20 @@ export function ActivityScreen() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold tracking-tight">Activity</h1>
         <div className="flex items-center gap-2">
-          {FILTERS.map((f) => (
-            <Button
-              key={f.min}
-              variant={minLevel === f.min ? 'secondary' : 'ghost'}
-              size="sm"
-              onClick={() => setMinLevel(f.min)}
-            >
-              {f.label}
-            </Button>
-          ))}
+          <ToggleGroup
+            value={[minLevel]}
+            onValueChange={(v) => {
+              if (v.length > 0) setMinLevel(v[0] as LogLevel)
+            }}
+            aria-label="Minimum log level"
+            size="sm"
+          >
+            {FILTERS.map((f) => (
+              <ToggleGroupItem key={f.min} value={f.min}>
+                {f.label}
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
           <Button
             variant="outline"
             size="sm"

@@ -2,6 +2,17 @@ import type { ReportSummary } from '@luna-web/core'
 import { Link } from '@tanstack/react-router'
 import { Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty'
@@ -15,7 +26,6 @@ function savedAtLabel(savedAt: number): string {
 export function ReportLibraryScreen() {
   const [summaries, setSummaries] = useState<ReportSummary[] | null>(null)
   const [usage, setUsage] = useState<string | null>(null)
-  const [confirmingId, setConfirmingId] = useState<string | null>(null)
 
   useEffect(() => {
     void listReportSummaries().then(setSummaries)
@@ -64,36 +74,42 @@ export function ReportLibraryScreen() {
                       ? `Thumbnails · ${formatBytes(s.storedFrameBytes)}`
                       : 'Data only'}
                   </Badge>
-                  {confirmingId === s.id ? (
-                    <>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => {
-                          void deleteReport(s.id).then(() =>
-                            listReportSummaries().then((next) => {
-                              setSummaries(next)
-                              setConfirmingId(null)
-                            }),
-                          )
-                        }}
-                      >
-                        Delete
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={() => setConfirmingId(null)}>
-                        Cancel
-                      </Button>
-                    </>
-                  ) : (
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      aria-label={`Delete saved report ${s.title}`}
-                      onClick={() => setConfirmingId(s.id)}
+                  <AlertDialog>
+                    <AlertDialogTrigger
+                      render={
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label={`Delete saved report ${s.title}`}
+                        />
+                      }
                     >
                       <Trash2 />
-                    </Button>
-                  )}
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete "{s.title}"?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Removes this saved report
+                          {s.hasThumbnails ? ' and its stored thumbnails' : ''} from this device.
+                          This can't be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          variant="destructive"
+                          onClick={() => {
+                            void deleteReport(s.id).then(() =>
+                              listReportSummaries().then(setSummaries),
+                            )
+                          }}
+                        >
+                          Delete
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </div>
               </div>
             </li>
