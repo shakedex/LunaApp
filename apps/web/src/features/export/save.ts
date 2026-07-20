@@ -23,6 +23,9 @@ type AcceptRecord = Record<`${string}/${string}`, `.${string}`[]>
 export async function saveBlob(blob: Blob, fileName: string, mime: string): Promise<void> {
   if ('showSaveFilePicker' in window) {
     try {
+      // Every caller passes a fileName with a real extension (reportFileName
+      // appends one; the activity export hardcodes .txt). An empty ext would
+      // make `accept` `{ [mime]: ['.'] }`, which Chromium rejects.
       const ext = fileExtensionOf(fileName).slice(1)
       const accept = { [mime]: [`.${ext}`] } as AcceptRecord
       const handle = await window.showSaveFilePicker({
