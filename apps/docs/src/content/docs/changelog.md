@@ -33,6 +33,8 @@ All notable changes to Luna Web. This format is based on
 ### Fixed
 
 - The report date no longer shows tomorrow's date when working near midnight (it used UTC; it now uses your local date).
+- Clips that finish without a preview show their filename in the processing strip and a labeled placeholder elsewhere, instead of blank gray boxes.
+- The logo preview in Settings no longer balloons to fill its column.
 
 ## [0.13.0] - 2026-07-20
 
