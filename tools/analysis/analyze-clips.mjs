@@ -36,6 +36,7 @@ import {
   SUPPORTED_MEDIA_EXTENSIONS,
 } from '../../packages/core/src/media/extensions.ts'
 import { mapMediaInfoToClipMetadata } from '../../packages/core/src/metadata/mediainfo.ts'
+import { extractSonyMxfCameraModel } from '../../packages/core/src/metadata/sony-klv.ts'
 
 const HERE = dirname(fileURLToPath(import.meta.url)) // tools/analysis
 const ROOT = resolve(HERE, '..', '..')
@@ -320,6 +321,12 @@ async function main() {
         const tracks = raw?.media?.track ?? []
         record.tracks = tracks
         record.mappedClipMetadata = mapMediaInfoToClipMetadata(raw)
+        // Same follow-up the app runs (run-processing.ts): Sony MXF resolves
+        // its model via the bounded KLV scan of the file itself.
+        if (record.mappedClipMetadata.camera === 'Sony' && ext === '.mxf') {
+          const model = await extractSonyMxfCameraModel(Bun.file(filePath))
+          if (model) record.mappedClipMetadata = { ...record.mappedClipMetadata, camera: model }
+        }
         record.mediainfo = raw
         accumulateSchema(schema, label, raw)
       } catch (err) {

@@ -77,4 +77,24 @@ describe('mapMediaInfoToClipMetadata', () => {
     })
     expect(m.codec).toBe('AVC')
   })
+
+  test('Sony X-OCN essence ULs are named X-OCN (both corpus variants)', () => {
+    // FINDINGS.md 2026-07-20: MediaInfoLib has no name for X-OCN essence and
+    // surfaces the raw UL pair. 0601 = LT (two confirmed clips); 0501 seen on
+    // the VENICE 2 8K clip — same family, variant byte differs.
+    for (const ul of ['0E060D0302020100-0E06040102060601', '0E060D0302020100-0E06040102060501']) {
+      const m = mapMediaInfoToClipMetadata({
+        media: { track: [{ '@type': 'Video', Format: ul }] },
+      })
+      expect(m.codec).toBe('X-OCN')
+    }
+  })
+
+  test('non-X-OCN ULs and normal codec names pass through untouched', () => {
+    // Different label family (not the X-OCN picture-coding UL) must not match.
+    const m = mapMediaInfoToClipMetadata({
+      media: { track: [{ '@type': 'Video', Format: '0E060D0302020100-0E06040102070601' }] },
+    })
+    expect(m.codec).toBe('0E060D0302020100-0E06040102070601')
+  })
 })

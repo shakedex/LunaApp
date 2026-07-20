@@ -368,3 +368,92 @@ is unreliable — the byte pattern occurs by chance in the payload. These files
 produced several "JPEG" hits with nonsense SOF dims (e.g. 3900×56032). Always
 validate a candidate embedded JPEG by *sane* SOF dimensions before trusting it;
 `box-offsets.mjs` avoids this by only reading declared boxes, not scanning.
+
+## 2026-07-20 — X-OCN focused re-probe (BURANO + B_CAM/B005), current mapper
+
+Re-ran the two X-OCN clips through the *current* pipeline (post-enricher work)
+to answer "does X-OCN already work?" after the Foolcat audit. Output in
+`tools/analysis/out/xocn/`.
+
+**Yes — the camera block extracts end-to-end today.** Both clips map ISO, WB,
+shutter angle, aperture (T-number), focal length, lens id, timecode, dims, fps
+via the existing Sony RDD-18 path. No new enricher needed for those fields.
+
+| Clip | Camera (from sidecar `CameraAttributes`) | Essence | Mapped today |
+|---|---|---|---|
+| `BURANO/BURANO XOCN LT Clip 2.mxf` | **MPC-2610 = BURANO** (fw 1.10, 2024) | `X-OCN_G_LT_6K_17:9`, 6052×3192 24p | ISO 800, 3600 K, 180°, T1.9, 50 mm ✅ |
+| `B_CAM/B005/B005C039_201101OZ.mxf` | **MPC-3610 = VENICE (1!)** (fw 0.60, 2020) | `F55_X-OCN_LT_6K_3:2`, 6048×4032 23.976p | ISO 500, 6300 K, 180°, T7.8, 86 mm ✅ |
+
+⚠️ The B005 clip was labeled "Venice 2" but the file says **MPC-3610 = original
+VENICE** (Venice 2 uses different MPC codes — see the 8K probe below). Good demo
+of why camera identity must come from the file, not the label.
+
+Remaining X-OCN gaps as of this probe (items 1–2 revised by the same-day Venice 2
+probe below — the sidecar is NOT the only source):
+
+1. **`codec` renders as the raw essence UL** — MediaInfoLib 25.10 has no name
+   for Sony X-OCN essence. Candidate fix: UL→`"X-OCN"` lookup in the mapper.
+2. **`camera` = "Sony"** (generic) — model not in mediainfo's RDD-18 `extra`.
+3. **`gamma` = "Linear"** — fidelity-true (X-OCN essence is scene-linear); the
+   *look* gamma (`GammaForLook=s-log3-cine`, `ColorForLook=s-gamut3-cine`,
+   monitoring LUT filename, ASC CDL) is in the NRT sidecar XML when present.
+4. **No embedded preview/proxy track** (VideoCount=1 on both) → X-OCN keeps the
+   honest placeholder thumbnail. Confirmed no free frame path.
+
+## 2026-07-20 — VENICE 2 8K probe (P_CAM), NO sidecar: model IS in the MXF
+
+`P_CAM/VENICE 2 8K 1.8x Anamorphic.mxf` (11.4 GB, no XML sidecar) — the test for
+"do we need the sidecar?" **Answer: no.**
+
+- **Full camera block maps with zero sidecar** (current pipeline, mediainfo
+  RDD-18 only): ISO 800, WB 3600 K, 180°, T2.8, 85 mm, lens `7085.2501`,
+  8640×5760 24p, TC 12:29:48:19, **PixelAspectRatio 1.8** (the file
+  self-describes the 1.8x anamorphic squeeze — PAR is in the payload but not in
+  `ClipMetadata`; candidate field if we ever report anamorphic).
+- **Camera model is embedded in the MXF** — byte scan (`scan-mxf-strings.mjs`,
+  scratchpad; promote to tools/analysis if reused) found
+  `MPC-3626 0010119 Version3.00` repeating once per frame (~19 MB stride) in the
+  frame-wrapped RDD-18 ANC metadata: the **CameraAttributes item is recorded in
+  the essence container** — mediainfo parses that track but doesn't expose this
+  item. First occurrence ≈ 18.6 MB in (after frame 1 video KLV). A small
+  seek-only KLV walk (read KLV headers, jump essence by length — same
+  never-read-mdat discipline as the box reader) can reach it app-side. So
+  **MPC-3626 = VENICE 2 8K** (per this sample; MPC-2610 = BURANO,
+  MPC-3610 = VENICE 1).
+- **The monitoring LUT name is in the header partition** — `@9257`:
+  `SL3SG3CtoTealOR_709.cube`, and `EMB1:SL3SG3CtoTealOR_709.cube` rides in the
+  per-frame metadata too. Look info ≠ sidecar-only either.
+- **The essence UL encodes the X-OCN variant.** This clip:
+  `0E060D0302020100-0E0604010206`**`05`**`01` vs both LT clips'
+  `…0206`**`06`**`01` — the second-to-last byte pair differs. `0601` = LT
+  (two confirmed samples); `0501` = this clip's variant (ST or XT — clip is
+  unlabeled; ~3.0 Gbps overall at 8.6K 3:2 24p; need a labeled ST/XT sample to
+  pin the table). Mapper can emit `"X-OCN"` for the `0E06040102060X01` family
+  now, variant name once the byte table is confirmed.
+
+**Net:** X-OCN needs no sidecar and no new deps for: camera block (works today),
+`"X-OCN"` codec naming (UL map), and — with a small in-repo KLV scan — camera
+model + LUT name. Sidecar XML remains additive (CDL values, explicit variant
+string, audio layout) when present.
+
+### Implemented + FX6 addendum (same day)
+
+Both landed in core (`metadata/sony-klv.ts` KLV scan, `metadata/mediainfo.ts`
+UL→"X-OCN" map), wired app-side in `run-processing.ts` and into this repo's
+`analyze-clips.mjs`. Corpus verification: BURANO / VENICE / VENICE 2 / FX6 all
+resolve in ~25 ms per file; ARRI MXF negative controls stay clean.
+
+FX6 findings from wiring it up:
+
+- **FX6 XAVC MXF embeds XDCAM-style XML in the header metadata** (~16.7 KB in):
+  `manufacturer="Sony" modelName="ILME-FX6V" serialNo="4000254"`, plus
+  `CaptureGammaEquation value="s-log3-cine"`. Second in-file model source, no
+  sidecar — the KLV scan matches `modelName="…"` as well as the RDD-18
+  `MPC-nnnn` code. **ILME-FX6V = FX6** joins the verified code table.
+- **Pre-existing bug found and fixed:** the acquisition enricher read
+  `Encoded_Library_CompanyName ?? Encoded_Application_Name`, but the FX6 file
+  has no `Encoded_Library_CompanyName` — only
+  `Encoded_Application_CompanyName='Sony'` — so FX6 clips reported camera
+  **"Mem"** (the recorder software). Rule now: any company field saying Sony →
+  'Sony' (the KLV scan upgrades it); everything else keeps
+  `Encoded_Application_Name` (Canon C50's full model lives there).

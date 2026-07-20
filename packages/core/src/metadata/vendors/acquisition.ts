@@ -17,17 +17,18 @@ function acquisitionTrack(result: MediaInfoObjectResult) {
 // Camera model: General.Encoded_Application_Name (single field per the original
 // spec) doesn't hold a usable camera name for Sony — real corpus clips (BURANO,
 // FX6) put their *recorder software* name there ("AXS", "Mem"), not the camera.
-// Encoded_Library_CompanyName ('Sony') is the reliable generic label there.
-// Canon's C50 .mxf has no Encoded_Library_CompanyName at all, and its
-// Encoded_Application_Name *is* the full model ('EOS C50') — so try the
-// company-name field first (favors the correct generic Sony label) and only
-// fall back to Encoded_Application_Name when it's absent (Canon).
+// The truthful Sony label lives in a company field instead: X-OCN/AXS clips
+// carry Encoded_Library_CompanyName='Sony', the FX6 XAVC clip only
+// Encoded_Application_CompanyName='Sony'. Whenever either says Sony, report
+// 'Sony' (the KLV model scan upgrades it to BURANO/VENICE/FX6…). Canon's C50
+// .mxf has neither Sony marker and its Encoded_Application_Name *is* the full
+// model ('EOS C50') — so everything non-Sony keeps the application name.
 function acquisitionCamera(result: MediaInfoObjectResult): string | undefined {
   const general = generalTrack(result)
-  return (
-    vendorString(general?.Encoded_Library_CompanyName) ??
-    vendorString(general?.Encoded_Application_Name)
-  )
+  const library = vendorString(general?.Encoded_Library_CompanyName)
+  const appCompany = vendorString(general?.Encoded_Application_CompanyName)
+  if (library === 'Sony' || appCompany === 'Sony') return 'Sony'
+  return vendorString(general?.Encoded_Application_Name) ?? library ?? appCompany
 }
 
 export const acquisitionEnricher: VendorEnricher = {

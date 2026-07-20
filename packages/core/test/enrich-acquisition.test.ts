@@ -55,6 +55,19 @@ describe('Sony/Canon acquisition-track enrichment', () => {
     expect(m.width).toBe(4096) // base fields untouched
   })
 
+  test('Sony FX6 (Encoded_Application_CompanyName only): camera = Sony, not the recorder software name', () => {
+    // Corpus FX6 XAVC MXF general track: no Encoded_Library_CompanyName;
+    // Encoded_Application_CompanyName = 'Sony', Encoded_Application_Name = 'Mem'
+    // (the recorder software, not a camera).
+    const m = mapMediaInfoToClipMetadata(
+      withAcquisitionTrack({
+        Encoded_Application_CompanyName: 'Sony',
+        Encoded_Application_Name: 'Mem',
+      }),
+    )
+    expect(m.camera).toBe('Sony')
+  })
+
   test('Canon C50 (Encoded_Application_Name, no Library_CompanyName): camera = full model', () => {
     const m = mapMediaInfoToClipMetadata(
       withAcquisitionTrack({

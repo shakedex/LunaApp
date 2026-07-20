@@ -22,4 +22,7 @@ or its `.rtn` sidecar — already carries, and ProRes RAW does the same. BRAW an
 decoded to a frame in the browser without the manufacturer's SDK, so they get a placeholder.
 
 Metadata is read from the container, and enriched with vendor-specific fields for ARRI, Sony,
-Canon, Blackmagic, and Panasonic files. A field only appears when the file actually stores it.
+Canon, Blackmagic, and Panasonic files. Sony MXF clips (X-OCN and XAVC) also report the camera
+model — VENICE, VENICE 2, BURANO, FX6 — read from the file itself, so no XML sidecar is needed,
+and X-OCN clips show "X-OCN" as their codec. A field only appears when the file actually
+stores it.

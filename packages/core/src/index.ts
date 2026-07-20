@@ -25,6 +25,7 @@ export type { MediaInfoObjectResult, MediaInfoTrack } from './metadata/mediainfo
 export { mapMediaInfoToClipMetadata } from './metadata/mediainfo'
 export type { ClipMetadata } from './metadata/model'
 export { degreesDisplay, kelvinDisplay, scaledNumber, tNumberDisplay } from './metadata/normalize'
+export { extractSonyMxfCameraModel, sonyCameraDisplayName } from './metadata/sony-klv'
 export { applyVendorEnrichment, vendorEnrichers } from './metadata/vendors/registry'
 export type { VendorEnricher } from './metadata/vendors/types'
 export type { PoolHandlers, PoolHooks, PoolOptions } from './pool/run-pool'

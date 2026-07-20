@@ -1,4 +1,9 @@
-import { type ClipRef, mapMediaInfoToClipMetadata, runPool } from '@luna-web/core'
+import {
+  type ClipRef,
+  extractSonyMxfCameraModel,
+  mapMediaInfoToClipMetadata,
+  runPool,
+} from '@luna-web/core'
 import { errorMessage } from '@/lib/errors'
 import { beginOperation, logger } from '@/lib/logger'
 import { type ScanState, scanStore } from '../scan/store'
@@ -157,5 +162,14 @@ async function analyzeClip(handle: MetadataWorkerHandle, clip: ClipRef) {
   // (structured-cloneable into the worker).
   const file = (await clip.file.getFile()) as File
   const raw = await withTimeout(handle.api.analyze(file), METADATA_TIMEOUT_MS, clip.fileName)
-  return mapMediaInfoToClipMetadata(raw)
+  const metadata = mapMediaInfoToClipMetadata(raw)
+  // Sony MXF resolves to the generic "Sony" from mediainfo alone — the model
+  // string (RDD-18 CameraAttributes) is recorded per-frame in the essence
+  // container, which the bounded KLV scan reads without touching the picture
+  // essence (FINDINGS.md 2026-07-20).
+  if (metadata.camera === 'Sony' && clip.extension === '.mxf') {
+    const model = await extractSonyMxfCameraModel(file)
+    if (model) return { ...metadata, camera: model }
+  }
+  return metadata
 }
