@@ -6,6 +6,7 @@ import type {
   ReportStats,
   ThumbnailOutcome,
 } from '@luna-web/core'
+import { THUMBNAIL_ENCODE_QUALITY } from '@luna-web/core'
 import { todayIso } from '@/lib/format'
 
 export interface PdfFrame {
@@ -73,7 +74,10 @@ async function frameToJpegDataUrl(image: Blob, _mime: string | undefined): Promi
     const ctx = canvas.getContext('2d')
     if (!ctx) throw new Error('Canvas 2d context unavailable')
     ctx.drawImage(bitmap, 0, 0, width, height)
-    const jpeg = await canvas.convertToBlob({ type: 'image/jpeg', quality: 0.85 })
+    const jpeg = await canvas.convertToBlob({
+      type: 'image/jpeg',
+      quality: THUMBNAIL_ENCODE_QUALITY,
+    })
     return blobToDataUrl(jpeg)
   } finally {
     bitmap.close()

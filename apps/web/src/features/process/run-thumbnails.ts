@@ -5,6 +5,7 @@ import {
   extractMovTailPreview,
   extractRtnJpeg,
   runPool,
+  THUMBNAIL_TARGET_WIDTH,
   type ThumbnailFrame,
   thumbnailRouteFor,
   thumbnailTimestamps,
@@ -17,7 +18,6 @@ import { previewToFrame } from './preview-frame'
 import { guardedUpdate, isRunCurrent, poolSizeFor, withTimeout } from './run-processing'
 import { createThumbsWorker, type ThumbsWorkerHandle } from './thumbs-client'
 
-const THUMB_WIDTH = 1280
 const MEDIABUNNY_TIMEOUT_MS = 60_000 // spec §10.3
 const FFMPEG_TIMEOUT_MS = 180_000 // spec §10.3
 const PREVIEW_TIMEOUT_MS = 30_000
@@ -99,7 +99,7 @@ export async function startThumbnails(run: number): Promise<void> {
         const duration = scanStore.state.metadataById[clip.id]?.durationSeconds ?? 0
         const timestamps = thumbnailTimestamps(duration)
         return withTimeout(
-          lane.api.thumbnails(file, timestamps, THUMB_WIDTH),
+          lane.api.thumbnails(file, timestamps, THUMBNAIL_TARGET_WIDTH),
           MEDIABUNNY_TIMEOUT_MS,
           clip.fileName,
         )
@@ -161,7 +161,7 @@ export async function startThumbnails(run: number): Promise<void> {
           const duration = scanStore.state.metadataById[clip.id]?.durationSeconds ?? 0
           const timestamps = thumbnailTimestamps(duration)
           return withTimeout(
-            lane.thumbnails(file, timestamps, THUMB_WIDTH),
+            lane.thumbnails(file, timestamps, THUMBNAIL_TARGET_WIDTH),
             FFMPEG_TIMEOUT_MS,
             clip.fileName,
           )

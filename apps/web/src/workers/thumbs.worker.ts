@@ -1,6 +1,6 @@
 /// <reference lib="webworker" />
 import type { ThumbnailFrame } from '@luna-web/core'
-import { THUMBNAIL_POSITIONS } from '@luna-web/core'
+import { THUMBNAIL_ENCODE_QUALITY, THUMBNAIL_POSITIONS } from '@luna-web/core'
 import { registerProresDecoder } from '@mediabunny/prores'
 import * as Comlink from 'comlink'
 import { ALL_FORMATS, BlobSource, CanvasSink, Input } from 'mediabunny'
@@ -45,7 +45,10 @@ const api = {
         // mediabunny's WrappedCanvas.canvas is typed as HTMLCanvasElement | OffscreenCanvas;
         // in a worker context (no DOM) it is always an OffscreenCanvas.
         const canvas = wrapped.canvas as OffscreenCanvas
-        const blob = await canvas.convertToBlob({ type: 'image/webp', quality: 0.85 })
+        const blob = await canvas.convertToBlob({
+          type: 'image/webp',
+          quality: THUMBNAIL_ENCODE_QUALITY,
+        })
         frames.push({
           positionRatio,
           timestampSeconds,

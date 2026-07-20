@@ -1,7 +1,9 @@
-import type { EmbeddedPreview, ThumbnailFrame } from '@luna-web/core'
-
-const PREVIEW_MAX_WIDTH = 1280
-const WEBP_QUALITY = 0.85
+import {
+  type EmbeddedPreview,
+  THUMBNAIL_ENCODE_QUALITY,
+  THUMBNAIL_TARGET_WIDTH,
+  type ThumbnailFrame,
+} from '@luna-web/core'
 
 /**
  * Normalizes an embedded RAW preview (Task 2/3 extractors: Canon `.crm`'s
@@ -18,14 +20,17 @@ export async function previewToFrame(preview: EmbeddedPreview): Promise<Thumbnai
   const jpegBlob = new Blob([preview.jpeg as BlobPart], { type: 'image/jpeg' })
   const bitmap = await createImageBitmap(jpegBlob)
   try {
-    const scale = Math.min(1, PREVIEW_MAX_WIDTH / bitmap.width) // never upscale
+    const scale = Math.min(1, THUMBNAIL_TARGET_WIDTH / bitmap.width) // never upscale
     const width = Math.max(1, Math.round(bitmap.width * scale))
     const height = Math.max(1, Math.round(bitmap.height * scale))
     const canvas = new OffscreenCanvas(width, height)
     const ctx = canvas.getContext('2d')
     if (!ctx) throw new Error('Canvas 2d context unavailable')
     ctx.drawImage(bitmap, 0, 0, width, height)
-    const image = await canvas.convertToBlob({ type: 'image/webp', quality: WEBP_QUALITY })
+    const image = await canvas.convertToBlob({
+      type: 'image/webp',
+      quality: THUMBNAIL_ENCODE_QUALITY,
+    })
     return {
       positionRatio: 0.5,
       timestampSeconds: 0,

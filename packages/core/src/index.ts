@@ -76,6 +76,11 @@ export {
   WORKER_POOL_CAP_MIN,
 } from './settings/model'
 export type { ThumbnailFrame, ThumbnailOutcome } from './thumbs/model'
-export { THUMBNAIL_POSITIONS, thumbnailTimestamps } from './thumbs/model'
+export {
+  THUMBNAIL_ENCODE_QUALITY,
+  THUMBNAIL_POSITIONS,
+  THUMBNAIL_TARGET_WIDTH,
+  thumbnailTimestamps,
+} from './thumbs/model'
 export type { DecodePath, ThumbnailRoute } from './thumbs/router'
 export { decodePathFor, PRORES_RAW_CODEC_PATTERN, thumbnailRouteFor } from './thumbs/router'

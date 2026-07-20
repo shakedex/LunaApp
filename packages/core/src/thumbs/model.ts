@@ -22,3 +22,11 @@ export function thumbnailTimestamps(durationSeconds: number): number[] {
   if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) return [0]
   return THUMBNAIL_POSITIONS.map((p) => Math.min(p * durationSeconds, durationSeconds * 0.999))
 }
+
+/** Max width for every stored thumbnail frame — decoded captures and
+ *  embedded RAW previews share it so reports never mix resolutions. */
+export const THUMBNAIL_TARGET_WIDTH = 1280
+
+/** Lossy quality for every thumbnail encode (WebP capture, JPEG re-encode
+ *  for the PDF). */
+export const THUMBNAIL_ENCODE_QUALITY = 0.85
