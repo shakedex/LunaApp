@@ -61,7 +61,8 @@ export function CoverForm() {
       <CardHeader>
         <CardTitle>Report details</CardTitle>
         <p className="text-muted-foreground text-sm">
-          Fill in the missing details for your report, or leave it blank to discard from the PDF report.
+          Fill in the missing details for your report, or leave it blank to discard from the PDF
+          report.
         </p>
       </CardHeader>
       <CardContent>
