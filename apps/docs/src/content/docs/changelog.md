@@ -9,9 +9,15 @@ All notable changes to Luna Web. This format is based on
 
 ## [Unreleased]
 
+### Added
+
+- Sony MXF clips report the camera model (VENICE, VENICE 2, BURANO, FX6) read from the file itself — no XML sidecar needed.
+- Sony X-OCN clips show "X-OCN" as their codec instead of a raw format identifier.
+
 ### Fixed
 
 - Clips without a file extension no longer show a wrong file-type label in the PDF.
+- Sony FX6 clips no longer report "Mem" (the recorder software) as the camera.
 
 ## [0.12.0] - 2026-07-20
 
