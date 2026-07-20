@@ -6,6 +6,7 @@ import {
 } from '@luna-web/core'
 import { useSelector } from '@tanstack/react-store'
 import { useState } from 'react'
+import { LogoDropWell } from '@/components/logo-drop-well'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -134,34 +135,21 @@ export function SettingsScreen() {
             ))}
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="default-logo">Logo</Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  key={`logo-${resetNonce}`}
-                  id="default-logo"
-                  type="file"
-                  accept="image/*"
-                  className="max-w-56"
-                  onChange={(event) => {
-                    const file = event.currentTarget.files?.[0]
-                    if (file)
-                      void updateSettings({
-                        coverDefaults: { ...settingsStore.state.coverDefaults, logo: file },
-                      })
-                  }}
-                />
-                {coverDefaults.logo !== undefined && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      const { logo: _drop, ...rest } = settingsStore.state.coverDefaults
-                      void updateSettings({ coverDefaults: rest })
-                    }}
-                  >
-                    Remove
-                  </Button>
-                )}
-              </div>
+              <LogoDropWell
+                id="default-logo"
+                value={coverDefaults.logo}
+                className="aspect-video"
+                onChange={(file) => {
+                  if (file) {
+                    void updateSettings({
+                      coverDefaults: { ...settingsStore.state.coverDefaults, logo: file },
+                    })
+                  } else {
+                    const { logo: _drop, ...rest } = settingsStore.state.coverDefaults
+                    void updateSettings({ coverDefaults: rest })
+                  }
+                }}
+              />
             </div>
           </div>
           <div className="flex items-center gap-2">
