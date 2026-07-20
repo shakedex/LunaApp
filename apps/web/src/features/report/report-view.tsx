@@ -8,8 +8,8 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { formatBytes, formatDuration } from '@/lib/format'
 import { useObjectUrl } from '@/lib/use-object-url'
 import { cn } from '@/lib/utils'
-import { ClipCard } from './clip-card'
 import { ClipTable } from './clip-table'
+import { VirtualClipList } from './virtual-clip-list'
 
 const slug = (s: string) => s.replace(/[^a-z0-9]+/gi, '-').toLowerCase()
 
@@ -167,11 +167,7 @@ export function ReportView({
             </span>
           </div>
           {density === 'cards' ? (
-            <div className="grid gap-4">
-              {reel.clips.map((clip) => (
-                <ClipCard key={clip.id} clip={clip} sourceRoot={model.sourceRoot} />
-              ))}
-            </div>
+            <VirtualClipList clips={reel.clips} sourceRoot={model.sourceRoot} />
           ) : (
             <ClipTable clips={reel.clips} />
           )}
