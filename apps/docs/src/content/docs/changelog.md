@@ -9,6 +9,8 @@ All notable changes to Luna Web. This format is based on
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-07-20
+
 ### Added
 
 - Switch a report between card view and a compact table view — one row per clip with timecode, resolution, codec, frame rate, ISO, white balance, lens, and size.
@@ -64,6 +66,7 @@ All notable changes to Luna Web. This format is based on
 - Operation-grouped activity log for each processing run.
 - Deploys as a Cloudflare Worker (app and docs) via the dashboard git integration.
 
-[unreleased]: https://github.com/shakedex/LunaApp/compare/v0.13.0...HEAD
+[unreleased]: https://github.com/shakedex/LunaApp/compare/v0.14.0...HEAD
+[0.14.0]: https://github.com/shakedex/LunaApp/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/shakedex/LunaApp/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/shakedex/LunaApp/releases/tag/v0.12.0
