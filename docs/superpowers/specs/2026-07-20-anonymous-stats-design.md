@@ -36,7 +36,7 @@ All-time global counters. Nothing per-user, nothing per-file, no identifiers of 
 | Data processed | `bytes` counter | sum of processed clip file sizes |
 | Thumbnails generated | `thumbs` counter | thumbnail pipeline output |
 | Reports created | `reports` counter | report generation completes |
-| Avg report generation time | `report_ms_sum` + `report_count` | measured around generation; divided at display time |
+| Avg report generation time | `report_ms_sum` (avg = sum ÷ `reports`) | measured around generation; divided at display time |
 | Format breakdown | `categories(kind='format', name, value)` | codec family per clip (ProRes, BRAW, R3D, ARRIRAW, H.264/5, DNxHD, …) |
 | Camera breakdown | `categories(kind='camera', name, value)` | manufacturer per clip, from existing metadata |
 
@@ -52,7 +52,7 @@ Pure logic (fingerprints, delta accumulation/merge, category normalization) live
 ### 4.1 Fingerprints & dedup
 
 - **Clip fingerprint:** SHA-256 over the clip identity Luna already derives (name + size +
-  mtime + duration). Computed locally, stored locally, **never transmitted**.
+  duration). Computed locally, stored locally, **never transmitted**.
 - **Report fingerprint:** SHA-256 over the sorted set of its clip fingerprints.
 - **Reported set:** a new IndexedDB object store of fingerprints already counted.
 - On work completion, diff fresh fingerprints against the reported set; only never-seen
@@ -69,7 +69,7 @@ Pure logic (fingerprints, delta accumulation/merge, category normalization) live
 ### 4.2 Outbox & sending
 
 - Deltas accumulate into a **single merged outbox record** in IndexedDB
-  (`{clips, bytes, thumbs, reports, reportMsSum, reportCount, formats: {…}, cameras: {…}}`).
+  (`{clips, bytes, thumbs, reports, reportMsSum, formats: {…}, cameras: {…}}`).
 - Flush triggers: app start, `online` event, after new activity lands. Flush = obtain
   invisible Turnstile token → `POST /api/stats/ingest` with the delta JSON → clear outbox
   only on 2xx. Failure leaves the outbox intact for the next trigger.
