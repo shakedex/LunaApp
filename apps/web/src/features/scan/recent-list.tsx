@@ -27,10 +27,10 @@ export function RecentList() {
       <ul className="flex flex-col gap-1.5">
         {entries.map((e) => (
           <li key={e.key}>
-            <div className="bg-card hover:border-input flex items-center justify-between rounded-lg border px-3 py-2 transition-colors">
+            <div className="bg-card hover:border-input flex items-center justify-between rounded-lg border px-4 py-3 transition-colors">
               <button
                 type="button"
-                className="flex min-w-0 items-center gap-2 text-left text-sm"
+                className="flex min-w-0 items-center gap-2 rounded text-left text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
                 onClick={() => void (e.stale ? pickAndScan() : scanFrom(e.handle, e.key))}
               >
                 {e.stale ? (

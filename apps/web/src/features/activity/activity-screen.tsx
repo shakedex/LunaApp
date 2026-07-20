@@ -130,7 +130,7 @@ export function ActivityScreen() {
               <section key={group.operation.id} className="bg-card rounded-lg border">
                 <button
                   type="button"
-                  className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm font-medium"
+                  className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm font-medium rounded-lg outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
                   onClick={() => toggle(group.operation.id)}
                   aria-expanded={!isCollapsed}
                 >
