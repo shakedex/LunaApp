@@ -12,7 +12,8 @@ import {
 } from './pdf-format'
 import type { PdfClip, PdfReel, PdfReport } from './pdf-prepare'
 
-// Spec §3 palette — the app's Cinema Dark tokens, hex-resolved.
+// Spec §3 palette — the app's Cinema Dark tokens (apps/web/src/index.css),
+// hex-resolved because react-pdf can't read CSS vars. Edit both together.
 const C = {
   page: '#151519',
   band: '#1D1D22',

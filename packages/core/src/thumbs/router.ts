@@ -1,3 +1,6 @@
+// The four-way extension split below is restated as a table in
+// apps/docs/src/content/docs/supported-formats.md — update both together.
+
 export type ThumbnailRoute = 'mediabunny' | 'ffmpeg' | 'preview' | 'none'
 
 const MEDIABUNNY_EXTENSIONS = new Set(['.mp4', '.m4v', '.mov', '.mkv', '.webm', '.3gp'])

@@ -3,6 +3,9 @@ title: Supported formats
 description: Formats Luna reads and what you get for each.
 ---
 
+<!-- Keep the table in sync with packages/core/src/thumbs/router.ts and the
+    vendor sentence with packages/core/src/metadata/vendors/registry.ts. -->
+
 Luna lists every file in the folder in the report — name, path, and size — and adds metadata
 and a thumbnail where it can. What you get depends on the format:
 

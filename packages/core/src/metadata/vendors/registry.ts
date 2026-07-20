@@ -7,6 +7,8 @@ import { brawEnricher } from './braw'
 import { panasonicEnricher } from './panasonic'
 import type { VendorEnricher } from './types'
 
+// The vendor list here is named in prose in
+// apps/docs/src/content/docs/supported-formats.md — update both together.
 export const vendorEnrichers: readonly VendorEnricher[] = [
   arriMovEnricher,
   arriMxfEnricher,

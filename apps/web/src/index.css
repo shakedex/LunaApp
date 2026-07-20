@@ -51,7 +51,9 @@
 }
 
 /* Cinema Dark — dark-only v1. Light values are intentionally identical to
-   dark for now; a real light theme is a later additive pass. */
+   dark for now; a real light theme is a later additive pass.
+   Mirrored by hand in apps/docs/src/styles/cinema-dark.css and (hex-resolved)
+   in apps/web/src/features/export/pdf-document.tsx — edit all three together. */
 :root {
     --radius: 0.5rem;
     --background: oklch(0.13 0.005 285);
