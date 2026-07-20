@@ -25,8 +25,7 @@ than H.264, HEVC, or ProRes.
 
 ## Does it work offline?
 
-Yes, after the first visit. The decoding engines (the ~31 MB FFmpeg core and the smaller
-MediaInfo engine) download once and are then cached.
+Yes, after the first visit. The decoding engines (~31 MB) download once and are then cached.
 
 ## Is it free and open source?
 
