@@ -17,8 +17,10 @@ interface LunaDb extends DBSchema {
 
 let dbPromise: Promise<IDBPDatabase<LunaDb>> | null = null
 
+export const DB_NAME = 'luna-web'
+
 export function getDb(): Promise<IDBPDatabase<LunaDb>> {
-  dbPromise ??= openDB<LunaDb>('luna-web', 4, {
+  dbPromise ??= openDB<LunaDb>(DB_NAME, 4, {
     upgrade(db, oldVersion) {
       // Guard each store by the version that introduced it: fresh installs
       // enter with oldVersion 0 and must create everything.

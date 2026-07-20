@@ -1,6 +1,7 @@
 import { joinPath } from '@luna-web/core'
 import { Document, Image, Link, Page, StyleSheet, Text, View } from '@react-pdf/renderer'
 import { formatBytes, formatDuration } from '@/lib/format'
+import { LUNA_URL } from '@/lib/site'
 import { GEIST, GEIST_MONO } from './pdf-fonts'
 import {
   breakablePath,
@@ -21,8 +22,6 @@ const C = {
   muted: '#9EA0A8',
   accent: '#9AD6F2',
 } as const
-
-const LUNA_URL = 'https://luna.ozer2.one'
 
 const styles = StyleSheet.create({
   page: {
