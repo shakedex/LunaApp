@@ -9,6 +9,10 @@ All notable changes to Luna Web. This format is based on
 
 ## [Unreleased]
 
+### Fixed
+
+- Clips without a file extension no longer show a wrong file-type label in the PDF.
+
 ## [0.12.0] - 2026-07-20
 
 ### Added
