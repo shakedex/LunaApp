@@ -9,6 +9,29 @@ All notable changes to Luna Web. This format is based on
 
 ## [Unreleased]
 
+### Added
+
+- Switch a report between card view and a compact table view — one row per clip with timecode, resolution, codec, frame rate, ISO, white balance, lens, and size.
+- The reel list stays docked while you scroll a report, highlights the reel you're in, and jumps to a reel on click.
+- Hover or keyboard-focus a cut-off metadata value (long lens names) to see the full text.
+- The header nav highlights the page you're on.
+
+### Changed
+
+- File sizes use decimal units to match their KB/MB/GB labels (and how cards are sold) — the same footage now reads slightly larger than before, on screen and in exported PDF/CSV.
+- The report header leads with the project title, date, and totals.
+- While processing, finished clips collapse into a compact strip with a count, keeping the clips still being worked on in view; failed clips stay listed.
+- Reports with hundreds of clips scroll smoothly — only the clip cards on screen are rendered.
+- Clip metadata flows across both columns of a card, so clips with little camera metadata no longer leave a half-empty column.
+- The logo field in Settings is a drop-and-preview well instead of a bare file picker.
+- Deleting a saved report or clearing local data asks in a proper dialog.
+- The Reports page and saved reports show loading placeholders instead of a blank page.
+- Dimmed text is brighter, meeting accessibility contrast throughout.
+
+### Fixed
+
+- The report date no longer shows tomorrow's date when working near midnight (it used UTC; it now uses your local date).
+
 ## [0.13.0] - 2026-07-20
 
 ### Added
