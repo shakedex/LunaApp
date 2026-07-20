@@ -13,6 +13,7 @@ import {
   Focus,
   Gauge,
   HardDrive,
+  ImageOff,
   type LucideIcon,
   Palette,
   Ratio,
@@ -150,7 +151,8 @@ function FrameViewer({ frames }: { frames: ThumbnailFrame<Blob>[] }) {
   const hasAny = frames.some((f) => f.outcome === 'Success' && f.image)
   if (!hasAny) {
     return (
-      <div className="bg-muted/40 text-muted-foreground flex aspect-video w-full items-center justify-center rounded-lg border border-dashed text-sm">
+      <div className="bg-muted/40 text-muted-foreground flex aspect-video w-full flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed text-sm">
+        <ImageOff className="size-5" />
         No preview frames
       </div>
     )

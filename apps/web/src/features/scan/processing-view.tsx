@@ -71,7 +71,7 @@ export function ProcessingView() {
             Queued
             <span className="ml-1.5 font-mono tabular-nums">{queued.length}</span>
           </h2>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap items-center gap-1.5">
             {queued.slice(0, 12).map((clip) => (
               <ClipChip key={clip.id} clip={clip} />
             ))}
@@ -90,7 +90,7 @@ export function ProcessingView() {
             Completed
             <span className="ml-1.5 font-mono tabular-nums">{doneClips.length}</span>
           </h2>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap items-center gap-1.5">
             {inThumb
               ? doneClips.slice(-12).map((clip) => <DoneThumb key={clip.id} clip={clip} />)
               : doneClips.slice(-12).map((clip) => <ClipChip key={clip.id} clip={clip} done />)}
@@ -138,16 +138,13 @@ function DoneThumb({ clip }: { clip: ClipRef }) {
   const frames = useSelector(scanStore, (s) => s.thumbsById[clip.id])
   const first = frames?.find((f) => f.outcome === 'Success' && f.image)?.image
   const url = useObjectUrl(first)
+  if (!url) return <ClipChip clip={clip} done />
   return (
     <div
       className="bg-card animate-in fade-in zoom-in-95 aspect-video w-16 overflow-hidden rounded border duration-200"
       title={clip.fileName}
     >
-      {url ? (
-        <img src={url} alt="" className="h-full w-full object-cover" />
-      ) : (
-        <div className="bg-muted/40 h-full w-full" />
-      )}
+      <img src={url} alt="" className="h-full w-full object-cover" />
     </div>
   )
 }

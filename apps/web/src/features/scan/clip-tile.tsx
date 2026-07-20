@@ -1,6 +1,6 @@
 import type { ClipRef } from '@luna-web/core'
 import { useSelector } from '@tanstack/react-store'
-import { TriangleAlert } from 'lucide-react'
+import { ImageOff, TriangleAlert } from 'lucide-react'
 import { memo } from 'react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Spinner } from '@/components/ui/spinner'
@@ -24,8 +24,9 @@ export const ClipTile = memo(function ClipTile({ clip }: { clip: ClipRef }) {
         {url ? (
           <img src={url} alt="" className="h-full w-full object-cover" />
         ) : failed ? (
-          <div className="text-muted-foreground flex h-full items-center justify-center text-xs">
-            no preview
+          <div className="text-muted-foreground flex h-full flex-col items-center justify-center gap-1">
+            <ImageOff className="size-4" />
+            <span className="text-2xs">No preview</span>
           </div>
         ) : (
           <Skeleton className="h-full w-full rounded-none" />

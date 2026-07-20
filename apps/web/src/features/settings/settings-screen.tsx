@@ -139,7 +139,7 @@ export function SettingsScreen() {
               <LogoDropWell
                 id="default-logo"
                 value={coverDefaults.logo}
-                className="aspect-video"
+                className="aspect-video max-w-60"
                 onChange={(file) => {
                   if (file) {
                     void updateSettings({
