@@ -14,6 +14,12 @@ export interface DetectedReel<T extends ReelInput> {
 
 export const UNGROUPED_REEL = 'Ungrouped'
 
+/** Reel-name ordering used everywhere reels are listed: numeric-aware so
+ *  A002 < A010. */
+export function compareReelNames(a: string, b: string): number {
+  return a.localeCompare(b, undefined, { numeric: true })
+}
+
 function reelKeyFor(clip: ReelInput): string {
   const fromMetadata = clip.reelName?.trim()
   if (fromMetadata) return fromMetadata
@@ -34,5 +40,5 @@ export function detectReels<T extends ReelInput>(clips: readonly T[]): DetectedR
     name,
     clips: [...group].sort((a, b) => a.relativePath.localeCompare(b.relativePath)),
   }))
-  return reels.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
+  return reels.sort((a, b) => compareReelNames(a.name, b.name))
 }

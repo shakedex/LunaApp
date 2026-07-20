@@ -39,7 +39,7 @@ export {
 export type { JpegCandidate } from './preview/jpeg'
 export { findValidJpegs, jpegDimensions } from './preview/jpeg'
 export type { DetectedReel, ReelInput } from './reels/detect'
-export { detectReels, UNGROUPED_REEL } from './reels/detect'
+export { compareReelNames, detectReels, UNGROUPED_REEL } from './reels/detect'
 export type { ReportSummary } from './report/library'
 export { normalizeReportSummaries, summarizeReport } from './report/library'
 export type {

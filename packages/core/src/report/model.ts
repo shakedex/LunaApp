@@ -1,5 +1,5 @@
 import type { ClipMetadata } from '../metadata/model'
-import { detectReels } from '../reels/detect'
+import { compareReelNames, detectReels } from '../reels/detect'
 import type { ClipRef, OtherFileRef } from '../scan/model'
 import type { ThumbnailFrame } from '../thumbs/model'
 
@@ -154,7 +154,7 @@ export function buildReportModel<TImage = unknown>(
       },
     })
   }
-  reels.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
+  reels.sort((a, b) => compareReelNames(a.name, b.name))
 
   return {
     cover: input.cover,
