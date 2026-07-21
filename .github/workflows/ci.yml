@@ -34,6 +34,9 @@ jobs:
           restore-keys: |
             vite-task-${{ runner.os }}-${{ runner.arch }}-
 
+      # routeTree.gen.ts is gitignored; vp check's type pass needs it
+      - run: cd apps/web && bunx tsr generate
+
       - run: vp check
       - run: bun run typecheck
       - run: bun run test
