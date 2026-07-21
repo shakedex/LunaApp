@@ -37,9 +37,13 @@ test('never starts work that is already cancelled', async () => {
 // cascade and withTimeout owns the other terminal message — a cancellation
 // must read as neither.
 test('the rejection message is neither a decoder failure nor a timeout', async () => {
-  await expect(withCancellation(never, () => true, 'A001C002.mov')).rejects.toThrow(
-    /^A001C002\.mov: cancelled$/,
-  )
+  const err = await withCancellation(never, () => true, 'A001C002.mov').catch((e: unknown) => e)
+  const msg = err instanceof Error ? err.message : String(err)
+  // Pattern copied from isDecoderFailure() in run-thumbnails.ts (the source of
+  // truth); it is module-private and not worth exporting for this assertion.
+  expect(msg).not.toMatch(/NO_DECODER|format|recognized|container/i)
+  expect(msg).not.toMatch(/timed out/)
+  expect(msg).toBe('A001C002.mov: cancelled')
 })
 
 test('clears its poll timer when the work settles first', async () => {

@@ -69,9 +69,11 @@ const CANCEL_POLL_MS = 250
 // wasm instance per lane, and "Start over" sits on the processing screen where
 // the next action is usually picking another folder, so the old run's lanes
 // would overlap the new run's. Rejecting early hands the lane to runPool's
-// failure path, which destroys it. The message must stay clear of
-// isDecoderFailure() in run-thumbnails and distinct from a timeout; the status
-// write is dropped by guardedUpdate anyway, so it is for the activity log only.
+// failure path, which destroys it. Nothing reports this message: by the time it
+// exists the run is superseded, so guardedUpdate drops the status write and the
+// pools' run guard skips the log. The one constraint is routing — it must stay
+// clear of isDecoderFailure() in run-thumbnails, which would queue the clip for
+// the preview salvage instead of letting it end, and distinct from a timeout.
 export function withCancellation<T>(
   start: () => Promise<T>,
   isCancelled: () => boolean,
@@ -81,12 +83,15 @@ export function withCancellation<T>(
   // that re-created the resource would strand exactly what this prevents.
   if (isCancelled()) return Promise.reject(new Error(`${label}: cancelled`))
   return new Promise<T>((resolve, reject) => {
+    // Started before the timer is armed: a synchronous throw out of start()
+    // rejects from here, and there would be nothing left to clear the interval.
+    const work = start()
     const poll = setInterval(() => {
       if (!isCancelled()) return
       clearInterval(poll)
       reject(new Error(`${label}: cancelled`))
     }, CANCEL_POLL_MS)
-    start().then(
+    work.then(
       (v) => {
         clearInterval(poll)
         resolve(v)

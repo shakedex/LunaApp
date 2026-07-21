@@ -19,9 +19,12 @@ export interface FfmpegEngine {
   dispose(): void
 }
 
+const DISPOSED_MESSAGE = 'ffmpeg engine disposed'
+
 export function createFfmpegEngine(): FfmpegEngine {
   const ffmpeg = new FFmpeg()
   let loaded: Promise<void> | null = null
+  let disposed = false
 
   function ensureLoaded(): Promise<void> {
     loaded ??= (async () => {
@@ -29,14 +32,31 @@ export function createFfmpegEngine(): FfmpegEngine {
         cachedBlobUrl(`${CORE_BASE}/ffmpeg-core.js`, 'text/javascript'),
         cachedBlobUrl(`${CORE_BASE}/ffmpeg-core.wasm`, 'application/wasm'),
       ])
-      await ffmpeg.load({ coreURL, wasmURL })
-      // The engine has consumed the binaries; drop the ~31MB object URLs.
-      URL.revokeObjectURL(coreURL)
-      URL.revokeObjectURL(wasmURL)
+      try {
+        // The download window above is where a cancelled lane is disposed
+        // (widest on a cold cache, where every lane waits on one ~31 MB
+        // single-flighted fetch). dispose() could not terminate a worker that
+        // did not exist yet, so bailing out here is what stops load() from
+        // creating one on an engine nobody holds a reference to.
+        if (disposed) throw new Error(DISPOSED_MESSAGE)
+        await ffmpeg.load({ coreURL, wasmURL })
+        // dispose() landed inside load(): its terminate() hit the half-built
+        // instance, so terminate the worker load() has just finished creating.
+        if (disposed) {
+          ffmpeg.terminate()
+          throw new Error(DISPOSED_MESSAGE)
+        }
+      } finally {
+        // The engine has consumed the binaries; drop the ~31MB object URLs.
+        // Also on the abandoned paths above, or two of them leak per lane.
+        URL.revokeObjectURL(coreURL)
+        URL.revokeObjectURL(wasmURL)
+      }
     })().catch((err) => {
       // A transient fetch/load failure must not permanently brick this engine:
-      // clear the cached promise so the next call retries.
-      loaded = null
+      // clear the cached promise so the next call retries. Disposal is not
+      // transient — keep its rejection cached so a retry cannot re-download.
+      if (!disposed) loaded = null
       throw err
     })
     return loaded
@@ -101,7 +121,12 @@ export function createFfmpegEngine(): FfmpegEngine {
         await ffmpeg.deleteDir(MOUNT_DIR).catch(() => {})
       }
     },
+    // Sticky by necessity: @ffmpeg/ffmpeg's terminate() is a no-op until
+    // load() has created the worker, and it records nothing — a terminated
+    // instance loads again quite happily. The flag is the only durable mark
+    // that this engine was thrown away.
     dispose() {
+      disposed = true
       ffmpeg.terminate()
     },
   }
