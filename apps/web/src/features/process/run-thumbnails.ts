@@ -151,6 +151,11 @@ export async function startThumbnails(run: number): Promise<void> {
 
   const ffmpegQueue = [...ffmpegClips, ...cascaded]
   if (ffmpegQueue.length > 0 && isRunCurrent(run)) {
+    // Lanes are whole ffmpeg wasm instances (~31 MB each); poolSizeFor bounds
+    // them by the Settings worker cap, hardwareConcurrency, and queue size.
+    // Cold-start binary downloads are single-flighted in engine-cache.
+    const ffmpegLanes = poolSizeFor(ffmpegQueue.length)
+    logger.info('ffmpeg fallback started', `${ffmpegQueue.length} clips, ${ffmpegLanes} lanes`)
     await runPool<FfmpegEngine, ClipRef, ThumbnailFrame<Blob>[]>(
       ffmpegQueue,
       {
@@ -186,8 +191,7 @@ export async function startThumbnails(run: number): Promise<void> {
           }
         },
       },
-      // Each ffmpeg lane instantiates a ~31 MB wasm — keep it to ONE lane.
-      { concurrency: 1, isCancelled: () => !isRunCurrent(run) },
+      { concurrency: ffmpegLanes, isCancelled: () => !isRunCurrent(run) },
     ).catch((err) => {
       const message = errorMessage(err)
       for (const clip of ffmpegQueue) {

@@ -48,8 +48,9 @@ export function createFfmpegEngine(): FfmpegEngine {
       // Best-effort teardown of any leftovers from a previously-failed
       // cleanup, then (re)create the mount dir. A genuine failure here
       // surfaces on mount() below, inside the try, as a normal rejection
-      // the pool's retry handles. This engine is used one-clip-at-a-time
-      // per instance (pool lane, concurrency 1) — not concurrency-safe.
+      // the pool's retry handles. One instance handles one clip at a time
+      // (its pool lane) — a single instance is not concurrency-safe;
+      // parallelism comes from multiple lanes, each with its own engine.
       await ffmpeg.unmount(MOUNT_DIR).catch(() => {})
       await ffmpeg.deleteDir(MOUNT_DIR).catch(() => {})
       await ffmpeg.createDir(MOUNT_DIR)
