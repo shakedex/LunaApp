@@ -32,6 +32,9 @@ In the dashboard: **Workers & Pages → Create → Workers → Import a reposito
 - **Bun is auto-detected** from `bun.lock`; `bun install` run inside a workspace
   directory installs the whole workspace, so `@luna-web/core` resolves for the app
   build.
+- **Vite+ needs no installer here**: the `vite-plus` package ships the `vp` binary,
+  so the build scripts' `vp` calls resolve from `node_modules/.bin` after install —
+  Workers Builds settings stay exactly as the table above.
 - **App Worker**: the Cloudflare Vite plugin emits a flattened `wrangler.json` into
   the build output; the default `npx wrangler deploy` auto-locates it. SPA fallback
   (`single-page-application`) serves `index.html` for deep links; the router's
@@ -59,7 +62,7 @@ In the dashboard: **Workers & Pages → Create → Workers → Import a reposito
 
 ```bash
 # App: build + preview the built Worker (SPA fallback live)
-cd apps/web && bun run build && bunx vite preview
+cd apps/web && bun run build && bun run preview
 
 # Docs: build + serve the static Worker locally
 cd apps/docs && bun run build && bunx wrangler dev
