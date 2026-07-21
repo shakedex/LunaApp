@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vite-plus/test'
 import { mapMediaInfoToClipMetadata } from '../src/metadata/mediainfo'
 
 // Sony/Canon acquisition track (RDD 18 "Acquisition Metadata") — corpus-confirmed shape

@@ -1,4 +1,4 @@
-import { expect, test } from 'bun:test'
+import { expect, test } from 'vite-plus/test'
 import { errorMessage } from './errors'
 
 test('unwraps an Error message', () => {

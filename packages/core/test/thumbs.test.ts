@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vite-plus/test'
 import { THUMBNAIL_POSITIONS, thumbnailTimestamps } from '../src/thumbs/model'
 import { decodePathFor, PRORES_RAW_CODEC_PATTERN, thumbnailRouteFor } from '../src/thumbs/router'
 

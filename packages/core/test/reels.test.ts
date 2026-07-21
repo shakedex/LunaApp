@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vite-plus/test'
 import { detectReels, UNGROUPED_REEL } from '../src/reels/detect'
 
 const clip = (relativePath: string, reelName?: string) => ({ relativePath, reelName })

@@ -1,4 +1,4 @@
-import { expect, test } from 'bun:test'
+import { expect, test } from 'vite-plus/test'
 import { formatBytes, todayIso } from './format'
 
 test('todayIso is a YYYY-MM-DD date', () => {

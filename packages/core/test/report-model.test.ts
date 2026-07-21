@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vite-plus/test'
 import { buildReportModel, cardCountFrom } from '../src/report/model'
 import type { BlobLike, FileHandleLike } from '../src/scan/handles'
 import type { ClipRef, OtherFileRef } from '../src/scan/model'

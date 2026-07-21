@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vite-plus/test'
 import { extractSonyMxfCameraModel, sonyCameraDisplayName } from '../src/metadata/sony-klv'
 import type { BlobLike } from '../src/scan/handles'
 

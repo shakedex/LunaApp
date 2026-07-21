@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vite-plus/test'
 import { aggregateThumbnailOutcome, CSV_COLUMNS, generateReportCsv } from '../src/export/csv'
 import type { ReportModel } from '../src/report/model'
 import type { ThumbnailFrame } from '../src/thumbs/model'
