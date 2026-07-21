@@ -84,7 +84,7 @@ function MetaRow({ icon: Icon, label, value }: { icon: LucideIcon; label: string
           <TooltipTrigger
             render={
               <span
-                // biome-ignore lint/a11y/noNoninteractiveTabindex: Base UI's TooltipTrigger renders a <button> by default; swapping to a <span> via `render` needs an explicit tabIndex so the tooltip still opens on keyboard focus (Base UI does not inject one for custom render elements).
+                // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- Base UI's TooltipTrigger renders a <button> by default; swapping to a <span> via `render` needs an explicit tabIndex so the tooltip still opens on keyboard focus (Base UI does not inject one for custom render elements).
                 tabIndex={0}
                 className="block max-w-56 truncate text-right font-mono tabular-nums"
               />

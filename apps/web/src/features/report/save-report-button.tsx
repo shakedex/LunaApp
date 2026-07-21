@@ -10,7 +10,7 @@ export function SaveReportButton({ model }: { model: ReportModel<Blob> }) {
   const [error, setError] = useState<string | null>(null)
 
   // A new/changed model (fresh run, cover edit) re-arms the button.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: model identity change is the reset trigger, not its fields
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- model identity change is the reset trigger, not its fields
   useEffect(() => {
     setState('idle')
     setError(null)
