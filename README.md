@@ -38,12 +38,12 @@ relies on the File System Access API and WebCodecs.
 
 Bun workspace:
 
-| Path | Package | What it is |
-| --- | --- | --- |
-| `apps/web` | `@luna-web/app` | The tool — Vite + React 19 + TanStack Router |
-| `apps/docs` | `@luna-web/docs` | Docs site — Astro Starlight |
-| `packages/core` | `@luna-web/core` | Pure logic: scanning, reels, metadata, report model |
-| `tools/analysis` | — | Throwaway clip-analysis scripts |
+| Path             | Package          | What it is                                          |
+| ---------------- | ---------------- | --------------------------------------------------- |
+| `apps/web`       | `@luna-web/app`  | The tool — Vite + React 19 + TanStack Router        |
+| `apps/docs`      | `@luna-web/docs` | Docs site — Astro Starlight                         |
+| `packages/core`  | `@luna-web/core` | Pure logic: scanning, reels, metadata, report model |
+| `tools/analysis` | —                | Throwaway clip-analysis scripts                     |
 
 ## Develop
 

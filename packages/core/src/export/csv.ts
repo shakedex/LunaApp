@@ -36,6 +36,7 @@ export function aggregateThumbnailOutcome(frames: readonly ThumbnailFrame[]): Th
 
 function field(value: unknown): string {
   if (value === undefined || value === null) return ''
+  // eslint-disable-next-line typescript/no-base-to-string -- report cells are primitives by construction; String() is the deliberate catch-all for the unknown signature
   let text = String(value)
   // Spreadsheet formula-injection guard: neutralize leading = + - @
   if (/^[=+\-@]/.test(text)) text = `'${text}`

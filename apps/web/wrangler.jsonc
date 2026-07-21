@@ -5,12 +5,12 @@
   // Assets-only Worker: no `main`. The Cloudflare Vite plugin populates
   // `assets.directory` in the flattened output wrangler.json at build time.
   "assets": {
-    "not_found_handling": "single-page-application"
+    "not_found_handling": "single-page-application",
   },
   // Routing is deliberately NOT declared here: domains/routes are managed
   // manually in the Cloudflare dashboard, and config routes would re-assert
   // themselves on every deploy, clobbering those manual settings.
   // Keep production off workers.dev, but keep preview URLs for non-prod branches.
   "workers_dev": false,
-  "preview_urls": true
+  "preview_urls": true,
 }

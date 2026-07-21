@@ -41,7 +41,7 @@ export function nextVersion(current: string, bump: Bump): string {
   const v = parseVersion(current)
   if (bump === 'minor') return `0.${v.minor + 1}.0`
   if (bump === 'patch') return `0.${v.minor}.${v.patch + 1}`
-  throw new Error(`Unknown bump "${bump}" (expected "minor" or "patch")`)
+  throw new Error(`Unknown bump "${String(bump)}" (expected "minor" or "patch")`)
 }
 
 /**
