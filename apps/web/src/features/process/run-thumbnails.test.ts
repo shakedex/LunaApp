@@ -28,6 +28,14 @@ test('a clip name containing decoder keywords does not fake a decoder failure', 
   expect(isDecoderFailure('recognized_B002.mxf: read error')).toBe(false)
 })
 
+// ": " is legal in a filename on macOS/Linux, so the reason is whatever
+// follows the LAST separator — the part withTimeout/withCancellation wrote.
+test('a filename containing ": " does not shift what counts as the reason', () => {
+  expect(isTimeout('A001: take 2.mov: timed out after 60s')).toBe(true)
+  expect(isDecoderFailure('A001: format notes.mov: read error')).toBe(false)
+  expect(isDecoderFailure('A001: take 2.mov: NO_DECODER')).toBe(true)
+})
+
 // mediabunny failures reach isDecoderFailure() unprefixed (the worker throws
 // 'NO_DECODER'; Comlink re-throws the message verbatim), so the cascade must
 // survive a message with no "<name>: " prefix at all.

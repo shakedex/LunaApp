@@ -32,9 +32,10 @@ const PREVIEW_TIMEOUT_MS = 30_000
 // and filenames legitimately contain words like "container" or "format" — so
 // classify on the reason, never the whole message. Decoder errors arrive
 // unprefixed (mediabunny throws 'NO_DECODER'; Comlink re-throws it verbatim),
-// hence the no-separator fallback.
+// hence the no-separator fallback. Split on the LAST separator: no formatter
+// emits a reason containing ': ', but a filename legally can (macOS/Linux).
 function reasonOf(message: string): string {
-  const sep = message.indexOf(': ')
+  const sep = message.lastIndexOf(': ')
   return sep === -1 ? message : message.slice(sep + 2)
 }
 
@@ -48,8 +49,8 @@ export function isDecoderFailure(message: string): boolean {
 }
 
 // A timeout is also non-terminal: spec §10.3, and a clip stays in the report
-// whether or not a thumbnail could be made for it. It routes to the same
-// salvage pass as a decoder failure.
+// whether or not a thumbnail could be made for it. From either decode pool it
+// routes to the preview salvage.
 export function isTimeout(message: string): boolean {
   return /timed out after \d+s$/.test(reasonOf(message))
 }
@@ -114,6 +115,15 @@ export async function startThumbnails(run: number): Promise<void> {
   const cascaded: ClipRef[] = []
   const cascadedIds = new Set<string>()
 
+  // Salvage queue: the embedded tail preview is the last chance for pixels, and
+  // both decode pools feed it. Clips that BOTH decoders rejected land here (e.g.
+  // ProRes RAW whose metadata pass failed, so codec routing never sent them to
+  // the preview path), as do clips that ran out of time in either pool — a
+  // timeout skips the cascade rather than spending a second full budget on a
+  // clip that already exhausted one. Other errors stay failed.
+  const salvage: ClipRef[] = []
+  const salvageIds = new Set<string>()
+
   const mediabunnyPass = runPool<ThumbsWorkerHandle, ClipRef, ThumbnailFrame<Blob>[]>(
     mediabunnyClips,
     {
@@ -135,9 +145,20 @@ export async function startThumbnails(run: number): Promise<void> {
       onItemSuccess: (clip, frames) => finishClip(run, clip.id, frames),
       onItemFailure: (clip, err) => {
         // Container/codec failure → cascade to ffmpeg (desktop NoDecoder
-        // cascade, spec §10.2). Other errors fail the clip.
+        // cascade, spec §10.2). A timeout goes straight to the preview salvage
+        // instead: the clip stays in the report either way, and re-decoding it
+        // on ffmpeg would only add that pool's budget to the wait. Other errors
+        // fail the clip.
         const message = errorMessage(err)
-        if (isDecoderFailure(message)) {
+        if (isTimeout(message)) {
+          // Guarded: superseded-run stragglers must not log under the new operation.
+          if (isRunCurrent(run)) {
+            logger.info(`${clip.fileName} timed out — trying embedded preview`)
+          }
+          salvage.push(clip)
+          salvageIds.add(clip.id)
+          setThumbStatus(run, clip.id, 'queued')
+        } else if (isDecoderFailure(message)) {
           // Guarded: superseded-run stragglers must not log under the new operation.
           if (isRunCurrent(run)) logger.debug(`Cascading ${clip.fileName} to ffmpeg`, message)
           cascaded.push(clip)
@@ -158,21 +179,15 @@ export async function startThumbnails(run: number): Promise<void> {
 
   await mediabunnyPass.catch((err) => {
     // runPool settles all lanes before rejecting, so no stragglers are
-    // running here: statuses are final and the cascade list is complete.
+    // running here: statuses are final and both re-queue lists are complete.
     const message = errorMessage(err)
     for (const clip of mediabunnyClips) {
       if (cascadedIds.has(clip.id)) continue // legitimately re-queued for ffmpeg
+      if (salvageIds.has(clip.id)) continue // legitimately re-queued for preview
       const st = scanStore.state.thumbStatus[clip.id]
       if (st === 'queued' || st === 'decoding') failClip(run, clip.id, message)
     }
   })
-
-  // Clips that BOTH decoders rejected (e.g. ProRes RAW whose metadata pass
-  // failed, so codec routing never sent them to the preview path) get one last
-  // chance: the embedded tail preview. Decoder failures and timeouts qualify —
-  // other errors stay failed.
-  const salvage: ClipRef[] = []
-  const salvageIds = new Set<string>()
 
   const ffmpegQueue = [...ffmpegClips, ...cascaded]
   if (ffmpegQueue.length > 0 && isRunCurrent(run)) {
