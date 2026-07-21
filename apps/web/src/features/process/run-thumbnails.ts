@@ -25,20 +25,33 @@ import {
 import { createThumbsWorker, type ThumbsWorkerHandle } from './thumbs-client'
 
 const MEDIABUNNY_TIMEOUT_MS = 60_000 // spec §10.3
-// Single-lane (uncontended) per-clip budget, spec §10.3 — scaled by the lane
-// count below and capped there.
-const FFMPEG_TIMEOUT_MS = 180_000
-// Ceiling on that scaled budget. runPool retries once, so an uncapped budget
-// lets one wedged clip hold a lane for 2 × cap; 600 s keeps 3.3× headroom over
-// the calibrated serial budget.
-const FFMPEG_TIMEOUT_CAP_MS = 600_000
+const FFMPEG_TIMEOUT_MS = 180_000 // spec §10.3
 const PREVIEW_TIMEOUT_MS = 30_000
+
+// withTimeout/withCancellation prefix the clip's filename ("<name>: <reason>"),
+// and filenames legitimately contain words like "container" or "format" — so
+// classify on the reason, never the whole message. Decoder errors arrive
+// unprefixed (mediabunny throws 'NO_DECODER'; Comlink re-throws it verbatim),
+// hence the no-separator fallback.
+function reasonOf(message: string): string {
+  const sep = message.indexOf(': ')
+  return sep === -1 ? message : message.slice(sep + 2)
+}
 
 // A decoder/container failure is a routing fact, not a clip defect — it feeds
 // the cascade (mediabunny → ffmpeg) and the preview salvage (ffmpeg → embedded
-// preview). Timeouts and I/O errors are real failures and must NOT match.
-function isDecoderFailure(message: string): boolean {
-  return message.includes('NO_DECODER') || /format|recognized|container/i.test(message)
+// preview). Exported for run-thumbnails.test.ts so the tests assert these
+// predicates rather than copies that can drift.
+export function isDecoderFailure(message: string): boolean {
+  const reason = reasonOf(message)
+  return reason.includes('NO_DECODER') || /format|recognized|container/i.test(reason)
+}
+
+// A timeout is also non-terminal: spec §10.3, and a clip stays in the report
+// whether or not a thumbnail could be made for it. It routes to the same
+// salvage pass as a decoder failure.
+export function isTimeout(message: string): boolean {
+  return /timed out after \d+s$/.test(reasonOf(message))
 }
 
 export async function startThumbnails(run: number): Promise<void> {
@@ -156,8 +169,8 @@ export async function startThumbnails(run: number): Promise<void> {
 
   // Clips that BOTH decoders rejected (e.g. ProRes RAW whose metadata pass
   // failed, so codec routing never sent them to the preview path) get one last
-  // chance: the embedded tail preview. Only decoder failures qualify — real
-  // errors stay failed.
+  // chance: the embedded tail preview. Decoder failures and timeouts qualify —
+  // other errors stay failed.
   const salvage: ClipRef[] = []
   const salvageIds = new Set<string>()
 
@@ -170,13 +183,6 @@ export async function startThumbnails(run: number): Promise<void> {
     // over peak memory.
     // Cold-start binary downloads are single-flighted in engine-cache.
     const ffmpegLanes = poolSizeFor(ffmpegQueue.length)
-    // CPU contention across concurrent lanes inflates each clip's wall time,
-    // and a timeout here is terminal (it skips the preview-salvage pass) — so
-    // the budget scales with lanes or contention alone fails clips that would
-    // finish fine serially. Capped because the scaling is over-generous:
-    // @ffmpeg/core is the single-threaded build and lanes never exceed
-    // hardwareConcurrency, so contention is sublinear.
-    const ffmpegTimeoutMs = Math.min(FFMPEG_TIMEOUT_MS * ffmpegLanes, FFMPEG_TIMEOUT_CAP_MS)
     logger.info('ffmpeg pass started', `${ffmpegQueue.length} clips, ${ffmpegLanes} workers`)
     await runPool<FfmpegEngine, ClipRef, ThumbnailFrame<Blob>[]>(
       ffmpegQueue,
@@ -194,7 +200,7 @@ export async function startThumbnails(run: number): Promise<void> {
               const timestamps = thumbnailTimestamps(duration)
               return await withTimeout(
                 lane.thumbnails(file, timestamps, THUMBNAIL_TARGET_WIDTH),
-                ffmpegTimeoutMs,
+                FFMPEG_TIMEOUT_MS,
                 clip.fileName,
               )
             },
@@ -207,12 +213,21 @@ export async function startThumbnails(run: number): Promise<void> {
         onItemSuccess: (clip, frames) => finishClip(run, clip.id, frames),
         onItemFailure: (clip, err) => {
           const message = errorMessage(err)
-          if (cascadedIds.has(clip.id) && isDecoderFailure(message)) {
+          // A decoder failure only salvages for cascaded clips (a directly
+          // routed clip already had its decoder); a timeout salvages for any
+          // clip, because the clip must stay in the report either way.
+          const salvageable =
+            isTimeout(message) || (cascadedIds.has(clip.id) && isDecoderFailure(message))
+          if (salvageable) {
             salvage.push(clip)
             salvageIds.add(clip.id)
             // Guarded: superseded-run stragglers must not log under the new operation.
             if (isRunCurrent(run)) {
-              logger.info(`No browser decoder for ${clip.fileName} — trying embedded preview`)
+              logger.info(
+                isTimeout(message)
+                  ? `${clip.fileName} timed out — trying embedded preview`
+                  : `No browser decoder for ${clip.fileName} — trying embedded preview`,
+              )
             }
             setThumbStatus(run, clip.id, 'queued')
           } else {
@@ -221,7 +236,11 @@ export async function startThumbnails(run: number): Promise<void> {
           }
         },
       },
-      { concurrency: ffmpegLanes, isCancelled: () => !isRunCurrent(run) },
+      {
+        concurrency: ffmpegLanes,
+        isCancelled: () => !isRunCurrent(run),
+        maxAttempts: 1, // a decode that exhausted its budget will not finish on a rerun
+      },
     ).catch((err) => {
       const message = errorMessage(err)
       for (const clip of ffmpegQueue) {
@@ -247,6 +266,8 @@ export async function startThumbnails(run: number): Promise<void> {
         onItemSuccess: (clip, frame) => finishClip(run, clip.id, [frame]),
         onItemFailure: (clip, err) => failClip(run, clip.id, errorMessage(err)),
       },
+      // Not poolSizeFor: a preview lane is `{}` — no worker, no wasm — so this
+      // bounds concurrent file reads, not CPU.
       { concurrency: 2, isCancelled: () => !isRunCurrent(run) },
     ).catch((err) => {
       // Mirrors the ffmpeg pool-failure sweep — no cascade target here, so
