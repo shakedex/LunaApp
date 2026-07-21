@@ -38,15 +38,15 @@ Luna Web does not bundle, require, or integrate any proprietary camera-vendor SD
 
 Key redistributed components in the web bundle:
 
-| Component | License | Notes |
-| --- | --- | --- |
-| FFmpeg core (`@ffmpeg/core`, wasm) | GPL-2.0-or-later | Fetched from a CDN at runtime, not bundled in the repo; replaceable by the user |
-| `@ffmpeg/ffmpeg` (JS API wrapper) | MIT | Drives the FFmpeg wasm core |
-| MediaInfo (`mediainfo.js`) | BSD-2-Clause | Container metadata |
-| mediabunny (+ `@mediabunny/prores`) | MPL-2.0 | Demux/decode & thumbnails |
-| `@react-pdf/renderer` | MIT | PDF report generation |
-| React, TanStack, Base UI, Tailwind CSS, Astro | MIT | App & docs framework |
-| Geist / Geist Mono | OFL 1.1 | Typography |
+| Component                                     | License          | Notes                                                                           |
+| --------------------------------------------- | ---------------- | ------------------------------------------------------------------------------- |
+| FFmpeg core (`@ffmpeg/core`, wasm)            | GPL-2.0-or-later | Fetched from a CDN at runtime, not bundled in the repo; replaceable by the user |
+| `@ffmpeg/ffmpeg` (JS API wrapper)             | MIT              | Drives the FFmpeg wasm core                                                     |
+| MediaInfo (`mediainfo.js`)                    | BSD-2-Clause     | Container metadata                                                              |
+| mediabunny (+ `@mediabunny/prores`)           | MPL-2.0          | Demux/decode & thumbnails                                                       |
+| `@react-pdf/renderer`                         | MIT              | PDF report generation                                                           |
+| React, TanStack, Base UI, Tailwind CSS, Astro | MIT              | App & docs framework                                                            |
+| Geist / Geist Mono                            | OFL 1.1          | Typography                                                                      |
 
 ## The Retired Desktop App
 

@@ -17,15 +17,15 @@ or clobber manual domain settings.
 In the dashboard: **Workers & Pages → Create → Workers → Import a repository**, pick
 `shakedex/LunaApp`, then configure each Worker:
 
-| Setting | `luna-web` (app) | `luna-web-docs` (docs) |
-|---|---|---|
-| Root directory | `apps/web` | `apps/docs` |
-| Build command | `bun run build` | `bun run build` |
-| Deploy command | `npx wrangler deploy` (default) | `npx wrangler deploy` (default) |
-| Non-production branch deploy | `npx wrangler versions upload` (default) | `npx wrangler versions upload` (default) |
-| Build watch paths | `apps/web/**`, `packages/core/**`, `bun.lock` | `apps/docs/**`, `bun.lock` |
-| Production branch | `master` | `master` |
-| API token | auto-generated default | auto-generated default |
+| Setting                      | `luna-web` (app)                              | `luna-web-docs` (docs)                   |
+| ---------------------------- | --------------------------------------------- | ---------------------------------------- |
+| Root directory               | `apps/web`                                    | `apps/docs`                              |
+| Build command                | `bun run build`                               | `bun run build`                          |
+| Deploy command               | `npx wrangler deploy` (default)               | `npx wrangler deploy` (default)          |
+| Non-production branch deploy | `npx wrangler versions upload` (default)      | `npx wrangler versions upload` (default) |
+| Build watch paths            | `apps/web/**`, `packages/core/**`, `bun.lock` | `apps/docs/**`, `bun.lock`               |
+| Production branch            | `master`                                      | `master`                                 |
+| API token                    | auto-generated default                        | auto-generated default                   |
 
 ## How it fits together
 
@@ -42,7 +42,7 @@ In the dashboard: **Workers & Pages → Create → Workers → Import a reposito
   `luna-web` as a **Custom Domain** (Workers → luna-web → Settings → Domains &
   Routes). A Custom Domain creates the DNS record and certificate automatically —
   that is why a manually added subdomain works within seconds, while a bare route
-  pattern does not: a **route** only binds an *already-existing* proxied DNS
+  pattern does not: a **route** only binds an _already-existing_ proxied DNS
   hostname to a Worker and never creates DNS. Then give `luna-web-docs` a **route**
   `luna.ozer2.one/docs*` (zone `ozer2.one`) — a route is required here because
   Custom Domains cannot carry path patterns; its DNS need is satisfied by the app's

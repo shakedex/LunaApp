@@ -35,7 +35,7 @@ export async function runPool<L, T, R>(
 ): Promise<void> {
   if (items.length === 0) return
   const maxAttempts = options.maxAttempts ?? 2
-  const isCancelled = options.isCancelled ?? (() => false)
+  const isCancelled = () => options.isCancelled?.() ?? false
   // Non-positive concurrency clamps to 1 lane
   const laneCount = Math.max(1, Math.min(options.concurrency, items.length))
   let nextIndex = 0
