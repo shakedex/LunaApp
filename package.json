@@ -10,7 +10,8 @@
     "lint": "biome check .",
     "format": "biome format --write .",
     "typecheck": "bun --filter '*' typecheck",
-    "test": "bun test",
+    "test": "vp run -r test",
+    "test:tools": "bun test tools",
     "build": "bun --filter '*' build",
     "release": "bun tools/release.ts",
     "prepare": "vp config --no-hooks"

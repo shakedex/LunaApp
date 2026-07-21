@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vite-plus/test'
 import { mapMediaInfoToClipMetadata } from '../src/metadata/mediainfo'
 
 // Panasonic P2-style ClipMetadata XML atom — corpus-confirmed shape

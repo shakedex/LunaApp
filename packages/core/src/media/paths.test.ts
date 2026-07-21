@@ -1,4 +1,4 @@
-import { expect, test } from 'bun:test'
+import { expect, test } from 'vite-plus/test'
 import { joinPath } from './paths'
 
 test('joins root and relative with a slash', () => {

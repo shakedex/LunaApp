@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vite-plus/test'
 import { findValidJpegs, jpegDimensions } from '../src/preview/jpeg'
 
 function minimalJpeg(width: number, height: number): number[] {

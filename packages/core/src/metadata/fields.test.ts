@@ -1,4 +1,4 @@
-import { expect, test } from 'bun:test'
+import { expect, test } from 'vite-plus/test'
 import { CAMERA_FIELDS } from './fields'
 
 test('camera fields are unique and in canonical display order', () => {

@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vite-plus/test'
 import { normalizeReportSummaries, type ReportSummary, summarizeReport } from './library'
 import type { ReportModel } from './model'
 

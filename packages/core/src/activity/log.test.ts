@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vite-plus/test'
 import { appendLog, formatLogText, type LogEntry, logLevelAtLeast } from './log'
 
 function entry(seq: number, overrides: Partial<LogEntry> = {}): LogEntry {
