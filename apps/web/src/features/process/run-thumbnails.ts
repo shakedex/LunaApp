@@ -279,7 +279,21 @@ export async function startThumbnails(run: number): Promise<void> {
       {
         onItemStart: (clip) => setThumbStatus(run, clip.id, 'decoding'),
         onItemSuccess: (clip, frame) => finishClip(run, clip.id, [frame]),
-        onItemFailure: (clip, err) => failClip(run, clip.id, errorMessage(err)),
+        onItemFailure: (clip, err) => {
+          // Last chance at a picture, so only a genuinely unreadable file is a
+          // clip defect worth flagging — a slow read means we made no
+          // thumbnail, not that the clip is bad.
+          const message = errorMessage(err)
+          if (isTimeout(message)) {
+            if (isRunCurrent(run)) {
+              logger.info(`Reading the preview in ${clip.fileName} timed out — no thumbnail`)
+            }
+            finishClip(run, clip.id, [noDecoderFrame()])
+          } else {
+            if (isRunCurrent(run)) logger.warn(`Thumbnails failed for ${clip.fileName}`, message)
+            failClip(run, clip.id, message)
+          }
+        },
       },
       // Not poolSizeFor: a preview lane is `{}` — no worker, no wasm — so this
       // bounds concurrent file reads, not CPU.
