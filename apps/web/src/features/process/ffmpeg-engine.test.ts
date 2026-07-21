@@ -8,6 +8,7 @@ import { createFfmpegEngine } from './ffmpeg-engine'
 const hooks = vi.hoisted(() => ({
   download: Promise.resolve(),
   load: Promise.resolve(),
+  wasmFails: false,
   loadCalls: 0,
   terminateCalls: 0,
   downloadCalls: 0,
@@ -26,10 +27,16 @@ vi.mock('@ffmpeg/ffmpeg', () => ({
   },
 }))
 
-vi.mock('@/lib/engine-cache', () => ({
+// Only the download is faked — revokeSettled stays real, so a test can hold
+// ensureLoaded's cleanup to account. The type argument is spelled relative
+// because `vp lint` does not resolve the '@' alias inside an inline import
+// type (it does for the specifier itself).
+vi.mock('@/lib/engine-cache', async () => ({
+  ...(await vi.importActual<typeof import('../../lib/engine-cache')>('@/lib/engine-cache')),
   cachedBlobUrl: async (url: string) => {
     hooks.downloadCalls++
     await hooks.download
+    if (hooks.wasmFails && url.endsWith('.wasm')) throw new Error('network down')
     return `blob:${url}`
   },
 }))
@@ -47,6 +54,7 @@ let revoked: string[] = []
 beforeEach(() => {
   hooks.download = Promise.resolve()
   hooks.load = Promise.resolve()
+  hooks.wasmFails = false
   hooks.loadCalls = 0
   hooks.terminateCalls = 0
   hooks.downloadCalls = 0
@@ -100,6 +108,18 @@ test('disposing while load() is in flight cannot leave the body running', async 
   // only because the fake diverges from the real library on the point above.
   expect(hooks.terminateCalls).toBe(2)
   expect(revoked).toHaveLength(2)
+})
+
+// Pins ensureLoaded's Promise.allSettled: under Promise.all the rejection
+// escapes before the sibling's ~31 MB object URL can be revoked, and nothing
+// else ever holds a reference to it.
+test('a download that fails alongside a successful one revokes the survivor', async () => {
+  hooks.wasmFails = true
+  const engine = createFfmpegEngine()
+
+  await expect(engine.thumbnails(clip(), [0], 320)).rejects.toThrow('network down')
+  expect(revoked).toEqual([expect.stringContaining('ffmpeg-core.js')])
+  expect(hooks.loadCalls).toBe(0)
 })
 
 test('a disposed engine stays disposed when the pool retries the item', async () => {

@@ -1,5 +1,6 @@
 import { afterEach, expect, test, vi } from 'vite-plus/test'
 import { withCancellation } from './run-processing'
+import { isDecoderFailure, isTimeout } from './run-thumbnails'
 
 // The helper's poll interval; the fake-clock tests must outrun it.
 const POLL_MS = 250
@@ -33,16 +34,14 @@ test('never starts work that is already cancelled', async () => {
   expect(started).toBe(false)
 })
 
-// isDecoderFailure() routes 'NO_DECODER'/format/container messages into the
-// cascade and withTimeout owns the other terminal message — a cancellation
-// must read as neither.
+// isDecoderFailure() routes a message into the ffmpeg cascade and isTimeout()
+// into the preview salvage — a cancellation must read as neither, or a
+// superseded lane's clip gets re-queued instead of ending.
 test('the rejection message is neither a decoder failure nor a timeout', async () => {
   const err = await withCancellation(never, () => true, 'A001C002.mov').catch((e: unknown) => e)
   const msg = err instanceof Error ? err.message : String(err)
-  // Pattern copied from isDecoderFailure() in run-thumbnails.ts (the source of
-  // truth); it is module-private and not worth exporting for this assertion.
-  expect(msg).not.toMatch(/NO_DECODER|format|recognized|container/i)
-  expect(msg).not.toMatch(/timed out/)
+  expect(isDecoderFailure(msg)).toBe(false)
+  expect(isTimeout(msg)).toBe(false)
   expect(msg).toBe('A001C002.mov: cancelled')
 })
 

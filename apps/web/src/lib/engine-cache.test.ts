@@ -88,5 +88,5 @@ test('a URL created alongside a failing sibling is still revoked', async () => {
   // The caller must revoke what it received even though its sibling failed.
   const url = (settled[0] as PromiseFulfilledResult<string>).value
   revokeSettled(settled)
-  expect(revoked).toContain(url)
+  expect(revoked).toEqual([url])
 })

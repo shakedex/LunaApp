@@ -79,8 +79,9 @@ export function withCancellation<T>(
   isCancelled: () => boolean,
   label: string,
 ): Promise<T> {
-  // Checked before starting too: runPool retries a failed item, and a retry
-  // that re-created the resource would strand exactly what this prevents.
+  // Checked before starting too: cancellation can land between runPool
+  // claiming the item and this call, and starting the work then would allocate
+  // exactly what this prevents — the poll only catches it a tick later.
   if (isCancelled()) return Promise.reject(new Error(`${label}: cancelled`))
   return new Promise<T>((resolve, reject) => {
     // Started before the timer is armed: a synchronous throw out of start()
