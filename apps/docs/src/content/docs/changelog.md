@@ -9,6 +9,10 @@ All notable changes to Luna Web. This format is based on
 
 ## [Unreleased]
 
+### Fixed
+
+- Scanning a project folder that wraps everything in a single subfolder (like `CAMERA/`) no longer lumps most clips into one reel named after that subfolder — reel folders like `A001` are now recognized at any depth, and the Cards count reflects the folders inside the wrapper instead of showing 1.
+
 ## [0.14.0] - 2026-07-20
 
 ### Added

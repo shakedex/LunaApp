@@ -37,6 +37,9 @@ describe('cardCountFrom', () => {
   test('no clips, no cards', () => {
     expect(cardCountFrom([])).toBe(0)
   })
+  test('prefixDepth counts cards past wrapper folders', () => {
+    expect(cardCountFrom(['CAMERA/A_CAM/x.mov', 'CAMERA/B_CAM/y.mov'], 1)).toBe(2)
+  })
 })
 
 describe('buildReportModel', () => {
@@ -64,16 +67,17 @@ describe('buildReportModel', () => {
       // Byte-for-byte honesty: clips (175) + other files (204).
       totalSizeBytes: 379,
     })
-    expect(model.reels.map((r) => r.name)).toEqual(['A001', 'B002', 'CUSTOM'])
-    const custom = model.reels.find((r) => r.name === 'CUSTOM')
-    expect(custom?.clips[0]?.thumbnails.length).toBe(1)
+    // one.mov carries reelName CUSTOM, but its reel-like folder A001 wins.
+    expect(model.reels.map((r) => r.name)).toEqual(['A001', 'B002'])
+    const a001 = model.reels.find((r) => r.name === 'A001')
+    expect(a001?.clips.map((c) => c.fileName)).toEqual(['one.mov', 'two.mov'])
+    expect(a001?.clips[0]?.thumbnails.length).toBe(1)
     const three = model.reels.find((r) => r.name === 'B002')?.clips[0]
     expect(three?.metadata).toEqual({}) // failed metadata → empty, present
     expect(three?.thumbnails).toEqual([])
     expect(model.cover.projectTitle).toBe('Test')
-    // Other files are LISTED inside their top-folder reel — name, path, size.
+    // Other files are LISTED inside their reel — name, path, size.
     // The report is a 1:1 inventory of the card; a bare count is not enough.
-    const a001 = model.reels.find((r) => r.name === 'A001')
     expect(a001?.otherFiles.map((f) => f.relativePath)).toEqual([
       'A001/grade.cube',
       'A001/sound.wav',
@@ -84,22 +88,66 @@ describe('buildReportModel', () => {
       extension: '.wav',
       sizeBytes: 200,
     })
-    expect(model.reels.find((r) => r.name === 'CUSTOM')?.otherFiles).toEqual([])
     expect(a001?.stats).toEqual({
-      clipCount: 1,
+      clipCount: 2,
       otherFileCount: 2,
       otherFileSizeBytes: 204,
-      totalSizeBytes: 254,
-      totalDurationSeconds: 5,
+      totalSizeBytes: 354,
+      totalDurationSeconds: 15,
     })
-    const customStats = model.reels.find((r) => r.name === 'CUSTOM')?.stats
-    expect(customStats).toEqual({
-      clipCount: 1,
-      otherFileCount: 0,
-      otherFileSizeBytes: 0,
-      totalSizeBytes: 100,
-      totalDurationSeconds: 10,
+  })
+
+  test('embedded reelName still groups clips whose folders are not reel-like', () => {
+    const model = buildReportModel({
+      clips: [ref('DAY1/one.mov', 100), ref('DAY1/two.mov', 50)],
+      otherFiles: [],
+      metadataById: {
+        'DAY1/one.mov': { reelName: 'A001R2B' },
+        'DAY1/two.mov': { reelName: 'A001R2B' },
+      },
+      thumbsById: {},
+      cover: {},
     })
+    expect(model.reels.map((r) => r.name)).toEqual(['A001R2B'])
+  })
+
+  test('master project folder: wrapper is skipped, reel folders found at any depth', () => {
+    const clips = [
+      ref('CAMERA/A_CAM/A001/a.mxf', 10),
+      ref('CAMERA/A_CAM/A002/b.mxf', 10),
+      ref('CAMERA/B_CAM/B005/c.mxf', 10),
+      ref('CAMERA/T_CAM/d.mxf', 10),
+    ]
+    const otherFiles = [other('CAMERA/B_CAM/B005/c.xml', 1)]
+    const model = buildReportModel({
+      clips,
+      otherFiles,
+      metadataById: {},
+      thumbsById: {},
+      cover: {},
+    })
+    expect(model.reels.map((r) => r.name)).toEqual(['A001', 'A002', 'B005', 'T_CAM'])
+    // Sidecar lands in the same reel as its clip, not in a wrapper-named group.
+    expect(model.reels.find((r) => r.name === 'B005')?.otherFiles.map((f) => f.fileName)).toEqual([
+      'c.xml',
+    ])
+    // Cards are the folders one level past the wrapper: A_CAM, B_CAM, T_CAM.
+    expect(model.stats.cardCount).toBe(3)
+  })
+
+  test('raw camera card: vendor wrappers are skipped and embedded reelName names the reel', () => {
+    const model = buildReportModel({
+      clips: [ref('PRIVATE/M4ROOT/CLIP/c1.mxf', 10), ref('PRIVATE/M4ROOT/CLIP/c2.mxf', 10)],
+      otherFiles: [],
+      metadataById: {
+        'PRIVATE/M4ROOT/CLIP/c1.mxf': { reelName: '0001AB' },
+        'PRIVATE/M4ROOT/CLIP/c2.mxf': { reelName: '0001AB' },
+      },
+      thumbsById: {},
+      cover: {},
+    })
+    expect(model.reels.map((r) => r.name)).toEqual(['0001AB'])
+    expect(model.stats.cardCount).toBe(1)
   })
 
   test('other files in a folder with no clips still form a reel — bytes are never dropped', () => {

@@ -1,10 +1,10 @@
 import { describe, expect, test } from 'vite-plus/test'
-import { detectReels, UNGROUPED_REEL } from '../src/reels/detect'
+import { detectReels, UNGROUPED_REEL, wrapperPrefixDepth } from '../src/reels/detect'
 
 const clip = (relativePath: string, reelName?: string) => ({ relativePath, reelName })
 
 describe('detectReels', () => {
-  test('groups by embedded reelName first, regardless of folders', () => {
+  test('groups by embedded reelName when no folder looks like a reel', () => {
     const reels = detectReels([
       clip('X/one.mov', 'A001R2B'),
       clip('Y/two.mov', 'A001R2B'),
@@ -12,6 +12,33 @@ describe('detectReels', () => {
     ])
     expect(reels.map((r) => r.name)).toEqual(['A001R2B', 'B001R1A'])
     expect(reels[0]?.clips.map((c) => c.relativePath)).toEqual(['X/one.mov', 'Y/two.mov'])
+  })
+
+  test('a reel-like folder beats the embedded reelName', () => {
+    const reels = detectReels([
+      clip('A001/PRIVATE/M4ROOT/CLIP/c1.mxf', '0001AB'),
+      clip('A001/PRIVATE/M4ROOT/CLIP/c2.mxf', '0001AB'),
+      clip('B002/PRIVATE/M4ROOT/CLIP/c3.mxf', '0001AC'),
+    ])
+    expect(reels.map((r) => r.name)).toEqual(['A001', 'B002'])
+  })
+
+  test('the deepest reel-like folder wins, at any depth', () => {
+    const reels = detectReels([
+      clip('CAMERA/A_CAM/A001/x.mov'),
+      clip('CAMERA/A_CAM/A002/y.mov'),
+      clip('CAMERA/S_cam/s004/z.mxf'),
+      clip('CAMERA/RONIN-4D/w.mov'),
+    ])
+    expect(reels.map((r) => r.name)).toEqual(['A001', 'A002', 'CAMERA', 's004'])
+  })
+
+  test('prefixDepth strips wrapper folders before the first-folder fallback', () => {
+    const reels = detectReels(
+      [clip('CAMERA/BURANO/x.mxf'), clip('CAMERA/T_CAM/y.mxf'), clip('CAMERA/T_CAM/z.mxf')],
+      { prefixDepth: 1 },
+    )
+    expect(reels.map((r) => r.name)).toEqual(['BURANO', 'T_CAM'])
   })
 
   test('falls back to the top-level folder when reelName is absent', () => {
@@ -42,5 +69,37 @@ describe('detectReels', () => {
 
   test('empty input yields no reels', () => {
     expect(detectReels([])).toEqual([])
+  })
+})
+
+describe('wrapperPrefixDepth', () => {
+  test('a single non-reel top folder shared by every path is a wrapper', () => {
+    expect(wrapperPrefixDepth(['CAMERA/A_CAM/A001/x.mov', 'CAMERA/BURANO/y.mxf'])).toBe(1)
+  })
+
+  test('nested wrappers strip level by level', () => {
+    expect(
+      wrapperPrefixDepth(['PROJ/CAMERA/A_CAM/A001/x.mov', 'PROJ/CAMERA/B_CAM/B005/y.mxf']),
+    ).toBe(2)
+  })
+
+  test('multiple top-level folders mean no wrapper', () => {
+    expect(wrapperPrefixDepth(['A001/x.mov', 'B002/y.mov'])).toBe(0)
+  })
+
+  test('a reel-like top folder is never treated as a wrapper', () => {
+    expect(wrapperPrefixDepth(['A001/x.mov', 'A001/y.mov'])).toBe(0)
+  })
+
+  test('never strips a level that would leave a file with no folder', () => {
+    expect(wrapperPrefixDepth(['CAMERA/x.mov', 'CAMERA/T_CAM/y.mov'])).toBe(0)
+  })
+
+  test('root-level files mean no wrapper', () => {
+    expect(wrapperPrefixDepth(['x.mov', 'CAMERA/y.mov'])).toBe(0)
+  })
+
+  test('empty input has no wrapper', () => {
+    expect(wrapperPrefixDepth([])).toBe(0)
   })
 })

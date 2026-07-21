@@ -1,5 +1,5 @@
 import type { ClipMetadata } from '../metadata/model'
-import { compareReelNames, detectReels } from '../reels/detect'
+import { compareReelNames, detectReels, wrapperPrefixDepth } from '../reels/detect'
 import type { ClipRef, OtherFileRef } from '../scan/model'
 import type { ThumbnailFrame } from '../thumbs/model'
 
@@ -59,14 +59,18 @@ export interface ReportModel<TImage = unknown> {
   reels: Reel<TImage>[]
 }
 
-// spec §8.8: a "card" is a top-level media subfolder; media at the root with
-// no subfolders counts as one card; an empty scan has zero.
-export function cardCountFrom(relativePaths: readonly string[]): number {
+// spec §8.8: a "card" is a top-level media subfolder — counted past any
+// wrapper prefix (prefixDepth from wrapperPrefixDepth), so a master folder
+// whose media all sits under e.g. CAMERA/ counts the folders inside it.
+// Media at the root with no subfolders counts as one card; an empty scan
+// has zero.
+export function cardCountFrom(relativePaths: readonly string[], prefixDepth = 0): number {
   if (relativePaths.length === 0) return 0
   const folders = new Set<string>()
   for (const path of relativePaths) {
-    const slash = path.indexOf('/')
-    if (slash > 0) folders.add(path.slice(0, slash))
+    const segments = path.split('/')
+    const top = segments.length > prefixDepth + 1 ? segments[prefixDepth] : undefined
+    if (top) folders.add(top)
   }
   return folders.size > 0 ? folders.size : 1
 }
@@ -106,18 +110,26 @@ export function buildReportModel<TImage = unknown>(
   let otherFileSizeBytes = 0
   for (const f of input.otherFiles) otherFileSizeBytes += f.sizeBytes
 
-  // Other files group by top folder (they carry no reelName metadata) and are
+  // One wrapper depth for the whole scan — clips, other files, and the card
+  // count must all group against the same prefix or sections drift apart.
+  const allPaths = [
+    ...input.clips.map((c) => c.relativePath),
+    ...input.otherFiles.map((f) => f.relativePath),
+  ]
+  const prefixDepth = wrapperPrefixDepth(allPaths)
+
+  // Other files group by folder (they carry no reelName metadata) and are
   // listed inside their reel; folders holding only other files still become
   // (clipless) reels so their bytes are never dropped. detectReels already
   // sorts each group by relativePath.
   const otherByReel = new Map<string, OtherFileRef[]>()
-  for (const group of detectReels(input.otherFiles)) {
+  for (const group of detectReels(input.otherFiles, { prefixDepth })) {
     otherByReel.set(group.name, group.clips)
   }
   const sumBytes = (files: readonly OtherFileRef[]) =>
     files.reduce((sum, f) => sum + f.sizeBytes, 0)
 
-  const reels: Reel<TImage>[] = detectReels(reportClips).map((reel) => {
+  const reels: Reel<TImage>[] = detectReels(reportClips, { prefixDepth }).map((reel) => {
     const clips = reel.clips.map(({ reelName: _drop, ...clip }) => clip)
     let sizeBytes = 0
     let durationSeconds = 0
@@ -160,10 +172,7 @@ export function buildReportModel<TImage = unknown>(
     cover: input.cover,
     sourceRoot: input.sourceRoot ?? '',
     stats: {
-      cardCount: cardCountFrom([
-        ...input.clips.map((c) => c.relativePath),
-        ...input.otherFiles.map((f) => f.relativePath),
-      ]),
+      cardCount: cardCountFrom(allPaths, prefixDepth),
       clipCount: input.clips.length,
       otherFileCount: input.otherFiles.length,
       otherFileSizeBytes,
