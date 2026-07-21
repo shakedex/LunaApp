@@ -61,6 +61,44 @@ export function withTimeout<T>(promise: Promise<T>, ms: number, label: string): 
   })
 }
 
+const CANCEL_POLL_MS = 250
+
+// runPool checks cancellation only when claiming the next item, and nothing
+// aborts work already inside hooks.run() — so a superseded lane holds whatever
+// the item allocated until that item ends on its own. For ffmpeg that is a live
+// wasm instance per lane, and "Start over" sits on the processing screen where
+// the next action is usually picking another folder, so the old run's lanes
+// would overlap the new run's. Rejecting early hands the lane to runPool's
+// failure path, which destroys it. The message must stay clear of
+// isDecoderFailure() in run-thumbnails and distinct from a timeout; the status
+// write is dropped by guardedUpdate anyway, so it is for the activity log only.
+export function withCancellation<T>(
+  start: () => Promise<T>,
+  isCancelled: () => boolean,
+  label: string,
+): Promise<T> {
+  // Checked before starting too: runPool retries a failed item, and a retry
+  // that re-created the resource would strand exactly what this prevents.
+  if (isCancelled()) return Promise.reject(new Error(`${label}: cancelled`))
+  return new Promise<T>((resolve, reject) => {
+    const poll = setInterval(() => {
+      if (!isCancelled()) return
+      clearInterval(poll)
+      reject(new Error(`${label}: cancelled`))
+    }, CANCEL_POLL_MS)
+    start().then(
+      (v) => {
+        clearInterval(poll)
+        resolve(v)
+      },
+      (e) => {
+        clearInterval(poll)
+        reject(e)
+      },
+    )
+  })
+}
+
 export async function startProcessing(): Promise<void> {
   const state = scanStore.state
   if (state.phase !== 'summary') return

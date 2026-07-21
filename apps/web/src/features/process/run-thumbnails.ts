@@ -15,11 +15,23 @@ import { logger } from '@/lib/logger'
 import { scanStore } from '../scan/store'
 import { createFfmpegEngine, type FfmpegEngine } from './ffmpeg-engine'
 import { previewToFrame } from './preview-frame'
-import { guardedUpdate, isRunCurrent, poolSizeFor, withTimeout } from './run-processing'
+import {
+  guardedUpdate,
+  isRunCurrent,
+  poolSizeFor,
+  withCancellation,
+  withTimeout,
+} from './run-processing'
 import { createThumbsWorker, type ThumbsWorkerHandle } from './thumbs-client'
 
 const MEDIABUNNY_TIMEOUT_MS = 60_000 // spec §10.3
-const FFMPEG_TIMEOUT_MS = 180_000 // per-lane budget (spec §10.3); scaled by ffmpegLanes below
+// Single-lane (uncontended) per-clip budget, spec §10.3 — scaled by the lane
+// count below and capped there.
+const FFMPEG_TIMEOUT_MS = 180_000
+// Ceiling on that scaled budget. runPool retries once, so an uncapped budget
+// lets one wedged clip hold a lane for 2 × cap; 600 s keeps 3.3× headroom over
+// the calibrated serial budget.
+const FFMPEG_TIMEOUT_CAP_MS = 600_000
 const PREVIEW_TIMEOUT_MS = 30_000
 
 // A decoder/container failure is a routing fact, not a clip defect — it feeds
@@ -152,31 +164,43 @@ export async function startThumbnails(run: number): Promise<void> {
   const ffmpegQueue = [...ffmpegClips, ...cascaded]
   if (ffmpegQueue.length > 0 && isRunCurrent(run)) {
     // Lanes are whole ffmpeg wasm instances — ~31 MB binary plus a per-lane
-    // decode heap that grows well past that for 4K frames; poolSizeFor bounds
-    // them by the Settings worker cap, hardwareConcurrency, and queue size.
+    // decode heap that grows well past that for 4K frames. Nothing bounds the
+    // bytes: poolSizeFor bounds the lane count only (Settings worker cap,
+    // hardwareConcurrency, queue size), so the worker cap is the only lever
+    // over peak memory.
     // Cold-start binary downloads are single-flighted in engine-cache.
     const ffmpegLanes = poolSizeFor(ffmpegQueue.length)
-    // CPU contention across concurrent lanes inflates each clip's wall time
-    // roughly by the lane count, and a timeout here is terminal (it skips the
-    // preview-salvage pass) — so the per-lane budget must scale with lanes or
-    // contention alone fails clips that would finish fine serially.
-    const ffmpegTimeoutMs = FFMPEG_TIMEOUT_MS * ffmpegLanes
-    logger.info('ffmpeg pass started', `${ffmpegQueue.length} clips, ${ffmpegLanes} lanes`)
+    // CPU contention across concurrent lanes inflates each clip's wall time,
+    // and a timeout here is terminal (it skips the preview-salvage pass) — so
+    // the budget scales with lanes or contention alone fails clips that would
+    // finish fine serially. Capped because the scaling is over-generous:
+    // @ffmpeg/core is the single-threaded build and lanes never exceed
+    // hardwareConcurrency, so contention is sublinear.
+    const ffmpegTimeoutMs = Math.min(FFMPEG_TIMEOUT_MS * ffmpegLanes, FFMPEG_TIMEOUT_CAP_MS)
+    logger.info('ffmpeg pass started', `${ffmpegQueue.length} clips, ${ffmpegLanes} workers`)
     await runPool<FfmpegEngine, ClipRef, ThumbnailFrame<Blob>[]>(
       ffmpegQueue,
       {
         createLane: () => createFfmpegEngine(),
         destroyLane: (lane) => lane.dispose(),
-        run: async (lane, clip) => {
-          const file = (await clip.file.getFile()) as File // documented boundary (see run-processing)
-          const duration = scanStore.state.metadataById[clip.id]?.durationSeconds ?? 0
-          const timestamps = thumbnailTimestamps(duration)
-          return withTimeout(
-            lane.thumbnails(file, timestamps, THUMBNAIL_TARGET_WIDTH),
-            ffmpegTimeoutMs,
+        // Cancelled lanes must let go of their wasm engine promptly — see
+        // withCancellation. Only this pool needs it: mediabunny/preview lanes
+        // are cheap to strand.
+        run: (lane, clip) =>
+          withCancellation(
+            async () => {
+              const file = (await clip.file.getFile()) as File // documented boundary (see run-processing)
+              const duration = scanStore.state.metadataById[clip.id]?.durationSeconds ?? 0
+              const timestamps = thumbnailTimestamps(duration)
+              return await withTimeout(
+                lane.thumbnails(file, timestamps, THUMBNAIL_TARGET_WIDTH),
+                ffmpegTimeoutMs,
+                clip.fileName,
+              )
+            },
+            () => !isRunCurrent(run),
             clip.fileName,
-          )
-        },
+          ),
       },
       {
         onItemStart: (clip) => setThumbStatus(run, clip.id, 'decoding'),
