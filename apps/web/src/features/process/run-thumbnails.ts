@@ -19,7 +19,7 @@ import { guardedUpdate, isRunCurrent, poolSizeFor, withTimeout } from './run-pro
 import { createThumbsWorker, type ThumbsWorkerHandle } from './thumbs-client'
 
 const MEDIABUNNY_TIMEOUT_MS = 60_000 // spec §10.3
-const FFMPEG_TIMEOUT_MS = 180_000 // spec §10.3
+const FFMPEG_TIMEOUT_MS = 180_000 // per-lane budget (spec §10.3); scaled by ffmpegLanes below
 const PREVIEW_TIMEOUT_MS = 30_000
 
 // A decoder/container failure is a routing fact, not a clip defect — it feeds
@@ -151,11 +151,17 @@ export async function startThumbnails(run: number): Promise<void> {
 
   const ffmpegQueue = [...ffmpegClips, ...cascaded]
   if (ffmpegQueue.length > 0 && isRunCurrent(run)) {
-    // Lanes are whole ffmpeg wasm instances (~31 MB each); poolSizeFor bounds
+    // Lanes are whole ffmpeg wasm instances — ~31 MB binary plus a per-lane
+    // decode heap that grows well past that for 4K frames; poolSizeFor bounds
     // them by the Settings worker cap, hardwareConcurrency, and queue size.
     // Cold-start binary downloads are single-flighted in engine-cache.
     const ffmpegLanes = poolSizeFor(ffmpegQueue.length)
-    logger.info('ffmpeg fallback started', `${ffmpegQueue.length} clips, ${ffmpegLanes} lanes`)
+    // CPU contention across concurrent lanes inflates each clip's wall time
+    // roughly by the lane count, and a timeout here is terminal (it skips the
+    // preview-salvage pass) — so the per-lane budget must scale with lanes or
+    // contention alone fails clips that would finish fine serially.
+    const ffmpegTimeoutMs = FFMPEG_TIMEOUT_MS * ffmpegLanes
+    logger.info('ffmpeg pass started', `${ffmpegQueue.length} clips, ${ffmpegLanes} lanes`)
     await runPool<FfmpegEngine, ClipRef, ThumbnailFrame<Blob>[]>(
       ffmpegQueue,
       {
@@ -167,7 +173,7 @@ export async function startThumbnails(run: number): Promise<void> {
           const timestamps = thumbnailTimestamps(duration)
           return withTimeout(
             lane.thumbnails(file, timestamps, THUMBNAIL_TARGET_WIDTH),
-            FFMPEG_TIMEOUT_MS,
+            ffmpegTimeoutMs,
             clip.fileName,
           )
         },
