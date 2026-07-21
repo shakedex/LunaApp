@@ -15,7 +15,7 @@ All notable changes to Luna Web. This format is based on
 
 ### Fixed
 
-- Clips that fall back to the ffmpeg decoder no longer time out and fail just because several are decoding at once — the time limit now accounts for how many are running.
+- A clip whose thumbnail takes too long to generate now falls back to its embedded preview, or to a no-preview tile, and stays in the report — it is no longer marked as a failed clip.
 - Pressing "Start over" during thumbnailing now frees the decoders right away instead of leaving them running in the background.
 
 ## [0.14.1] - 2026-07-21
