@@ -9,6 +9,8 @@ All notable changes to Luna Web. This format is based on
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-07-21
+
 ### Changed
 
 - Clips that need the ffmpeg decoder (MXF, AVI, and anything WebCodecs can't read) now generate thumbnails several at a time instead of one after another, so processing a card of them uses the whole machine. How many run at once follows the worker cap in Settings.
@@ -81,7 +83,8 @@ All notable changes to Luna Web. This format is based on
 - Operation-grouped activity log for each processing run.
 - Deploys as a Cloudflare Worker (app and docs) via the dashboard git integration.
 
-[unreleased]: https://github.com/shakedex/LunaApp/compare/v0.14.1...HEAD
+[unreleased]: https://github.com/shakedex/LunaApp/compare/v0.15.0...HEAD
+[0.15.0]: https://github.com/shakedex/LunaApp/compare/v0.14.1...v0.15.0
 [0.14.1]: https://github.com/shakedex/LunaApp/compare/v0.14.0...v0.14.1
 [0.14.0]: https://github.com/shakedex/LunaApp/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/shakedex/LunaApp/compare/v0.12.0...v0.13.0
