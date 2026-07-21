@@ -9,6 +9,15 @@ All notable changes to Luna Web. This format is based on
 
 ## [Unreleased]
 
+### Changed
+
+- Clips that need the ffmpeg decoder (MXF, AVI, and anything WebCodecs can't read) now generate thumbnails several at a time instead of one after another, so processing a card of them uses the whole machine. How many run at once follows the worker cap in Settings.
+
+### Fixed
+
+- Clips that fall back to the ffmpeg decoder no longer time out and fail just because several are decoding at once — the time limit now accounts for how many are running.
+- Pressing "Start over" during thumbnailing now frees the decoders right away instead of leaving them running in the background.
+
 ## [0.14.1] - 2026-07-21
 
 ### Fixed
