@@ -1,6 +1,7 @@
 {
   "name": "luna-web-workspace",
   "private": true,
+  "packageManager": "bun@1.3.14",
   "type": "module",
   "workspaces": [
     "apps/*",
