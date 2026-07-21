@@ -9,6 +9,8 @@ All notable changes to Luna Web. This format is based on
 
 ## [Unreleased]
 
+## [0.14.1] - 2026-07-21
+
 ### Fixed
 
 - Scanning a project folder that wraps everything in a single subfolder (like `CAMERA/`) no longer lumps most clips into one reel named after that subfolder — reel folders like `A001` are now recognized at any depth, and the Cards count reflects the folders inside the wrapper instead of showing 1.
@@ -70,7 +72,8 @@ All notable changes to Luna Web. This format is based on
 - Operation-grouped activity log for each processing run.
 - Deploys as a Cloudflare Worker (app and docs) via the dashboard git integration.
 
-[unreleased]: https://github.com/shakedex/LunaApp/compare/v0.14.0...HEAD
+[unreleased]: https://github.com/shakedex/LunaApp/compare/v0.14.1...HEAD
+[0.14.1]: https://github.com/shakedex/LunaApp/compare/v0.14.0...v0.14.1
 [0.14.0]: https://github.com/shakedex/LunaApp/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/shakedex/LunaApp/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/shakedex/LunaApp/releases/tag/v0.12.0
