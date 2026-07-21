@@ -1,7 +1,7 @@
 import { FFFSType, FFmpeg } from '@ffmpeg/ffmpeg'
 import type { ThumbnailFrame } from '@luna-web/core'
 import { THUMBNAIL_POSITIONS } from '@luna-web/core'
-import { cachedBlobUrl } from '@/lib/engine-cache'
+import { cachedBlobUrl, revokeSettled } from '@/lib/engine-cache'
 
 // @ffmpeg/core's package.json has no "./package.json" export, so
 // `import ... from '@ffmpeg/core/package.json' with { type: 'json' }` is
@@ -28,10 +28,25 @@ export function createFfmpegEngine(): FfmpegEngine {
 
   function ensureLoaded(): Promise<void> {
     loaded ??= (async () => {
-      const [coreURL, wasmURL] = await Promise.all([
+      // Settled, not Promise.all: Promise.all rejects the instant one
+      // download fails, so the sibling that still resolves mints a ~31MB
+      // object URL the finally below never sees — one leak per lane on a
+      // flaky network. Both bail-outs run before the try is entered, so no
+      // URL can be revoked twice.
+      const [core, wasm] = await Promise.allSettled([
         cachedBlobUrl(`${CORE_BASE}/ffmpeg-core.js`, 'text/javascript'),
         cachedBlobUrl(`${CORE_BASE}/ffmpeg-core.wasm`, 'application/wasm'),
       ])
+      if (core.status === 'rejected') {
+        revokeSettled([core, wasm])
+        throw core.reason
+      }
+      if (wasm.status === 'rejected') {
+        revokeSettled([core, wasm])
+        throw wasm.reason
+      }
+      const coreURL = core.value
+      const wasmURL = wasm.value
       try {
         // The download window above is where a cancelled lane is disposed
         // (widest on a cold cache, where every lane waits on one ~31 MB

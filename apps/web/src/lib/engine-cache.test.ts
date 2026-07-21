@@ -1,5 +1,5 @@
 import { afterEach, expect, test, vi } from 'vite-plus/test'
-import { cachedBlobUrl } from './engine-cache'
+import { cachedBlobUrl, revokeSettled } from './engine-cache'
 
 // Fake CacheStorage: miss until add() completes, count network fetches, and
 // make add() take a tick so concurrent callers genuinely overlap.
@@ -68,4 +68,25 @@ test('a failed fetch does not poison later retries', async () => {
     cachedBlobUrl('https://cdn.test/three/core.wasm', 'application/wasm'),
   ).resolves.toBeTruthy()
   expect(fake.addCallCount()).toBe(2)
+})
+
+test('a URL created alongside a failing sibling is still revoked', async () => {
+  const fake = fakeCaches()
+  vi.stubGlobal('caches', fake.caches)
+  let created = 0
+  vi.spyOn(URL, 'createObjectURL').mockImplementation(() => `blob:fake-${++created}`)
+  const revoked: string[] = []
+  vi.spyOn(URL, 'revokeObjectURL').mockImplementation((u) => {
+    revoked.push(u)
+  })
+
+  const ok = cachedBlobUrl('https://cdn.test/pair/core.js', 'text/javascript')
+  const bad = Promise.reject(new Error('network down'))
+  const settled = await Promise.allSettled([ok, bad])
+
+  expect(settled[0]?.status).toBe('fulfilled')
+  // The caller must revoke what it received even though its sibling failed.
+  const url = (settled[0] as PromiseFulfilledResult<string>).value
+  revokeSettled(settled)
+  expect(revoked).toContain(url)
 })

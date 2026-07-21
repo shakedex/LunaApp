@@ -25,3 +25,10 @@ export async function cachedBlobUrl(url: string, mime: string): Promise<string> 
   // load, so a shared URL would race one lane's revoke against another's load.
   return URL.createObjectURL(new Blob([blob], { type: mime }))
 }
+
+// Promise.all rejects before its siblings' fulfilled values can be cleaned up,
+// so callers that mint object URLs in parallel must settle independently and
+// revoke whatever actually got created.
+export function revokeSettled(settled: PromiseSettledResult<string>[]): void {
+  for (const r of settled) if (r.status === 'fulfilled') URL.revokeObjectURL(r.value)
+}
