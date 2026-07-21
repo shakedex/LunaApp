@@ -40,8 +40,15 @@ export function createFfmpegEngine(): FfmpegEngine {
         // creating one on an engine nobody holds a reference to.
         if (disposed) throw new Error(DISPOSED_MESSAGE)
         await ffmpeg.load({ coreURL, wasmURL })
-        // dispose() landed inside load(): its terminate() hit the half-built
-        // instance, so terminate the worker load() has just finished creating.
+        // terminate() rejects every in-flight send, including a pending
+        // load() — so the normal outcome of a dispose() during load() is that
+        // the await above throws and this line is never reached. This guard
+        // is for the narrow ordering where the LOAD reply already resolved
+        // the promise before dispose() ran: the continuation hadn't been
+        // scheduled yet, so no rejection was delivered. dispose() has still
+        // nulled the worker by then, so this terminate() is belt-and-braces
+        // (also insurance against a future library version that stops
+        // rejecting in-flight sends).
         if (disposed) {
           ffmpeg.terminate()
           throw new Error(DISPOSED_MESSAGE)
@@ -64,6 +71,12 @@ export function createFfmpegEngine(): FfmpegEngine {
 
   return {
     async thumbnails(file, timestamps, width) {
+      // First line on purpose: without this, an already-disposed engine
+      // still pays for ensureLoaded()'s cache lookup and two ~31MB blob
+      // copies before bailing, and if load() had already succeeded, the body
+      // would run against a terminated instance and reject with the
+      // library's ERROR_NOT_LOADED instead of this message.
+      if (disposed) throw new Error(DISPOSED_MESSAGE)
       await ensureLoaded()
       // Best-effort teardown of any leftovers from a previously-failed
       // cleanup, then (re)create the mount dir. A genuine failure here

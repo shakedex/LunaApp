@@ -10,6 +10,7 @@ const hooks = vi.hoisted(() => ({
   load: Promise.resolve(),
   loadCalls: 0,
   terminateCalls: 0,
+  downloadCalls: 0,
 }))
 
 vi.mock('@ffmpeg/ffmpeg', () => ({
@@ -27,6 +28,7 @@ vi.mock('@ffmpeg/ffmpeg', () => ({
 
 vi.mock('@/lib/engine-cache', () => ({
   cachedBlobUrl: async (url: string) => {
+    hooks.downloadCalls++
     await hooks.download
     return `blob:${url}`
   },
@@ -47,6 +49,7 @@ beforeEach(() => {
   hooks.load = Promise.resolve()
   hooks.loadCalls = 0
   hooks.terminateCalls = 0
+  hooks.downloadCalls = 0
   revoked = []
   vi.spyOn(URL, 'revokeObjectURL').mockImplementation((url: string) => {
     revoked.push(url)
@@ -76,7 +79,7 @@ test('disposing inside the cold-start download never creates a worker', async ()
   expect(revoked).toHaveLength(2)
 })
 
-test('disposing inside load() terminates the worker load created', async () => {
+test('disposing while load() is in flight cannot leave the body running', async () => {
   const load = deferred()
   hooks.load = load.promise
   const engine = createFfmpegEngine()
@@ -85,11 +88,17 @@ test('disposing inside load() terminates the worker load created', async () => {
     expect(hooks.loadCalls).toBe(1)
   })
 
-  engine.dispose() // terminate() #1: no worker yet, so it does nothing
+  // terminate() #1, from dispose(). The real terminate() would reject this
+  // in-flight load() too, but the fake deliberately does not — it only
+  // counts the call — so load() still resolves and the post-load `disposed`
+  // guard in ensureLoaded() actually runs, which is what this test is for.
+  engine.dispose()
   load.resolve()
 
   expect(await settled).toBeInstanceOf(Error)
-  expect(hooks.terminateCalls).toBe(2) // #2 is the one that actually tears down
+  // #2 is that guard's belt-and-braces terminate(), reachable in this test
+  // only because the fake diverges from the real library on the point above.
+  expect(hooks.terminateCalls).toBe(2)
   expect(revoked).toHaveLength(2)
 })
 
@@ -99,4 +108,7 @@ test('a disposed engine stays disposed when the pool retries the item', async ()
   await expect(engine.thumbnails(clip(), [0], 320)).rejects.toThrow(/disposed/)
   await expect(engine.thumbnails(clip(), [0], 320)).rejects.toThrow(/disposed/)
   expect(hooks.loadCalls).toBe(0)
+  // Both calls land on the disposed-first-line guard in thumbnails(), so
+  // neither ever reaches ensureLoaded() — no download is even attempted.
+  expect(hooks.downloadCalls).toBe(0)
 })
