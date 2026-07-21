@@ -47,15 +47,17 @@ Bun workspace:
 
 ## Develop
 
-Requires [Bun](https://bun.sh).
+Requires [Bun](https://bun.sh) (package manager) and [Vite+](https://viteplus.dev/) (`vp` — build, test, lint, format, task runner).
 
 ```bash
-bun install
-bun --filter '@luna-web/app' dev    # run the app
-bun --filter '@luna-web/docs' dev   # run the docs site
-bun test                            # core unit tests
-bun run lint && bun run typecheck   # quality gates
-bun run build                       # build everything
+vp install                          # installs via bun
+bun run dev                         # run the app (vp dev)
+bun --filter '@luna-web/docs' dev   # run the docs site (astro dev)
+bun run test                        # package unit tests (Vitest via vp)
+bun run test:tools                  # release-script tests (bun test)
+vp check                            # format + lint + type check in one pass
+bun run typecheck                   # authoritative tsc/astro type gates
+bun run build                       # build everything (cached vp run)
 ```
 
 ## Tech Stack
