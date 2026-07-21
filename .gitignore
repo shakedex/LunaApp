@@ -19,7 +19,7 @@ Thumbs.db
 
 # Local-only working docs: branding, file-processing samples, plans/specs.
 # Kept on disk but not published to the remote.
-docs/
+/docs/
 tools/arri/
 old/
 
