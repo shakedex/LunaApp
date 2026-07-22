@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
-import { nextVersion, parseVersion, rewriteChangelog, unreleasedBody } from './release'
+import { rewriteChangelog, unreleasedBody } from './lib/changelog'
+import { nextVersion, parseVersion } from './lib/version'
 
 describe('parseVersion', () => {
   test('parses a 0.x.y version', () => {

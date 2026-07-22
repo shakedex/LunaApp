@@ -1,5 +1,5 @@
 {
   "extends": "../tsconfig.base.json",
   "compilerOptions": { "lib": ["ES2022"], "types": ["bun"] },
-  "include": ["release.ts", "release.test.ts"]
+  "include": ["release.ts", "release.test.ts", "release-desktop.ts", "lib/**/*.ts"]
 }

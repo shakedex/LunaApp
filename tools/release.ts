@@ -9,82 +9,11 @@
  * Cloudflare dashboard git integration (see DEPLOY.md); nothing here runs wrangler deploy.
  */
 import { $ } from 'bun'
+import { rewriteChangelog, unreleasedBody } from './lib/changelog'
+import { nextVersion, parseVersion } from './lib/version'
 
-const REPO = 'shakedex/LunaApp'
 const PKG_PATH = 'apps/web/package.json'
 const CHANGELOG_PATH = 'apps/docs/src/content/docs/changelog.md'
-
-export type Bump = 'minor' | 'patch'
-export interface Version {
-  major: 0
-  minor: number
-  patch: number
-}
-
-/** Parse a `0.MINOR.PATCH` version, asserting the ZeroVer major of 0. */
-export function parseVersion(input: string): Version {
-  const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(input.trim())
-  if (!match) throw new Error(`Not a semver version: "${input}"`)
-  const major = Number(match[1])
-  const minor = Number(match[2])
-  const patch = Number(match[3])
-  if (major !== 0) {
-    throw new Error(
-      `ZeroVer violated: "${input}" has major ${major}. Luna Web stays 0.x forever — there is never a 1.0.`,
-    )
-  }
-  return { major: 0, minor, patch }
-}
-
-/** Compute the next version for a minor or patch bump. Major is locked to 0. */
-export function nextVersion(current: string, bump: Bump): string {
-  const v = parseVersion(current)
-  if (bump === 'minor') return `0.${v.minor + 1}.0`
-  if (bump === 'patch') return `0.${v.minor}.${v.patch + 1}`
-  throw new Error(`Unknown bump "${String(bump)}" (expected "minor" or "patch")`)
-}
-
-/**
- * The body of the `## [Unreleased]` section: everything up to the next `## [` heading,
- * with link-reference definitions stripped. Empty means there is nothing to release.
- * Throws if the changelog has no `## [Unreleased]` heading.
- */
-export function unreleasedBody(text: string): string {
-  const headingIndex = text.search(/^## \[Unreleased\][^\n]*$/m)
-  if (headingIndex === -1) throw new Error('Changelog has no "## [Unreleased]" heading')
-  const afterHeading = text.slice(headingIndex).replace(/^## \[Unreleased\][^\n]*\n/, '')
-  const nextHeading = afterHeading.search(/^## \[/m)
-  const body = nextHeading === -1 ? afterHeading : afterHeading.slice(0, nextHeading)
-  return body.replace(/^\[[^\]]+\]:.*$/gm, '').trim()
-}
-
-/**
- * Promote `## [Unreleased]` to `## [version] - date`, leaving a fresh empty `[Unreleased]`
- * above it, and update the link-reference definitions at the bottom.
- */
-export function rewriteChangelog(
-  text: string,
-  opts: { version: string; date: string; prevVersion: string },
-): string {
-  const { version, date, prevVersion } = opts
-  if (!/^## \[Unreleased\][^\n]*$/m.test(text)) {
-    throw new Error('Changelog has no "## [Unreleased]" heading')
-  }
-
-  let out = text.replace(
-    /^## \[Unreleased\][^\n]*$/m,
-    `## [Unreleased]\n\n## [${version}] - ${date}`,
-  )
-
-  const unreleasedLink = `[unreleased]: https://github.com/${REPO}/compare/v${version}...HEAD`
-  const versionLink = `[${version}]: https://github.com/${REPO}/compare/v${prevVersion}...v${version}`
-  if (/^\[unreleased\]:.*$/im.test(out)) {
-    out = out.replace(/^\[unreleased\]:.*$/im, `${unreleasedLink}\n${versionLink}`)
-  } else {
-    out = `${out.trimEnd()}\n\n${unreleasedLink}\n${versionLink}\n`
-  }
-  return out
-}
 
 function usage(): never {
   console.error('Usage: bun run release <minor|patch> [--dry-run] [--no-push]')
