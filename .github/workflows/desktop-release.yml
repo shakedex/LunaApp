@@ -1,0 +1,65 @@
+name: desktop-release
+
+on:
+  push:
+    tags: ['desktop-v*']
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest
+            args: '--target universal-apple-darwin'
+          - platform: windows-latest
+            args: ''
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './apps/desktop/src-tauri -> target'
+
+      - run: bun install --frozen-lockfile
+
+      # routeTree.gen.ts is gitignored; the frontend build needs it generated first.
+      - run: cd apps/web && bunx tsr generate
+
+      - uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: apps/desktop
+          tagName: ${{ github.ref_name }}
+          releaseName: Luna Desktop ${{ github.ref_name }}
+          releaseDraft: true
+          prerelease: false
+          args: ${{ matrix.args }}
+          releaseBody: |
+            Desktop builds of Luna. These are **unsigned**, so both platforms warn on first launch.
+
+            **Windows** — `Luna_*_x64-setup.exe`
+            SmartScreen shows "Windows protected your PC". Click **More info**, then **Run anyway**.
+
+            **macOS** — `Luna_*_universal.dmg`
+            macOS refuses to open an app from an unidentified developer. Right-click Luna in
+            Applications and choose **Open**, or clear the quarantine flag:
+
+            ```
+            xattr -cr /Applications/Luna.app
+            ```
