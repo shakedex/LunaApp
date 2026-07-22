@@ -9,6 +9,8 @@ All notable changes to Luna Web. This format is based on
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-07-22
+
 ### Added
 
 - The scan screen lists the cameras Luna reads vendor metadata for — ARRI, Sony, Canon, Blackmagic, Panasonic — alongside the file formats, with a note that Sony X-OCN, ARRIRAW, and BRAW clips report full metadata but get a placeholder thumbnail.
@@ -97,7 +99,8 @@ All notable changes to Luna Web. This format is based on
 - Operation-grouped activity log for each processing run.
 - Deploys as a Cloudflare Worker (app and docs) via the dashboard git integration.
 
-[unreleased]: https://github.com/shakedex/LunaApp/compare/v0.15.0...HEAD
+[unreleased]: https://github.com/shakedex/LunaApp/compare/v0.16.0...HEAD
+[0.16.0]: https://github.com/shakedex/LunaApp/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/shakedex/LunaApp/compare/v0.14.1...v0.15.0
 [0.14.1]: https://github.com/shakedex/LunaApp/compare/v0.14.0...v0.14.1
 [0.14.0]: https://github.com/shakedex/LunaApp/compare/v0.13.0...v0.14.0
