@@ -6,6 +6,9 @@ releases are `0.MINOR.PATCH` (MINOR for features, PATCH for fixes), and **there 
 surfaces in the app header, the Credits page, and the PDF report footer stamp (via
 `__APP_VERSION__`).
 
+`apps/desktop` versions independently across its own `package.json`, `Cargo.toml`, and
+`tauri.conf.json` — this tool does not manage it.
+
 The changelog is hand-curated in
 [`apps/docs/src/content/docs/changelog.md`](apps/docs/src/content/docs/changelog.md) using
 the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format, so it publishes to the

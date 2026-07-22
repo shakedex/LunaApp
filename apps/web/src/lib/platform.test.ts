@@ -8,3 +8,13 @@ test('isTauri is false outside a Tauri webview', () => {
 test('getDesktopVersion resolves null outside a Tauri webview', async () => {
   expect(await getDesktopVersion()).toBeNull()
 })
+
+test('isTauri is true when the Tauri IPC bridge is present', () => {
+  const g = globalThis as { window?: unknown }
+  g.window = { __TAURI_INTERNALS__: {} }
+  try {
+    expect(isTauri()).toBe(true)
+  } finally {
+    delete g.window
+  }
+})

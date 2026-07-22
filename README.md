@@ -38,12 +38,13 @@ relies on the File System Access API and WebCodecs.
 
 Bun workspace:
 
-| Path             | Package          | What it is                                          |
-| ---------------- | ---------------- | --------------------------------------------------- |
-| `apps/web`       | `@luna-web/app`  | The tool — Vite + React 19 + TanStack Router        |
-| `apps/docs`      | `@luna-web/docs` | Docs site — Astro Starlight                         |
-| `packages/core`  | `@luna-web/core` | Pure logic: scanning, reels, metadata, report model |
-| `tools/analysis` | —                | Throwaway clip-analysis scripts                     |
+| Path             | Package             | What it is                                          |
+| ---------------- | ------------------- | --------------------------------------------------- |
+| `apps/web`       | `@luna-web/app`     | The tool — Vite + React 19 + TanStack Router        |
+| `apps/docs`      | `@luna-web/docs`    | Docs site — Astro Starlight                         |
+| `apps/desktop`   | `@luna-web/desktop` | Tauri desktop shell wrapping apps/web               |
+| `packages/core`  | `@luna-web/core`    | Pure logic: scanning, reels, metadata, report model |
+| `tools/analysis` | —                   | Throwaway clip-analysis scripts                     |
 
 ## Develop
 
@@ -60,6 +61,10 @@ bun run typecheck                   # authoritative tsc/astro type gates
 bun run build                       # build everything (cached vp run)
 ```
 
+`apps/desktop` additionally needs a Rust toolchain (stable-msvc) that no other workspace
+requires; root `bun run dev` is filtered to `./apps/web` and deliberately doesn't start it —
+run it from `apps/desktop` instead (`bun run dev`, once Rust is installed).
+
 ## Tech Stack
 
 - [React 19](https://react.dev/) + [Vite](https://vite.dev/) + [TanStack Router/Store/Form](https://tanstack.com/)
@@ -70,6 +75,9 @@ bun run build                       # build everything (cached vp run)
 - [Astro Starlight](https://starlight.astro.build/) — documentation site
 
 ## The Desktop App (retired)
+
+This section is about the original .NET/Avalonia desktop app, not `apps/desktop`
+(a separate, unreleased Tauri shell around the web app — see the Repo Layout table above).
 
 Luna started life as a .NET/Avalonia desktop app. It has been retired in
 favor of the web version and is preserved in full:

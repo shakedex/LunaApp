@@ -1,6 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Luna",
+  "mainBinaryName": "Luna",
   "version": "0.1.0",
   "identifier": "com.lunaweb.desktop",
   "build": {
@@ -26,6 +27,9 @@
   "bundle": {
     "active": true,
     "targets": ["nsis", "app", "dmg"],
+    "publisher": "Shaked Lipszyc",
+    "copyright": "Copyright 2026 Shaked Lipszyc",
+    "shortDescription": "Camera reports, generated entirely client-side.",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
