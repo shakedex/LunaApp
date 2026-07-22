@@ -232,6 +232,16 @@ header.header {
   margin: 0;
   color: var(--muted-foreground);
 }
+/* The name is a link, but this line is muted — keep it quiet until hover
+   rather than pulling the accent colour into the footer's right edge. */
+.luna-footer__meta a {
+  color: var(--foreground);
+  text-decoration: none;
+}
+.luna-footer__meta a:hover {
+  color: var(--sl-color-text-accent);
+  text-decoration: underline;
+}
 
 @media (prefers-reduced-motion: reduce) {
   .ql-card {

@@ -1,6 +1,10 @@
 {
   "name": "luna-web-workspace",
   "private": true,
+  "author": {
+    "name": "Shaked Lipszyc",
+    "url": "https://shaked.co"
+  },
   "workspaces": [
     "apps/*",
     "packages/*"

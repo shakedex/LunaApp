@@ -1,6 +1,10 @@
 {
   "name": "@luna-web/docs",
   "private": true,
+  "author": {
+    "name": "Shaked Lipszyc",
+    "url": "https://shaked.co"
+  },
   "type": "module",
   "version": "0.0.0",
   "scripts": {

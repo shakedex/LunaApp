@@ -24,6 +24,14 @@ export default defineConfig({
         },
         {
           tag: 'meta',
+          attrs: { name: 'author', content: 'Shaked Lipszyc' },
+        },
+        {
+          tag: 'link',
+          attrs: { rel: 'author', href: 'https://shaked.co' },
+        },
+        {
+          tag: 'meta',
           attrs: { property: 'og:image', content: 'https://luna.ozer2.one/docs/og.png' },
         },
         {

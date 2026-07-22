@@ -108,6 +108,6 @@ respective owners. See [DISCLAIMER.md](DISCLAIMER.md).
 
 <div align="center">
 
-Built by [Shaked Lipszyc](https://github.com/shakedex)
+Built by [Shaked Lipszyc](https://shaked.co)
 
 </div>

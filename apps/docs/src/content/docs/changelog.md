@@ -9,6 +9,14 @@ All notable changes to Luna Web. This format is based on
 
 ## [Unreleased]
 
+### Added
+
+- The Credits page says who built Luna and links out — to shaked.co, to each open-source project Luna is built on, and to GitHub, the docs, and the license.
+
+### Fixed
+
+- The Credits page listed Biome as part of the build tooling; Luna builds with Vite+.
+
 ## [0.16.0] - 2026-07-22
 
 ### Added
