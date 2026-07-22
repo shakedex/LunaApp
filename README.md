@@ -10,7 +10,7 @@ Luna ingests camera media entirely client-side, extracts metadata and
 thumbnails, and generates production-ready camera reports — no upload,
 no install, no account.
 
-[![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 ![Runs in: Chromium](https://img.shields.io/badge/runs%20in-Chromium-4285F4)
 
 [Open Luna](https://luna.ozer2.one) · [Docs](https://luna.ozer2.one/docs) · [Disclaimer](DISCLAIMER.md)
@@ -89,13 +89,14 @@ favor of the web version and is preserved in full:
 
 PRs welcome. File an issue first so the design can be discussed, and keep
 changes scoped. By submitting a contribution, you agree it is licensed under
-the same [Apache License 2.0](LICENSE) as the rest of the project.
+the same [MIT License](LICENSE) as the rest of the project.
 
 ## License
 
-Luna is licensed under the [Apache License 2.0](LICENSE). See [NOTICE](NOTICE)
-for required attribution. The name "Luna" and the logo are not licensed for
-use in derivative branding.
+Luna is licensed under the [MIT License](LICENSE) — use it, fork it, ship it
+commercially; just keep the copyright notice. See [NOTICE](NOTICE) for the
+third-party components Luna is built on and their licenses. The name "Luna"
+and the logo are not licensed for use in derivative branding.
 
 ## Trademarks & Disclaimer
 

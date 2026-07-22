@@ -33,7 +33,7 @@ Yes, after the first visit. The decoding engines (~31 MB) download once and are 
 
 ## Is it free and open source?
 
-Yes, under the Apache License 2.0. Source is on [GitHub](https://github.com/shakedex/LunaApp).
+Yes, under the MIT License. Source is on [GitHub](https://github.com/shakedex/LunaApp).
 
 ## Is it affiliated with ARRI, Blackmagic, Sony, or RED?
 

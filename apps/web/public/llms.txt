@@ -2,7 +2,7 @@
 
 > Luna builds a camera report from a folder of footage — reels, per-clip metadata, thumbnails, and totals — and exports it as PDF or CSV. It runs entirely in your browser; nothing uploads.
 
-Luna is a free, open-source (Apache 2.0) web app for DITs and camera crews. It reads footage directly from disk with the File System Access API, extracts metadata and generates thumbnails locally, groups clips into reels, and exports a report. No footage, metadata, or reports ever leave the device, and there is no analytics or telemetry. Luna runs in Chromium browsers (Chrome, Edge, Brave, Arc), which provide the File System Access API and WebCodecs it depends on.
+Luna is a free, open-source (MIT) web app for DITs and camera crews. It reads footage directly from disk with the File System Access API, extracts metadata and generates thumbnails locally, groups clips into reels, and exports a report. No footage, metadata, or reports ever leave the device, and there is no analytics or telemetry. Luna runs in Chromium browsers (Chrome, Edge, Brave, Arc), which provide the File System Access API and WebCodecs it depends on.
 
 ## Docs
 
@@ -16,4 +16,4 @@ Luna is a free, open-source (Apache 2.0) web app for DITs and camera crews. It r
 ## Optional
 
 - [Open Luna](https://luna.ozer2.one/): The app itself.
-- [Source on GitHub](https://github.com/shakedex/LunaApp): Apache 2.0 source and issue tracker.
+- [Source on GitHub](https://github.com/shakedex/LunaApp): MIT-licensed source and issue tracker.

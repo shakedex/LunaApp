@@ -1,6 +1,7 @@
 {
   "name": "luna-web-workspace",
   "private": true,
+  "license": "MIT",
   "author": {
     "name": "Shaked Lipszyc",
     "url": "https://shaked.co"
