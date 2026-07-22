@@ -89,20 +89,9 @@ async function main(): Promise<void> {
   const changelogText = await Bun.file(CHANGELOG_PATH).text()
   const body = unreleasedBody(changelogText)
 
-  if (dryRun) {
-    console.log(`[dry-run] desktop ${current} -> ${next} (tag ${TAG_PREFIX}${next})`)
-    console.log(`[dry-run] [Unreleased] entries:\n${body || '(none)'}`)
-    return
-  }
-
-  const status = (await $`git status --porcelain`.text()).trim()
-  if (status) {
-    throw new Error('Working tree is dirty. Commit or stash before releasing.')
-  }
-  if (!body) {
-    throw new Error(`Nothing to release: add entries under [Unreleased] in ${CHANGELOG_PATH}.`)
-  }
-
+  // Read and bump all three manifests up front — for both branches — so a dry run exercises
+  // the exact code that dies on a malformed [package] section or a missing version field,
+  // instead of returning before any manifest is even opened.
   const bumped = bumpVersionFiles(
     {
       pkg: pkgText,
@@ -111,6 +100,47 @@ async function main(): Promise<void> {
     },
     next,
   )
+
+  if (dryRun) {
+    console.log(`[dry-run] desktop ${current} -> ${next} (tag ${TAG_PREFIX}${next})`)
+    console.log(`[dry-run] [Unreleased] entries:\n${body || '(none)'}`)
+    for (const [path, rewritten] of [
+      [PKG_PATH, bumped.pkg],
+      [CARGO_PATH, bumped.cargo],
+      [CONF_PATH, bumped.conf],
+    ] as const) {
+      if (!rewritten.includes(`"${next}"`)) {
+        throw new Error(`${path} does not contain "${next}" after bumping — dry-run aborting.`)
+      }
+      console.log(`[dry-run] ${path}: ${current} -> ${next} (verified in memory, not written)`)
+    }
+    let cargoAvailable = true
+    try {
+      await $`cargo --version`.quiet()
+    } catch {
+      cargoAvailable = false
+    }
+    console.log(
+      cargoAvailable
+        ? '[dry-run] cargo: available (a real run refreshes Cargo.lock with `cargo metadata`)'
+        : '[dry-run] cargo: NOT FOUND — a real run needs it to refresh Cargo.lock. Install rustup.',
+    )
+    return
+  }
+
+  const status = (await $`git status --porcelain`.text()).trim()
+  if (status) {
+    throw new Error('Working tree is dirty. Commit or stash before releasing.')
+  }
+  const tag = `${TAG_PREFIX}${next}`
+  const existingTag = (await $`git tag --list ${tag}`.text()).trim()
+  if (existingTag) {
+    throw new Error(`Tag ${tag} already exists. Delete it or pick a different bump.`)
+  }
+  if (!body) {
+    throw new Error(`Nothing to release: add entries under [Unreleased] in ${CHANGELOG_PATH}.`)
+  }
+
   await Bun.write(PKG_PATH, bumped.pkg)
   await Bun.write(CARGO_PATH, bumped.cargo)
   await Bun.write(CONF_PATH, bumped.conf)
@@ -141,7 +171,7 @@ async function main(): Promise<void> {
 
   await $`git add -- ${PKG_PATH} ${CARGO_PATH} ${CONF_PATH} ${LOCK_PATH} ${CHANGELOG_PATH}`
   await $`git commit -m ${`chore(release): desktop v${next}`}`
-  await $`git tag -a ${`${TAG_PREFIX}${next}`} -m ${`Luna Desktop v${next}`}`
+  await $`git tag -a ${tag} -m ${`Luna Desktop v${next}`}`
 
   if (noPush) {
     console.log(`Prepared desktop v${next} locally (--no-push). Push with: git push --follow-tags`)

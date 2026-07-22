@@ -1,8 +1,12 @@
-# Releasing Luna Web
+# Releasing Luna
 
-Luna Web follows **[ZeroVer](https://0ver.org/)**: the major version stays `0` forever,
-releases are `0.MINOR.PATCH` (MINOR for features, PATCH for fixes), and **there is never a
-1.0**. The product version lives in [`apps/web/package.json`](apps/web/package.json) and
+Both the web app and the desktop shell follow **[ZeroVer](https://0ver.org/)**: the major
+version stays `0` forever, releases are `0.MINOR.PATCH` (MINOR for features, PATCH for
+fixes), and **there is never a 1.0**. They version independently, with separate tag
+namespaces (`v<version>` for the web app, `desktop-v<version>` for desktop) — see
+[Desktop releases](#desktop-releases) below.
+
+The web app's version lives in [`apps/web/package.json`](apps/web/package.json) and
 surfaces in the app header, the Credits page, and the PDF report footer stamp (via
 `__APP_VERSION__`).
 
@@ -76,9 +80,35 @@ Pushing that tag triggers `.github/workflows/desktop-release.yml`, which builds 
 Builds are unsigned, so both platforms warn on first launch; the release body
 carries the workarounds.
 
+A `--no-push` desktop release leaves the tag committed but unpushed locally. A later
+`bun run release` (web) pushes with `--follow-tags`, which pushes *every* pending
+annotated tag — including that dangling desktop tag — and unexpectedly kicks off a
+desktop build. If you used `--no-push` on purpose, push the desktop tag deliberately
+(`git push --follow-tags`) before running the web release, or drop it.
+
+### The `desktop-v0.1.0` trap
+
+`desktop-v0.1.0` predates this release pipeline and was **never tagged**. Do not
+retroactively create and push it. `.github/workflows/desktop-release.yml` triggers on
+any `desktop-v*` push — creating and pushing that tag now would build a release from
+whatever is on `master` at push time labeled as `0.1.0`, which is not what `0.1.0`
+actually was and (before this fix pass) would have shipped a binary containing the
+build machine's absolute filesystem path. If you want the tag purely for changelog-link
+hygiene, create it **locally and never push it**:
+
+```bash
+git tag -a desktop-v0.1.0 <commit> -m "Luna Desktop v0.1.0"   # local only — do not push
+```
+
 ## Guardrails
 
-- `bun run release` aborts on a dirty working tree (so unrelated in-flight changes never
-  get bundled into the release commit) and on an empty `[Unreleased]` (so a release always
-  has a changelog entry).
-- The ZeroVer rule is enforced in code, not by discipline: the script rejects `major`.
+Both `bun run release` and `bun run release:desktop` abort on:
+
+- a dirty working tree, so unrelated in-flight changes never get bundled into the
+  release commit;
+- an empty `[Unreleased]` section, so a release always has a changelog entry.
+
+`bun run release:desktop` additionally refuses up front if its target tag already
+exists, rather than committing and then failing on the tag step.
+
+The ZeroVer rule is enforced in code, not by discipline: both scripts reject `major`.

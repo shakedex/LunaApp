@@ -7,8 +7,15 @@ on:
 permissions:
   contents: write
 
+# A re-pushed tag (e.g. after a force-push to fix a bad annotation) must not race two builds
+# against the same draft release. Not cancel-in-progress: killing a half-uploaded release is
+# worse than letting it finish.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+
 jobs:
   build:
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -42,7 +49,8 @@ jobs:
 
       - run: bun install --frozen-lockfile
 
-      # routeTree.gen.ts is gitignored; the frontend build needs it generated first.
+      # Belt-and-suspenders, not a requirement: apps/web's build:desktop script (run by
+      # beforeBuildCommand, before any cargo work) already runs `tsr generate` itself.
       - name: Generate the router tree
         working-directory: apps/web
         run: bunx tsr generate

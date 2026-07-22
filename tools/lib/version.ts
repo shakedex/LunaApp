@@ -14,7 +14,7 @@ export function parseVersion(input: string): Version {
   const patch = Number(match[3])
   if (major !== 0) {
     throw new Error(
-      `ZeroVer violated: "${input}" has major ${major}. Luna Web stays 0.x forever — there is never a 1.0.`,
+      `ZeroVer violated: "${input}" has major ${major}. Luna stays 0.x forever — there is never a 1.0.`,
     )
   }
   return { major: 0, minor, patch }
