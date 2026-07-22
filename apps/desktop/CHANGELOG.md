@@ -19,4 +19,4 @@ The desktop shell versions independently of the web app. Format follows
 - Tauri desktop shell running the Luna web app, with a native `app_version` command.
 
 [unreleased]: https://github.com/shakedex/LunaApp/compare/desktop-v0.2.0...HEAD
-[0.2.0]: https://github.com/shakedex/LunaApp/compare/desktop-v0.1.0...desktop-v0.2.0
+[0.2.0]: https://github.com/shakedex/LunaApp/releases/tag/desktop-v0.2.0
