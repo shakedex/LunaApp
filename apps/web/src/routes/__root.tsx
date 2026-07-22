@@ -15,7 +15,7 @@ export const Route = createRootRoute({
   ),
   notFoundComponent: () => (
     <div className="flex min-h-[50dvh] flex-col items-center justify-center gap-6 text-center">
-      <Logo className="h-14 w-auto opacity-80" />
+      <Logo className="drop-shadow-glow-lg h-14 w-auto opacity-80" />
       <div className="space-y-2">
         <p className="text-primary font-mono text-sm tracking-[0.3em] uppercase">404</p>
         <h1 className="text-3xl font-semibold tracking-tight">This reel isn't on the card</h1>

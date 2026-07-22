@@ -17,7 +17,7 @@ const STACK: ReadonlyArray<[string, string]> = [
 function CreditsScreen() {
   return (
     <div className="mx-auto flex max-w-2xl flex-col items-center gap-8 text-center">
-      <Logo className="h-16 w-auto" />
+      <Logo className="drop-shadow-glow-lg h-16 w-auto" />
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Luna Web</h1>
         <p className="text-muted-foreground mt-1 tabular-nums">v{__APP_VERSION__}</p>

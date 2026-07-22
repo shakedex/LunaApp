@@ -21,6 +21,22 @@
     --color-destructive: var(--destructive);
     --color-warning: var(--warning);
     --shadow-glow: 0 0 24px color-mix(in oklab, var(--primary) 25%, transparent);
+    /* Panel surfaces. Every one carries the same 1px inset top-edge highlight so
+       the whole UI reads as lit from a single source above; the hover/drag steps
+       add an outer bloom that grows as the drop target becomes more imminent. */
+    --shadow-panel: inset 0 1px 0 0 oklch(1 0 0 / 5%);
+    --shadow-panel-hover:
+        inset 0 1px 0 0 oklch(1 0 0 / 8%),
+        0 0 40px -12px color-mix(in oklab, var(--primary) 50%, transparent);
+    --shadow-panel-drag:
+        inset 0 1px 0 0 oklch(1 0 0 / 10%),
+        0 0 60px -10px color-mix(in oklab, var(--primary) 70%, transparent);
+    /* Logo mark glow — separates the dark cat+moon body from the near-black
+       background. Two steps, both ~0.15x the mark's height, matching the docs
+       site (apps/docs/src/styles/cinema-dark.css .site-title/.overview-logo).
+       Applied by <Logo>; call sites that render large pass drop-shadow-glow-lg. */
+    --drop-shadow-glow: 0 0 5px color-mix(in oklab, var(--primary) 55%, transparent);
+    --drop-shadow-glow-lg: 0 0 13px color-mix(in oklab, var(--primary) 45%, transparent);
     --color-accent-foreground: var(--accent-foreground);
     --color-accent: var(--accent);
     --color-muted-foreground: var(--muted-foreground);
@@ -118,6 +134,19 @@
   html {
     @apply font-sans;
     }
+}
+
+/* Landing canvas atmosphere — one moonlit source above the mark, plus a soft
+   vignette pulling the corners down. Rendered full-bleed behind the scan
+   screen so its empty space reads as depth rather than as a void. */
+.landing-atmosphere {
+  background:
+    radial-gradient(
+      54rem 30rem at 50% 26%,
+      color-mix(in oklab, var(--primary) 16%, transparent),
+      transparent 70%
+    ),
+    radial-gradient(120% 90% at 50% 34%, transparent 46%, oklch(0 0 0 / 42%) 100%);
 }
 
 @media (prefers-reduced-motion: reduce) {

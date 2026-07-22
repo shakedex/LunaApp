@@ -8,7 +8,8 @@ import { panasonicEnricher } from './panasonic'
 import type { VendorEnricher } from './types'
 
 // The vendor list here is named in prose in
-// apps/docs/src/content/docs/supported-formats.md — update both together.
+// apps/docs/src/content/docs/supported-formats.md and chip-by-chip in
+// apps/web/src/features/scan/dropzone.tsx (VENDORS) — update all three together.
 export const vendorEnrichers: readonly VendorEnricher[] = [
   arriMovEnricher,
   arriMxfEnricher,

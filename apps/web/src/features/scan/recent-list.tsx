@@ -30,16 +30,20 @@ export function RecentList() {
   if (entries.length === 0) return null
 
   return (
-    <section className="w-full max-w-md text-left">
-      <h2 className="text-muted-foreground mb-2 text-xs font-medium tracking-wide uppercase">
+    <section className="w-full text-left">
+      {/* Same eyebrow language as the capability-gate screens: mono, tiny, wide
+          tracking — it ties the section labels to the mono reference chips. */}
+      <h2 className="text-muted-foreground-dim text-2xs mb-2 font-mono tracking-[0.2em] uppercase">
         Recent folders
       </h2>
+      {/* Full-measure rows, not a card grid: the quick actions already claim
+          ~96px, so anything narrower starts clipping real folder names. */}
       <ul className="flex flex-col gap-1.5">
         {entries.map((e) => {
           const saved = savedReportFor(e.name)
           return (
             <li key={e.key}>
-              <div className="bg-card hover:border-input flex items-center justify-between rounded-lg border px-4 py-3 transition-colors">
+              <div className="bg-card shadow-panel hover:border-input flex items-center justify-between gap-3 rounded-lg border px-4 py-2.5 transition-colors">
                 <button
                   type="button"
                   className="flex min-w-0 items-center gap-2 rounded text-left text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
@@ -51,11 +55,10 @@ export function RecentList() {
                     <FolderOpen className="text-muted-foreground size-4 shrink-0" />
                   )}
                   <span className="min-w-0">
-                    <span
-                      className={
-                        e.stale ? 'text-muted-foreground truncate block' : 'truncate block'
-                      }
-                    >
+                    {/* Folder names are often long and unbroken
+                        (TEST_PROJECT_LUNA_2026_07_22) — wrap them rather than
+                        truncating, so the row grows instead of hiding the name. */}
+                    <span className={cn('block wrap-anywhere', e.stale && 'text-muted-foreground')}>
                       {e.name}
                     </span>
                     {e.stale && (

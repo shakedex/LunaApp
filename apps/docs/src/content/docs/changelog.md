@@ -9,6 +9,20 @@ All notable changes to Luna Web. This format is based on
 
 ## [Unreleased]
 
+### Added
+
+- The scan screen lists the cameras Luna reads vendor metadata for — ARRI, Sony, Canon, Blackmagic, Panasonic — alongside the file formats, with a note that Sony X-OCN, ARRIRAW, and BRAW clips report full metadata but get a placeholder thumbnail.
+
+### Changed
+
+- The scan screen reads more clearly: shorter copy, and the drop area, recent folders, and format list all aligned to one width.
+- Opening Luna on a phone or tablet now says so directly, instead of showing the unsupported-browser notice. Both that screen and the unsupported-browser one link to a new Requirements page explaining what Luna needs and why.
+- The Luna mark now carries a soft glow, so it reads clearly against the dark background in the header, on the scan screen, and on the Credits page.
+
+### Fixed
+
+- Long folder names in Recent folders wrap onto another line instead of being cut off.
+
 ## [0.15.0] - 2026-07-21
 
 ### Changed
