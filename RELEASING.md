@@ -6,9 +6,6 @@ releases are `0.MINOR.PATCH` (MINOR for features, PATCH for fixes), and **there 
 surfaces in the app header, the Credits page, and the PDF report footer stamp (via
 `__APP_VERSION__`).
 
-`apps/desktop` versions independently across its own `package.json`, `Cargo.toml`, and
-`tauri.conf.json` — this tool does not manage it.
-
 The changelog is hand-curated in
 [`apps/docs/src/content/docs/changelog.md`](apps/docs/src/content/docs/changelog.md) using
 the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format, so it publishes to the
@@ -57,6 +54,27 @@ bun run release minor --no-push   # then: git push --follow-tags
 Once the tag is pushed, Cloudflare Workers Builds rebuilds the app and docs from `master`
 via the dashboard git integration (see [`DEPLOY.md`](DEPLOY.md)) — the new version and the
 changelog go live on their own. Nothing in this repo runs `wrangler deploy`.
+
+## Desktop releases
+
+`apps/desktop` versions independently of the web app, also under ZeroVer.
+
+```bash
+bun run release:desktop <minor|patch> [--dry-run] [--no-push]
+```
+
+This bumps `apps/desktop/package.json`, `src-tauri/Cargo.toml`,
+`src-tauri/tauri.conf.json`, and `src-tauri/Cargo.lock`, promotes
+`apps/desktop/CHANGELOG.md`'s `[Unreleased]` section, commits, and tags
+`desktop-v<version>` — a namespace kept distinct from the web app's `v<version>`.
+Requires the Rust toolchain, since the lockfile refresh runs `cargo metadata`.
+
+Pushing that tag triggers `.github/workflows/desktop-release.yml`, which builds on
+`windows-latest` and `macos-latest` and attaches an NSIS installer and a universal
+`.dmg` to a **draft** GitHub Release. Review the draft and publish it by hand.
+
+Builds are unsigned, so both platforms warn on first launch; the release body
+carries the workarounds.
 
 ## Guardrails
 
