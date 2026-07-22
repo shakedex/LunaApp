@@ -10,13 +10,18 @@ const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 
   version: string
 }
 
+// The desktop shell embeds this build into a binary, so it must not contain
+// Cloudflare Worker artifacts (wrangler.json carries the build machine's absolute path).
+const isDesktop = process.env.LUNA_TARGET === 'desktop'
+
 export default defineConfig({
   plugins: lazyPlugins(() => [
     tanstackRouter({ target: 'react', autoCodeSplitting: true }),
     react(),
     tailwindcss(),
-    cloudflare(),
+    ...(isDesktop ? [] : [cloudflare()]),
   ]),
+  build: { outDir: isDesktop ? 'dist-desktop' : 'dist' },
   resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
   define: { __APP_VERSION__: JSON.stringify(pkg.version) },
   test: {

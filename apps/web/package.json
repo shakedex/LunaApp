@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vp dev",
     "build": "tsr generate && tsc -b --noEmit && vp build",
+    "build:desktop": "tsr generate && tsc -b --noEmit && LUNA_TARGET=desktop vp build",
     "preview": "vp preview",
     "typecheck": "tsr generate && tsc -b --noEmit",
     "test": "vp test"
