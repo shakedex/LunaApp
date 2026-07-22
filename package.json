@@ -16,6 +16,7 @@
     "test:tools": "bun test tools",
     "build": "vp run -r --cache build",
     "release": "bun tools/release.ts",
+    "release:desktop": "bun tools/release-desktop.ts",
     "prepare": "vp config --no-hooks"
   },
   "devDependencies": {
