@@ -26,6 +26,11 @@ jobs:
         with:
           bun-version: 1.3.14
 
+      # vite-plus ships native bindings; pin Node so the runner image's default can't shift the ABI.
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -38,7 +43,9 @@ jobs:
       - run: bun install --frozen-lockfile
 
       # routeTree.gen.ts is gitignored; the frontend build needs it generated first.
-      - run: cd apps/web && bunx tsr generate
+      - name: Generate the router tree
+        working-directory: apps/web
+        run: bunx tsr generate
 
       - uses: tauri-apps/tauri-action@v1
         env:
