@@ -81,7 +81,7 @@ Builds are unsigned, so both platforms warn on first launch; the release body
 carries the workarounds.
 
 A `--no-push` desktop release leaves the tag committed but unpushed locally. A later
-`bun run release` (web) pushes with `--follow-tags`, which pushes *every* pending
+`bun run release` (web) pushes with `--follow-tags`, which pushes _every_ pending
 annotated tag — including that dangling desktop tag — and unexpectedly kicks off a
 desktop build. If you used `--no-push` on purpose, push the desktop tag deliberately
 (`git push --follow-tags`) before running the web release, or drop it.
