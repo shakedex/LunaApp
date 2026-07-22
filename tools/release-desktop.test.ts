@@ -49,3 +49,25 @@ describe('bumpVersionFiles', () => {
     expect(out.cargo).toContain('name = "app"')
   })
 })
+
+// A [package] section using `version.workspace = true` (a normal Cargo workspace pattern) has no
+// literal `version = "..."` line. The only literal `version = "..."` line in this fixture starts
+// a line of its own inside a dependency's long-form table — the exact shape an unbounded scan
+// would walk right into and "succeed" on, rewriting the dependency instead of failing loudly.
+const CARGO_WORKSPACE_VERSION = `[package]
+name = "app"
+version.workspace = true
+description = "Camera reports, generated entirely client-side."
+
+[dependencies.serde]
+version = "1.0"
+features = ["derive"]
+`
+
+describe('bumpVersionFiles with [package] version.workspace = true', () => {
+  test('throws instead of rewriting the dependency version', () => {
+    expect(() =>
+      bumpVersionFiles({ pkg: PKG, cargo: CARGO_WORKSPACE_VERSION, conf: CONF }, '0.2.0'),
+    ).toThrow()
+  })
+})

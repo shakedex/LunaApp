@@ -27,20 +27,42 @@ export interface DesktopVersionFiles {
   conf: string
 }
 
+const PACKAGE_BLOCK = /\[package\][\s\S]*?(?=\n\[|$)/
+const PACKAGE_VERSION = /^version\s*=\s*"[^"]+"/m
+
 /**
- * Rewrite the version in all three desktop manifests. The Cargo.toml edit is anchored to the
- * `[package]` section so it cannot rewrite a dependency's version.
+ * Rewrite the version in all three desktop manifests. The Cargo.toml edit is bounded to the
+ * `[package]` block — from the `[package]` header up to the next `[section]` header or end of
+ * file — so it cannot rewrite a dependency's version, even when `[package]` has no literal
+ * `version = "..."` line (e.g. `version.workspace = true`), in which case it throws instead of
+ * scanning past the block.
  */
 export function bumpVersionFiles(files: DesktopVersionFiles, next: string): DesktopVersionFiles {
-  const packageSection = /(\[package\][\s\S]*?\n)version\s*=\s*"[^"]+"/
-  if (!packageSection.test(files.cargo)) {
-    throw new Error(`No [package] version found in ${CARGO_PATH}`)
+  const match = PACKAGE_BLOCK.exec(files.cargo)
+  if (!match) {
+    throw new Error(`No [package] section found in ${CARGO_PATH}`)
   }
+  const block = match[0]
+  if (!PACKAGE_VERSION.test(block)) {
+    throw new Error(`No literal version = "..." line in [package] section of ${CARGO_PATH}`)
+  }
+  const bumpedBlock = block.replace(PACKAGE_VERSION, `version = "${next}"`)
+  const start = match.index
+  const end = start + block.length
   return {
     pkg: files.pkg.replace(/("version"\s*:\s*)"[^"]+"/, `$1"${next}"`),
     conf: files.conf.replace(/("version"\s*:\s*)"[^"]+"/, `$1"${next}"`),
-    cargo: files.cargo.replace(packageSection, `$1version = "${next}"`),
+    cargo: files.cargo.slice(0, start) + bumpedBlock + files.cargo.slice(end),
   }
+}
+
+/** Pull the most useful detail out of a failed shell command: stderr if present, else the error's own message. */
+function shellErrorDetail(err: unknown): string {
+  if (err && typeof err === 'object' && 'stderr' in err) {
+    const stderr = String((err as { stderr: unknown }).stderr).trim()
+    if (stderr) return stderr
+  }
+  return err instanceof Error ? err.message : String(err)
 }
 
 function usage(): never {
@@ -98,9 +120,11 @@ async function main(): Promise<void> {
   // `cargo metadata` re-resolves and rewrites the lock without compiling.
   try {
     await $`cargo metadata --format-version 1 --manifest-path ${CARGO_PATH}`.quiet()
-  } catch {
+  } catch (err) {
     throw new Error(
-      'cargo is required to refresh Cargo.lock. Install the Rust toolchain (rustup) and retry.',
+      `cargo metadata failed, so Cargo.lock was not refreshed: ${shellErrorDetail(err)}\n` +
+        `${PKG_PATH}, ${CARGO_PATH}, and ${CONF_PATH} were already rewritten — the working tree is dirty; revert or finish the release by hand.\n` +
+        `(Missing Rust toolchain? Install rustup and retry.)`,
     )
   }
 
