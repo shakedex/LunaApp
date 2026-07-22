@@ -7,8 +7,8 @@
   "build": {
     "beforeDevCommand": "bun run --cwd ../web dev",
     "devUrl": "http://localhost:5173",
-    "beforeBuildCommand": "bun run --cwd ../web build",
-    "frontendDist": "../../web/dist"
+    "beforeBuildCommand": "bun run --cwd ../web build:desktop",
+    "frontendDist": "../../web/dist-desktop"
   },
   "app": {
     "windows": [
