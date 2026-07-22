@@ -2,7 +2,7 @@
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Luna",
   "mainBinaryName": "Luna",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "identifier": "com.lunaweb.desktop",
   "build": {
     "beforeDevCommand": "bun run --cwd ../web dev",

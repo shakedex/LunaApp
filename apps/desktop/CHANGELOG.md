@@ -6,6 +6,8 @@ The desktop shell versions independently of the web app. Format follows
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-07-22
+
 ### Added
 
 - Windows and macOS builds published to GitHub Releases.
@@ -15,3 +17,6 @@ The desktop shell versions independently of the web app. Format follows
 ### Added
 
 - Tauri desktop shell running the Luna web app, with a native `app_version` command.
+
+[unreleased]: https://github.com/shakedex/LunaApp/compare/desktop-v0.2.0...HEAD
+[0.2.0]: https://github.com/shakedex/LunaApp/compare/desktop-v0.1.0...desktop-v0.2.0
