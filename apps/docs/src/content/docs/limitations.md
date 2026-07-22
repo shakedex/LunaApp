@@ -3,8 +3,8 @@ title: Limitations
 description: Browser support, speed, and RAW thumbnails.
 ---
 
-**Chromium only.** Luna needs the File System Access API and WebCodecs, so it runs in Chrome,
-Edge, Brave, and Arc — not Firefox or Safari.
+**Chromium on a desktop or laptop.** Chrome, Edge, Brave, and Arc — not Firefox or Safari, and
+not phones or tablets. See [Requirements](/docs/requirements/).
 
 **Older containers decode slowly.** MXF, DNxHD, and similar formats decode in software rather
 than on your GPU, so large cards take longer.

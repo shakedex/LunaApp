@@ -5,8 +5,12 @@ description: Common questions, short answers.
 
 ## Which browsers work?
 
-Chrome, Edge, Brave, and Arc. Luna needs the File System Access API and WebCodecs, which Firefox
-and Safari don't support yet.
+Chrome, Edge, Brave, and Arc. Luna needs the File System Access API, which Firefox and Safari
+don't support yet. See [Requirements](/docs/requirements/).
+
+## Does it work on my phone or tablet?
+
+No — desktop and laptop only. See [Requirements](/docs/requirements/).
 
 ## Does my footage get uploaded?
 

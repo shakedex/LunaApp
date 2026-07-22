@@ -64,6 +64,7 @@ export default defineConfig({
       ],
       sidebar: [
         { label: 'Overview', link: '/' },
+        { label: 'Requirements', slug: 'requirements' },
         { label: 'Privacy', slug: 'privacy' },
         { label: 'Supported formats', slug: 'supported-formats' },
         { label: 'Limitations', slug: 'limitations' },

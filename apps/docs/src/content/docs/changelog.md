@@ -16,7 +16,7 @@ All notable changes to Luna Web. This format is based on
 ### Changed
 
 - The scan screen reads more clearly: shorter copy, and the drop area, recent folders, and format list all aligned to one width.
-- Opening Luna on a phone or tablet now says so directly, instead of showing the unsupported-browser notice. Both that screen and the unsupported-browser one link to a new Requirements page explaining what Luna needs and why.
+- Opening Luna on a phone or tablet now says it's desktop only, instead of showing the unsupported-browser notice. Both screens link to a new Requirements page in the docs.
 - The Luna mark now carries a soft glow, so it reads clearly against the dark background in the header, on the scan screen, and on the Credits page.
 
 ### Fixed
