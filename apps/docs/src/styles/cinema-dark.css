@@ -52,8 +52,36 @@
   --sl-color-text-accent: oklch(0.87 0.08 226);
   --sl-color-accent: oklch(0.79 0.09 226);
   --sl-color-accent-high: oklch(0.87 0.08 226);
-  --sl-color-bg-sidebar: oklch(0.15 0.005 285);
   --sl-color-bg-nav: oklch(0.13 0.005 285);
+
+  /* No --sl-color-bg-sidebar here on purpose. The theme separates the sidebar
+     from the reading column with one fading hairline and no fill of its own;
+     tinting it turned the rail into a lighter slab whose every edge was
+     arbitrary — floated a gutter in from the window, starting 0.6rem below the
+     header and (from the theme's `height: 100svh - 10rem`) stopping 10rem short
+     of the bottom. Leave it at --background; the hairline does the separating. */
+}
+
+/* The theme leaves the fixed header borderless and painted in the page colour,
+   so scrolled text dissolves into it with no edge. Mirror the app shell
+   (apps/web/src/components/app-shell.tsx): hairline rule, translucent, blurred. */
+header.header {
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in oklab, var(--background) 80%, transparent);
+  backdrop-filter: blur(8px);
+}
+
+/* ThemeSelect is overridden to nothing (dark-only), so the theme's trailing
+   divider after the social icons pointed at empty space. */
+.social-icons::after {
+  display: none;
+}
+
+/* The theme repeats prev/next as bare arrows beside the page title. With one
+   short title they strand ~500px to its right as a lone unlabelled button, and
+   they duplicate the labelled pagination at the foot of the page. Keep that. */
+.page-title-header .docs-nav {
+  display: none;
 }
 
 /* Body links in the brand cyan (the theme leaves them foreground/underline). */
@@ -89,9 +117,24 @@
     max-width: var(--sl-content-width);
   }
 }
-@media (min-width: 62rem) {
+/* Below the sidebar breakpoint the header spans the whole window while the
+   reading column is centred, so the mark sat ~100px left of the text it heads.
+   Cap the header to the same measure. */
+@media (min-width: 48rem) and (max-width: 63.99rem) {
+  header > .header {
+    max-width: var(--sl-content-width);
+    margin-inline: auto;
+  }
+}
+
+/* 64rem, not 62rem: the theme hides nav.sidebar below 64rem, so shifting the
+   content earlier opened a dead ~300px indent with nothing in it — between
+   992px and 1024px the title started a third of the way across an empty page. */
+@media (min-width: 64rem) {
   :root {
-    --luna-max: 59rem; /* sidebar (~18.75rem) + reading column (40rem) */
+    --luna-sidebar: 17rem; /* the theme's 14rem of links + breathing room */
+    --luna-gap: 2.5rem; /* hairline -> reading column */
+    --luna-max: calc(var(--luna-sidebar) + var(--luna-gap) + var(--sl-content-width));
     --luna-gutter: max(0px, calc((100vw - var(--luna-max)) / 2));
   }
   header > .header {
@@ -100,9 +143,18 @@
   }
   .sidebar-pane {
     inset-inline-start: var(--luna-gutter);
+    inset-inline-end: auto;
+    width: var(--luna-sidebar);
+    /* The theme's `height: 100svh - 10rem` clips the last links on short
+       windows. Run to the bottom; .sidebar-content still scrolls inside. */
+    height: auto;
+    bottom: 0;
+    padding-bottom: 1.5rem;
   }
+  /* --luna-gap: the theme's padding put the body text flush against the
+     sidebar hairline, with no gutter at all. */
   .main-frame {
-    padding-inline-start: calc(var(--sl-content-inline-start) + var(--luna-gutter));
+    padding-inline-start: calc(var(--luna-gutter) + var(--luna-sidebar) + var(--luna-gap));
   }
   /* Sit the reading column against the sidebar instead of centering it in the
      now-empty area to the right. */
@@ -231,9 +283,9 @@
    centered, scales with the viewport, soft cyan glow. */
 .overview-logo {
   display: block;
-  width: clamp(140px, 32vw, 200px);
+  width: clamp(120px, 20vw, 168px);
   height: auto;
-  margin: 0.5rem auto 1.75rem;
+  margin: 0.25rem auto 1.5rem;
   filter: drop-shadow(0 0 26px oklch(0.72 0.14 232 / 0.4));
 }
 
