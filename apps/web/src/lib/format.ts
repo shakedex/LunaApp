@@ -28,3 +28,11 @@ export function todayIso(): string {
   const dd = String(now.getDate()).padStart(2, '0')
   return `${now.getFullYear()}-${mm}-${dd}`
 }
+
+/** The exact byte count, digit-grouped — the one size figure Windows Explorer,
+ *  macOS Finder and Luna all agree on. Shown beside a formatted total, never
+ *  instead of one. Grouping is pinned to en-US so two machines reading the same
+ *  report see the same string. */
+export function formatExactBytes(n: number): string {
+  return `${n.toLocaleString('en-US')} ${n === 1 ? 'byte' : 'bytes'}`
+}

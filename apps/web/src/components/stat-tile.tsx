@@ -6,6 +6,7 @@ export function StatTile({
   unit,
   accent = false,
   dim = false,
+  title,
 }: {
   label: string
   value: string
@@ -15,6 +16,9 @@ export function StatTile({
   accent?: boolean
   // Fade the value when it carries no weight (e.g. a zero count).
   dim?: boolean
+  // Hover hint on the value — used to expose an exact byte count beside a
+  // rounded one. Additive: never the only place a number is readable.
+  title?: string
 }) {
   return (
     <div className="flex flex-col gap-1">
@@ -27,6 +31,7 @@ export function StatTile({
           accent && 'text-primary',
           dim && 'text-muted-foreground-dim',
         )}
+        title={title}
       >
         {value}
         {unit && <span className="text-muted-foreground ml-1 text-base font-normal">{unit}</span>}

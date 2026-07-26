@@ -18,7 +18,7 @@ import { Spinner } from '@/components/ui/spinner'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { startProcessing } from '@/features/process/run-processing'
 import { ReportWorkspace } from '@/features/report/report-workspace'
-import { formatBytes } from '@/lib/format'
+import { formatBytes, formatExactBytes } from '@/lib/format'
 import { CompositionBar } from './composition-bar'
 import { Dropzone } from './dropzone'
 import { ProcessingView } from './processing-view'
@@ -120,7 +120,11 @@ export function ScanScreen() {
               />
             </div>
             <div className="px-5 py-4">
-              <StatTile label="Total size" {...splitBytes(summary.totalSizeBytes)} />
+              <StatTile
+                label="Total size"
+                {...splitBytes(summary.totalSizeBytes)}
+                title={formatExactBytes(summary.totalSizeBytes)}
+              />
             </div>
           </div>
 

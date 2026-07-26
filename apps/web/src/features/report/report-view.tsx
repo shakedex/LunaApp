@@ -5,7 +5,7 @@ import { StatTile } from '@/components/stat-tile'
 import { Card, CardContent } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
-import { formatBytes, formatDuration } from '@/lib/format'
+import { formatBytes, formatDuration, formatExactBytes } from '@/lib/format'
 import { useObjectUrl } from '@/lib/use-object-url'
 import { cn } from '@/lib/utils'
 import { ClipTable } from './clip-table'
@@ -69,7 +69,9 @@ export function ReportView({
             {model.stats.cardCount} {model.stats.cardCount === 1 ? 'card' : 'cards'} ·{' '}
             {model.stats.clipCount} {model.stats.clipCount === 1 ? 'clip' : 'clips'} ·{' '}
             {formatDuration(model.stats.totalDurationSeconds)} ·{' '}
-            {formatBytes(model.stats.totalSizeBytes)}
+            <span title={formatExactBytes(model.stats.totalSizeBytes)}>
+              {formatBytes(model.stats.totalSizeBytes)}
+            </span>
           </p>
           {metaLine.length > 0 && (
             <p className="text-muted-foreground mt-0.5 text-sm">{metaLine.join('  ·  ')}</p>
@@ -88,7 +90,11 @@ export function ReportView({
             <StatTile label="Clips" value={String(model.stats.clipCount)} />
             <StatTile label="Other files" value={String(model.stats.otherFileCount)} />
             <StatTile label="Duration" value={formatDuration(model.stats.totalDurationSeconds)} />
-            <StatTile label="Size" value={formatBytes(model.stats.totalSizeBytes)} />
+            <StatTile
+              label="Size"
+              value={formatBytes(model.stats.totalSizeBytes)}
+              title={formatExactBytes(model.stats.totalSizeBytes)}
+            />
           </div>
         </CardContent>
       </Card>
@@ -163,7 +169,9 @@ export function ReportView({
                   reel.stats.otherFileCount === 1 ? 'file' : 'files'
                 }`}{' '}
               · {formatDuration(reel.stats.totalDurationSeconds)} ·{' '}
-              {formatBytes(reel.stats.totalSizeBytes)}
+              <span title={formatExactBytes(reel.stats.totalSizeBytes)}>
+                {formatBytes(reel.stats.totalSizeBytes)}
+              </span>
             </span>
           </div>
           {density === 'cards' ? (
