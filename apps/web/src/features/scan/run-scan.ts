@@ -8,6 +8,8 @@ import { ensureReadPermission } from './permissions'
 import { initialScanState, scanStore } from './store'
 
 const PROGRESS_EVERY = 25 // throttle store updates on huge cards
+// The activity ring holds 1000 entries; a shelf of dead files must not flush it.
+const UNREADABLE_LOG_CAP = 20
 
 export async function pickAndScan(): Promise<void> {
   let handle: FileSystemDirectoryHandle
@@ -54,15 +56,23 @@ export async function scanFrom(
       generateThumbnails: settingsStore.state.generateThumbnails,
       clips: result.clips,
       otherFiles: result.otherFiles,
+      unreadable: result.unreadable,
       progress: {
-        filesSeen: result.clips.length + result.otherFiles.length,
+        filesSeen: result.clips.length + result.otherFiles.length + result.unreadable.length,
         clipsFound: result.clips.length,
       },
-      summary: buildScanSummary(result.clips, result.otherFiles),
+      summary: buildScanSummary(result.clips, result.otherFiles, result.unreadable),
     }))
+    for (const f of result.unreadable.slice(0, UNREADABLE_LOG_CAP)) {
+      logger.warn(`Could not open ${f.relativePath}`, f.reason)
+    }
+    if (result.unreadable.length > UNREADABLE_LOG_CAP) {
+      logger.warn(`…and ${result.unreadable.length - UNREADABLE_LOG_CAP} more unreadable files`)
+    }
     logger.info(
       `Scan of "${handle.name}" complete`,
-      `${result.clips.length} clips, ${result.otherFiles.length} other files`,
+      `${result.clips.length} clips, ${result.otherFiles.length} other files` +
+        (result.unreadable.length > 0 ? `, ${result.unreadable.length} unreadable` : ''),
     )
   } catch (err) {
     // A recent-source handle whose folder was moved/renamed/removed throws
