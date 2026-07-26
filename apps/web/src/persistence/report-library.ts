@@ -43,33 +43,36 @@ function numberOr(value: unknown, fallback: number): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback
 }
 
-export async function loadReportModel(id: string): Promise<ReportModel<Blob> | null> {
-  const db = await getDb()
-  const raw = await db.get('reportModels', id)
-  // Boundary: this record is a structured clone of a ReportModel<Blob> WE
-  // wrote in saveReport — validate the coarse shape, then trust it.
+/** Boundary: this record is a structured clone of a ReportModel<Blob> WE wrote in
+ *  saveReport, but any past app version may have written it — validate the coarse
+ *  shape, default what a newer version added, then trust it. Pure and exported so
+ *  the back-compat path is testable without IndexedDB; a real schemaVersion +
+ *  migration is audit item 2.2. */
+export function normalizeReportRecord(raw: unknown): ReportModel<Blob> | null {
   if (typeof raw !== 'object' || raw === null) return null
   const record = raw as Record<string, unknown>
   if (!Array.isArray(record.reels) || typeof record.stats !== 'object' || record.stats === null) {
     return null
   }
-  // Records written before the incomplete-report fields existed lack them. Fill
-  // defaults rather than reject — the report itself is still readable. A real
-  // schemaVersion + migration for saved reports is audit item 2.2.
   const stats = record.stats as Record<string, unknown>
   const normalized = {
     ...record,
-    unreadableFiles: Array.isArray(record.unreadableFiles) ? record.unreadableFiles : [],
+    unreadableEntries: Array.isArray(record.unreadableEntries) ? record.unreadableEntries : [],
     stats: {
       ...stats,
       unreadableFileCount: numberOr(stats.unreadableFileCount, 0),
+      unreadableDirectoryCount: numberOr(stats.unreadableDirectoryCount, 0),
       clipsMissingMetadataCount: numberOr(stats.clipsMissingMetadataCount, 0),
     },
   }
-  // Widened through `unknown`: `normalized` carries the raw record's index
-  // signature, which does not overlap ReportModel structurally enough for a
-  // direct assertion. The shape was validated above.
+  // Widened through `unknown`: `normalized` carries the raw record's index signature,
+  // which does not overlap ReportModel structurally enough for a direct assertion.
   return normalized as unknown as ReportModel<Blob>
+}
+
+export async function loadReportModel(id: string): Promise<ReportModel<Blob> | null> {
+  const db = await getDb()
+  return normalizeReportRecord(await db.get('reportModels', id))
 }
 
 export async function deleteReport(id: string): Promise<void> {

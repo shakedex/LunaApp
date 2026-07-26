@@ -30,8 +30,8 @@ export interface ScanState {
   progress: { filesSeen: number; clipsFound: number } | null
   clips: ClipRef[]
   otherFiles: OtherFileRef[]
-  // Files the walk could not open — carried into the report so its totals can
-  // say what is missing from them.
+  // Files and directories the walk could not open — carried into the report so
+  // its totals can say what is missing from them.
   unreadable: UnreadableEntryRef[]
   summary: ScanSummary | null
   error: string | null

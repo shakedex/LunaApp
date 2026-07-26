@@ -66,6 +66,16 @@ describe('pdfShortfalls', () => {
   test('a complete report says nothing', () => {
     expect(pdfShortfalls(stats())).toEqual([])
   })
+  test('missing metadata costs duration only', () => {
+    expect(pdfShortfalls(stats({ clipsMissingMetadataCount: 6 }))).toEqual([
+      '6 clips missing metadata — duration not included above',
+    ])
+  })
+  test('an unreadable file is not counted at all', () => {
+    expect(pdfShortfalls(stats({ unreadableFileCount: 2 }))).toEqual([
+      '2 files could not be opened — not counted above',
+    ])
+  })
   test('each kind gets its own sentence, worded for a printed page', () => {
     expect(
       pdfShortfalls(
@@ -95,6 +105,11 @@ describe('scanShortfall', () => {
   test('folders only', () => {
     expect(scanShortfall(summary({ unreadableDirectoryCount: 1 }))).toBe(
       "1 folder couldn't be opened and nothing inside it will be in the report",
+    )
+  })
+  test('folders only, plural', () => {
+    expect(scanShortfall(summary({ unreadableDirectoryCount: 2 }))).toBe(
+      "2 folders couldn't be opened and nothing inside them will be in the report",
     )
   })
   test('both, joined', () => {
