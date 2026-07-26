@@ -11,10 +11,15 @@ All notable changes to Luna Web. This format is based on
 
 ### Added
 
+- Reports now say what Luna could not read. Clips whose metadata failed are listed as missing duration from the totals, and files or folders that could not be opened are listed as not counted at all — on screen and in the PDF, so the numbers you hand over are never quietly short.
+- The scan summary warns before you process when a file or folder on the card could not be opened.
+- Hovering a total — on a report, a reel, or the scan summary — shows its exact byte count, the one size figure Windows Explorer, macOS Finder, and Luna all agree on.
 - The Credits page says who built Luna and links out — to shaked.co, to each open-source project Luna is built on, and to GitHub, the docs, and the license.
 
 ### Fixed
 
+- A single file or folder Luna could not open no longer fails the whole scan. The scan finishes, and the entries it could not read are named in Activity.
+- CSV exports open correctly in Excel on Windows — accented filenames and lens names are no longer mangled.
 - The Credits page listed Biome as part of the build tooling; Luna builds with Vite+.
 
 ## [0.16.0] - 2026-07-22
