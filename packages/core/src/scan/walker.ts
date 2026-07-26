@@ -47,7 +47,12 @@ export async function scanFolder(
       if (isJunkName(entry.name)) continue
       const relativePath = `${prefix}${entry.name}`
       if (entry.kind === 'directory') {
-        // A directory that dies mid-iteration (card unplugged, unreadable node)
+        // Covers the whole recursive call, not just a failing entries() read:
+        // every onProgress?.() invoked anywhere in this subtree lands here too,
+        // so a throwing progress consumer would be recorded as an unreadable
+        // directory and silently truncate the branch (today's only caller just
+        // calls setState, so this is theoretical). What it's actually for: a
+        // directory that dies mid-iteration (card unplugged, unreadable node)
         // must not sink the whole scan — record it and keep walking its
         // siblings. The ROOT call below is deliberately NOT wrapped: a dead root
         // means "the folder is gone", which run-scan reports with its own

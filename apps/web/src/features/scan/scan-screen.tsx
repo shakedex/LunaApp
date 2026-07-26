@@ -136,7 +136,7 @@ export function ScanScreen() {
           </div>
 
           {summary.unreadableCount > 0 && (
-            <div className="text-muted-foreground flex items-center gap-2 border-t px-5 py-3 text-sm">
+            <div className="text-muted-foreground flex items-center gap-2 border-t px-5 py-4 text-sm">
               <TriangleAlert className="text-warning size-4 shrink-0" />
               {summary.unreadableCount} {summary.unreadableCount === 1 ? 'file' : 'files'} couldn't
               be opened and won't be in the report

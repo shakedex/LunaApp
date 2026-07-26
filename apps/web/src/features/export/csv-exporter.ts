@@ -5,7 +5,7 @@ import { type Exporter, exporters } from './exporter'
 // back to the system codepage, mangling non-ASCII filenames and lens names. The
 // BOM is the only signal it honours. It belongs here, at the file boundary —
 // generateReportCsv stays a pure string function.
-const UTF8_BOM = '﻿'
+const UTF8_BOM = '\uFEFF'
 
 export const csvExporter: Exporter = {
   id: 'csv',

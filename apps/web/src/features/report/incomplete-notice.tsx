@@ -24,7 +24,9 @@ export function IncompleteNotice({
     <Alert className="mb-6">
       {/* Not the destructive variant: an incomplete report is a caveat the
           reader must carry, not an error they can act on. */}
-      <TriangleAlert className="text-warning" />
+      {/* `!`: Alert's base `*:[svg]:text-current` compiles to a higher-specificity
+          selector than a plain `.text-warning`, so the tint loses without it. */}
+      <TriangleAlert className="text-warning!" />
       <AlertTitle>This report is missing data</AlertTitle>
       <AlertDescription>
         <div className="space-y-1">
