@@ -21,6 +21,7 @@ const C = {
   text: '#E7E7EA',
   muted: '#9EA0A8',
   accent: '#9AD6F2',
+  warn: '#FF9900',
 } as const
 
 const styles = StyleSheet.create({
@@ -50,6 +51,7 @@ const styles = StyleSheet.create({
   totals: { marginBottom: 10 },
   totalValue: { fontFamily: GEIST_MONO, fontWeight: 500 },
   totalLabel: { color: C.muted },
+  incomplete: { color: C.warn, fontSize: 7, marginTop: -6, marginBottom: 10 },
 
   reelSection: { marginBottom: 12 },
   reelHeader: {
@@ -244,6 +246,22 @@ export function ReportDocument({ report }: { report: PdfReport }) {
     [formatBytes(stats.totalSizeBytes), 'total size'],
   ]
 
+  // Both counters mean different things, so they get their own words. Names are
+  // deliberately not listed — the totals block is one text line, and a
+  // variable-length list there would fight the fixed header.
+  const shortfalls = [
+    stats.clipsMissingMetadataCount > 0
+      ? `${stats.clipsMissingMetadataCount} ${
+          stats.clipsMissingMetadataCount === 1 ? 'clip' : 'clips'
+        } missing metadata — duration not included above`
+      : null,
+    stats.unreadableFileCount > 0
+      ? `${stats.unreadableFileCount} ${
+          stats.unreadableFileCount === 1 ? 'file' : 'files'
+        } could not be opened — not counted above`
+      : null,
+  ].filter((x): x is string => x !== null)
+
   return (
     <Document title={title} creator="Luna">
       <Page size="A4" style={styles.page}>
@@ -279,6 +297,8 @@ export function ReportDocument({ report }: { report: PdfReport }) {
             </Text>
           ))}
         </Text>
+
+        {shortfalls.length > 0 && <Text style={styles.incomplete}>{shortfalls.join(SEP)}</Text>}
 
         {report.reels.map((reel) => (
           <ReelSection key={reel.name} reel={reel} root={sourceRoot} />
