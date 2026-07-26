@@ -40,12 +40,16 @@ export interface ScanSummary {
   // Sum of EVERY surfaced file — clips and other files. The report's whole
   // point is byte-for-byte comparability with the source card.
   totalSizeBytes: number
+  // Files the walk could not open. Counted so the summary can say so, but
+  // absent from every other number here — their size is unknown.
+  unreadableCount: number
   byExtension: Record<string, number>
 }
 
 export function buildScanSummary(
   clips: readonly ClipRef[],
   otherFiles: readonly OtherFileRef[],
+  unreadable: readonly UnreadableFileRef[] = [],
 ): ScanSummary {
   const byExtension: Record<string, number> = {}
   let totalSizeBytes = 0
@@ -60,6 +64,7 @@ export function buildScanSummary(
     otherFileCount: otherFiles.length,
     otherFileSizeBytes,
     totalSizeBytes: totalSizeBytes + otherFileSizeBytes,
+    unreadableCount: unreadable.length,
     byExtension,
   }
 }

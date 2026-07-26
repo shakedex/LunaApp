@@ -1,7 +1,12 @@
 import { describe, expect, test } from 'vite-plus/test'
 import type { BlobLike, FileHandleLike } from '../src/scan/handles'
 import { isJunkName } from '../src/scan/junk'
-import { buildScanSummary, type ClipRef, type OtherFileRef } from '../src/scan/model'
+import {
+  buildScanSummary,
+  type ClipRef,
+  type OtherFileRef,
+  type UnreadableFileRef,
+} from '../src/scan/model'
 
 const fakeBlob: BlobLike = {
   size: 0,
@@ -61,7 +66,17 @@ describe('buildScanSummary', () => {
       otherFileCount: 0,
       otherFileSizeBytes: 0,
       totalSizeBytes: 0,
+      unreadableCount: 0,
       byExtension: {},
     })
+  })
+  test('unreadable files are counted but add no bytes and no extension tally', () => {
+    const unreadable: UnreadableFileRef[] = [
+      { fileName: 'bad.mov', relativePath: 'a/bad.mov', extension: '.mov', reason: 'boom' },
+    ]
+    const s = buildScanSummary([clip('a/1.mov', '.mov', 100)], [], unreadable)
+    expect(s.unreadableCount).toBe(1)
+    expect(s.totalSizeBytes).toBe(100)
+    expect(s.byExtension).toEqual({ '.mov': 1 })
   })
 })
