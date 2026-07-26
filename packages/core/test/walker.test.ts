@@ -22,6 +22,27 @@ function dir(name: string, ...children: FileSystemEntryLike[]): DirectoryHandleL
     },
   }
 }
+function unreadableFile(name: string): FileHandleLike {
+  return {
+    kind: 'file',
+    name,
+    getFile: () => Promise.reject(new Error('The requested file could not be read')),
+  }
+}
+// A directory whose iteration rejects on the first pull — the "card unplugged
+// mid-scan" shape. Written as a hand-rolled async iterable rather than an async
+// generator so there is no yield-less generator for the linter to flag.
+function unreadableDir(name: string): DirectoryHandleLike {
+  return {
+    kind: 'directory',
+    name,
+    entries: () => ({
+      [Symbol.asyncIterator]: () => ({
+        next: () => Promise.reject(new Error('Directory is no longer readable')),
+      }),
+    }),
+  }
+}
 
 // "A file is a file" (2026-07-19 backlog): every camera-original — including
 // .ari — is a clip, and every other non-junk file is surfaced as an
@@ -129,5 +150,68 @@ describe('scanFolder .rtn sidecar association', () => {
     const last = seen[seen.length - 1]
     expect(last?.filesSeen).toBe(2)
     expect(last?.clipsFound).toBe(1)
+  })
+})
+
+describe('scanFolder resilience', () => {
+  test('records an unreadable file and keeps scanning its siblings', async () => {
+    const root = dir(
+      'ROOT',
+      dir('A001', file('good.mov', 100), unreadableFile('bad.mov'), file('notes.txt', 5)),
+    )
+    const { clips, otherFiles, unreadable } = await scanFolder(root)
+    expect(clips.map((c) => c.relativePath)).toEqual(['A001/good.mov'])
+    expect(otherFiles.map((f) => f.relativePath)).toEqual(['A001/notes.txt'])
+    expect(unreadable).toEqual([
+      {
+        fileName: 'bad.mov',
+        relativePath: 'A001/bad.mov',
+        extension: '.mov',
+        reason: 'The requested file could not be read',
+      },
+    ])
+  })
+
+  test('an unreadable non-media file is recorded too, and contributes no bytes', async () => {
+    const root = dir('ROOT', file('sound.wav', 200), unreadableFile('broken.wav'))
+    const { otherFiles, unreadable } = await scanFolder(root)
+    expect(otherFiles.map((f) => f.sizeBytes)).toEqual([200])
+    expect(unreadable.map((f) => f.relativePath)).toEqual(['broken.wav'])
+  })
+
+  test('an unreadable file still counts as seen, so progress does not stall', async () => {
+    const seen: ScanProgress[] = []
+    const root = dir('ROOT', file('good.mov', 100), unreadableFile('bad.mov'))
+    await scanFolder(root, (p) => seen.push({ ...p }))
+    const last = seen[seen.length - 1]
+    expect(last?.filesSeen).toBe(2)
+    expect(last?.clipsFound).toBe(1)
+  })
+
+  test('records an unreadable subdirectory and keeps walking its siblings', async () => {
+    const root = dir('ROOT', unreadableDir('A001'), dir('A002', file('good.mov', 100)))
+    const { clips, unreadable } = await scanFolder(root)
+    expect(clips.map((c) => c.relativePath)).toEqual(['A002/good.mov'])
+    expect(unreadable).toEqual([
+      {
+        fileName: 'A001',
+        relativePath: 'A001',
+        extension: '',
+        reason: 'Directory is no longer readable',
+      },
+    ])
+  })
+
+  // run-scan.ts turns a dead root into "Luna can't find X anymore" and marks the
+  // recent-source entry stale. Swallowing it here would regress that.
+  test('a dead ROOT still rejects — run-scan owns that message', async () => {
+    await expect(scanFolder(unreadableDir('GONE'))).rejects.toThrow(
+      'Directory is no longer readable',
+    )
+  })
+
+  test('a clean card reports an empty unreadable list', async () => {
+    const { unreadable } = await scanFolder(card)
+    expect(unreadable).toEqual([])
   })
 })

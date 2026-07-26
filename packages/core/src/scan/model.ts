@@ -23,6 +23,16 @@ export interface OtherFileRef {
   sizeBytes: number
 }
 
+// A file the walk could not open. Its path is known; its size is not, so it is
+// excluded from every byte total — unlike OtherFileRef, which the scan measured.
+export interface UnreadableFileRef {
+  fileName: string
+  relativePath: string
+  extension: string
+  /** Why the file could not be opened, verbatim from the thrown error. */
+  reason: string
+}
+
 export interface ScanSummary {
   clipCount: number
   otherFileCount: number
