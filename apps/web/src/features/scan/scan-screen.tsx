@@ -1,5 +1,5 @@
 import { useSelector } from '@tanstack/react-store'
-import { ArrowRight, CircleAlert, FolderCheck } from 'lucide-react'
+import { ArrowRight, CircleAlert, FolderCheck, TriangleAlert } from 'lucide-react'
 import { useEffect } from 'react'
 import { StatTile } from '@/components/stat-tile'
 import { Badge } from '@/components/ui/badge'
@@ -134,6 +134,14 @@ export function ScanScreen() {
               otherFileCount={summary.otherFileCount}
             />
           </div>
+
+          {summary.unreadableCount > 0 && (
+            <div className="text-muted-foreground flex items-center gap-2 border-t px-5 py-3 text-sm">
+              <TriangleAlert className="text-warning size-4 shrink-0" />
+              {summary.unreadableCount} {summary.unreadableCount === 1 ? 'file' : 'files'} couldn't
+              be opened and won't be in the report
+            </div>
+          )}
 
           <div className="flex items-center gap-4 border-t px-5 py-4">
             <div className="flex-1">

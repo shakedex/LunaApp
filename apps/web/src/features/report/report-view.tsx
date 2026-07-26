@@ -9,6 +9,7 @@ import { formatBytes, formatDuration, formatExactBytes } from '@/lib/format'
 import { useObjectUrl } from '@/lib/use-object-url'
 import { cn } from '@/lib/utils'
 import { ClipTable } from './clip-table'
+import { IncompleteNotice } from './incomplete-notice'
 import { VirtualClipList } from './virtual-clip-list'
 
 const slug = (s: string) => s.replace(/[^a-z0-9]+/gi, '-').toLowerCase()
@@ -98,6 +99,8 @@ export function ReportView({
           </div>
         </CardContent>
       </Card>
+
+      <IncompleteNotice stats={model.stats} unreadableFiles={model.unreadableFiles} />
 
       {children}
 
