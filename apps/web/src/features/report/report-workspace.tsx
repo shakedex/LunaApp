@@ -17,6 +17,10 @@ export function ReportWorkspace() {
   const thumbsById = useSelector(scanStore, (s) => s.thumbsById)
   const sourceName = useSelector(scanStore, (s) => s.sourceName)
   const cover = useSelector(coverStore)
+  const unreadable = useSelector(scanStore, (s) => s.unreadable)
+  // METADATA failures only. thumbErrors is deliberately not used: a clip we
+  // could not make a thumbnail for is not a failed clip (2026-07-21 ruling).
+  const clipErrors = useSelector(scanStore, (s) => s.clipErrors)
 
   const model = useMemo(
     () =>
@@ -27,8 +31,10 @@ export function ReportWorkspace() {
         thumbsById,
         cover,
         sourceRoot: sourceName ?? '',
+        unreadable,
+        failedClipIds: Object.keys(clipErrors),
       }),
-    [clips, otherFiles, metadataById, thumbsById, cover, sourceName],
+    [clips, otherFiles, metadataById, thumbsById, cover, sourceName, unreadable, clipErrors],
   )
 
   return (
