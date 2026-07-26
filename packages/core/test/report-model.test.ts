@@ -66,6 +66,8 @@ describe('buildReportModel', () => {
       totalDurationSeconds: 15, // missing duration contributes 0, never fabricated
       // Byte-for-byte honesty: clips (175) + other files (204).
       totalSizeBytes: 379,
+      unreadableFileCount: 0,
+      clipsMissingMetadataCount: 0,
     })
     // one.mov carries reelName CUSTOM, but its reel-like folder A001 wins.
     expect(model.reels.map((r) => r.name)).toEqual(['A001', 'B002'])
@@ -203,6 +205,8 @@ describe('buildReportModel', () => {
       otherFileSizeBytes: 0,
       totalDurationSeconds: 0,
       totalSizeBytes: 0,
+      unreadableFileCount: 0,
+      clipsMissingMetadataCount: 0,
     })
     expect(model.reels).toEqual([])
   })
@@ -211,5 +215,73 @@ describe('buildReportModel', () => {
     const base = { clips: [], otherFiles: [], metadataById: {}, thumbsById: {}, cover: {} }
     expect(buildReportModel({ ...base, sourceRoot: 'CARD_A' }).sourceRoot).toBe('CARD_A')
     expect(buildReportModel(base).sourceRoot).toBe('')
+  })
+
+  test('counts only failed ids that are actually in the clip list', () => {
+    const model = buildReportModel({
+      clips: [ref('A001/one.mov', 100), ref('A001/two.mov', 50)],
+      otherFiles: [],
+      metadataById: { 'A001/one.mov': { durationSeconds: 10 } },
+      thumbsById: {},
+      cover: {},
+      // 'A001/two.mov' failed; 'GHOST/x.mov' is not on this card at all.
+      failedClipIds: ['A001/two.mov', 'GHOST/x.mov'],
+    })
+    expect(model.stats.clipsMissingMetadataCount).toBe(1)
+    // A failed clip's BYTES are still known and still counted — only its
+    // duration is missing.
+    expect(model.stats.totalSizeBytes).toBe(150)
+    expect(model.stats.totalDurationSeconds).toBe(10)
+  })
+
+  test('unreadable files are listed flat and counted, never folded into reels', () => {
+    const unreadable = [
+      { fileName: 'bad.mov', relativePath: 'A001/bad.mov', extension: '.mov', reason: 'boom' },
+    ]
+    const model = buildReportModel({
+      clips: [ref('A001/one.mov', 100)],
+      otherFiles: [],
+      metadataById: {},
+      thumbsById: {},
+      cover: {},
+      unreadable,
+    })
+    expect(model.unreadableFiles).toEqual(unreadable)
+    expect(model.stats.unreadableFileCount).toBe(1)
+    expect(model.stats.totalSizeBytes).toBe(100) // no size to add
+    expect(model.reels).toHaveLength(1)
+    expect(model.reels[0]?.otherFiles).toEqual([])
+  })
+
+  test('an unreadable path cannot shift reel grouping', () => {
+    const base = {
+      clips: [ref('A001/one.mov', 100), ref('A002/two.mov', 50)],
+      otherFiles: [],
+      metadataById: {},
+      thumbsById: {},
+      cover: {},
+    }
+    const without = buildReportModel(base)
+    const with_ = buildReportModel({
+      ...base,
+      unreadable: [
+        { fileName: 'x.mov', relativePath: 'WRAPPER/x.mov', extension: '.mov', reason: 'boom' },
+      ],
+    })
+    expect(with_.reels.map((r) => r.name)).toEqual(without.reels.map((r) => r.name))
+    expect(with_.stats.cardCount).toBe(without.stats.cardCount)
+  })
+
+  test('a clean report reports zero for both counts', () => {
+    const model = buildReportModel({
+      clips: [ref('A001/one.mov', 100)],
+      otherFiles: [],
+      metadataById: { 'A001/one.mov': {} },
+      thumbsById: {},
+      cover: {},
+    })
+    expect(model.stats.unreadableFileCount).toBe(0)
+    expect(model.stats.clipsMissingMetadataCount).toBe(0)
+    expect(model.unreadableFiles).toEqual([])
   })
 })
