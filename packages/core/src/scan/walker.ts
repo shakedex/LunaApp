@@ -1,7 +1,7 @@
 import { fileExtensionOf, isSupportedMediaExtension } from '../media/extensions'
 import type { DirectoryHandleLike, FileHandleLike } from './handles'
 import { isJunkName } from './junk'
-import type { ClipRef, OtherFileRef, UnreadableFileRef } from './model'
+import type { ClipRef, OtherFileRef, UnreadableEntryRef } from './model'
 
 export interface ScanProgress {
   filesSeen: number
@@ -15,13 +15,19 @@ export interface ScanResult {
   otherFiles: OtherFileRef[]
   // Entries the walk could not open. Their path is known; their size is not, so
   // they are excluded from every byte total the report shows.
-  unreadable: UnreadableFileRef[]
+  unreadable: UnreadableEntryRef[]
 }
 
 const RTN_EXTENSION = '.rtn'
 
-function unreadableRef(name: string, relativePath: string, err: unknown): UnreadableFileRef {
+function unreadableRef(
+  kind: 'file' | 'directory',
+  name: string,
+  relativePath: string,
+  err: unknown,
+): UnreadableEntryRef {
   return {
+    kind,
     fileName: name,
     relativePath,
     extension: fileExtensionOf(name),
@@ -35,7 +41,7 @@ export async function scanFolder(
 ): Promise<ScanResult> {
   const clips: ClipRef[] = []
   const otherFiles: OtherFileRef[] = []
-  const unreadable: UnreadableFileRef[] = []
+  const unreadable: UnreadableEntryRef[] = []
   // `.rtn` sidecars are also tracked separately so they can be associated with
   // their `.r3d` clip once the whole tree is known — but their bytes still
   // count as other files (they were delivered on the card).
@@ -60,7 +66,7 @@ export async function scanFolder(
         try {
           await walk(entry, `${relativePath}/`)
         } catch (err) {
-          unreadable.push(unreadableRef(entry.name, relativePath, err))
+          unreadable.push(unreadableRef('directory', entry.name, relativePath, err))
         }
         continue
       }
@@ -83,7 +89,7 @@ export async function scanFolder(
           }
         }
       } catch (err) {
-        unreadable.push(unreadableRef(entry.name, relativePath, err))
+        unreadable.push(unreadableRef('file', entry.name, relativePath, err))
       }
       onProgress?.({ filesSeen, clipsFound: clips.length, currentDir: prefix })
     }

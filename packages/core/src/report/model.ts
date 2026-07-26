@@ -1,6 +1,6 @@
 import type { ClipMetadata } from '../metadata/model'
 import { compareReelNames, detectReels, wrapperPrefixDepth } from '../reels/detect'
-import type { ClipRef, OtherFileRef, UnreadableFileRef } from '../scan/model'
+import type { ClipRef, OtherFileRef, UnreadableEntryRef } from '../scan/model'
 import type { ThumbnailFrame } from '../thumbs/model'
 
 export interface CoverFields<TImage = unknown> {
@@ -50,9 +50,12 @@ export interface ReportStats {
   // Sum of EVERY surfaced file on the card — the number a DIT compares
   // byte-for-byte against the delivered backup. Never a subset.
   totalSizeBytes: number
-  // Files the scan could not open. Nothing is known about them but their path,
-  // so they are in NO other count here — including totalSizeBytes.
+  // Files the scan could not open. Nothing is known about them but their path, so
+  // they are in NO other count here — including totalSizeBytes.
   unreadableFileCount: number
+  // Directories the scan could not open. Worse than a file: an unknown number of
+  // clips and bytes sit behind each one, so they are worded apart, never summed in.
+  unreadableDirectoryCount: number
   // Clips whose metadata pass failed. Their bytes ARE in totalSizeBytes (the
   // scan measured them); their duration is NOT in totalDurationSeconds.
   clipsMissingMetadataCount: number
@@ -63,9 +66,9 @@ export interface ReportModel<TImage = unknown> {
   sourceRoot: string
   stats: ReportStats
   reels: Reel<TImage>[]
-  // Flat, not per-reel: an unreadable file yields no size and no grouping
+  // Flat, not per-reel: an unreadable entry yields no size and no grouping
   // evidence, so inventing a reel for it would be a guess.
-  unreadableFiles: UnreadableFileRef[]
+  unreadableEntries: UnreadableEntryRef[]
 }
 
 // spec §8.8: a "card" is a top-level media subfolder — counted past any
@@ -91,7 +94,7 @@ export interface BuildReportInput<TImage = unknown> {
   thumbsById: Readonly<Record<string, ThumbnailFrame<TImage>[]>>
   cover: CoverFields<TImage>
   sourceRoot?: string
-  unreadable?: readonly UnreadableFileRef[]
+  unreadable?: readonly UnreadableEntryRef[]
   /** Ids of clips whose METADATA pass failed. Never thumbnail failures — a clip
    *  we could not make a thumbnail for is not a failed clip (2026-07-21 ruling). */
   failedClipIds?: Iterable<string>
@@ -114,7 +117,13 @@ export function buildReportModel<TImage = unknown>(
     }
   })
 
-  const unreadableFiles = [...(input.unreadable ?? [])]
+  const unreadableEntries = [...(input.unreadable ?? [])]
+  let unreadableFileCount = 0
+  let unreadableDirectoryCount = 0
+  for (const entry of unreadableEntries) {
+    if (entry.kind === 'directory') unreadableDirectoryCount += 1
+    else unreadableFileCount += 1
+  }
   // Intersected with the clip list on purpose: a stale id from a superseded run
   // must never inflate the count.
   const failed = new Set(input.failedClipIds ?? [])
@@ -198,10 +207,11 @@ export function buildReportModel<TImage = unknown>(
       otherFileSizeBytes,
       totalDurationSeconds,
       totalSizeBytes: clipSizeBytes + otherFileSizeBytes,
-      unreadableFileCount: unreadableFiles.length,
+      unreadableFileCount,
+      unreadableDirectoryCount,
       clipsMissingMetadataCount,
     },
     reels,
-    unreadableFiles,
+    unreadableEntries,
   }
 }

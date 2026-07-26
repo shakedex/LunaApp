@@ -34,9 +34,10 @@ const model: ReportModel = {
     totalDurationSeconds: 15,
     totalSizeBytes: 150,
     unreadableFileCount: 0,
+    unreadableDirectoryCount: 0,
     clipsMissingMetadataCount: 0,
   },
-  unreadableFiles: [],
+  unreadableEntries: [],
   reels: [
     {
       name: 'A001',
@@ -158,9 +159,10 @@ describe('generateReportCsv', () => {
         totalDurationSeconds: 10,
         totalSizeBytes: 100,
         unreadableFileCount: 0,
+        unreadableDirectoryCount: 0,
         clipsMissingMetadataCount: 0,
       },
-      unreadableFiles: [],
+      unreadableEntries: [],
       reels: [
         {
           name: 'A001',
@@ -204,9 +206,10 @@ describe('generateReportCsv', () => {
         totalDurationSeconds: 10,
         totalSizeBytes: 100,
         unreadableFileCount: 0,
+        unreadableDirectoryCount: 0,
         clipsMissingMetadataCount: 0,
       },
-      unreadableFiles: [],
+      unreadableEntries: [],
       reels: [
         {
           name: 'A001',

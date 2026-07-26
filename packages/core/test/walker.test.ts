@@ -164,6 +164,7 @@ describe('scanFolder resilience', () => {
     expect(otherFiles.map((f) => f.relativePath)).toEqual(['A001/notes.txt'])
     expect(unreadable).toEqual([
       {
+        kind: 'file',
         fileName: 'bad.mov',
         relativePath: 'A001/bad.mov',
         extension: '.mov',
@@ -194,6 +195,7 @@ describe('scanFolder resilience', () => {
     expect(clips.map((c) => c.relativePath)).toEqual(['A002/good.mov'])
     expect(unreadable).toEqual([
       {
+        kind: 'directory',
         fileName: 'A001',
         relativePath: 'A001',
         extension: '',

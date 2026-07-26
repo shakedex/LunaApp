@@ -23,13 +23,16 @@ export interface OtherFileRef {
   sizeBytes: number
 }
 
-// A file the walk could not open. Its path is known; its size is not, so it is
-// excluded from every byte total — unlike OtherFileRef, which the scan measured.
-export interface UnreadableFileRef {
+// An entry the walk could not open — a file, or a directory whose iteration died.
+// Its path is known; its size is not, so it is excluded from every byte total. A
+// directory is the worse case: an unknown number of clips sit behind it, which is
+// why callers must count and word the two kinds apart.
+export interface UnreadableEntryRef {
+  kind: 'file' | 'directory'
   fileName: string
   relativePath: string
   extension: string
-  /** Why the file could not be opened, verbatim from the thrown error. */
+  /** Why the entry could not be opened, verbatim from the thrown error. */
   reason: string
 }
 
@@ -40,16 +43,17 @@ export interface ScanSummary {
   // Sum of EVERY surfaced file — clips and other files. The report's whole
   // point is byte-for-byte comparability with the source card.
   totalSizeBytes: number
-  // Files the walk could not open. Counted so the summary can say so, but
-  // absent from every other number here — their size is unknown.
-  unreadableCount: number
+  // Counted apart because they cost different amounts: a file is one missing entry,
+  // a directory hides an unknown number of them.
+  unreadableFileCount: number
+  unreadableDirectoryCount: number
   byExtension: Record<string, number>
 }
 
 export function buildScanSummary(
   clips: readonly ClipRef[],
   otherFiles: readonly OtherFileRef[],
-  unreadable: readonly UnreadableFileRef[] = [],
+  unreadable: readonly UnreadableEntryRef[] = [],
 ): ScanSummary {
   const byExtension: Record<string, number> = {}
   let totalSizeBytes = 0
@@ -64,7 +68,8 @@ export function buildScanSummary(
     otherFileCount: otherFiles.length,
     otherFileSizeBytes,
     totalSizeBytes: totalSizeBytes + otherFileSizeBytes,
-    unreadableCount: unreadable.length,
+    unreadableFileCount: unreadable.filter((u) => u.kind === 'file').length,
+    unreadableDirectoryCount: unreadable.filter((u) => u.kind === 'directory').length,
     byExtension,
   }
 }

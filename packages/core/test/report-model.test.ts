@@ -67,6 +67,7 @@ describe('buildReportModel', () => {
       // Byte-for-byte honesty: clips (175) + other files (204).
       totalSizeBytes: 379,
       unreadableFileCount: 0,
+      unreadableDirectoryCount: 0,
       clipsMissingMetadataCount: 0,
     })
     // one.mov carries reelName CUSTOM, but its reel-like folder A001 wins.
@@ -206,6 +207,7 @@ describe('buildReportModel', () => {
       totalDurationSeconds: 0,
       totalSizeBytes: 0,
       unreadableFileCount: 0,
+      unreadableDirectoryCount: 0,
       clipsMissingMetadataCount: 0,
     })
     expect(model.reels).toEqual([])
@@ -236,7 +238,13 @@ describe('buildReportModel', () => {
 
   test('unreadable files are listed flat and counted, never folded into reels', () => {
     const unreadable = [
-      { fileName: 'bad.mov', relativePath: 'A001/bad.mov', extension: '.mov', reason: 'boom' },
+      {
+        kind: 'file' as const,
+        fileName: 'bad.mov',
+        relativePath: 'A001/bad.mov',
+        extension: '.mov',
+        reason: 'boom',
+      },
     ]
     const model = buildReportModel({
       clips: [ref('A001/one.mov', 100)],
@@ -246,7 +254,7 @@ describe('buildReportModel', () => {
       cover: {},
       unreadable,
     })
-    expect(model.unreadableFiles).toEqual(unreadable)
+    expect(model.unreadableEntries).toEqual(unreadable)
     expect(model.stats.unreadableFileCount).toBe(1)
     expect(model.stats.totalSizeBytes).toBe(100) // no size to add
     expect(model.reels).toHaveLength(1)
@@ -265,7 +273,13 @@ describe('buildReportModel', () => {
     const with_ = buildReportModel({
       ...base,
       unreadable: [
-        { fileName: 'x.mov', relativePath: 'WRAPPER/x.mov', extension: '.mov', reason: 'boom' },
+        {
+          kind: 'file' as const,
+          fileName: 'x.mov',
+          relativePath: 'WRAPPER/x.mov',
+          extension: '.mov',
+          reason: 'boom',
+        },
       ],
     })
     expect(with_.reels.map((r) => r.name)).toEqual(without.reels.map((r) => r.name))
@@ -282,6 +296,31 @@ describe('buildReportModel', () => {
     })
     expect(model.stats.unreadableFileCount).toBe(0)
     expect(model.stats.clipsMissingMetadataCount).toBe(0)
-    expect(model.unreadableFiles).toEqual([])
+    expect(model.unreadableEntries).toEqual([])
+  })
+
+  test('an unreadable directory is counted apart from unreadable files', () => {
+    const model = buildReportModel({
+      clips: [ref('A001/one.mov', 100)],
+      otherFiles: [],
+      metadataById: {},
+      thumbsById: {},
+      cover: {},
+      unreadable: [
+        {
+          kind: 'file',
+          fileName: 'b.mov',
+          relativePath: 'A001/b.mov',
+          extension: '.mov',
+          reason: 'x',
+        },
+        { kind: 'directory', fileName: 'A002', relativePath: 'A002', extension: '', reason: 'y' },
+      ],
+    })
+    expect(model.stats.unreadableFileCount).toBe(1)
+    expect(model.stats.unreadableDirectoryCount).toBe(1)
+    expect(model.unreadableEntries).toHaveLength(2)
+    // Neither contributes bytes: a directory has no size either.
+    expect(model.stats.totalSizeBytes).toBe(100)
   })
 })

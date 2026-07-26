@@ -5,7 +5,7 @@ import {
   buildScanSummary,
   type ClipRef,
   type OtherFileRef,
-  type UnreadableFileRef,
+  type UnreadableEntryRef,
 } from '../src/scan/model'
 
 const fakeBlob: BlobLike = {
@@ -66,17 +66,33 @@ describe('buildScanSummary', () => {
       otherFileCount: 0,
       otherFileSizeBytes: 0,
       totalSizeBytes: 0,
-      unreadableCount: 0,
+      unreadableFileCount: 0,
+      unreadableDirectoryCount: 0,
       byExtension: {},
     })
   })
   test('unreadable files are counted but add no bytes and no extension tally', () => {
-    const unreadable: UnreadableFileRef[] = [
-      { fileName: 'bad.mov', relativePath: 'a/bad.mov', extension: '.mov', reason: 'boom' },
+    const unreadable: UnreadableEntryRef[] = [
+      {
+        kind: 'file',
+        fileName: 'bad.mov',
+        relativePath: 'a/bad.mov',
+        extension: '.mov',
+        reason: 'boom',
+      },
     ]
     const s = buildScanSummary([clip('a/1.mov', '.mov', 100)], [], unreadable)
-    expect(s.unreadableCount).toBe(1)
+    expect(s.unreadableFileCount).toBe(1)
     expect(s.totalSizeBytes).toBe(100)
     expect(s.byExtension).toEqual({ '.mov': 1 })
+  })
+  test('files and directories are counted apart', () => {
+    const unreadable: UnreadableEntryRef[] = [
+      { kind: 'file', fileName: 'a.mov', relativePath: 'a.mov', extension: '.mov', reason: 'x' },
+      { kind: 'directory', fileName: 'A002', relativePath: 'A002', extension: '', reason: 'y' },
+    ]
+    const s = buildScanSummary([], [], unreadable)
+    expect(s.unreadableFileCount).toBe(1)
+    expect(s.unreadableDirectoryCount).toBe(1)
   })
 })

@@ -16,9 +16,10 @@ function model(overrides: Partial<ReportModel<Img>> = {}): ReportModel<Img> {
       totalDurationSeconds: 120,
       totalSizeBytes: 5_000,
       unreadableFileCount: 0,
+      unreadableDirectoryCount: 0,
       clipsMissingMetadataCount: 0,
     },
-    unreadableFiles: [],
+    unreadableEntries: [],
     reels: [
       {
         name: 'A001',

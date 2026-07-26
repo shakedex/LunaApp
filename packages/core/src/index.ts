@@ -62,7 +62,7 @@ export type {
   FileSystemEntryLike,
 } from './scan/handles'
 export { isJunkName } from './scan/junk'
-export type { ClipRef, OtherFileRef, ScanSummary, UnreadableFileRef } from './scan/model'
+export type { ClipRef, OtherFileRef, ScanSummary, UnreadableEntryRef } from './scan/model'
 export { buildScanSummary } from './scan/model'
 export type { ScanProgress, ScanResult } from './scan/walker'
 export { scanFolder } from './scan/walker'
