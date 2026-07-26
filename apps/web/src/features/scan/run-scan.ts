@@ -58,16 +58,22 @@ export async function scanFrom(
       otherFiles: result.otherFiles,
       unreadable: result.unreadable,
       progress: {
-        filesSeen: result.clips.length + result.otherFiles.length + result.unreadable.length,
+        filesSeen:
+          result.clips.length +
+          result.otherFiles.length +
+          result.unreadable.filter((u) => u.kind === 'file').length,
         clipsFound: result.clips.length,
       },
       summary: buildScanSummary(result.clips, result.otherFiles, result.unreadable),
     }))
-    for (const f of result.unreadable.slice(0, UNREADABLE_LOG_CAP)) {
-      logger.warn(`Could not open ${f.relativePath}`, f.reason)
+    for (const e of result.unreadable.slice(0, UNREADABLE_LOG_CAP)) {
+      logger.warn(
+        `Could not open ${e.kind === 'directory' ? 'folder ' : ''}${e.relativePath}`,
+        e.reason,
+      )
     }
     if (result.unreadable.length > UNREADABLE_LOG_CAP) {
-      logger.warn(`…and ${result.unreadable.length - UNREADABLE_LOG_CAP} more unreadable files`)
+      logger.warn(`…and ${result.unreadable.length - UNREADABLE_LOG_CAP} more unreadable entries`)
     }
     logger.info(
       `Scan of "${handle.name}" complete`,

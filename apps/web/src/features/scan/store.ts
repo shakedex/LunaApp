@@ -4,7 +4,7 @@ import type {
   OtherFileRef,
   ScanSummary,
   ThumbnailFrame,
-  UnreadableFileRef,
+  UnreadableEntryRef,
 } from '@luna-web/core'
 import { Store } from '@tanstack/store'
 
@@ -32,7 +32,7 @@ export interface ScanState {
   otherFiles: OtherFileRef[]
   // Files the walk could not open — carried into the report so its totals can
   // say what is missing from them.
-  unreadable: UnreadableFileRef[]
+  unreadable: UnreadableEntryRef[]
   summary: ScanSummary | null
   error: string | null
   clipStatus: Record<string, ClipProcessStatus>

@@ -13,6 +13,7 @@ const model: ReportModel<Blob> = {
     totalDurationSeconds: 10,
     totalSizeBytes: 100,
     unreadableFileCount: 0,
+    unreadableDirectoryCount: 0,
     clipsMissingMetadataCount: 0,
   },
   reels: [
@@ -39,7 +40,7 @@ const model: ReportModel<Blob> = {
       ],
     },
   ],
-  unreadableFiles: [],
+  unreadableEntries: [],
 }
 
 test('the exported CSV starts with a UTF-8 BOM', async () => {

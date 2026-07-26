@@ -100,7 +100,7 @@ export function ReportView({
         </CardContent>
       </Card>
 
-      <IncompleteNotice stats={model.stats} unreadableFiles={model.unreadableFiles} />
+      <IncompleteNotice stats={model.stats} unreadableEntries={model.unreadableEntries} />
 
       {children}
 

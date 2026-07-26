@@ -18,6 +18,7 @@ import { Spinner } from '@/components/ui/spinner'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { startProcessing } from '@/features/process/run-processing'
 import { ReportWorkspace } from '@/features/report/report-workspace'
+import { scanShortfall } from '@/features/report/shortfall-lines'
 import { formatBytes, formatExactBytes } from '@/lib/format'
 import { CompositionBar } from './composition-bar'
 import { Dropzone } from './dropzone'
@@ -65,6 +66,8 @@ export function ScanScreen() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [phase])
+
+  const shortfall = summary ? scanShortfall(summary) : null
 
   return (
     <div
@@ -135,11 +138,10 @@ export function ScanScreen() {
             />
           </div>
 
-          {summary.unreadableCount > 0 && (
+          {shortfall && (
             <div className="text-muted-foreground flex items-center gap-2 border-t px-5 py-4 text-sm">
               <TriangleAlert className="text-warning size-4 shrink-0" />
-              {summary.unreadableCount} {summary.unreadableCount === 1 ? 'file' : 'files'} couldn't
-              be opened and won't be in the report
+              {shortfall}
             </div>
           )}
 

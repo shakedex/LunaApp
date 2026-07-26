@@ -1,5 +1,6 @@
 import { joinPath } from '@luna-web/core'
 import { Document, Image, Link, Page, StyleSheet, Text, View } from '@react-pdf/renderer'
+import { pdfShortfalls } from '@/features/report/shortfall-lines'
 import { formatBytes, formatDuration } from '@/lib/format'
 import { LUNA_URL } from '@/lib/site'
 import { GEIST, GEIST_MONO } from './pdf-fonts'
@@ -246,21 +247,7 @@ export function ReportDocument({ report }: { report: PdfReport }) {
     [formatBytes(stats.totalSizeBytes), 'total size'],
   ]
 
-  // Both counters mean different things, so they get their own words. Names are
-  // deliberately not listed — the totals block is one text line, and a
-  // variable-length list there would fight the fixed header.
-  const shortfalls = [
-    stats.clipsMissingMetadataCount > 0
-      ? `${stats.clipsMissingMetadataCount} ${
-          stats.clipsMissingMetadataCount === 1 ? 'clip' : 'clips'
-        } missing metadata — duration not included above`
-      : null,
-    stats.unreadableFileCount > 0
-      ? `${stats.unreadableFileCount} ${
-          stats.unreadableFileCount === 1 ? 'file' : 'files'
-        } could not be opened — not counted above`
-      : null,
-  ].filter((x): x is string => x !== null)
+  const shortfalls = pdfShortfalls(stats)
 
   return (
     <Document title={title} creator="Luna">
