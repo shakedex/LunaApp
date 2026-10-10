@@ -215,41 +215,52 @@ fn from_cbe<R: Read + Seek>(
     t: &Target,
 ) -> Result<Frames, String> {
     let total: u64 = st.iter().map(|s| s.file_end - s.file_start).sum();
-    let available = total / eubc;
-    let n = t.duration.unwrap_or(available).min(MAX_FRAMES);
-    if n == 0 {
-        return Err("empty".into());
-    }
+    let want = t.duration.unwrap_or(total / eubc).min(MAX_FRAMES);
     let first_unit = to_file(st, 0).ok_or("no essence")?;
-    let k0 = picture_in_unit(r, first_unit, first_unit + eubc, t.track_number)?;
+    let k0 = picture_in_unit(
+        r,
+        first_unit,
+        first_unit.saturating_add(eubc),
+        t.track_number,
+    )?;
     let delta = k0.value - first_unit;
-    let mut f = Frames {
-        first_key: Some(k0.key),
-        ..Default::default()
+    let len = r.len();
+    let frame_at = |i: u64| -> Option<u64> {
+        let v = to_file(st, i.checked_mul(eubc)?)?.checked_add(delta)?;
+        (v.checked_add(k0.len)? <= len).then_some(v)
     };
-    for i in 0..n {
-        let Some(unit) = i.checked_mul(eubc).and_then(|so| to_file(st, so)) else {
-            f.truncated = true;
-            break;
-        };
-        let value = unit + delta;
-        if value + k0.len > r.len() {
-            f.truncated = true;
-            break;
+    // The frames present form a prefix; find where it ends.
+    let (mut lo, mut hi) = (0u64, want);
+    while lo < hi {
+        let mid = lo + (hi - lo) / 2;
+        if frame_at(mid).is_some() {
+            lo = mid + 1;
+        } else {
+            hi = mid;
         }
-        f.ranges.push(ByteRange {
-            offset: value,
-            len: k0.len,
-        });
+    }
+    let present = lo;
+    if present == 0 {
+        return Err("no complete edit unit".into());
     }
     // Spot-check the last frame's element header against the first.
-    if let Some(last) = f.ranges.last() {
-        let k = read_klv(r, last.offset - (k0.value - k0.offset)).map_err(|e| e.to_string())?;
-        if k.key != k0.key || k.len != k0.len {
-            return Err("constant edit units do not line up".into());
-        }
+    let last = frame_at(present - 1).ok_or("edit units do not line up")?;
+    let k = read_klv(r, last - (k0.value - k0.offset)).map_err(|e| e.to_string())?;
+    if k.key != k0.key || k.len != k0.len {
+        return Err("constant edit units do not line up".into());
     }
-    Ok(f)
+    Ok(Frames {
+        ranges: (0..present)
+            .filter_map(frame_at)
+            .map(|offset| ByteRange {
+                offset,
+                len: k0.len,
+            })
+            .collect(),
+        truncated: present < want,
+        first_key: Some(k0.key),
+        ..Default::default()
+    })
 }
 
 fn from_vbe<R: Read + Seek>(
@@ -331,6 +342,8 @@ fn scan<R: Read + Seek>(
         .iter()
         .find(|p| p.body_sid == sid)
         .or_else(|| parts.iter().find(|p| p.body_sid != 0))
+        // Partitions not yet known (no RIP or footer): walk on from the header.
+        .or_else(|| parts.first())
         .map(|p| essence_start(r, p));
     let Some(mut off) = start else {
         f.warnings.push("No essence partition was found.".into());

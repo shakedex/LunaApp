@@ -149,6 +149,8 @@ pub(crate) const INSTANCE_UID: Prop = prop(0x3c0a, "060e2b3401010101010115020000
 #[derive(Debug, Default)]
 pub(crate) struct Metadata {
     pub sets: Vec<LocalSet>,
+    /// The metadata stopped early at a damaged or cut-short item.
+    pub truncated: bool,
     by_uid: HashMap<[u8; 16], usize>,
 }
 
@@ -189,12 +191,20 @@ pub(crate) fn read_metadata<R: Read + Seek>(
     let mut md = Metadata::default();
     let mut off = start;
     while off < end && md.sets.len() < MAX_SETS {
-        let k = read_klv(r, off)?;
-        if k.end() > r.len() {
-            return Err(FormatError::Corrupt(format!(
-                "header metadata item at offset {off} runs past the end of the file"
-            )));
-        }
+        // A damaged or cut-short tail keeps what was read before it.
+        let k = match read_klv(r, off) {
+            Ok(k) if k.end() <= r.len() => k,
+            Ok(_) | Err(_) if !md.sets.is_empty() => {
+                md.truncated = true;
+                break;
+            }
+            Ok(_) => {
+                return Err(FormatError::Corrupt(format!(
+                    "header metadata item at offset {off} runs past the end of the file"
+                )));
+            }
+            Err(e) => return Err(e),
+        };
         if is_partition(&k.key) {
             break;
         }

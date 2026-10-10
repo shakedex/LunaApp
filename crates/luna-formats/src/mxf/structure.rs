@@ -141,7 +141,8 @@ fn timecode_of(md: &Metadata, package: &LocalSet) -> Option<(i64, u16, bool)> {
             if c.kind() == Some(0x14) || c.has(START_TIMECODE) {
                 let start = c.i64(START_TIMECODE)?;
                 let base = c.u16(ROUNDED_TC_BASE)?;
-                if start < 0 || base == 0 {
+                // A timecode at or past 24 h is not one.
+                if start < 0 || base == 0 || base > 1000 || start >= base as i64 * 86_400 {
                     return None;
                 }
                 return Some((start, base, c.u8(DROP_FRAME).unwrap_or(0) != 0));

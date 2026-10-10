@@ -96,6 +96,9 @@ pub(crate) fn probe_source<R: Read + Seek>(
     let md = md.ok_or_else(|| {
         last_err.unwrap_or_else(|| FormatError::Corrupt("no header metadata".into()))
     })?;
+    if md.truncated {
+        warnings.push("The header metadata is cut short; some values may be missing.".into());
+    }
     let st = structure::resolve(&md);
 
     let segments = match index::read_segments(&mut r, &parts.list) {
@@ -277,6 +280,7 @@ fn first_unit_data<R: Read + Seek>(
         .iter()
         .filter(|p| p.kind != Kind::Footer)
         .rfind(|p| p.offset < first.offset && (p.body_sid == sid || sid == 0) && p.body_sid != 0)
+        .or_else(|| parts.first())
     else {
         return out;
     };
