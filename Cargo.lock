@@ -7769,7 +7769,7 @@ checksum = "9440ea3e5aeabb0ac63af70daf835274065238cdd0cec83418f417eae38bacee"
 [[package]]
 name = "xocn"
 version = "0.1.0"
-source = "git+file:///E:/Coding/decoders/xocn-decoder?rev=f354edc7827e6646f3961681dee207e72725174d#f354edc7827e6646f3961681dee207e72725174d"
+source = "git+file:///E:/Coding/decoders/xocn-decoder?rev=2b183188fbc5a97544e6844333ab3bc07744e169#2b183188fbc5a97544e6844333ab3bc07744e169"
 
 [[package]]
 name = "yaml-rust"

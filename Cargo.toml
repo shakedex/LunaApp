@@ -9,6 +9,6 @@ license = "MIT"
 
 [workspace.dependencies]
 # Private decoders (not published), pinned to the commits Luna was verified against.
-xocn = { git = "file:///E:/Coding/decoders/xocn-decoder", rev = "f354edc7827e6646f3961681dee207e72725174d" }
+xocn = { git = "file:///E:/Coding/decoders/xocn-decoder", rev = "2b183188fbc5a97544e6844333ab3bc07744e169" }
 crm = { git = "file:///E:/Coding/decoders/crm-decoder", rev = "d65806ba0fb8ff27a2c4392773b22030a54a48b9" }
 braw = { git = "file:///E:/Coding/decoders/braw-sdk", rev = "1fd58351bdc92dda7a239265172d81465ff35e19" }

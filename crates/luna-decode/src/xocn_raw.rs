@@ -28,6 +28,12 @@ pub(crate) fn decode(
     let active = x.picture().active;
     let scale = scale_for(active.width, min_width);
     let (black, white) = levels(x.raw_levels());
+    // Verified against Sony's own pipeline (xocn research/COLOUR.md): the
+    // recorded values are already white-balanced; exposure and the per-camera,
+    // per-Kelvin camera → XYZ matrix come from the clip's metadata.
+    let exposure = x.exposure();
+    let colour = x.colour();
+    let (black, white) = exposure.map_or((black, white), |e| (e.black, e.white));
     let hint = ColourHint {
         transfer: Some(Transfer::Linear),
         // Sensor-native RGB; S-Gamut3 is the closest named gamut (Sony defines
@@ -60,9 +66,9 @@ pub(crate) fn decode(
                 data: mosaic::rgb_to_rggb(&rgb, a.width, a.height),
                 black,
                 white,
-                wb: None,
-                camera_to_xyz: None,
-                scene_scale: None,
+                wb: colour.map(|c| c.wb_gains),
+                camera_to_xyz: colour.map(|c| c.camera_to_xyz),
+                scene_scale: exposure.map(|e| e.k),
             },
             hint,
         })
