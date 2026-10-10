@@ -1,0 +1,130 @@
+use std::path::Path;
+
+use luna_core::run::{build_report, summary};
+use luna_core::scan::Scan;
+use luna_core::settings::Settings;
+use luna_formats::{ClipFiles, ClipMeta, Container};
+use luna_report::{Thumbnail, Unreadable, UnreadableKind};
+use luna_worker::ClipResult;
+use luna_worker::pool::JobOutcome;
+
+const THUMB: &[u8] = include_bytes!("../../luna-report/tests/fixtures/thumb.jpg");
+
+fn clip(path: &str) -> ClipFiles {
+    ClipFiles {
+        container: Container::Mxf,
+        main: Path::new("D:/Shoot").join(path),
+        segments: vec![],
+        sidecars: vec![],
+    }
+}
+
+fn read(id: u64, thumbs: Vec<Result<Vec<u8>, String>>) -> JobOutcome {
+    JobOutcome::Done(Box::new(ClipResult {
+        id,
+        meta: Some(ClipMeta {
+            camera_model: Some("ALEXA 35".into()),
+            ..ClipMeta::default()
+        }),
+        codec: None,
+        bytes: 1000,
+        thumbnails: thumbs,
+        warnings: vec![],
+    }))
+}
+
+fn scan() -> Scan {
+    Scan {
+        clips: vec![
+            clip("A_CAM/A001/A001C001_251020_R1AB.mxf"),
+            clip("A_CAM/A001/A001C002_251020_R1AB.mxf"),
+            clip("B_CAM/B001/B001C001_251020_R2CD.mxf"),
+        ],
+        not_included: vec!["notes.txt".into()],
+        unreadable: vec![Unreadable {
+            path: "C_CAM".into(),
+            kind: UnreadableKind::Folder,
+            reason: "Access denied".into(),
+        }],
+    }
+}
+
+fn settings() -> Settings {
+    Settings {
+        production: "Night Shift".into(),
+        author: "Dana".into(),
+        custom: vec![("Day".into(), "3".into())],
+        ..Settings::default()
+    }
+}
+
+#[test]
+fn groups_clips_and_carries_lists_and_header() {
+    let outcomes = vec![
+        read(0, vec![Err("No decoder".into())]),
+        read(1, vec![Err("No decoder".into())]),
+        read(2, vec![Err("No decoder".into())]),
+    ];
+    let r = build_report(
+        Path::new("D:/Shoot"),
+        &settings(),
+        scan(),
+        outcomes,
+        "2026-10-10 14:32",
+    );
+    assert_eq!(r.header.production.as_deref(), Some("Night Shift"));
+    assert_eq!(r.header.author.as_deref(), Some("Dana"));
+    assert_eq!(r.header.company, None, "empty settings fields are omitted");
+    assert_eq!(r.header.custom[0].label, "Day");
+    assert_eq!(r.source_root, "D:/Shoot");
+    assert_eq!(r.generated_at, "2026-10-10 14:32");
+    let cams: Vec<_> = r.cameras.iter().map(|c| c.name.as_str()).collect();
+    assert_eq!(cams, ["A", "B"]);
+    assert_eq!(r.cameras[0].cards[0].reel, "A001");
+    assert_eq!(r.cameras[0].cards[0].clips.len(), 2);
+    let c = &r.cameras[0].cards[0].clips[0];
+    assert_eq!(c.fields.file_name, "A001C001_251020_R1AB.mxf");
+    assert_eq!(c.fields.camera_model.as_deref(), Some("ALEXA 35"));
+    assert_eq!(c.fields.file_size, Some(1000));
+    assert_eq!(r.not_included, ["notes.txt"]);
+    assert_eq!(r.unreadable.len(), 1);
+}
+
+#[test]
+fn a_crashed_or_slow_clip_keeps_its_row_with_reasons() {
+    let outcomes = vec![JobOutcome::Crashed, JobOutcome::TimedOut, read(2, vec![])];
+    let r = build_report(Path::new("D:/Shoot"), &settings(), scan(), outcomes, "now");
+    let a = &r.cameras[0].cards[0].clips;
+    assert_eq!(a[0].fields.file_name, "A001C001_251020_R1AB.mxf");
+    assert_eq!(a[0].thumbnails.len(), 3);
+    assert!(
+        matches!(&a[0].thumbnails[0], Thumbnail::Missing { reason } if reason.contains("stopped"))
+    );
+    assert!(a[0].warnings.iter().any(|w| w.contains("stopped")));
+    assert!(a[1].warnings.iter().any(|w| w.contains("too long")));
+    assert!(a[0].has_problems() && a[1].has_problems());
+}
+
+#[test]
+fn summary_names_the_problems() {
+    let good = || vec![Ok(THUMB.to_vec()); 3];
+    let ok = vec![read(0, good()), read(1, good()), read(2, good())];
+    let r = build_report(Path::new("D:/Shoot"), &settings(), scan(), ok, "now");
+    assert_eq!(summary(&r), "All 3 clips read.");
+
+    let bad = vec![
+        JobOutcome::Crashed,
+        read(1, vec![Err("x".into())]),
+        read(2, good()),
+    ];
+    let r = build_report(Path::new("D:/Shoot"), &settings(), scan(), bad, "now");
+    assert_eq!(
+        summary(&r),
+        "2 of 3 clips have problems. Details are in the report."
+    );
+
+    let mut empty = scan();
+    empty.clips.clear();
+    let r = build_report(Path::new("D:/Shoot"), &settings(), empty, vec![], "now");
+    assert_eq!(summary(&r), "No camera clips found in this source.");
+}
