@@ -214,6 +214,7 @@ pub(crate) fn probe_source<R: Read + Seek>(
         meta,
         frames: frames_index,
         layout,
+        codec_config: None,
         warnings,
     })
 }

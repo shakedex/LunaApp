@@ -38,6 +38,7 @@ pub fn probe(codec: Codec, frames: FrameIndex, layout: PictureLayout) -> Probe {
         meta: ClipMeta::default(),
         frames,
         layout,
+        codec_config: None,
         warnings: vec![],
     }
 }

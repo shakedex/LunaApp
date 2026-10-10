@@ -29,6 +29,8 @@ pub(crate) struct VideoEntry {
     pub pixel_aspect: Option<Rational>,
     pub colour: ColourHint,
     pub fields: Option<u8>,
+    /// The decoder configuration record (`avcC` / `hvcC` body), verbatim.
+    pub config: Option<Vec<u8>>,
 }
 
 /// Bytes of the visual sample entry before its extension atoms
@@ -60,6 +62,7 @@ pub(crate) fn video_entry(body: &[u8]) -> Option<VideoEntry> {
             }
             b"clap" => v.clean = clap(a.body),
             b"fiel" => v.fields = a.body.first().copied(),
+            b"avcC" | b"hvcC" => v.config = Some(a.body.to_vec()),
             _ => {}
         }
     }
@@ -216,6 +219,15 @@ mod tests {
         assert_eq!(v.colour.gamut, Some(Gamut::Rec2020));
         assert_eq!(v.colour.transfer, Some(Transfer::Hlg));
         assert_eq!(v.fields, Some(2));
+    }
+
+    #[test]
+    fn keeps_the_decoder_configuration_record() {
+        let ext = atom(b"avcC", &[1, 122, 0, 52, 0xff, 0xe0, 0]);
+        let v = video_entry(&visual_entry(10, 10, &ext)).unwrap();
+        assert_eq!(v.config, Some(vec![1, 122, 0, 52, 0xff, 0xe0, 0]));
+        let v = video_entry(&visual_entry(10, 10, &[])).unwrap();
+        assert_eq!(v.config, None);
     }
 
     #[test]

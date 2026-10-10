@@ -269,6 +269,7 @@ mod tests {
             meta: ClipMeta::default(),
             frames: FrameIndex::DecoderOwned,
             layout: PictureLayout::default(),
+            codec_config: None,
             warnings: vec![],
         }
     }
