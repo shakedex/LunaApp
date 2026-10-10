@@ -48,6 +48,10 @@ pub enum Decoded {
         wb: Option<[f32; 3]>,
         /// 3×3 camera-RGB → XYZ (D65), row-major, when the decoder knows it.
         camera_to_xyz: Option<[f32; 9]>,
+        /// Scene-linear = (sample − black) × scale, with 18 % grey at 0.18, when
+        /// the decoder knows the clip's exposure. `None`: the renderer falls back
+        /// to a per-camera-family estimate.
+        scene_scale: Option<f32>,
     },
     /// Interleaved RGB, 16-bit, encoded with `transfer` in `gamut`.
     Rgb16 {

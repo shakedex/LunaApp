@@ -269,6 +269,7 @@ fn mosaic_frame(width: u32, height: u32, cfa: Cfa, rgb: [u16; 3], hint: ColourHi
             white: 65535.0,
             wb: None,
             camera_to_xyz: None,
+            scene_scale: None,
         },
         hint,
     }
@@ -298,6 +299,26 @@ fn raw_grey_lands_on_the_same_grey_for_every_cfa() {
             assert_eq!((out.image.width, out.image.height), (16, 9));
             assert_flat(&out.image, GREY, 1, &format!("{g:?} {cfa:?}"));
         }
+    }
+}
+
+#[test]
+fn decoder_stated_exposure_places_grey() {
+    // scene-linear = (raw − black) × scale; grey 0.18 sits at raw 256 + 0.18 / scale.
+    for scale in [1.0f32 / 2000.0, 1.0 / 20_000.0] {
+        let v = (256.0 + 0.18 / scale).round() as u16;
+        let mut frame = mosaic_frame(
+            32,
+            18,
+            Cfa::Rggb,
+            [v; 3],
+            hint(Some(Transfer::Linear), Some(Gamut::CinemaGamut)),
+        );
+        if let Decoded::Mosaic { scene_scale, .. } = &mut frame.image {
+            *scene_scale = Some(scale);
+        }
+        let out = render(&frame, 16, None);
+        assert_flat(&out.image, GREY, 1, &format!("scale {scale}"));
     }
 }
 
@@ -412,6 +433,7 @@ fn short_buffers_give_a_black_frame_not_a_panic() {
                 white: 0.0,
                 wb: None,
                 camera_to_xyz: None,
+                scene_scale: None,
             },
             hint: ColourHint::default(),
         },
@@ -528,6 +550,7 @@ fn perf_8k_mosaic_and_4k_ycbcr() {
             white: 65535.0,
             wb: Some([2.0, 1.0, 1.5]),
             camera_to_xyz: None,
+            scene_scale: None,
         },
         hint: hint(Some(Transfer::Linear), Some(Gamut::SGamut3)),
     };

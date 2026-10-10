@@ -89,6 +89,7 @@ pub fn render(frame: &Frame, max_width: u32, pixel_aspect: Option<(u32, u32)>) -
             white,
             wb,
             camera_to_xyz,
+            scene_scale,
         } => {
             let width = *width as usize;
             let rows = (*height as usize).min(data.len() / width.max(1));
@@ -96,7 +97,10 @@ pub fn render(frame: &Frame, max_width: u32, pixel_aspect: Option<(u32, u32)>) -
             let img = (cw > 0 && ch > 0).then(|| {
                 let (kx, ky) = (scale::reduction(cw, tw), scale::reduction(ch, th));
                 let mut img = mosaic::reduce(width, rows, *cfa, data, kx, ky);
-                let stops = mosaic::clip_stops_above_grey(frame.hint.gamut);
+                let stops = match scene_scale.filter(|s| s.is_finite() && *s > 0.0) {
+                    Some(s) => (s * (white - black) / 0.18).log2(),
+                    None => mosaic::clip_stops_above_grey(frame.hint.gamut),
+                };
                 mosaic::linearise(&mut img, *black, *white, *wb, stops);
                 img
             });

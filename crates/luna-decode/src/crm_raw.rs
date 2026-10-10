@@ -61,6 +61,7 @@ pub(crate) fn decode(
                 white,
                 wb,
                 camera_to_xyz: None,
+                scene_scale: None,
             },
             hint,
         })
