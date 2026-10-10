@@ -4,6 +4,8 @@
 //! using each vendor's published curve, gamut → Rec.709, display rendering,
 //! downscale, JPEG.
 
+mod curves;
+
 use luna_decode::Frame;
 
 /// An 8-bit sRGB/Rec.709 display image, interleaved RGB.

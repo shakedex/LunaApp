@@ -5,5 +5,6 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+jpeg-encoder = "0.7.1"
 luna-decode = { version = "0.0.0", path = "../luna-decode" }
 luna-formats = { version = "0.0.0", path = "../luna-formats" }
