@@ -4,11 +4,11 @@
 //! intra (I or IDR) access unit at or before it is decoded, since P and B
 //! pictures are out of the decoder's scope.
 
-use luna_formats::{ClipFiles, ColourHint, FrameIndex, Gamut, Probe, Transfer};
+use luna_formats::{ClipFiles, ColourHint, FrameIndex, Probe};
 use luna_h264::{DecoderConfig, FrameKind};
 
-use crate::util;
-use crate::{DecodeError, Decoded, Frame, YcbcrMatrix};
+use crate::util::{self, gamut_for, matrix_for, transfer_for};
+use crate::{DecodeError, Decoded, Frame};
 
 /// How far back to look for an intra access unit (camera GOPs are at most
 /// a few seconds).
@@ -117,6 +117,12 @@ fn to_frame(pic: luna_h264::Picture, clip_hint: ColourHint) -> Result<Frame, Dec
             "The H.264 decoder returned inconsistent planes ({w}×{h})"
         )));
     }
+    if pic.bit_depth_chroma != pic.bit_depth {
+        return Err(DecodeError::Unsupported(format!(
+            "H.264 with {}-bit luma and {}-bit chroma",
+            pic.bit_depth, pic.bit_depth_chroma
+        )));
+    }
     let c = pic.colour;
     let hint = ColourHint {
         transfer: clip_hint.transfer.or(transfer_for(c.transfer)),
@@ -139,37 +145,11 @@ fn to_frame(pic: luna_h264::Picture, clip_hint: ColourHint) -> Result<Frame, Dec
     })
 }
 
-/// ITU-T H.273 matrix code; unspecified falls back on size (SD → 601).
-fn matrix_for(code: u8, height: u32) -> YcbcrMatrix {
-    match code {
-        1 => YcbcrMatrix::Bt709,
-        9 => YcbcrMatrix::Bt2020,
-        5 | 6 => YcbcrMatrix::Bt601,
-        _ if height >= 720 => YcbcrMatrix::Bt709,
-        _ => YcbcrMatrix::Bt601,
-    }
-}
-
-fn transfer_for(code: u8) -> Option<Transfer> {
-    match code {
-        1 | 6 | 14 | 15 => Some(Transfer::Rec709),
-        16 => Some(Transfer::Pq),
-        18 => Some(Transfer::Hlg),
-        _ => None,
-    }
-}
-
-fn gamut_for(code: u8) -> Option<Gamut> {
-    match code {
-        1 => Some(Gamut::Rec709),
-        9 => Some(Gamut::Rec2020),
-        _ => None,
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::YcbcrMatrix;
+    use luna_formats::{Gamut, Transfer};
     use luna_h264::Colour;
 
     fn pic(chroma_format: u8, colour: Colour) -> luna_h264::Picture {
@@ -236,5 +216,11 @@ mod tests {
         let mut p = pic(2, Colour::default());
         p.cr.pop();
         assert!(to_frame(p, ColourHint::default()).is_err());
+        let mut p = pic(2, Colour::default());
+        p.bit_depth_chroma = 8;
+        assert!(matches!(
+            to_frame(p, ColourHint::default()),
+            Err(DecodeError::Unsupported(_))
+        ));
     }
 }

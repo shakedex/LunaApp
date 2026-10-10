@@ -1,10 +1,10 @@
 //! ProRes (MOV or MXF) through our own decoder, `luna-prores`. Frames are read
 //! from the parser's byte-range index and decoded at a reduced scale.
 
-use luna_formats::{ClipFiles, ColourHint, FrameIndex, Gamut, Probe, Transfer};
+use luna_formats::{ClipFiles, ColourHint, FrameIndex, Probe};
 
-use crate::util;
-use crate::{DecodeError, Decoded, Frame, YcbcrMatrix};
+use crate::util::{self, gamut_for, matrix_for, transfer_for};
+use crate::{DecodeError, Decoded, Frame};
 
 pub(crate) fn decode(
     clip: &ClipFiles,
@@ -87,37 +87,11 @@ fn to_frame(pic: luna_prores::Picture, clip_hint: ColourHint) -> Result<Frame, D
     })
 }
 
-/// ITU-T H.273 matrix code; unspecified falls back on size (SD → 601).
-fn matrix_for(code: u8, height: u32) -> YcbcrMatrix {
-    match code {
-        1 => YcbcrMatrix::Bt709,
-        9 => YcbcrMatrix::Bt2020,
-        5 | 6 => YcbcrMatrix::Bt601,
-        _ if height >= 720 => YcbcrMatrix::Bt709,
-        _ => YcbcrMatrix::Bt601,
-    }
-}
-
-fn transfer_for(code: u8) -> Option<Transfer> {
-    match code {
-        1 | 6 | 14 | 15 => Some(Transfer::Rec709),
-        16 => Some(Transfer::Pq),
-        18 => Some(Transfer::Hlg),
-        _ => None,
-    }
-}
-
-fn gamut_for(code: u8) -> Option<Gamut> {
-    match code {
-        1 => Some(Gamut::Rec709),
-        9 => Some(Gamut::Rec2020),
-        _ => None,
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::YcbcrMatrix;
+    use luna_formats::{Gamut, Transfer};
 
     fn pic(w: u32, h: u32, chroma_format: u8, matrix: u8) -> luna_prores::Picture {
         let cw = if chroma_format == 3 { w } else { w.div_ceil(2) };
