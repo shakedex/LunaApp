@@ -7,7 +7,7 @@ use std::collections::HashMap;
 
 use typst::diag::{FileError, FileResult, SourceDiagnostic};
 use typst::foundations::{Bytes, Datetime, Duration, Smart};
-use typst::layout::{Frame, FrameItem};
+use typst::layout::{Frame, FrameItem, Point};
 use typst::syntax::{FileId, RootedPath, Source, VirtualPath, VirtualRoot};
 use typst::text::{Font, FontBook};
 use typst::utils::LazyHash;
@@ -40,6 +40,19 @@ pub struct PdfInspection {
     pub images: usize,
     /// Text runs that contain a glyph no embedded font covers.
     pub missing_glyphs: Vec<String>,
+    /// Where each text run sits, for layout checks.
+    pub runs: Vec<TextRun>,
+}
+
+/// One shaped text run, positioned in points from the page's top-left corner.
+#[derive(Debug, Clone)]
+pub struct TextRun {
+    pub page: usize,
+    pub x: f64,
+    /// The baseline.
+    pub y: f64,
+    pub width: f64,
+    pub text: String,
 }
 
 #[doc(hidden)]
@@ -50,23 +63,36 @@ pub fn inspect_pdf(report: &Report) -> Result<PdfInspection, ReportError> {
         text: String::new(),
         images: 0,
         missing_glyphs: Vec::new(),
+        runs: Vec::new(),
     };
-    for page in doc.pages() {
-        walk(&page.frame, &mut inspection);
+    for (page, p) in doc.pages().iter().enumerate() {
+        walk(&p.frame, page, Point::zero(), &mut inspection);
     }
     Ok(inspection)
 }
 
-fn walk(frame: &Frame, out: &mut PdfInspection) {
-    for (_, item) in frame.items() {
+/// The report template only translates groups, so offsets add up.
+fn walk(frame: &Frame, page: usize, origin: Point, out: &mut PdfInspection) {
+    for (pos, item) in frame.items() {
+        let at = origin + *pos;
         match item {
-            FrameItem::Group(group) => walk(&group.frame, out),
+            FrameItem::Group(group) => {
+                let shift = Point::new(group.transform.tx, group.transform.ty);
+                walk(&group.frame, page, at + shift, out);
+            }
             FrameItem::Text(text) => {
                 out.text.push_str(&text.text);
                 out.text.push('\n');
                 if text.glyphs.iter().any(|g| g.id == 0) {
                     out.missing_glyphs.push(text.text.to_string());
                 }
+                out.runs.push(TextRun {
+                    page,
+                    x: at.x.to_pt(),
+                    y: at.y.to_pt(),
+                    width: text.width().to_pt(),
+                    text: text.text.to_string(),
+                });
             }
             FrameItem::Image(..) => out.images += 1,
             _ => {}

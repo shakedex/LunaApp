@@ -52,13 +52,17 @@
 
 #let clip-block(clip) = block(breakable: false, width: 100%, above: 0.8em, {
   line(length: 100%, stroke: 0.3pt + muted)
+  // Camera-original names rarely contain a break point, so the file name gets
+  // its own full-width line instead of a grid cell it would overflow.
+  text(weight: "bold", clip.values.at(0))
+  v(2pt)
   grid(columns: (1fr,) * 3, column-gutter: 4pt, ..clip.thumbs.map(thumb))
   v(3pt)
   grid(
     columns: (auto, 1fr) * 6,
     column-gutter: 5pt,
     row-gutter: 3pt,
-    ..clip.values.enumerate().map(((i, value)) => (
+    ..clip.values.enumerate().slice(1).map(((i, value)) => (
       text(fill: muted, d.labels.at(i)),
       value,
     )).flatten(),

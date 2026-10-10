@@ -4,6 +4,28 @@ use common::{HOSTILE, empty_report, full_clip, hostile_report, non_ascii_report,
 use luna_report::{Card, inspect_pdf, write_pdf};
 
 #[test]
+fn no_two_text_runs_overlap_on_a_line() {
+    let mut report = sample_report();
+    // Standard camera names join everything with underscores, so they never wrap.
+    report.cameras[0].cards[0].clips[0].fields.file_name =
+        "A001C001_261001_R1AB_LONG_CAMERA_ORIGINAL_NAME.mxf".into();
+    let i = inspect_pdf(&report).unwrap();
+    for (n, a) in i.runs.iter().enumerate() {
+        for b in &i.runs[n + 1..] {
+            let same_line = a.page == b.page && (a.y - b.y).abs() < 0.5;
+            let overlap = a.x < b.x + b.width - 0.1 && b.x < a.x + a.width - 0.1;
+            assert!(
+                !(same_line && overlap),
+                "{:?} overlaps {:?} on page {}",
+                a.text,
+                b.text,
+                a.page
+            );
+        }
+    }
+}
+
+#[test]
 fn writes_a_pdf_file() {
     let pdf = write_pdf(&sample_report()).unwrap();
     assert!(pdf.starts_with(b"%PDF-"));

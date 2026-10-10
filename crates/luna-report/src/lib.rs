@@ -18,4 +18,4 @@ pub use model::{
     Camera, Card, Clip, ClipFields, CustomField, FIELD_LABELS, Header, IdentitySource, MISSING,
     Report, Thumbnail, Totals, Unreadable, UnreadableKind, format_bytes,
 };
-pub use pdf::{PdfInspection, inspect_pdf, write_pdf};
+pub use pdf::{PdfInspection, TextRun, inspect_pdf, write_pdf};
