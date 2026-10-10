@@ -126,3 +126,10 @@ fn logo_rejects_unknown_and_corrupt_files() {
         Err(LogoError::Unreadable(_))
     ));
 }
+
+#[test]
+fn identity_sources_have_report_labels() {
+    use luna_report::IdentitySource;
+    assert_eq!(IdentitySource::Metadata.label(), "embedded metadata");
+    assert_eq!(IdentitySource::Card.label(), "card neighbours");
+}

@@ -2,4 +2,9 @@
 //! report model → atomic output. Settings load/save. No UI, no decoding.
 
 pub mod assemble;
+pub mod identity;
+pub mod scan;
 pub mod settings;
+
+#[cfg(test)]
+mod test_support;
