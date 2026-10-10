@@ -37,20 +37,45 @@ pub(crate) fn decode(
     util::per_frame("Cinema RAW Light", positions, c.frame_count() as u64, |i| {
         let raw = c.decode_frame(i as usize).map_err(failed)?;
         let m = &raw.mosaic;
-        let (data, w, h) = mosaic::crop_bin(&m.data, m.width, m.height, active, f);
+        // Verified against Canon's SDK (crm research/exposure.md): codes are
+        // linear only up to a knee, so they are expanded to scene-linear light
+        // before binning; exposure and the camera → Cinema Gamut matrix come
+        // from the frame's metadata, and the mosaic is already as-shot balanced.
+        let exposure = c.exposure(i as usize);
+        let colour = c.colour(i as usize);
+        let (samples, black, white, scene_scale) = match &exposure {
+            Some(e) => {
+                let top = e.clip_linear.max(f32::MIN_POSITIVE);
+                let lut: Vec<u16> = e
+                    .lut()
+                    .into_iter()
+                    .map(|l| ((l / top).clamp(0.0, 1.0) * 65535.0).round() as u16)
+                    .collect();
+                let linear: Vec<u16> = m
+                    .data
+                    .iter()
+                    .map(|&v| lut[(v as usize).min(lut.len() - 1)])
+                    .collect();
+                (linear, 0.0, 65535.0, Some(top / 65535.0))
+            }
+            None => (m.data.clone(), black, white, None),
+        };
+        let (data, w, h) = mosaic::crop_bin(&samples, m.width, m.height, active, f);
         if w == 0 {
             return Err(DecodeError::Failed(
                 "Cinema RAW Light active picture area is empty".into(),
             ));
         }
-        // The mosaic is already balanced to the as-shot setting in camera;
-        // these are Canon's gains on top of that (1, 1 = as shot).
-        let wb = c
-            .frame_metadata(i as usize)
-            .ok()
-            .and_then(|fm| fm.white_balance)
-            .map(|b| [b.gains.0, 1.0, b.gains.1])
-            .filter(|g| g.iter().all(|v| v.is_finite() && *v > 0.0));
+        let wb = match &colour {
+            Some(col) => Some(col.wb_gains),
+            // Canon's gains on top of the in-camera balance (1, 1 = as shot).
+            None => c
+                .frame_metadata(i as usize)
+                .ok()
+                .and_then(|fm| fm.white_balance)
+                .map(|b| [b.gains.0, 1.0, b.gains.1])
+                .filter(|g| g.iter().all(|v| v.is_finite() && *v > 0.0)),
+        };
         Ok(Frame {
             image: Decoded::Mosaic {
                 width: w as u32,
@@ -60,8 +85,8 @@ pub(crate) fn decode(
                 black,
                 white,
                 wb,
-                camera_to_xyz: None,
-                scene_scale: None,
+                camera_to_xyz: colour.as_ref().map(|col| col.camera_to_xyz),
+                scene_scale,
             },
             hint,
         })

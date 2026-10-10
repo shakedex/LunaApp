@@ -1111,7 +1111,7 @@ checksum = "790eea4361631c5e7d22598ecd5723ff611904e3344ce8720784c93e3d83d40b"
 [[package]]
 name = "crm"
 version = "0.1.0"
-source = "git+file:///E:/Coding/decoders/crm-decoder?rev=d65806ba0fb8ff27a2c4392773b22030a54a48b9#d65806ba0fb8ff27a2c4392773b22030a54a48b9"
+source = "git+file:///E:/Coding/decoders/crm-decoder?rev=d4725b19b4af7bde2f1699b19bfa163ed4fbc89f#d4725b19b4af7bde2f1699b19bfa163ed4fbc89f"
 
 [[package]]
 name = "crossbeam-channel"
