@@ -75,7 +75,8 @@ fn burano_xocn() {
     assert_eq!(m.frame_count, Some(269));
     assert_eq!(m.start_timecode.unwrap().to_string(), "12:30:06:03");
     assert_eq!((m.width, m.height), (Some(6052), Some(3192)));
-    assert_eq!(m.recording_date, None);
+    // Sony stamps UTC; it is shown as such (see the corpus test).
+    assert_eq!(s(&m.recording_date), Some("2024-10-24 20:28:24 UTC"));
 }
 
 #[test]
