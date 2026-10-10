@@ -119,7 +119,7 @@ pub(crate) fn probe_source<R: Read + Seek>(
                 .map(|d| d as u64)
         }),
     };
-    let frames = index::frames(&mut r, &parts.list, parts.complete, &segments, &target);
+    let frames = index::frames(&mut r, &parts.list, &segments, &target);
     warnings.extend(frames.warnings.iter().cloned());
 
     let pic = st.picture.clone().unwrap_or_default();

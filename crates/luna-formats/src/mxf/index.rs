@@ -150,7 +150,6 @@ pub(crate) fn is_picture(k: &Ul, track_number: Option<u32>) -> bool {
 pub(crate) fn frames<R: Read + Seek>(
     r: &mut Reader<R>,
     parts: &[Partition],
-    complete: bool,
     segments: &[Segment],
     t: &Target,
 ) -> Frames {
@@ -173,7 +172,7 @@ pub(crate) fn frames<R: Read + Seek>(
         match indexed {
             Ok(f) => return f,
             Err(why) => {
-                let mut f = scan(r, parts, complete, sid, t);
+                let mut f = scan(r, parts, sid, t);
                 f.warnings.insert(
                     0,
                     format!("Index table not usable ({why}); frames were located by scanning."),
@@ -182,7 +181,7 @@ pub(crate) fn frames<R: Read + Seek>(
             }
         }
     }
-    scan(r, parts, complete, sid, t)
+    scan(r, parts, sid, t)
 }
 
 /// Finds the picture element inside the edit unit starting at `unit`.
@@ -330,13 +329,7 @@ fn from_vbe<R: Read + Seek>(
 }
 
 /// Walks every KLV from the first essence byte, collecting picture elements.
-fn scan<R: Read + Seek>(
-    r: &mut Reader<R>,
-    parts: &[Partition],
-    complete: bool,
-    sid: u32,
-    t: &Target,
-) -> Frames {
+fn scan<R: Read + Seek>(r: &mut Reader<R>, parts: &[Partition], sid: u32, t: &Target) -> Frames {
     let mut f = Frames::default();
     let start = parts
         .iter()
@@ -390,6 +383,5 @@ fn scan<R: Read + Seek>(
     if f.ranges.len() == 1 && t.duration.is_some_and(|d| d > 1) {
         f.clip_wrapped = true;
     }
-    let _ = complete;
     f
 }
