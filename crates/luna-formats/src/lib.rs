@@ -5,9 +5,11 @@
 //! - [`probe`] reads one assembled clip: its metadata, its codec, and where its
 //!   coded frames sit, for the decoders that read frames from our index.
 
+mod mxf;
 mod sniff;
 mod types;
 
+pub use mxf::arriraw_image_offset;
 pub use sniff::{SNIFF_LEN, sniff};
 pub use types::*;
 
@@ -16,10 +18,12 @@ use std::path::Path;
 /// Reads a clip's container and sidecars. Never panics on bad input: a corrupt
 /// or truncated file is an `Err`, and a field the file doesn't carry is `None`.
 pub fn probe(clip: &ClipFiles) -> Result<Probe, FormatError> {
-    let _ = clip;
-    Err(FormatError::Unsupported(
-        "probe is not implemented yet".into(),
-    ))
+    match clip.container {
+        Container::Mxf => mxf::probe(clip),
+        other => Err(FormatError::Unsupported(format!(
+            "{other:?} is not read yet"
+        ))),
+    }
 }
 
 /// Convenience for tests and tools: sniff a file on disk.
