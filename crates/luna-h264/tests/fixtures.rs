@@ -3,7 +3,9 @@
 
 mod common;
 
-use luna_h264::{DecoderConfig, Error, FrameKind, access_unit_kind, decode_access_unit};
+use luna_h264::{
+    DecoderConfig, Error, FrameKind, access_unit_kind, access_unit_kind_prefix, decode_access_unit,
+};
 
 /// (name, stream, reference planes, width, height)
 type Fixture = (&'static str, &'static [u8], &'static [u8], u32, u32);
@@ -54,6 +56,24 @@ fn fixtures_are_bit_exact() {
         let want = samples(yuv, pic.bit_depth > 8);
         let (bad, first) = common::compare(&pic, &want);
         assert_eq!(bad, [0; 3], "{name}: {first:?}");
+    }
+}
+
+#[test]
+fn prefixes_classify_once_the_first_slice_shows() {
+    let (_, stream, _, _, _) = FIXTURES[0];
+    let cfg = DecoderConfig::annex_b();
+    let first_idr = stream
+        .windows(4)
+        .position(|w| w[..3] == [0, 0, 1] && w[3] & 0x1f == 5)
+        .unwrap();
+    for n in 0..stream.len() {
+        let k = access_unit_kind_prefix(&stream[..n], &cfg);
+        if n <= first_idr + 3 {
+            assert_eq!(k, None, "prefix {n}");
+        } else {
+            assert_eq!(k, Some(FrameKind::Idr), "prefix {n}");
+        }
     }
 }
 

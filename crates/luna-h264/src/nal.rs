@@ -76,6 +76,24 @@ pub(crate) fn length_prefixed(data: &[u8], len_size: u8) -> Result<Vec<Nal<'_>>,
     Ok(out)
 }
 
+/// Like [`length_prefixed`] for the first bytes of a sample: the last NAL
+/// unit may be cut short, and a cut-off length ends the list.
+pub(crate) fn length_prefixed_lenient(data: &[u8], len_size: u8) -> Vec<Nal<'_>> {
+    let n = len_size as usize;
+    let mut out = Vec::new();
+    let mut i = 0;
+    while let Some(head) = data.get(i..i + n) {
+        let len = head.iter().fold(0usize, |a, &b| (a << 8) | b as usize);
+        i += n;
+        let end = i.saturating_add(len).min(data.len());
+        if let Some(u) = data.get(i..end).and_then(nal) {
+            out.push(u);
+        }
+        i = i.saturating_add(len);
+    }
+    out
+}
+
 /// The parts of an `avcC` record a decoder needs.
 pub(crate) struct AvcC<'a> {
     pub len_size: u8,
@@ -138,6 +156,10 @@ mod tests {
         assert_eq!(v[0].payload, &[9]);
         assert!(length_prefixed(&[0, 0, 0, 9, 1], 4).is_err());
         assert!(length_prefixed(&[0, 0], 4).is_err());
+        let cut = length_prefixed_lenient(&s[..7], 4);
+        assert_eq!(cut.len(), 1);
+        assert_eq!(cut[0].payload, &[9]);
+        assert_eq!(length_prefixed_lenient(&s[..5], 4)[0].payload, &[] as &[u8]);
     }
 
     #[test]

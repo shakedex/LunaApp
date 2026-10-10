@@ -182,12 +182,32 @@ pub fn access_unit_kind(au: &[u8], config: &DecoderConfig) -> FrameKind {
     let Ok(nals) = config.nals(au) else {
         return FrameKind::Other;
     };
+    classify(&nals, false).unwrap_or(FrameKind::Other)
+}
+
+/// Classifies an access unit from its first bytes (a few kilobytes usually
+/// reach the first slice header), judging by the slices they show. `None`
+/// when the bytes end before any slice header.
+pub fn access_unit_kind_prefix(prefix: &[u8], config: &DecoderConfig) -> Option<FrameKind> {
+    let nals = match config.nal_length_size {
+        Some(n) => nal::length_prefixed_lenient(prefix, n),
+        None => nal::annex_b(prefix),
+    };
+    classify(&nals, true)
+}
+
+fn classify(nals: &[nal::Nal], prefix: bool) -> Option<FrameKind> {
     let mut seen = false;
-    for n in &nals {
+    for (i, n) in nals.iter().enumerate() {
         if n.kind == nal::NAL_IDR {
-            return FrameKind::Idr;
+            return Some(FrameKind::Idr);
         }
         if n.kind == nal::NAL_SLICE {
+            // A cut-off last slice NAL may not hold its whole header yet
+            // (first_mb_in_slice, slice_type and pps_id fit in 8 bytes).
+            if prefix && i + 1 == nals.len() && n.payload.len() < 8 {
+                break;
+            }
             let r = bits::Rbsp::new(n.payload);
             match slice::peek(&mut r.reader()) {
                 Ok((first_mb, st, _)) => {
@@ -195,13 +215,13 @@ pub fn access_unit_kind(au: &[u8], config: &DecoderConfig) -> FrameKind {
                         break;
                     }
                     if st != slice::SLICE_I {
-                        return FrameKind::Other;
+                        return Some(FrameKind::Other);
                     }
                     seen = true;
                 }
-                Err(_) => return FrameKind::Other,
+                Err(_) => return Some(FrameKind::Other),
             }
         }
     }
-    if seen { FrameKind::I } else { FrameKind::Other }
+    seen.then_some(FrameKind::I)
 }

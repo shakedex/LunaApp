@@ -1,7 +1,7 @@
 //! Damaged input never panics: deterministic bit flips, truncations, byte
 //! overwrites and splices of the fixtures, ~1000 iterations.
 
-use luna_h264::{DecoderConfig, access_unit_kind, decode_access_unit};
+use luna_h264::{DecoderConfig, access_unit_kind, access_unit_kind_prefix, decode_access_unit};
 
 const STREAMS: &[&[u8]] = &[
     include_bytes!("fixtures/cavlc422p10.h264"),
@@ -83,6 +83,7 @@ fn damaged_streams_never_panic() {
         let src = STREAMS[i % STREAMS.len()];
         let d = mutate(&mut rng, src);
         let _ = access_unit_kind(&d, &cfg);
+        let _ = access_unit_kind_prefix(&d[..d.len() / 2], &cfg);
         match decode_access_unit(&d, &cfg) {
             Ok(p) => {
                 ok += 1;
