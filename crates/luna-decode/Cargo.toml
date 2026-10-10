@@ -5,4 +5,12 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+braw.workspace = true
+crm.workspace = true
+libloading = "0.9.0"
 luna-formats = { version = "0.0.0", path = "../luna-formats" }
+luna-prores = { version = "0.0.0", path = "../luna-prores" }
+xocn.workspace = true
+
+[target."cfg(windows)".dependencies]
+windows = { version = "0.62.2", features = ["Win32_Media_MediaFoundation", "Win32_System_Com", "Win32_Foundation", "Win32_System_Variant", "Win32_System_Com_StructuredStorage"] }

@@ -6,7 +6,23 @@
 //! (Media Foundation on Windows, AVFoundation on macOS). Platform APIs live only
 //! in this crate, behind `cfg(target_os)`.
 
-use luna_formats::{ClipFiles, ColourHint, Gamut, Probe, Transfer};
+use luna_formats::{ClipFiles, Codec, ColourHint, Container, Gamut, Probe, Transfer};
+
+mod arriraw;
+mod braw_sdk;
+mod crm_raw;
+#[cfg(windows)]
+mod mf;
+mod mosaic;
+#[cfg(target_os = "macos")]
+mod platform_macos;
+mod prores;
+mod r3d;
+mod util;
+mod vendor;
+mod xocn_raw;
+
+pub use vendor::vendor_probe;
 
 /// The colour filter array layout of a mosaic, naming the top-left 2×2.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -102,21 +118,240 @@ pub struct Frame {
 /// Decodes the frames at `positions` (0-based frame numbers), each at the
 /// smallest native scale that is at least `min_width` wide where the decoder
 /// offers scales. One result per position, in order; a failed frame never
-/// stops the others.
+/// stops the others. Positions past the end are clamped to the last frame.
+///
+/// A [`Decoded::Mosaic`] counts as half its width (one picture pixel per 2×2
+/// photosites), so mosaics come out at least `2 × min_width` photosites wide.
 pub fn decode_frames(
     clip: &ClipFiles,
     probe: &Probe,
     positions: &[u64],
     min_width: u32,
 ) -> Vec<Result<Frame, DecodeError>> {
-    let _ = (clip, min_width);
-    positions
-        .iter()
-        .map(|_| {
-            Err(DecodeError::Unsupported(format!(
-                "No decoder for {} yet",
-                probe.codec.label()
-            )))
+    if positions.is_empty() {
+        return Vec::new();
+    }
+    let backend = backend_for(clip, probe);
+    let out = util::guard(backend.name(), || {
+        Ok(match backend {
+            Backend::XOcn => xocn_raw::decode(clip, probe, positions, min_width),
+            Backend::Crm => crm_raw::decode(clip, probe, positions, min_width),
+            Backend::Braw => braw_sdk::decode(clip, probe, positions, min_width),
+            Backend::R3d => r3d::decode(clip, probe, positions, min_width),
+            Backend::ArriRaw => arriraw::decode(clip, probe, positions, min_width),
+            Backend::ProRes => prores::decode(clip, probe, positions, min_width),
+            Backend::Platform => platform_decode(clip, probe, positions, min_width),
+            Backend::None => util::all_err(
+                positions.len(),
+                DecodeError::Unsupported(format!("No decoder for {} yet", probe.codec.label())),
+            ),
         })
-        .collect()
+    });
+    match out {
+        // Backends return one result per position; never trust that blindly.
+        Ok(mut v) if v.len() == positions.len() => {
+            v.shrink_to_fit();
+            v
+        }
+        Ok(_) => util::all_err(
+            positions.len(),
+            DecodeError::Failed(format!("{} decoder lost frames", backend.name())),
+        ),
+        Err(e) => util::all_err(positions.len(), e),
+    }
+}
+
+/// Which decoder handles a clip.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Backend {
+    XOcn,
+    Crm,
+    Braw,
+    R3d,
+    ArriRaw,
+    ProRes,
+    Platform,
+    None,
+}
+
+impl Backend {
+    fn name(self) -> &'static str {
+        match self {
+            Backend::XOcn => "X-OCN",
+            Backend::Crm => "Cinema RAW Light",
+            Backend::Braw => "Blackmagic RAW",
+            Backend::R3d => "R3D",
+            Backend::ArriRaw => "ARRIRAW",
+            Backend::ProRes => "ProRes",
+            Backend::Platform => "platform video",
+            Backend::None => "no",
+        }
+    }
+}
+
+fn backend_for(clip: &ClipFiles, probe: &Probe) -> Backend {
+    match (&probe.codec, clip.container) {
+        (Codec::XOcn, _) => Backend::XOcn,
+        (Codec::CinemaRawLight, _) | (_, Container::Crm) => Backend::Crm,
+        (Codec::Braw, _) | (_, Container::Braw) => Backend::Braw,
+        (Codec::Redcode, _) | (_, Container::R3d) => Backend::R3d,
+        (Codec::ArriRaw, _) => Backend::ArriRaw,
+        (Codec::ProRes(_), Container::Mxf | Container::QuickTime) => Backend::ProRes,
+        (Codec::H264 | Codec::Hevc, Container::QuickTime) => Backend::Platform,
+        _ => Backend::None,
+    }
+}
+
+#[cfg(windows)]
+fn platform_decode(
+    clip: &ClipFiles,
+    probe: &Probe,
+    positions: &[u64],
+    min_width: u32,
+) -> Vec<Result<Frame, DecodeError>> {
+    mf::decode(clip, probe, positions, min_width)
+}
+
+#[cfg(target_os = "macos")]
+fn platform_decode(
+    clip: &ClipFiles,
+    probe: &Probe,
+    positions: &[u64],
+    min_width: u32,
+) -> Vec<Result<Frame, DecodeError>> {
+    platform_macos::decode(clip, probe, positions, min_width)
+}
+
+#[cfg(not(any(windows, target_os = "macos")))]
+fn platform_decode(
+    _clip: &ClipFiles,
+    probe: &Probe,
+    positions: &[u64],
+    _min_width: u32,
+) -> Vec<Result<Frame, DecodeError>> {
+    util::all_err(
+        positions.len(),
+        DecodeError::Unsupported(format!(
+            "{} isn't supported on this platform",
+            probe.codec.label()
+        )),
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use luna_formats::{ClipMeta, FrameIndex, PictureLayout, ProResProfile};
+    use std::path::PathBuf;
+
+    fn clip(container: Container, main: &str) -> ClipFiles {
+        ClipFiles {
+            container,
+            main: PathBuf::from(main),
+            segments: vec![],
+            sidecars: vec![],
+        }
+    }
+
+    fn probe(codec: Codec) -> Probe {
+        Probe {
+            codec,
+            meta: ClipMeta::default(),
+            frames: FrameIndex::DecoderOwned,
+            layout: PictureLayout::default(),
+            warnings: vec![],
+        }
+    }
+
+    #[test]
+    fn picks_backend_from_codec_and_container() {
+        let mxf = clip(Container::Mxf, "a.mxf");
+        let mov = clip(Container::QuickTime, "a.mov");
+        assert_eq!(backend_for(&mxf, &probe(Codec::XOcn)), Backend::XOcn);
+        assert_eq!(backend_for(&mxf, &probe(Codec::ArriRaw)), Backend::ArriRaw);
+        assert_eq!(backend_for(&mxf, &probe(Codec::ArriCore)), Backend::None);
+        assert_eq!(
+            backend_for(&mxf, &probe(Codec::ProRes(ProResProfile::Hq))),
+            Backend::ProRes
+        );
+        assert_eq!(
+            backend_for(&mov, &probe(Codec::ProRes(ProResProfile::P4444))),
+            Backend::ProRes
+        );
+        assert_eq!(backend_for(&mov, &probe(Codec::H264)), Backend::Platform);
+        assert_eq!(backend_for(&mov, &probe(Codec::Hevc)), Backend::Platform);
+        assert_eq!(backend_for(&mxf, &probe(Codec::H264)), Backend::None);
+        assert_eq!(backend_for(&mov, &probe(Codec::ProResRaw)), Backend::None);
+        let crm = clip(Container::Crm, "a.crm");
+        assert_eq!(
+            backend_for(&crm, &probe(Codec::CinemaRawLight)),
+            Backend::Crm
+        );
+        let braw = clip(Container::Braw, "a.braw");
+        assert_eq!(backend_for(&braw, &probe(Codec::Braw)), Backend::Braw);
+        let r3d = clip(Container::R3d, "a.R3D");
+        assert_eq!(backend_for(&r3d, &probe(Codec::Redcode)), Backend::R3d);
+    }
+
+    #[test]
+    fn unknown_codecs_are_unsupported_once_per_position() {
+        let out = decode_frames(
+            &clip(Container::Mxf, "a.mxf"),
+            &probe(Codec::ArriCore),
+            &[0, 5, 9],
+            640,
+        );
+        assert_eq!(out.len(), 3);
+        for r in out {
+            assert_eq!(
+                r,
+                Err(DecodeError::Unsupported(
+                    "No decoder for ARRICORE yet".into()
+                ))
+            );
+        }
+        let out = decode_frames(
+            &clip(Container::Mxf, "a.mxf"),
+            &probe(Codec::Other("AVC-Intra".into())),
+            &[0],
+            640,
+        );
+        assert_eq!(
+            out,
+            vec![Err(DecodeError::Unsupported(
+                "No decoder for AVC-Intra yet".into()
+            ))]
+        );
+    }
+
+    #[test]
+    fn no_positions_no_work() {
+        let out = decode_frames(
+            &clip(Container::Mxf, "missing.mxf"),
+            &probe(Codec::XOcn),
+            &[],
+            640,
+        );
+        assert!(out.is_empty());
+    }
+
+    #[test]
+    fn missing_files_fail_every_position_without_panicking() {
+        for (container, codec) in [
+            (Container::Mxf, Codec::XOcn),
+            (Container::Crm, Codec::CinemaRawLight),
+            (Container::Mxf, Codec::ProRes(ProResProfile::Hq)),
+            (Container::Mxf, Codec::ArriRaw),
+            (Container::QuickTime, Codec::H264),
+        ] {
+            let out = decode_frames(
+                &clip(container, "Z:/definitely/not/here.bin"),
+                &probe(codec.clone()),
+                &[0, 1],
+                640,
+            );
+            assert_eq!(out.len(), 2, "{codec:?}");
+            assert!(out.iter().all(|r| r.is_err()), "{codec:?}: {out:?}");
+        }
+    }
 }

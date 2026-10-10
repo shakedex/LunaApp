@@ -1,0 +1,5 @@
+# Build-time location of the Blackmagic RAW SDK (headers for the braw crate's shim,
+# and the development fallback for the SDK libraries at run time).
+# Windows-only path for now; macOS builders override BRAW_SDK_DIR in their environment.
+[env]
+BRAW_SDK_DIR = { value = 'C:\Program Files (x86)\Blackmagic Design\Blackmagic RAW\Blackmagic RAW SDK', force = false }
