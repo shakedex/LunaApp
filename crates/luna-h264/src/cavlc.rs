@@ -492,7 +492,9 @@ mod tests {
     use super::*;
     use crate::bits::Rbsp;
 
-    fn all_tables() -> Vec<(String, Vec<(&'static str, u8)>, bool)> {
+    type Table = (String, Vec<(&'static str, u8)>, bool);
+
+    fn all_tables() -> Vec<Table> {
         // (name, codes, complete?) — coeff_token for nC 0..8 and run_before
         // are complete prefix codes; the others leave codes unused.
         let mut v = vec![

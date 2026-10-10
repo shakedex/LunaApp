@@ -147,8 +147,18 @@ impl<'a> BitReader<'a> {
         self.pos
     }
 
-    pub(crate) fn byte_aligned(&self) -> bool {
-        self.pos & 7 == 0
+    pub(crate) fn set_pos(&mut self, pos: usize) {
+        self.pos = pos;
+    }
+
+    /// The padded RBSP bytes and the current bit position.
+    pub(crate) fn parts(&self) -> (&'a [u8], usize) {
+        (self.data, self.pos)
+    }
+
+    /// Length of the RBSP in bits (without padding).
+    pub(crate) fn len_bits(&self) -> usize {
+        self.len
     }
 
     pub(crate) fn align(&mut self) {

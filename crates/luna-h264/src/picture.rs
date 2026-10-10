@@ -1,6 +1,9 @@
 //! One access unit → one picture: parameter sets, slices (decoded in
 //! parallel when there are several), deblocking, cropping.
 
+use std::sync::Mutex;
+use std::sync::atomic::{AtomicUsize, Ordering};
+
 use crate::bits::Rbsp;
 use crate::cabac::{Engine, init_contexts};
 use crate::deblock::{SliceFilter, deblock};
@@ -14,13 +17,15 @@ use crate::{DecoderConfig, Error, Picture};
 /// Pictures smaller than this many macroblocks decode on the calling thread.
 const PARALLEL_MIN_MBS: usize = 1024;
 
-struct SliceJob<'a> {
+/// A decoded slice: its macroblock rows and per-macroblock info.
+type SliceResult = Result<(Canvas, Vec<MbInfo>), Error>;
+
+struct SliceJob {
     hdr: SliceHeader,
     rbsp: Rbsp,
     /// Bit position of slice_data().
     data_pos: usize,
     end_mb: usize,
-    _nal: Nal<'a>,
 }
 
 pub(crate) fn decode(nals: &[Nal], config: &DecoderConfig) -> Result<Picture, Error> {
@@ -107,7 +112,6 @@ pub(crate) fn decode(nals: &[Nal], config: &DecoderConfig) -> Result<Picture, Er
             rbsp: r,
             data_pos,
             end_mb: 0,
-            _nal: n,
         });
     }
     for k in 0..jobs.len() {
@@ -119,50 +123,50 @@ pub(crate) fn decode(nals: &[Nal], config: &DecoderConfig) -> Result<Picture, Er
         jobs[k].end_mb = end;
     }
 
-    // Decode.
-    let results: Vec<Result<(Canvas, Vec<MbInfo>), Error>> =
-        if jobs.len() > 1 && total >= PARALLEL_MIN_MBS {
-            let threads = std::thread::available_parallelism()
-                .map_or(1, |n| n.get())
-                .min(jobs.len());
-            let mut out: Vec<Option<Result<(Canvas, Vec<MbInfo>), Error>>> =
-                (0..jobs.len()).map(|_| None).collect();
-            std::thread::scope(|s| {
-                let chunk = jobs.len().div_ceil(threads);
-                let handles: Vec<_> = jobs
-                    .chunks(chunk)
-                    .enumerate()
-                    .map(|(ci, js)| {
-                        let p = &p;
-                        let pps = &pps;
-                        s.spawn(move || {
-                            js.iter()
-                                .enumerate()
-                                .map(|(k, j)| decode_slice(p, pps, j, (ci * chunk + k) as u16 + 1))
-                                .collect::<Vec<_>>()
-                        })
-                    })
-                    .collect();
-                for (ci, h) in handles.into_iter().enumerate() {
-                    let rs = h
-                        .join()
-                        .unwrap_or_else(|_| vec![Err(Error::corrupt("a slice decoder crashed"))]);
-                    for (k, r) in rs.into_iter().enumerate() {
-                        if let Some(slot) = out.get_mut(ci * chunk + k) {
+    if jobs.len() > u16::MAX as usize {
+        return Err(Error::Unsupported("more than 65535 slices".into()));
+    }
+
+    // Decode, slices in parallel when the picture is large enough.
+    let cores = std::thread::available_parallelism().map_or(1, |n| n.get());
+    let threads = match config.max_threads {
+        0 => cores,
+        n => n.min(cores),
+    }
+    .min(jobs.len());
+    let results: Vec<SliceResult> = if threads > 1 && total >= PARALLEL_MIN_MBS {
+        let next = AtomicUsize::new(0);
+        let slots: Vec<Mutex<Option<SliceResult>>> =
+            (0..jobs.len()).map(|_| Mutex::new(None)).collect();
+        std::thread::scope(|s| {
+            for _ in 0..threads {
+                s.spawn(|| {
+                    loop {
+                        let k = next.fetch_add(1, Ordering::Relaxed);
+                        let Some(job) = jobs.get(k) else { break };
+                        let r = decode_slice(&p, &pps, job, k as u16 + 1);
+                        if let Ok(mut slot) = slots[k].lock() {
                             *slot = Some(r);
                         }
                     }
-                }
-            });
-            out.into_iter()
-                .map(|r| r.unwrap_or_else(|| Err(Error::corrupt("a slice was lost"))))
-                .collect()
-        } else {
-            jobs.iter()
-                .enumerate()
-                .map(|(k, j)| decode_slice(&p, &pps, j, k as u16 + 1))
-                .collect()
-        };
+                });
+            }
+        });
+        slots
+            .into_iter()
+            .map(|m| {
+                m.into_inner()
+                    .ok()
+                    .flatten()
+                    .unwrap_or_else(|| Err(Error::corrupt("a slice decoder stopped")))
+            })
+            .collect()
+    } else {
+        jobs.iter()
+            .enumerate()
+            .map(|(k, j)| decode_slice(&p, &pps, j, k as u16 + 1))
+            .collect()
+    };
 
     // Assemble.
     let sy = p.w_mbs * 16;
@@ -265,7 +269,6 @@ fn pic_params(sps: &Sps, pps: &Pps) -> PicParams {
         qp_bd_y: 6 * (sps.bit_depth_luma as i32 - 8),
         qp_bd_c: 6 * (sps.bit_depth_chroma as i32 - 8),
         cqp_offset: pps.chroma_qp_offset,
-        cabac: pps.cabac,
         transform8x8_mode: pps.transform_8x8_mode,
         ls4,
         ls8,

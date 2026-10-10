@@ -142,8 +142,6 @@ impl Default for Colour {
 
 #[derive(Debug, Clone)]
 pub(crate) struct Sps {
-    pub profile_idc: u8,
-    pub id: u32,
     pub chroma_format_idc: u32,
     pub bit_depth_luma: u32,
     pub bit_depth_chroma: u32,
@@ -159,7 +157,6 @@ pub(crate) struct Sps {
     pub width_mbs: u32,
     pub height_map_units: u32,
     pub frame_mbs_only: bool,
-    pub mbaff: bool,
     /// frame_crop_left/right/top/bottom_offset.
     pub crop: [u32; 4],
     pub colour: Colour,
@@ -182,7 +179,7 @@ impl Sps {
     pub(crate) fn parse(r: &mut BitReader) -> Result<Sps, Error> {
         let profile_idc = r.u(8) as u8;
         r.skip(16); // constraint flags, reserved, level_idc
-        let id = r.ue_max(31, "seq_parameter_set_id")?;
+        r.ue_max(31, "seq_parameter_set_id")?;
         let mut chroma_format_idc = 1;
         let mut bit_depth_luma = 8;
         let mut bit_depth_chroma = 8;
@@ -227,7 +224,9 @@ impl Sps {
         let width_mbs = r.ue_max(MAX_MBS, "pic_width_in_mbs_minus1")? + 1;
         let height_map_units = r.ue_max(MAX_MBS, "pic_height_in_map_units_minus1")? + 1;
         let frame_mbs_only = r.flag();
-        let mbaff = if frame_mbs_only { false } else { r.flag() };
+        if !frame_mbs_only {
+            r.skip(1); // mb_adaptive_frame_field_flag
+        }
         r.skip(1); // direct_8x8_inference_flag
         let mut crop = [0; 4];
         if r.flag() {
@@ -255,8 +254,6 @@ impl Sps {
         }
         r.check()?;
         let sps = Sps {
-            profile_idc,
-            id,
             chroma_format_idc,
             bit_depth_luma,
             bit_depth_chroma,
@@ -270,7 +267,6 @@ impl Sps {
             width_mbs,
             height_map_units,
             frame_mbs_only,
-            mbaff,
             crop,
             colour,
         };
@@ -296,18 +292,11 @@ impl Sps {
 
 #[derive(Debug, Clone)]
 pub(crate) struct Pps {
-    pub id: u32,
-    pub sps_id: u32,
     pub cabac: bool,
     pub bottom_field_pic_order_in_frame_present: bool,
-    pub num_ref_idx_l0_default: u32,
-    pub num_ref_idx_l1_default: u32,
-    pub weighted_pred: bool,
-    pub weighted_bipred_idc: u32,
     pub pic_init_qp: i32,
     pub chroma_qp_offset: [i32; 2],
     pub deblocking_filter_control_present: bool,
-    pub constrained_intra_pred: bool,
     pub redundant_pic_cnt_present: bool,
     pub transform_8x8_mode: bool,
     /// Matrices in force (picture-level over sequence-level).
@@ -323,7 +312,7 @@ impl Pps {
     }
 
     pub(crate) fn parse(r: &mut BitReader, sps: &Sps) -> Result<Pps, Error> {
-        let (id, sps_id) = Pps::ids(r)?;
+        Pps::ids(r)?;
         let cabac = r.flag();
         let bottom_field_pic_order_in_frame_present = r.flag();
         if r.ue()? != 0 {
@@ -331,16 +320,16 @@ impl Pps {
                 "slice groups (flexible macroblock ordering)".into(),
             ));
         }
-        let num_ref_idx_l0_default = r.ue_max(31, "num_ref_idx_l0_default_active_minus1")? + 1;
-        let num_ref_idx_l1_default = r.ue_max(31, "num_ref_idx_l1_default_active_minus1")? + 1;
-        let weighted_pred = r.flag();
-        let weighted_bipred_idc = r.u(2);
+        r.ue_max(31, "num_ref_idx_l0_default_active_minus1")?;
+        r.ue_max(31, "num_ref_idx_l1_default_active_minus1")?;
+        r.skip(3); // weighted_pred_flag, weighted_bipred_idc
         let qp_bd = 6 * (sps.bit_depth_luma as i32 - 8);
         let pic_init_qp = 26 + r.se_range(-26 - qp_bd, 25, "pic_init_qp_minus26")?;
         r.se()?; // pic_init_qs_minus26
         let c0 = r.se_range(-12, 12, "chroma_qp_index_offset")?;
         let deblocking_filter_control_present = r.flag();
-        let constrained_intra_pred = r.flag();
+        // constrained_intra_pred_flag only matters next to inter macroblocks.
+        r.skip(1);
         let redundant_pic_cnt_present = r.flag();
         let mut transform_8x8_mode = false;
         let mut scaling = sps.scaling.clone();
@@ -364,18 +353,11 @@ impl Pps {
         }
         r.check()?;
         Ok(Pps {
-            id,
-            sps_id,
             cabac,
             bottom_field_pic_order_in_frame_present,
-            num_ref_idx_l0_default,
-            num_ref_idx_l1_default,
-            weighted_pred,
-            weighted_bipred_idc,
             pic_init_qp,
             chroma_qp_offset: [c0, c1],
             deblocking_filter_control_present,
-            constrained_intra_pred,
             redundant_pic_cnt_present,
             transform_8x8_mode,
             scaling,

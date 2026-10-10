@@ -60,7 +60,6 @@ pub(crate) struct PicParams {
     pub qp_bd_y: i32,
     pub qp_bd_c: i32,
     pub cqp_offset: [i32; 2],
-    pub cabac: bool,
     pub transform8x8_mode: bool,
     /// LevelScale4x4 for Intra Y, Cb, Cr: [list][qP % 6][raster].
     pub ls4: [[[i32; 16]; 6]; 3],
@@ -213,7 +212,7 @@ impl<'a> SliceDecoder<'a> {
         let a = if x > 0 { self.info(addr - 1) } else { None };
         let b = if addr >= w { self.info(addr - w) } else { None };
         let c_avail = x + 1 < w && addr >= w && addr - w + 1 >= self.first_mb;
-        let d_avail = x > 0 && addr > w && addr - w - 1 >= self.first_mb;
+        let d_avail = x > 0 && addr > w && addr - w > self.first_mb;
         Nb {
             a,
             b,
@@ -626,8 +625,8 @@ impl<'a> SliceDecoder<'a> {
         // Residual.
         let mut buf = [0i32; 64];
         if d.kind == KIND_I16 {
-            let ca = nb.a.map_or(true, |m| m.cbf >> CBF_LUMA_DC & 1 == 1);
-            let cb = nb.b.map_or(true, |m| m.cbf >> CBF_LUMA_DC & 1 == 1);
+            let ca = nb.a.is_none_or(|m| m.cbf >> CBF_LUMA_DC & 1 == 1);
+            let cb = nb.b.is_none_or(|m| m.cbf >> CBF_LUMA_DC & 1 == 1);
             buf[..16].fill(0);
             if residual_cabac(
                 e,
@@ -665,12 +664,12 @@ impl<'a> SliceDecoder<'a> {
                 let ca = if bx > 0 {
                     cur.cbf >> BLK4_AT[by][bx - 1] & 1 == 1
                 } else {
-                    nb.a.map_or(true, |m| m.cbf >> BLK4_AT[by][3] & 1 == 1)
+                    nb.a.is_none_or(|m| m.cbf >> BLK4_AT[by][3] & 1 == 1)
                 };
                 let cb = if by > 0 {
                     cur.cbf >> BLK4_AT[by - 1][bx] & 1 == 1
                 } else {
-                    nb.b.map_or(true, |m| m.cbf >> BLK4_AT[3][bx] & 1 == 1)
+                    nb.b.is_none_or(|m| m.cbf >> BLK4_AT[3][bx] & 1 == 1)
                 };
                 let inc = ca as usize + 2 * cb as usize;
                 buf[..16].fill(0);
@@ -698,7 +697,7 @@ impl<'a> SliceDecoder<'a> {
             for c in 0..2 {
                 let bit = CBF_CDC + c as u32;
                 let f = |m: &Option<MbInfo>| {
-                    m.map_or(true, |m| {
+                    m.is_none_or(|m| {
                         m.kind == KIND_PCM || (m.cbp_chroma() != 0 && m.cbf >> bit & 1 == 1)
                     })
                 };
@@ -723,12 +722,12 @@ impl<'a> SliceDecoder<'a> {
                     let ca = if bx > 0 {
                         cur.cbf >> (base + (blk - 1) as u32) & 1 == 1
                     } else {
-                        nb.a.map_or(true, |m| nbit(&m, by * 2 + 1))
+                        nb.a.is_none_or(|m| nbit(&m, by * 2 + 1))
                     };
                     let cb = if by > 0 {
                         cur.cbf >> (base + (blk - 2) as u32) & 1 == 1
                     } else {
-                        nb.b.map_or(true, |m| nbit(&m, (rows - 1) * 2 + bx))
+                        nb.b.is_none_or(|m| nbit(&m, (rows - 1) * 2 + bx))
                     };
                     let inc = ca as usize + 2 * cb as usize;
                     buf[..16].fill(0);

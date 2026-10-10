@@ -37,8 +37,10 @@ pub fn reference(ffmpeg: &str, input: &Path, pix_fmt: &str, out: &Path) -> Vec<u
         .arg(out));
     let raw = std::fs::read(out).expect("read reference");
     if pix_fmt.ends_with("le") {
-        raw.chunks_exact(2)
-            .map(|c| u16::from_le_bytes([c[0], c[1]]))
+        raw.as_chunks::<2>()
+            .0
+            .iter()
+            .map(|&c| u16::from_le_bytes(c))
             .collect()
     } else {
         raw.iter().map(|&b| b as u16).collect()

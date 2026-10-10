@@ -22,6 +22,10 @@
 //! # Ok(()) }
 //! ```
 
+// Codec loops index several parallel tables by position; iterator chains
+// would obscure the correspondence with the specification.
+#![allow(clippy::needless_range_loop)]
+
 mod bits;
 mod cabac;
 mod cavlc;
@@ -116,6 +120,8 @@ pub struct DecoderConfig {
     /// Out-of-band parameter sets: (id, NAL payload after the header byte).
     sps: Vec<(u32, Vec<u8>)>,
     pps: Vec<(u32, Vec<u8>)>,
+    /// Upper bound on threads for decoding slices in parallel (0 = all cores).
+    max_threads: usize,
 }
 
 impl DecoderConfig {
@@ -148,6 +154,13 @@ impl DecoderConfig {
             }
         }
         Ok(c)
+    }
+
+    /// Limits slice-parallel decoding to `n` threads (1 = the calling thread
+    /// only; 0 = one per core, the default).
+    pub fn with_max_threads(mut self, n: usize) -> DecoderConfig {
+        self.max_threads = n;
+        self
     }
 
     fn nals<'a>(&self, au: &'a [u8]) -> Result<Vec<nal::Nal<'a>>, Error> {

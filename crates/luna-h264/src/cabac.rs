@@ -401,92 +401,164 @@ pub(crate) fn init_contexts(slice_qp: i32) -> [u8; NUM_CTX] {
     ctx
 }
 
+/// Packed-state transitions: next (pStateIdx << 1 | valMPS) after an MPS
+/// and after an LPS (with the MPS swap at state 0).
+const fn transitions() -> ([u8; 128], [u8; 128]) {
+    let mut mps = [0u8; 128];
+    let mut lps = [0u8; 128];
+    let mut s = 0;
+    while s < 128 {
+        let state = s >> 1;
+        let m = (s & 1) as u8;
+        let up = if state < 62 { state + 1 } else { state };
+        mps[s] = ((up as u8) << 1) | m;
+        let flip = if state == 0 { 1 - m } else { m };
+        lps[s] = (TRANS_LPS[state] << 1) | flip;
+        s += 1;
+    }
+    (mps, lps)
+}
+
+const TRANS: ([u8; 128], [u8; 128]) = transitions();
+
+/// TRANS.0 then TRANS.1, indexed by state | (is_lps << 7).
+const TRANS_ALL: [u8; 256] = {
+    let mut t = [0u8; 256];
+    let mut i = 0;
+    while i < 128 {
+        t[i] = TRANS.0[i];
+        t[128 + i] = TRANS.1[i];
+        i += 1;
+    }
+    t
+};
+
+/// The arithmetic decoder. `value` holds codIOffset followed by `nb`
+/// look-ahead bits, so renormalisation only moves the split point and
+/// bytes are loaded in batches.
 pub(crate) struct Engine<'a> {
+    /// Kept in step only when bits are handed out (I_PCM).
     r: BitReader<'a>,
+    data: &'a [u8],
+    /// Next byte to load.
+    byte: usize,
+    value: u64,
+    nb: u32,
+    len_bits: usize,
     range: u32,
-    offset: u32,
 }
 
 impl<'a> Engine<'a> {
-    pub(crate) fn new(mut r: BitReader<'a>) -> Result<Engine<'a>, Error> {
-        let offset = r.u(9);
-        if offset >= 510 {
-            return Err(Error::corrupt("invalid CABAC start"));
-        }
-        Ok(Engine {
+    pub(crate) fn new(r: BitReader<'a>) -> Result<Engine<'a>, Error> {
+        let (data, _) = r.parts();
+        let len_bits = r.len_bits();
+        let mut e = Engine {
             r,
+            data,
+            byte: 0,
+            value: 0,
+            nb: 0,
+            len_bits,
             range: 510,
-            offset,
-        })
+        };
+        e.restart()?;
+        Ok(e)
     }
 
     #[inline]
-    fn renorm(&mut self) {
-        if self.range < 256 {
-            let shift = self.range.leading_zeros() - 23;
-            self.range <<= shift;
-            self.offset = (self.offset << shift) | self.r.u(shift);
+    fn refill(&mut self) {
+        while self.nb <= 46 {
+            let b = self.data.get(self.byte).copied().unwrap_or(0);
+            self.value = (self.value << 8) | b as u64;
+            self.nb += 8;
+            self.byte += 1;
         }
     }
 
-    #[inline]
+    fn bit_pos(&self) -> usize {
+        self.byte * 8 - self.nb as usize
+    }
+
+    #[inline(always)]
     pub(crate) fn decision(&mut self, s: &mut u8) -> u32 {
-        let state = (*s >> 1) as usize;
-        let mps = (*s & 1) as u32;
-        let lps = RANGE_LPS[state][((self.range >> 6) & 3) as usize] as u32;
-        self.range -= lps;
-        if self.offset >= self.range {
-            self.offset -= self.range;
-            self.range = lps;
-            let new_mps = if state == 0 { 1 - mps } else { mps };
-            *s = (TRANS_LPS[state] << 1) | new_mps as u8;
-            self.renorm();
-            1 - mps
-        } else {
-            *s = (((state + 1).min(62) as u8) << 1) | mps as u8;
-            self.renorm();
-            mps
+        // Branch-free on the MPS/LPS outcome, which is hard to predict.
+        let st = *s as usize & 127;
+        let lps = RANGE_LPS[st >> 1][((self.range >> 6) & 3) as usize] as u32;
+        let r_mps = self.range - lps;
+        let scaled = (r_mps as u64) << self.nb;
+        let is_lps = self.value >= scaled;
+        self.value -= if is_lps { scaled } else { 0 };
+        let range = if is_lps { lps } else { r_mps };
+        *s = TRANS_ALL[st | (is_lps as usize) << 7];
+        let shift = range.leading_zeros() - 23;
+        self.range = range << shift;
+        self.nb -= shift;
+        if self.nb < 8 {
+            self.refill();
         }
+        (st as u32 & 1) ^ is_lps as u32
     }
 
-    #[inline]
+    #[inline(always)]
     pub(crate) fn bypass(&mut self) -> u32 {
-        self.offset = (self.offset << 1) | self.r.u(1);
-        if self.offset >= self.range {
-            self.offset -= self.range;
+        self.nb -= 1;
+        let scaled = (self.range as u64) << self.nb;
+        let bin = if self.value >= scaled {
+            self.value -= scaled;
             1
         } else {
             0
+        };
+        if self.nb < 8 {
+            self.refill();
         }
+        bin
     }
 
     pub(crate) fn terminate(&mut self) -> u32 {
         self.range -= 2;
-        if self.offset >= self.range {
+        let scaled = (self.range as u64) << self.nb;
+        if self.value >= scaled {
             1
         } else {
-            self.renorm();
+            if self.range < 256 {
+                self.range <<= 1;
+                self.nb -= 1;
+                if self.nb < 8 {
+                    self.refill();
+                }
+            }
             0
         }
     }
 
     pub(crate) fn overrun(&self) -> bool {
-        self.r.overrun()
+        self.bit_pos() > self.len_bits
     }
 
-    /// The bit reader, positioned after a terminate bin of 1 (I_PCM).
+    /// The bit reader at the engine's position, after a terminate bin of 1
+    /// (I_PCM samples follow).
     pub(crate) fn reader_mut(&mut self) -> &mut BitReader<'a> {
+        let pos = self.bit_pos();
+        self.r.set_pos(pos);
         &mut self.r
     }
 
-    /// Re-initialises the engine at the reader's position (after I_PCM).
+    /// (Re-)initialises the engine at the reader's position (9.3.1.2), which
+    /// is byte-aligned (slice data start, or after I_PCM samples).
     pub(crate) fn restart(&mut self) -> Result<(), Error> {
-        let offset = self.r.u(9);
+        self.r.align();
+        self.byte = self.r.pos() / 8;
+        self.value = 0;
+        self.nb = 0;
+        self.refill();
+        // The first 9 bits are codIOffset.
+        self.nb -= 9;
+        let offset = self.value >> self.nb;
         if offset >= 510 {
-            return Err(Error::corrupt("invalid CABAC restart"));
+            return Err(Error::corrupt("invalid CABAC start"));
         }
         self.range = 510;
-        self.offset = offset;
         Ok(())
     }
 }

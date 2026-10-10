@@ -63,26 +63,25 @@ const NORM8: [[i32; 6]; 6] = [
 ];
 
 pub(crate) fn norm4(m: usize, i: usize, j: usize) -> i32 {
-    let class = if i % 2 == 0 && j % 2 == 0 {
-        0
-    } else if i % 2 == 1 && j % 2 == 1 {
-        1
-    } else {
-        2
+    let class = match (i & 1, j & 1) {
+        (0, 0) => 0,
+        (1, 1) => 1,
+        _ => 2,
     };
     NORM4[m][class]
 }
 
 pub(crate) fn norm8(m: usize, i: usize, j: usize) -> i32 {
-    let class = if i % 4 == 0 && j % 4 == 0 {
+    let (i4, j4) = (i & 3, j & 3);
+    let class = if i4 == 0 && j4 == 0 {
         0
-    } else if i % 2 == 1 && j % 2 == 1 {
+    } else if i & 1 == 1 && j & 1 == 1 {
         1
-    } else if i % 4 == 2 && j % 4 == 2 {
+    } else if i4 == 2 && j4 == 2 {
         2
-    } else if (i % 4 == 0 && j % 2 == 1) || (i % 2 == 1 && j % 4 == 0) {
+    } else if (i4 == 0 && j & 1 == 1) || (i & 1 == 1 && j4 == 0) {
         3
-    } else if (i % 4 == 0 && j % 4 == 2) || (i % 4 == 2 && j % 4 == 0) {
+    } else if (i4 == 0 && j4 == 2) || (i4 == 2 && j4 == 0) {
         4
     } else {
         5

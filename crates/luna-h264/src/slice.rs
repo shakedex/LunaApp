@@ -4,11 +4,8 @@ use crate::Error;
 use crate::bits::BitReader;
 use crate::params::{Pps, Sps};
 
-/// slice_type % 5.
-pub(crate) const SLICE_P: u32 = 0;
-pub(crate) const SLICE_B: u32 = 1;
+/// slice_type % 5 of I and SI slices (P = 0, B = 1, SP = 3 are not decoded).
 pub(crate) const SLICE_I: u32 = 2;
-pub(crate) const SLICE_SP: u32 = 3;
 pub(crate) const SLICE_SI: u32 = 4;
 
 /// The first three fields, enough to classify a slice.
@@ -22,9 +19,6 @@ pub(crate) fn peek(r: &mut BitReader) -> Result<(u32, u32, u32), Error> {
 #[derive(Debug, Clone)]
 pub(crate) struct SliceHeader {
     pub first_mb: u32,
-    pub slice_type: u32,
-    pub frame_num: u32,
-    pub idr_pic_id: Option<u32>,
     /// SliceQPY.
     pub qp: i32,
     pub disable_deblocking: u32,
@@ -43,11 +37,13 @@ pub(crate) fn parse_intra(
     sps: &Sps,
     pps: &Pps,
 ) -> Result<SliceHeader, Error> {
-    let frame_num = r.u(sps.log2_max_frame_num);
+    r.skip(sps.log2_max_frame_num); // frame_num
     if !sps.frame_mbs_only && r.flag() {
         return Err(Error::Unsupported("field pictures".into()));
     }
-    let idr_pic_id = if idr { Some(r.ue()?) } else { None };
+    if idr {
+        r.ue()?; // idr_pic_id
+    }
     if sps.poc_type == 0 {
         r.skip(sps.log2_max_poc_lsb);
         if pps.bottom_field_pic_order_in_frame_present {
@@ -103,9 +99,6 @@ pub(crate) fn parse_intra(
     r.check()?;
     Ok(SliceHeader {
         first_mb,
-        slice_type,
-        frame_num,
-        idr_pic_id,
         qp,
         disable_deblocking,
         alpha_offset,

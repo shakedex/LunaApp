@@ -33,8 +33,10 @@ fn main() {
     let raw = std::fs::read(refp).expect("read reference");
     let wide = pic.bit_depth > 8;
     let samples: Vec<u16> = if wide {
-        raw.chunks_exact(2)
-            .map(|c| u16::from_le_bytes([c[0], c[1]]))
+        raw.as_chunks::<2>()
+            .0
+            .iter()
+            .map(|&c| u16::from_le_bytes(c))
             .collect()
     } else {
         raw.iter().map(|&b| b as u16).collect()

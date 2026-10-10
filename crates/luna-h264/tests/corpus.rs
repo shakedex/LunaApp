@@ -140,6 +140,9 @@ fn check_clip(rel: &str, container: Container, max_intra: usize) {
             assert_eq!(bad, [0; 3], "{rel} frame {k}: first mismatch {first:?}");
             eprintln!("  bit-exact vs ffmpeg");
         }
+        if done == 0 {
+            damage(&au, &cfg);
+        }
         done += 1;
         if done >= max_intra {
             break;
@@ -162,11 +165,34 @@ fn canon_xf_avc_long_gop() {
     check_clip(
         "S_cam/s004/s_0004C062A250107_2240217S_CANON.MXF",
         Container::Mxf,
-        3,
+        4,
     );
 }
 
 #[test]
 fn lumix_mov_long_gop() {
     check_clip("S_cam/S002/lumix_s5.mov", Container::QuickTime, 3);
+}
+
+/// Bit flips and truncations of a real access unit never panic.
+fn damage(au: &[u8], cfg: &DecoderConfig) {
+    let mut x = 0x2545_F491_4F6C_DD1Du64;
+    let mut next = || {
+        x ^= x << 13;
+        x ^= x >> 7;
+        x ^= x << 17;
+        x
+    };
+    for i in 0..24 {
+        let mut d = au.to_vec();
+        if i % 3 == 0 {
+            d.truncate(next() as usize % d.len());
+        } else {
+            for _ in 0..1 + next() % 8 {
+                let k = next() as usize % d.len();
+                d[k] ^= 1 << (next() % 8);
+            }
+        }
+        let _ = decode_access_unit(&d, cfg);
+    }
 }
