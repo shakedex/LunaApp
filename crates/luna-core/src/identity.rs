@@ -176,14 +176,14 @@ fn name_bodies(cameras: &mut [CameraGroup], bodies: &[(String, Option<Body>)]) {
             .iter()
             .any(|&j| j != i && bodies[j].1.as_ref().is_some_and(|o| o.model == b.model));
         let mut label = b.model.clone().unwrap_or_default();
-        if model_shared || label.is_empty() {
-            if let Some(s) = &b.serial {
-                label = if label.is_empty() {
-                    format!("#{s}")
-                } else {
-                    format!("{label} #{s}")
-                };
-            }
+        if (model_shared || label.is_empty())
+            && let Some(s) = &b.serial
+        {
+            label = if label.is_empty() {
+                format!("#{s}")
+            } else {
+                format!("{label} #{s}")
+            };
         }
         if !label.is_empty() {
             cameras[i].name = format!("{name} · {label}");
