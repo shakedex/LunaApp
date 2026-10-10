@@ -1,7 +1,6 @@
 //! The company logo, validated once so a broken file can't sink a report.
 
-use typst::foundations::Bytes;
-use typst::visualize::{ExchangeFormat, RasterImage, SvgImage};
+use crate::pdf::check_image;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LogoFormat {
@@ -57,17 +56,10 @@ pub struct Logo {
 impl Logo {
     pub fn from_bytes(bytes: Vec<u8>) -> Result<Self, LogoError> {
         let format = sniff(&bytes).ok_or(LogoError::UnknownFormat)?;
-        let data = Bytes::new(bytes.clone());
-        let decoded = match format {
-            LogoFormat::Png => RasterImage::plain(data, ExchangeFormat::Png)
-                .map(drop)
-                .map_err(|e| e.to_string()),
-            LogoFormat::Jpeg => RasterImage::plain(data, ExchangeFormat::Jpg)
-                .map(drop)
-                .map_err(|e| e.to_string()),
-            LogoFormat::Svg => SvgImage::new(data).map(drop).map_err(|e| format!("{e:?}")),
-        };
-        decoded.map_err(LogoError::Unreadable)?;
+        // Checked the way the PDF places it: an SVG that decodes on its own can
+        // still link images from outside, which the report can't load.
+        check_image(&format!("/logo.{}", format.extension()), &bytes)
+            .map_err(LogoError::Unreadable)?;
         Ok(Self { bytes, format })
     }
 

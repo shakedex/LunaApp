@@ -94,6 +94,22 @@ fn logo_accepts_png_jpeg_and_svg() {
 }
 
 #[test]
+fn svg_logo_linking_outside_files_is_rejected() {
+    for href in ["file:///C:/Windows/x.png", "art/linked.png"] {
+        let svg = format!(
+            r#"<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><image href="{href}" width="10" height="10"/></svg>"#
+        );
+        assert!(
+            matches!(
+                Logo::from_bytes(svg.into_bytes()),
+                Err(LogoError::Unreadable(_))
+            ),
+            "{href} was accepted"
+        );
+    }
+}
+
+#[test]
 fn logo_rejects_unknown_and_corrupt_files() {
     assert_eq!(
         Logo::from_bytes(b"GIF89a".to_vec()),

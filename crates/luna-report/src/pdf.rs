@@ -118,7 +118,23 @@ fn compile(report: &Report) -> Result<PagedDocument, ReportError> {
     files.insert(file_id("/data.json"), Bytes::new(json));
     let main = file_id("/report.typ");
     files.insert(main, Bytes::from_string(TEMPLATE.to_owned()));
+    render(main, files).map_err(ReportError::Pdf)
+}
 
+/// Places an image exactly as the report does, so a check here holds for the report.
+pub(crate) fn check_image(path: &str, bytes: &[u8]) -> Result<(), String> {
+    let main = file_id("/check.typ");
+    let files = HashMap::from([
+        (file_id(path), Bytes::new(bytes.to_vec())),
+        (main, Bytes::from_string(format!("#image({path:?})"))),
+    ]);
+    let doc = render(main, files)?;
+    typst_pdf::pdf(&doc, &PdfOptions::default())
+        .map(drop)
+        .map_err(|d| messages(&d))
+}
+
+fn render(main: FileId, files: HashMap<FileId, Bytes>) -> Result<PagedDocument, String> {
     let mut fonts = FontStore::new();
     fonts.extend(typst_kit::fonts::embedded());
     let world = MemoryWorld {
@@ -129,7 +145,7 @@ fn compile(report: &Report) -> Result<PagedDocument, ReportError> {
     };
     typst::compile::<PagedDocument>(&world)
         .output
-        .map_err(|d| ReportError::Pdf(messages(&d)))
+        .map_err(|d| messages(&d))
 }
 
 fn file_id(path: &str) -> FileId {
