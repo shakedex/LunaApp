@@ -289,7 +289,7 @@ mod tests {
         // 4:2:0, 4×2 luma, 2×1 chroma: left half red, right half blue.
         let red = code([1.0, 0.0, 0.0], YcbcrMatrix::Bt709, 10, false);
         let blue = code([0.0, 0.0, 1.0], YcbcrMatrix::Bt709, 10, false);
-        let y = vec![red[0] as u16, red[0] as u16, blue[0] as u16, blue[0] as u16].repeat(2);
+        let y = [red[0] as u16, red[0] as u16, blue[0] as u16, blue[0] as u16].repeat(2);
         let cb = vec![red[1] as u16, blue[1] as u16];
         let cr = vec![red[2] as u16, blue[2] as u16];
         let p = Planes {

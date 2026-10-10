@@ -1,8 +1,22 @@
 //! Turning a decoded frame into a display-referred Rec.709 thumbnail.
 //!
-//! Debayer (at thumbnail scale), levels and white balance, camera log → linear
-//! using each vendor's published curve, gamut → Rec.709, display rendering,
-//! downscale, JPEG.
+//! Every camera goes through the same steps so thumbnails from different
+//! cameras look alike next to each other:
+//!
+//! 1. **Reduce while reading.** The decoded picture is box-averaged by a
+//!    whole-number factor towards the thumbnail size (raw mosaics as 2×2 CFA
+//!    super-pixels, Y′CbCr per plane), so an 8K frame is read once, in integers.
+//! 2. **Exact resample** (area filter) to the final size, desqueezing
+//!    anamorphic pictures.
+//! 3. **Colour** on the small picture only: code values → scene-linear with the
+//!    camera maker's published log curve (`curves`), camera gamut → Rec.709
+//!    primaries from published primaries (`gamut`), then one shared display
+//!    rendering (`tone`) to BT.1886 Rec.709.
+//!
+//! Averaging happens on code values for log pictures (the colour maths runs
+//! after the reduction to keep it cheap). Strictly, averaging should be in
+//! linear light, but at thumbnail scale the difference only shows at
+//! high-contrast edges as a hair of extra darkening.
 
 mod curves;
 mod gamut;
@@ -11,7 +25,14 @@ mod scale;
 mod tone;
 mod ycbcr;
 
-use luna_decode::Frame;
+#[cfg(test)]
+mod tests;
+
+use luna_decode::{Decoded, Frame};
+use luna_formats::{Gamut, Transfer};
+
+use gamut::Mat3;
+use scale::Image;
 
 /// An 8-bit sRGB/Rec.709 display image, interleaved RGB.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -29,22 +50,312 @@ pub struct Rendered {
     pub transform_unknown: bool,
 }
 
+/// JPEG quality for report thumbnails.
+pub const JPEG_QUALITY: u8 = 82;
+
 /// Renders `frame` to Rec.709 and scales it to at most `max_width` wide
 /// (aspect kept, never upscaled). `pixel_aspect` widens anamorphic pictures.
+///
+/// Per input:
+/// - `Mosaic`: black/white levels, white balance (1,1,1 when unknown), 2×2
+///   binning, raw exposure from the camera family, then camera RGB → Rec.709
+///   through `camera_to_xyz` when given, else by treating white-balanced
+///   camera RGB as the hint's gamut (an approximation: sensor RGB is not
+///   exactly AWG / S-Gamut3 / Cinema Gamut, but those gamuts were designed
+///   around their sensors, so it is close).
+/// - `Ycbcr`: depth, range and matrix honoured, then the hint's transfer and
+///   gamut. No transfer in the hint → shown as decoded, flagged unknown.
+/// - `Rgb16`: its own transfer and gamut (full-range 16-bit codes).
+/// - `Display8`: already display-referred; scaled only.
+///
+/// A frame whose buffers are shorter than its size promises renders black.
 pub fn render(frame: &Frame, max_width: u32, pixel_aspect: Option<(u32, u32)>) -> Rendered {
-    let _ = (frame, max_width, pixel_aspect);
-    Rendered {
-        image: Rgb8 {
-            width: 1,
-            height: 1,
-            data: vec![0, 0, 0],
+    let (w, h) = match &frame.image {
+        Decoded::Mosaic { width, height, .. }
+        | Decoded::Rgb16 { width, height, .. }
+        | Decoded::Display8 { width, height, .. }
+        | Decoded::Ycbcr { width, height, .. } => (*width, *height),
+    };
+    let (tw, th) = scale::fit(w, h, max_width, pixel_aspect);
+    let (tw, th) = (tw as usize, th as usize);
+
+    let (img, look, transform_unknown) = match &frame.image {
+        Decoded::Mosaic {
+            width,
+            height,
+            cfa,
+            data,
+            black,
+            white,
+            wb,
+            camera_to_xyz,
+        } => {
+            let width = *width as usize;
+            let rows = (*height as usize).min(data.len() / width.max(1));
+            let (cw, ch) = mosaic::cells(width, rows);
+            let img = (cw > 0 && ch > 0).then(|| {
+                let (kx, ky) = (scale::reduction(cw, tw), scale::reduction(ch, th));
+                let mut img = mosaic::reduce(width, rows, *cfa, data, kx, ky);
+                let stops = mosaic::clip_stops_above_grey(frame.hint.gamut);
+                mosaic::linearise(&mut img, *black, *white, *wb, stops);
+                img
+            });
+            let matrix = match camera_to_xyz {
+                Some(m) => camera_matrix(m),
+                None => gamut::to_rec709(frame.hint.gamut.unwrap_or(Gamut::Rec709)),
+            };
+            let look = Look::Scene {
+                decode: None,
+                matrix: to_f32(&matrix),
+            };
+            (img, look, false)
+        }
+        Decoded::Rgb16 {
+            width,
+            height,
+            data,
+            transfer,
+            gamut,
+        } => {
+            let img = reduce_interleaved(data, *width, *height, tw, th, 1.0 / 65535.0);
+            (img, Look::new(Some(*transfer), Some(*gamut), |c| c), false)
+        }
+        Decoded::Display8 {
+            width,
+            height,
+            data,
+        } => {
+            let img = reduce_interleaved(data, *width, *height, tw, th, 1.0 / 255.0);
+            (img, Look::Passthrough, false)
+        }
+        Decoded::Ycbcr {
+            width,
+            height,
+            chroma_width,
+            chroma_height,
+            bits,
+            y,
+            cb,
+            cr,
+            matrix,
+            full_range,
+        } => {
+            let planes = ycbcr::Planes {
+                width: *width as usize,
+                height: *height as usize,
+                chroma_width: *chroma_width as usize,
+                chroma_height: *chroma_height as usize,
+                bits: *bits,
+                y,
+                cb,
+                cr,
+                matrix: *matrix,
+                full_range: *full_range,
+            };
+            let img = planes.is_complete().then(|| planes.reduce_to_rgb(tw, th));
+            let to_code = ycbcr::signal_to_code(*bits, *full_range);
+            let hint = frame.hint;
+            let look = Look::new(hint.transfer, hint.gamut, to_code);
+            (img, look, hint.transfer.is_none())
+        }
+    };
+
+    let image = match img {
+        Some(img) if img.width > 0 && img.height > 0 => {
+            look.apply(&scale::area_resample(&img, tw, th))
+        }
+        _ => Rgb8 {
+            width: tw as u32,
+            height: th as u32,
+            data: vec![0; tw * th * 3],
         },
-        transform_unknown: true,
+    };
+    Rendered {
+        image,
+        transform_unknown,
     }
 }
 
-/// Baseline JPEG at a quality suited to report thumbnails.
+/// Baseline JPEG at [`JPEG_QUALITY`] (4:2:0). Empty if the image's buffer
+/// does not match its size or the size does not fit a JPEG.
 pub fn encode_jpeg(image: &Rgb8) -> Vec<u8> {
-    let _ = image;
-    Vec::new()
+    let (Ok(w), Ok(h)) = (u16::try_from(image.width), u16::try_from(image.height)) else {
+        return Vec::new();
+    };
+    if w == 0 || h == 0 || image.data.len() != w as usize * h as usize * 3 {
+        return Vec::new();
+    }
+    let mut out = Vec::new();
+    let encoder = jpeg_encoder::Encoder::new(&mut out, JPEG_QUALITY);
+    match encoder.encode(&image.data, w, h, jpeg_encoder::ColorType::Rgb) {
+        Ok(()) => out,
+        Err(_) => Vec::new(),
+    }
+}
+
+/// Camera RGB → XYZ (D65, as the decoder states) → linear Rec.709.
+///
+/// The matrix is assumed to apply to white-balanced camera RGB, so camera
+/// white (1,1,1) lands on D65 white.
+fn camera_matrix(m: &[f32; 9]) -> Mat3 {
+    let cam = [
+        [m[0] as f64, m[1] as f64, m[2] as f64],
+        [m[3] as f64, m[4] as f64, m[5] as f64],
+        [m[6] as f64, m[7] as f64, m[8] as f64],
+    ];
+    let d65 = gamut::primaries(Gamut::Rec709).w;
+    gamut::mul(&gamut::xyz_to_rec709(d65), &cam)
+}
+
+fn to_f32(m: &Mat3) -> [[f32; 3]; 3] {
+    m.map(|row| row.map(|v| v as f32))
+}
+
+/// Box-reduces interleaved RGB samples by whole-number factors towards
+/// `tw × th`, scaling each mean by `unit`. `None` if the buffer is short.
+fn reduce_interleaved<T: Copy + Into<u32>>(
+    data: &[T],
+    width: u32,
+    height: u32,
+    tw: usize,
+    th: usize,
+    unit: f32,
+) -> Option<Image> {
+    let (w, h) = (width as usize, height as usize);
+    if w == 0 || h == 0 || data.len() < w * h * 3 {
+        return None;
+    }
+    let (kx, ky) = (scale::reduction(w, tw), scale::reduction(h, th));
+    let (ow, oh) = (w / kx, h / ky);
+    let scale = unit / (kx * ky) as f32;
+    let mut out = Vec::with_capacity(ow * oh * 3);
+    let mut acc = vec![[0u64; 3]; ow];
+    for oy in 0..oh {
+        acc.iter_mut().for_each(|a| *a = [0; 3]);
+        for y in oy * ky..(oy + 1) * ky {
+            let row = &data[y * w * 3..(y + 1) * w * 3];
+            for (ox, a) in acc.iter_mut().enumerate() {
+                for px in row[ox * kx * 3..(ox + 1) * kx * 3].as_chunks::<3>().0 {
+                    a[0] += px[0].into() as u64;
+                    a[1] += px[1].into() as u64;
+                    a[2] += px[2].into() as u64;
+                }
+            }
+        }
+        out.extend(acc.iter().flat_map(|a| a.map(|v| v as f32 * scale)));
+    }
+    Some(Image {
+        width: ow,
+        height: oh,
+        data: out,
+    })
+}
+
+/// Domain of the code → linear table, wide enough for sub-black and
+/// super-white codes.
+const CODE_LO: f32 = -0.25;
+const CODE_HI: f32 = 1.25;
+const CODE_ENTRIES: usize = 8192;
+
+/// Code value → scene-linear, sampled from the exact curve.
+struct CodeToLinear {
+    table: Vec<f32>,
+}
+
+impl CodeToLinear {
+    fn new(transfer: Transfer, to_code: impl Fn(f32) -> f32) -> Self {
+        let table = (0..=CODE_ENTRIES)
+            .map(|i| {
+                let v = CODE_LO + (CODE_HI - CODE_LO) * i as f32 / CODE_ENTRIES as f32;
+                curves::to_scene_linear(transfer, to_code(v) as f64) as f32
+            })
+            .collect();
+        Self { table }
+    }
+
+    #[inline]
+    fn get(&self, v: f32) -> f32 {
+        let pos = ((v - CODE_LO) / (CODE_HI - CODE_LO) * CODE_ENTRIES as f32)
+            .clamp(0.0, CODE_ENTRIES as f32);
+        let i = (pos as usize).min(CODE_ENTRIES - 1);
+        let f = pos - i as f32;
+        self.table[i] + (self.table[i + 1] - self.table[i]) * f
+    }
+}
+
+/// How the resampled picture becomes display code values.
+enum Look {
+    /// Values are display signal already (Rec.709, or unknown transfer).
+    Passthrough,
+    /// Display signal in a wider container: linearise (BT.1886), convert to
+    /// Rec.709 primaries, gamut-clip, re-encode.
+    DisplayGamut([[f32; 3]; 3]),
+    /// Scene-referred: decode (or already linear), matrix, gamut clip, tone.
+    Scene {
+        decode: Option<CodeToLinear>,
+        matrix: [[f32; 3]; 3],
+    },
+}
+
+impl Look {
+    /// The look for a picture whose values are `transfer`-coded in `gamut`.
+    /// `to_code` maps the picture's values to full-range code fractions for
+    /// camera log curves (legal-range video carries the camera's codes as-is).
+    fn new(transfer: Option<Transfer>, gamut: Option<Gamut>, to_code: impl Fn(f32) -> f32) -> Self {
+        let gamut = gamut.unwrap_or(Gamut::Rec709);
+        let matrix = to_f32(&gamut::to_rec709(gamut));
+        match transfer {
+            None => Look::Passthrough,
+            Some(Transfer::Rec709) if gamut == Gamut::Rec709 => Look::Passthrough,
+            Some(Transfer::Rec709) => Look::DisplayGamut(matrix),
+            // BT.2100 and linear values are signal, not camera codes.
+            Some(t @ (Transfer::Hlg | Transfer::Pq | Transfer::Linear)) => Look::Scene {
+                decode: Some(CodeToLinear::new(t, |v| v)),
+                matrix,
+            },
+            Some(t) => Look::Scene {
+                decode: Some(CodeToLinear::new(t, to_code)),
+                matrix,
+            },
+        }
+    }
+
+    fn apply(&self, img: &Image) -> Rgb8 {
+        let mut data = Vec::with_capacity(img.data.len());
+        match self {
+            Look::Passthrough => data.extend(img.data.iter().map(|&v| tone::to_u8(v))),
+            Look::DisplayGamut(m) => {
+                for px in img.data.as_chunks::<3>().0 {
+                    let lin = [px[0], px[1], px[2]].map(|v| tone::decode_display(v as f64) as f32);
+                    let rgb = tone::gamut_clip(mat(m, lin));
+                    data.extend(rgb.map(|v| tone::to_u8(tone::encode_display(v as f64) as f32)));
+                }
+            }
+            Look::Scene { decode, matrix } => {
+                let lut = tone::SceneToDisplay::new();
+                for px in img.data.as_chunks::<3>().0 {
+                    let mut lin = [px[0], px[1], px[2]];
+                    if let Some(d) = decode {
+                        lin = lin.map(|v| d.get(v));
+                    }
+                    let rgb = tone::gamut_clip(mat(matrix, lin));
+                    data.extend(rgb.map(|v| tone::to_u8(lut.signal(v))));
+                }
+            }
+        }
+        Rgb8 {
+            width: img.width as u32,
+            height: img.height as u32,
+            data,
+        }
+    }
+}
+
+#[inline]
+fn mat(m: &[[f32; 3]; 3], v: [f32; 3]) -> [f32; 3] {
+    [
+        m[0][0] * v[0] + m[0][1] * v[1] + m[0][2] * v[2],
+        m[1][0] * v[0] + m[1][1] * v[1] + m[1][2] * v[2],
+        m[2][0] * v[0] + m[2][1] * v[1] + m[2][2] * v[2],
+    ]
 }

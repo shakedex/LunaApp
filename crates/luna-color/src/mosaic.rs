@@ -116,7 +116,7 @@ pub fn linearise(img: &mut Image, black: f32, white: f32, wb: Option<[f32; 3]>, 
     let min = wb[0].min(wb[1]).min(wb[2]);
     let exposure = 0.18 * clip_stops.exp2();
     let k = wb.map(|w| w / min / range);
-    for px in img.data.chunks_exact_mut(3) {
+    for px in img.data.as_chunks_mut::<3>().0 {
         for c in 0..3 {
             px[c] = ((px[c] - black) * k[c]).clamp(0.0, 1.0) * exposure;
         }
