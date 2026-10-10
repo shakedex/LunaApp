@@ -19,8 +19,10 @@ pub enum ViewPhase {
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct MainView {
     pub phase: ViewPhase,
-    /// The picked source folder.
+    /// The picked source folder, in full.
     pub source: String,
+    /// Just the source folder's own name, e.g. `A001_R2KL`.
+    pub source_name: String,
     /// Why the last pick was rejected (Idle only).
     pub source_error: String,
     pub files_found: String,
@@ -53,12 +55,14 @@ pub fn main_view(flow: &Flow) -> MainView {
         FlowState::SourcePicked { source } => {
             v.phase = ViewPhase::Picked;
             v.source = source.display().to_string();
+            v.source_name = file_name(source);
         }
         FlowState::Running {
             source, progress, ..
         } => {
             v.phase = ViewPhase::Running;
             v.source = source.display().to_string();
+            v.source_name = file_name(source);
             fill_counts(&mut v, progress);
             v.cancelling = progress.cancelling;
             match progress.clips_total {
@@ -124,7 +128,7 @@ pub fn count(n: usize) -> String {
     let digits = n.to_string();
     let mut out = String::with_capacity(digits.len() + digits.len() / 3);
     for (i, c) in digits.chars().enumerate() {
-        if i > 0 && (digits.len() - i) % 3 == 0 {
+        if i > 0 && (digits.len() - i).is_multiple_of(3) {
             out.push(',');
         }
         out.push(c);
@@ -136,6 +140,7 @@ pub fn count(n: usize) -> String {
 mod tests {
     use super::*;
     use crate::backend::{RunEvent, RunOutcome};
+    use std::path::PathBuf;
 
     fn outcome(summary: &str) -> RunOutcome {
         RunOutcome {
@@ -169,6 +174,16 @@ mod tests {
         let v = main_view(&f);
         assert_eq!(v.phase, ViewPhase::Idle);
         assert_eq!(v.source_error, "Not a folder");
+    }
+
+    #[test]
+    fn picked_shows_the_folder_name_and_full_path() {
+        let mut f = Flow::new();
+        f.pick_source(Ok(PathBuf::from("cards").join("A001_R2KL")));
+        let v = main_view(&f);
+        assert_eq!(v.phase, ViewPhase::Picked);
+        assert_eq!(v.source_name, "A001_R2KL");
+        assert!(v.source.ends_with("A001_R2KL") && v.source.starts_with("cards"));
     }
 
     #[test]

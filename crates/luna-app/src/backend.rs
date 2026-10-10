@@ -90,15 +90,23 @@ impl Default for FakeBackend {
 }
 
 impl FakeBackend {
-    /// `LUNA_FAKE_OUTCOME=fail` makes every run fail, to show the error screen.
+    /// `LUNA_FAKE_OUTCOME=fail` makes every run fail, to show the error screen;
+    /// `LUNA_FAKE_STEP_MS` sets the delay between simulated steps.
     pub fn from_env() -> Self {
         let ending = match std::env::var("LUNA_FAKE_OUTCOME").as_deref() {
             Ok("fail") => FakeEnding::Fail,
             _ => FakeEnding::Finish,
         };
+        let default = Self::default();
+        let step = std::env::var("LUNA_FAKE_STEP_MS")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .map(Duration::from_millis)
+            .unwrap_or(default.step);
         Self {
             ending,
-            ..Self::default()
+            step,
+            ..default
         }
     }
 }
