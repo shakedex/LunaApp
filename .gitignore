@@ -1,10 +1,5 @@
-# Dependencies & build output
-node_modules/
-dist/
-.astro/
-.wrangler/
-*.tsbuildinfo
-*.log
+# Build output
+/target/
 
 # OS / editor
 .DS_Store
@@ -17,14 +12,6 @@ Thumbs.db
 .superpowers/
 .worktrees/
 
-# Local-only working docs: branding, file-processing samples, plans/specs.
+# Local-only working docs: branding, samples, plans/specs.
 # Kept on disk but not published to the remote.
 /docs/
-tools/arri/
-old/
-
-# Legacy .NET build output still on disk — safe to delete, see the
-# retire-dotnet plan's final task.
-bin/
-obj/
-publish/

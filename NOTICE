@@ -1,25 +1,13 @@
-Luna — Camera Reports in Your Browser
+Luna — Camera reports from camera originals
 Copyright 2026 Shaked Lipszyc <https://shaked.co>
 
-This product bundles third-party open-source software installed from npm.
-Each dependency's license text ships inside its package; see
-apps/web/package.json for the full list. Notable runtime components:
+This product bundles third-party open-source software from crates.io.
+Each crate's license is listed in the app's Credits screen; the full set is
+recorded in Cargo.lock.
 
-FFmpeg (WebAssembly build)
-    @ffmpeg/ffmpeg (JS API wrapper)        License: MIT
-    @ffmpeg/core (compiled FFmpeg wasm)    License: GNU General Public
-                                            License v2.0 or later
-    The @ffmpeg/core wasm binary is not bundled in this repository; it is
-    fetched over the network at runtime from a CDN and can be replaced by
-    the user with any compatible FFmpeg build. Source: https://ffmpeg.org/
+Notable components:
+    Typst (typesetting, PDF output)     Apache-2.0
+    askama (HTML templates)             MIT OR Apache-2.0
 
-MediaInfo (WebAssembly build, via mediainfo.js)
-    License: BSD-2-Clause. Source: https://mediaarea.net/MediaInfo
-
-mediabunny / @mediabunny/prores        MPL-2.0
-@react-pdf/renderer                    MIT
-React, TanStack, Base UI, Tailwind CSS MIT
-Geist / Geist Mono fonts               SIL Open Font License 1.1
-
-The retired .NET desktop app (branch archive/dotnet, tag dotnet-final)
-carries its own NOTICE describing the components it bundled.
+The earlier browser app (tag luna-web-final) and the retired .NET desktop app
+(branch archive/dotnet, tag dotnet-final) carry their own NOTICE files.
