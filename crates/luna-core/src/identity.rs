@@ -65,6 +65,7 @@ pub fn resolve_identity(root: &Path, clips: &[(ClipFiles, Option<&ClipMeta>)]) -
     let mut cameras: Vec<CameraGroup> = Vec::new();
     // The camera body behind each entry of `cameras`, when the metadata names one.
     let mut bodies: Vec<(String, Option<Body>)> = Vec::new();
+    let mut pending: Vec<(String, Option<Body>, CardGroup)> = Vec::new();
     for (dir, evs) in folders {
         let folder = relative(root, &dir);
         for bucket in split_by_embedded_reel(evs) {
@@ -88,28 +89,10 @@ pub fn resolve_identity(root: &Path, clips: &[(ClipFiles, Option<&ClipMeta>)]) -
                 folder: folder.clone(),
                 clips: card_clips.into_iter().map(|(_, id)| id).collect(),
             };
-            // One letter can be several physical cameras (bodies left on the
-            // default "A"): when the metadata names different bodies, keep them apart.
-            match bodies
-                .iter()
-                .position(|(name, b)| same(name, &camera.value) && compatible(b, &card_body))
-            {
-                Some(i) => {
-                    cameras[i].cards.push(card);
-                    if bodies[i].1.is_none() {
-                        bodies[i].1 = card_body;
-                    }
-                }
-                None => {
-                    bodies.push((camera.value.clone(), card_body));
-                    cameras.push(CameraGroup {
-                        name: camera.value,
-                        cards: vec![card],
-                    });
-                }
-            }
+            pending.push((camera.value, card_body, card));
         }
     }
+    group_by_body(pending, &mut cameras, &mut bodies);
     name_bodies(&mut cameras, &bodies);
 
     for cam in &mut cameras {
@@ -119,6 +102,54 @@ pub fn resolve_identity(root: &Path, clips: &[(ClipFiles, Option<&ClipMeta>)]) -
     }
     cameras.sort_by(|a, b| camera_key(&a.name, &b.name));
     cameras
+}
+
+/// One letter can be several physical cameras (bodies left on the default
+/// "A"): cards whose metadata names different bodies become separate cameras.
+/// A card with no known body joins its letter only when that letter has at
+/// most one known body; otherwise it stays under the bare letter.
+fn group_by_body(
+    pending: Vec<(String, Option<Body>, CardGroup)>,
+    cameras: &mut Vec<CameraGroup>,
+    bodies: &mut Vec<(String, Option<Body>)>,
+) {
+    let (known, unknown): (Vec<_>, Vec<_>) = pending.into_iter().partition(|(_, b, _)| b.is_some());
+    for (name, card_body, card) in known {
+        match bodies
+            .iter()
+            .position(|(n, b)| same(n, &name) && b.is_some() && compatible(b, &card_body))
+        {
+            Some(i) => cameras[i].cards.push(card),
+            None => {
+                bodies.push((name.clone(), card_body));
+                cameras.push(CameraGroup {
+                    name,
+                    cards: vec![card],
+                });
+            }
+        }
+    }
+    for (name, _, card) in unknown {
+        let known_for_name: Vec<usize> = (0..bodies.len())
+            .filter(|&i| same(&bodies[i].0, &name) && bodies[i].1.is_some())
+            .collect();
+        let target = match known_for_name.as_slice() {
+            [only] => Some(*only),
+            _ => bodies
+                .iter()
+                .position(|(n, b)| same(n, &name) && b.is_none()),
+        };
+        match target {
+            Some(i) => cameras[i].cards.push(card),
+            None => {
+                bodies.push((name.clone(), None));
+                cameras.push(CameraGroup {
+                    name,
+                    cards: vec![card],
+                });
+            }
+        }
+    }
 }
 
 /// A physical camera as the metadata names it.

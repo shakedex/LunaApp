@@ -506,3 +506,29 @@ fn one_body_or_unknown_bodies_stay_one_camera() {
     assert_eq!(camera_names(&g), ["A"]);
     assert_eq!(g[0].cards.len(), 3);
 }
+
+#[test]
+fn unknown_bodies_never_join_one_of_several_known_bodies() {
+    let root = PathBuf::from("D:/Shoot");
+    let c50 = body("Canon EOS C50", Some("1"));
+    let dji = body("DJI HG4180", None);
+    let clips = vec![
+        (
+            clip(&root.join("A_CAM/A001/A001C001_251020_R1AB.mxf")),
+            None,
+        ),
+        (
+            clip(&root.join("S005/A_0001C107H250108_061243ND_CANON.MP4")),
+            Some(&c50),
+        ),
+        (
+            clip(&root.join("S006/A003C0011_210922_0000_x.mov")),
+            Some(&dji),
+        ),
+    ];
+    let g = resolve_identity(&root, &clips);
+    assert_eq!(
+        camera_names(&g),
+        ["A", "A · Canon EOS C50", "A · DJI HG4180"]
+    );
+}
