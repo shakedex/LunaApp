@@ -5,10 +5,12 @@
 //! - [`probe`] reads one assembled clip: its metadata, its codec, and where its
 //!   coded frames sit, for the decoders that read frames from our index.
 
+mod mxf;
 mod qt;
 mod sniff;
 mod types;
 
+pub use mxf::arriraw_image_offset;
 pub use sniff::{SNIFF_LEN, sniff};
 pub use types::*;
 
@@ -19,8 +21,9 @@ use std::path::Path;
 pub fn probe(clip: &ClipFiles) -> Result<Probe, FormatError> {
     match clip.container {
         Container::QuickTime => qt::probe(clip),
+        Container::Mxf => mxf::probe(clip),
         other => Err(FormatError::Unsupported(format!(
-            "probe does not read {other:?} yet"
+            "{other:?} is not read by luna-formats"
         ))),
     }
 }
