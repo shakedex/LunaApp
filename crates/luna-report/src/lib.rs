@@ -7,6 +7,7 @@ mod error;
 mod html;
 mod logo;
 mod model;
+mod pdf;
 mod view;
 
 pub use csv::write_csv;
@@ -17,3 +18,4 @@ pub use model::{
     Camera, Card, Clip, ClipFields, CustomField, FIELD_LABELS, Header, IdentitySource, MISSING,
     Report, Thumbnail, Totals, Unreadable, UnreadableKind, format_bytes,
 };
+pub use pdf::{PdfInspection, inspect_pdf, write_pdf};
