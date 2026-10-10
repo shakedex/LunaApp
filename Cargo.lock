@@ -3493,6 +3493,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "luna-h264"
+version = "0.0.0"
+dependencies = [
+ "luna-formats",
+]
+
+[[package]]
 name = "luna-prores"
 version = "0.0.0"
 
