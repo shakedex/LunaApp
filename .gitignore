@@ -15,3 +15,6 @@ Thumbs.db
 # Local-only working docs: branding, samples, plans/specs.
 # Kept on disk but not published to the remote.
 /docs/
+
+# Packaged app
+/dist/
