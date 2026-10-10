@@ -8,4 +8,5 @@ pub mod backend;
 pub mod flow;
 pub mod settings_edit;
 pub mod settings_store;
+pub mod ui;
 pub mod view;
