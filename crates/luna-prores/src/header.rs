@@ -191,6 +191,9 @@ pub(crate) fn parse_picture(
     let mut at = table_end;
     for i in 0..count {
         let len = be16(data, header_size + 2 * i);
+        if len < 6 {
+            return Err(corrupt("slice shorter than its header"));
+        }
         let slice = data
             .get(at..at + len)
             .ok_or_else(|| corrupt("slice exceeds the picture"))?;

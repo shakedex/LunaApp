@@ -84,81 +84,45 @@ pub fn decode_with_threads(frame: &[u8], downscale: u8, threads: usize) -> Resul
         bits,
     };
 
-    let mut y = vec![0u16; width * height];
-    let mut cb = vec![0u16; chroma_width * height];
-    let mut cr = vec![0u16; chroma_width * height];
-
+    // Parse every picture's slice table before allocating anything, so a
+    // corrupt header cannot request huge planes.
+    let mut layouts = Vec::with_capacity(2);
     if hdr.interlace == Interlace::Progressive {
-        let layout = parse_picture(pictures, hdr.width, hdr.height.div_ceil(16))?;
-        let planes = [
-            PlaneBand {
-                data: &mut y,
-                stride: width,
-                rows: height,
-            },
-            PlaneBand {
-                data: &mut cb,
-                stride: chroma_width,
-                rows: height,
-            },
-            PlaneBand {
-                data: &mut cr,
-                stride: chroma_width,
-                rows: height,
-            },
-        ];
-        decode_picture(&layout, &ctx, planes, threads)?;
+        layouts.push(parse_picture(pictures, hdr.width, hdr.height.div_ceil(16))?);
     } else {
         // Both fields are coded with the macroblock height of the taller one.
-        let mb_height = hdr.height.div_ceil(32);
-        let field_rows = mb_height * 16 / ds;
-        let mut fields = Vec::with_capacity(2);
         let mut rest = pictures;
         for _ in 0..2 {
-            let layout = parse_picture(rest, hdr.width, mb_height)?;
+            let layout = parse_picture(rest, hdr.width, hdr.height.div_ceil(32))?;
             rest = &rest[layout.size..];
-            let mut fy = vec![0u16; width * field_rows];
-            let mut fcb = vec![0u16; chroma_width * field_rows];
-            let mut fcr = vec![0u16; chroma_width * field_rows];
-            let planes = [
-                PlaneBand {
-                    data: &mut fy,
-                    stride: width,
-                    rows: field_rows,
-                },
-                PlaneBand {
-                    data: &mut fcb,
-                    stride: chroma_width,
-                    rows: field_rows,
-                },
-                PlaneBand {
-                    data: &mut fcr,
-                    stride: chroma_width,
-                    rows: field_rows,
-                },
-            ];
-            decode_picture(&layout, &ctx, planes, threads)?;
-            fields.push([fy, fcb, fcr]);
+            layouts.push(layout);
+        }
+    }
+
+    let mut out = Planes::new(width, chroma_width, height);
+    if let [layout] = layouts.as_slice() {
+        decode_picture(layout, &ctx, out.bands(), threads)?;
+    } else {
+        let field_rows = layouts[0].mb_height * 16 / ds;
+        let mut fields = Vec::with_capacity(2);
+        for layout in &layouts {
+            let mut field = Planes::new(width, chroma_width, field_rows);
+            decode_picture(layout, &ctx, field.bands(), threads)?;
+            fields.push(field);
         }
         if hdr.interlace == Interlace::BottomFieldFirst {
             fields.swap(0, 1);
         }
         // Output line j comes from field j % 2 (0 = top), line j / 2.
-        for (plane, (out, stride)) in [
-            (&mut y, width),
-            (&mut cb, chroma_width),
-            (&mut cr, chroma_width),
-        ]
-        .into_iter()
-        .enumerate()
-        {
-            for (j, line) in out.chunks_exact_mut(stride).enumerate() {
-                let src = &fields[j & 1][plane];
+        for plane in 0..3 {
+            let stride = out.stride(plane);
+            for (j, line) in out.plane_mut(plane).chunks_exact_mut(stride).enumerate() {
                 let at = (j >> 1) * stride;
-                line.copy_from_slice(&src[at..at + stride]);
+                line.copy_from_slice(&fields[j & 1].plane_mut(plane)[at..at + stride]);
             }
         }
     }
+    let Planes { y, cb, cr, .. } = out;
 
     Ok(Picture {
         width: width as u32,
@@ -172,6 +136,66 @@ pub fn decode_with_threads(frame: &[u8], downscale: u8, threads: usize) -> Resul
         transfer_characteristic: hdr.transfer_characteristic,
         matrix_coefficients: hdr.matrix_coefficients,
     })
+}
+
+/// Owned output planes.
+struct Planes {
+    y: Vec<u16>,
+    cb: Vec<u16>,
+    cr: Vec<u16>,
+    width: usize,
+    chroma_width: usize,
+    rows: usize,
+}
+
+impl Planes {
+    fn new(width: usize, chroma_width: usize, rows: usize) -> Self {
+        Self {
+            y: vec![0; width * rows],
+            cb: vec![0; chroma_width * rows],
+            cr: vec![0; chroma_width * rows],
+            width,
+            chroma_width,
+            rows,
+        }
+    }
+
+    fn stride(&self, plane: usize) -> usize {
+        if plane == 0 {
+            self.width
+        } else {
+            self.chroma_width
+        }
+    }
+
+    fn plane_mut(&mut self, plane: usize) -> &mut [u16] {
+        match plane {
+            0 => &mut self.y,
+            1 => &mut self.cb,
+            _ => &mut self.cr,
+        }
+    }
+
+    fn bands(&mut self) -> [PlaneBand<'_>; 3] {
+        let rows = self.rows;
+        [
+            PlaneBand {
+                data: &mut self.y,
+                stride: self.width,
+                rows,
+            },
+            PlaneBand {
+                data: &mut self.cb,
+                stride: self.chroma_width,
+                rows,
+            },
+            PlaneBand {
+                data: &mut self.cr,
+                stride: self.chroma_width,
+                rows,
+            },
+        ]
+    }
 }
 
 /// Splits `band` after `rows` rows (clamped to what it has).
