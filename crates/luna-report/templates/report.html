@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Camera report{% if let Some(p) = v.header.production %} · {{ p }}{% endif %}</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 2rem; color: #111; }
+  header img.logo { max-height: 3rem; }
+  .meta { color: #555; }
+  .clip { border-top: 1px solid #ccc; padding: 0.75rem 0; break-inside: avoid; }
+  .strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; max-width: 48rem; }
+  .strip img, .strip .missing { width: 100%; aspect-ratio: 16 / 9; object-fit: contain; background: #000; }
+  .strip .missing { display: flex; align-items: center; justify-content: center; background: #eee; color: #444; font-size: 0.8rem; text-align: center; }
+  dl { display: grid; grid-template-columns: repeat(6, auto 1fr); gap: 0.15rem 0.6rem; font-size: 0.85rem; }
+  dt { color: #666; }
+  dd { margin: 0; }
+  .identity { color: #666; font-size: 0.8rem; }
+  .warning { color: #a00; font-size: 0.85rem; }
+</style>
+</head>
+<body>
+<header>
+  {% if let Some(src) = v.header.logo %}<img class="logo" src="{{ src }}" alt="">{% endif %}
+  <h1>Camera report{% if let Some(p) = v.header.production %} · {{ p }}{% endif %}</h1>
+  {% if let Some(c) = v.header.company %}<p>{{ c }}</p>{% endif %}
+  {% if let Some(a) = v.header.author %}<p>Report by {{ a }}</p>{% endif %}
+  {% for f in v.header.custom %}<p>{{ f.label }}: {{ f.value }}</p>{% endfor %}
+  <p class="meta">Source: {{ v.source_root }} · Generated {{ v.generated_at }} · Luna {{ v.luna_version }}</p>
+  <p class="meta">{{ v.totals.cameras }} cameras · {{ v.totals.cards }} cards · {{ v.totals.clips }} clips · {{ v.total_size }} · {{ v.totals.clips_with_problems }} clips with problems</p>
+</header>
+<main>
+{% if v.cameras.is_empty() %}<p>No camera clips found in this source.</p>{% endif %}
+{% for camera in v.cameras %}
+  <section>
+  <h2>Camera {{ camera.name }}</h2>
+  {% for card in camera.cards %}
+    <h3>Reel {{ card.reel }}</h3>
+    {% for clip in card.clips %}
+      <article class="clip">
+        <div class="strip">
+        {% for t in clip.thumbs %}
+          {% if let Some(src) = t.src %}<img src="{{ src }}" alt="">{% endif %}
+          {% if let Some(reason) = t.reason %}<div class="missing">{{ reason }}</div>{% endif %}
+        {% endfor %}
+        </div>
+        <dl>
+        {% for value in clip.values %}<dt>{{ v.labels[loop.index0] }}</dt><dd>{{ value }}</dd>{% endfor %}
+        </dl>
+        <p class="identity">{{ clip.identity }}</p>
+        {% for w in clip.warnings %}<p class="warning">{{ w }}</p>{% endfor %}
+      </article>
+    {% endfor %}
+  {% endfor %}
+  </section>
+{% endfor %}
+{% if !v.not_included.is_empty() %}
+  <section>
+  <h2>Not included</h2>
+  <ul>{% for p in v.not_included %}<li>{{ p }}</li>{% endfor %}</ul>
+  </section>
+{% endif %}
+{% if !v.unreadable.is_empty() %}
+  <section>
+  <h2>Unreadable</h2>
+  <ul>{% for u in v.unreadable %}<li>{{ u.kind }} {{ u.path }}: {{ u.reason }}</li>{% endfor %}</ul>
+  </section>
+{% endif %}
+</main>
+</body>
+</html>
