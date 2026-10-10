@@ -1,8 +1,19 @@
 //! A clean-room Apple ProRes decoder written from SMPTE RDD 36.
 //!
 //! Decodes one coded frame (the `icpf` frame container) into planar Y′CbCr
-//! (4:2:2 or 4:4:4, 10-/12-bit significant bits held in u16), plus alpha when
-//! present. Never panics on bad input.
+//! (4:2:2 or 4:4:4, 10-/12-bit significant bits held in u16). An alpha
+//! channel, when present, is skipped (its coded size is known from the slice
+//! header). Never panics on bad input.
+//!
+//! Every profile (Proxy, LT, 422, HQ, 4444, 4444 XQ), progressive and
+//! interlaced frames, custom quantisation matrices and all slice widths are
+//! supported. Samples are clipped to 4..=1019 (10-bit) or 4..=4091 (12-bit).
+//!
+//! The inverse DCT follows RDD 36's mathematical definition accurately. The
+//! spec does not mandate a bit-exact integer transform, so other decoders'
+//! fixed-point IDCTs can land one code away on some samples (against
+//! FFmpeg's 12-bit path, about 15% of samples differ by exactly one; nothing
+//! differs by more).
 
 /// One decoded picture.
 #[derive(Debug, Clone, PartialEq, Eq)]
