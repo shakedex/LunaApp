@@ -1344,6 +1344,7 @@ dependencies = [
  "crm",
  "libloading",
  "luna-formats",
+ "luna-prores",
  "windows",
  "xocn",
 ]
