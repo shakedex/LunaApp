@@ -5,6 +5,7 @@
 //! - [`probe`] reads one assembled clip: its metadata, its codec, and where its
 //!   coded frames sit, for the decoders that read frames from our index.
 
+mod qt;
 mod sniff;
 mod types;
 
@@ -16,10 +17,12 @@ use std::path::Path;
 /// Reads a clip's container and sidecars. Never panics on bad input: a corrupt
 /// or truncated file is an `Err`, and a field the file doesn't carry is `None`.
 pub fn probe(clip: &ClipFiles) -> Result<Probe, FormatError> {
-    let _ = clip;
-    Err(FormatError::Unsupported(
-        "probe is not implemented yet".into(),
-    ))
+    match clip.container {
+        Container::QuickTime => qt::probe(clip),
+        other => Err(FormatError::Unsupported(format!(
+            "probe does not read {other:?} yet"
+        ))),
+    }
 }
 
 /// Convenience for tests and tools: sniff a file on disk.
