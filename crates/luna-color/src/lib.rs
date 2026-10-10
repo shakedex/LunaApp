@@ -6,8 +6,10 @@
 
 mod curves;
 mod gamut;
+mod mosaic;
 mod scale;
 mod tone;
+mod ycbcr;
 
 use luna_decode::Frame;
 
