@@ -532,3 +532,26 @@ fn unknown_bodies_never_join_one_of_several_known_bodies() {
         ["A", "A · Canon EOS C50", "A · DJI HG4180"]
     );
 }
+
+#[test]
+fn camera_names_carry_the_make() {
+    let root = PathBuf::from("D:/Shoot");
+    let lumix = ClipMeta {
+        camera_make: Some("Panasonic".into()),
+        camera_model: Some("DC-S5".into()),
+        ..ClipMeta::default()
+    };
+    let fx6 = ClipMeta {
+        camera_make: Some("Sony".into()),
+        camera_model: Some("Sony ILME-FX6V".into()),
+        ..ClipMeta::default()
+    };
+    let clips = vec![
+        (clip(&root.join("S_cam/S002/lumix_s5.mov")), Some(&lumix)),
+        (clip(&root.join("S_cam/S003/fx6.MXF")), Some(&fx6)),
+    ];
+    assert_eq!(
+        camera_names(&resolve_identity(&root, &clips)),
+        ["S · Panasonic DC-S5", "S · Sony ILME-FX6V"]
+    );
+}

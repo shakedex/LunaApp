@@ -155,6 +155,7 @@ fn group_by_body(
 /// A physical camera as the metadata names it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct Body {
+    make: Option<String>,
     model: Option<String>,
     serial: Option<String>,
 }
@@ -167,6 +168,7 @@ fn body<'a>(metas: impl Iterator<Item = Option<&'a ClipMeta>>) -> Option<Body> {
             continue;
         }
         let b = Body {
+            make: m.camera_make.clone(),
             model: m.camera_model.clone(),
             serial: m.camera_serial.clone(),
         };
@@ -206,7 +208,14 @@ fn name_bodies(cameras: &mut [CameraGroup], bodies: &[(String, Option<Body>)]) {
         let model_shared = siblings
             .iter()
             .any(|&j| j != i && bodies[j].1.as_ref().is_some_and(|o| o.model == b.model));
-        let mut label = b.model.clone().unwrap_or_default();
+        let mut label = match (&b.make, &b.model) {
+            (Some(make), Some(model)) if !model.to_lowercase().contains(&make.to_lowercase()) => {
+                format!("{make} {model}")
+            }
+            (_, Some(model)) => model.clone(),
+            (Some(make), None) => make.clone(),
+            (None, None) => String::new(),
+        };
         if (model_shared || label.is_empty())
             && let Some(s) = &b.serial
         {

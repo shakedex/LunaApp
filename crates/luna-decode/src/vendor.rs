@@ -140,7 +140,8 @@ fn probe_braw(clip: &ClipFiles) -> Result<Probe, FormatError> {
         height: Some(info.height),
         camera_make: info.manufacturer.clone(),
         camera_model: info.camera_type.clone(),
-        camera_serial: info.camera_id.clone(),
+        // The SDK's camera id is a per-install UUID, not the body serial.
+        camera_serial: info.camera_id.clone().filter(|id| !looks_like_uuid(id)),
         lens: info.lens_type.clone(),
         focal_length: f0.focal_length.as_deref().map(spaced_mm),
         stop: f0.aperture.as_deref().map(braw_stop),
@@ -481,5 +482,27 @@ mod tests {
         assert_eq!(spaced_mm("33mm"), "33 mm");
         assert!(is_zero("0"));
         assert!(!is_zero("0.6"));
+    }
+}
+
+/// `1b4dda73-ef34-4cfc-909f-93eecfd8d0f4`-shaped.
+fn looks_like_uuid(s: &str) -> bool {
+    let parts: Vec<&str> = s.split('-').collect();
+    parts.len() == 5
+        && parts.iter().map(|p| p.len()).eq([8, 4, 4, 4, 12])
+        && parts
+            .iter()
+            .all(|p| p.chars().all(|c| c.is_ascii_hexdigit()))
+}
+
+#[cfg(test)]
+mod uuid_tests {
+    #[test]
+    fn uuid_shape() {
+        assert!(super::looks_like_uuid(
+            "1b4dda73-ef34-4cfc-909f-93eecfd8d0f4"
+        ));
+        assert!(!super::looks_like_uuid("273102000359"));
+        assert!(!super::looks_like_uuid("1b4dda73-ef34-4cfc-909f"));
     }
 }

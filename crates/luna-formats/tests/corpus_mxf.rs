@@ -276,8 +276,6 @@ fn alexa_mini_lf_prores_4444() {
     }
 }
 
-const SONY_UTC: &str = "The recording time is stored in UTC only";
-
 #[test]
 fn burano_xocn_with_xml() {
     let Some(p) = probe_corpus(
@@ -290,7 +288,7 @@ fn burano_xocn_with_xml() {
     assert_eq!(
         p.meta,
         ClipMeta {
-            recording_date: None,
+            recording_date: Some("2024-10-24 20:28:24 UTC".into()),
             start_timecode: tc(1_080_147, 24),
             frame_rate: fps(24, 1),
             frame_count: Some(269),
@@ -316,8 +314,7 @@ fn burano_xocn_with_xml() {
         frames(&p),
         (269, br(11_800, 4_368_360), br(1_180_618_264, 4_368_360))
     );
-    assert_eq!(p.warnings.len(), 1);
-    assert!(p.warnings[0].starts_with(SONY_UTC));
+    assert!(p.warnings.is_empty(), "{:?}", p.warnings);
 }
 
 #[test]
@@ -332,7 +329,7 @@ fn venice_xocn_with_xml() {
     assert_eq!(
         p.meta,
         ClipMeta {
-            recording_date: None,
+            recording_date: Some("2020-11-02 01:39:05 UTC".into()),
             start_timecode: tc(419_016, 24),
             frame_rate: fps(24000, 1001),
             frame_count: Some(79),
@@ -358,8 +355,7 @@ fn venice_xocn_with_xml() {
         frames(&p),
         (79, br(11_800, 5_523_432), br(433_716_760, 5_523_432))
     );
-    assert_eq!(p.warnings.len(), 1);
-    assert!(p.warnings[0].starts_with(SONY_UTC));
+    assert!(p.warnings.is_empty(), "{:?}", p.warnings);
 }
 
 #[test]
@@ -371,7 +367,7 @@ fn venice2_xocn_anamorphic_truncated() {
     assert_eq!(
         p.meta,
         ClipMeta {
-            recording_date: None,
+            recording_date: Some("2024-10-24 20:27:45 UTC".into()),
             start_timecode: tc(1_079_731, 24),
             frame_rate: fps(24, 1),
             frame_count: Some(718),
@@ -399,7 +395,6 @@ fn venice2_xocn_anamorphic_truncated() {
         (597, br(444_952, 19_054_568), br(11_378_952_728, 19_054_568))
     );
     assert!(p.warnings.iter().any(|w| w.contains("597 of 718")));
-    assert!(p.warnings.iter().any(|w| w.starts_with(SONY_UTC)));
 }
 
 #[test]
@@ -411,7 +406,7 @@ fn fx6_xavc_intra() {
     assert_eq!(
         p.meta,
         ClipMeta {
-            recording_date: None,
+            recording_date: Some("2021-01-24 15:50:43 UTC".into()),
             start_timecode: tc(210_394, 50),
             frame_rate: fps(50, 1),
             frame_count: Some(886),
@@ -437,8 +432,7 @@ fn fx6_xavc_intra() {
         frames(&p),
         (886, br(1_049_108, 1_260_032), br(1_147_895_828, 1_260_032))
     );
-    assert_eq!(p.warnings.len(), 1);
-    assert!(p.warnings[0].starts_with(SONY_UTC));
+    assert!(p.warnings.is_empty(), "{:?}", p.warnings);
 }
 
 #[test]

@@ -174,7 +174,7 @@ pub(crate) fn probe_source<R: Read + Seek>(
             _ => {}
         }
     }
-    merge(&mut meta, v, vendor, &st, &mut warnings);
+    merge(&mut meta, v, vendor, &st);
 
     // Picture layout.
     let mut layout = PictureLayout {
@@ -655,7 +655,7 @@ fn normalise_make(s: &str) -> String {
     }
 }
 
-fn merge(m: &mut ClipMeta, v: Vendor, make: Make, st: &Structure, warnings: &mut Vec<String>) {
+fn merge(m: &mut ClipMeta, v: Vendor, make: Make, st: &Structure) {
     let ident = &st.ident;
     m.camera_make = v
         .make
@@ -718,15 +718,9 @@ fn merge(m: &mut ClipMeta, v: Vendor, make: Make, st: &Structure, warnings: &mut
     let file_stamp = st.created.or(ident.modified).map(display::stamp);
     m.recording_date = match (v.date, make) {
         (Some(d), _) => Some(d),
-        // Sony's MXF writers stamp UTC (it matches the XML's "Z" times).
-        (None, Make::Sony) => {
-            if let Some(s) = v.utc_date.or(file_stamp) {
-                warnings.push(format!(
-                    "The recording time is stored in UTC only ({s} UTC); the local date is unknown."
-                ));
-            }
-            None
-        }
+        // Sony's MXF writers stamp UTC (it matches the XML's "Z" times): show
+        // it as UTC rather than pretend it is local time.
+        (None, Make::Sony) => v.utc_date.or(file_stamp).map(|s| format!("{s} UTC")),
         (None, _) => file_stamp,
     };
 }
