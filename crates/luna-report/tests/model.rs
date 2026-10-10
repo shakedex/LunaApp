@@ -1,7 +1,7 @@
 mod common;
 
 use common::{LOGO_PNG, THUMB_JPEG, bare_clip, empty_report, sample_report};
-use luna_report::{FIELD_LABELS, Logo, LogoError, LogoFormat, Totals, format_bytes};
+use luna_report::{FIELD_LABELS, Logo, LogoError, LogoFormat, Thumbnail, Totals, format_bytes};
 
 #[test]
 fn totals_count_every_level_and_problem_clips() {
@@ -46,6 +46,33 @@ fn bytes_use_decimal_units() {
     assert_eq!(format_bytes(999_999), "1.00 MB");
     assert_eq!(format_bytes(4_294_967_296), "4.29 GB");
     assert_eq!(format_bytes(u64::MAX), "18446.74 PB");
+}
+
+#[test]
+fn unreadable_thumbnail_becomes_a_reason_tile() {
+    for bad in [
+        vec![0xFF, 0xD8, 0xFF, 0x00, 0x01, 0x02],
+        vec![],
+        LOGO_PNG.to_vec(),
+    ] {
+        assert_eq!(
+            Thumbnail::from_jpeg(bad),
+            Thumbnail::Missing {
+                reason: "Thumbnail could not be read".into()
+            }
+        );
+    }
+    assert!(matches!(
+        Thumbnail::from_jpeg(THUMB_JPEG.to_vec()),
+        Thumbnail::Jpeg(_)
+    ));
+}
+
+#[test]
+fn unreadable_thumbnail_counts_as_a_problem() {
+    let mut report = sample_report();
+    report.cameras[0].cards[0].clips[0].thumbnails[1] = Thumbnail::from_jpeg(vec![0xFF, 0xD8]);
+    assert_eq!(report.totals().clips_with_problems, 2);
 }
 
 #[test]

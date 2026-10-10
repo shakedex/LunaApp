@@ -2,6 +2,8 @@
 //! beyond formatting.
 
 use serde::Serialize;
+use typst::foundations::Bytes;
+use typst::visualize::{ExchangeFormat, RasterImage};
 
 use crate::logo::Logo;
 
@@ -163,11 +165,33 @@ impl ClipFields {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Thumbnail {
-    Jpeg(Vec<u8>),
+    Jpeg(Jpeg),
     /// Same footprint as an image, with the reason printed in it.
     Missing {
         reason: String,
     },
+}
+
+impl Thumbnail {
+    /// A thumbnail that decodes, or a reason tile: one bad image must never sink the report.
+    pub fn from_jpeg(bytes: Vec<u8>) -> Self {
+        match RasterImage::plain(Bytes::new(bytes.clone()), ExchangeFormat::Jpg) {
+            Ok(_) => Self::Jpeg(Jpeg(bytes)),
+            Err(_) => Self::Missing {
+                reason: "Thumbnail could not be read".into(),
+            },
+        }
+    }
+}
+
+/// JPEG bytes known to decode. Only [`Thumbnail::from_jpeg`] makes one.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Jpeg(Vec<u8>);
+
+impl Jpeg {
+    pub fn bytes(&self) -> &[u8] {
+        &self.0
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

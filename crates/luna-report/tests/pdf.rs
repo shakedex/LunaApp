@@ -1,7 +1,17 @@
 mod common;
 
 use common::{HOSTILE, empty_report, full_clip, hostile_report, non_ascii_report, sample_report};
-use luna_report::{Card, inspect_pdf, write_pdf};
+use luna_report::{Card, Thumbnail, inspect_pdf, write_pdf};
+
+#[test]
+fn corrupt_thumbnail_still_produces_a_pdf() {
+    let mut report = sample_report();
+    report.cameras[0].cards[0].clips[0].thumbnails[0] =
+        Thumbnail::from_jpeg(vec![0xFF, 0xD8, 0xFF, 0x00, 0x01, 0x02]);
+    assert!(write_pdf(&report).unwrap().starts_with(b"%PDF-"));
+    let i = inspect_pdf(&report).unwrap();
+    assert!(i.text.contains("Thumbnail could not be read"));
+}
 
 #[test]
 fn no_two_text_runs_overlap_on_a_line() {

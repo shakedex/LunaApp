@@ -33,7 +33,7 @@ pub fn full_clip(file_name: &str) -> Clip {
         },
         camera_source: IdentitySource::Metadata,
         reel_source: IdentitySource::FileName,
-        thumbnails: vec![Thumbnail::Jpeg(THUMB_JPEG.to_vec()); 3],
+        thumbnails: vec![Thumbnail::from_jpeg(THUMB_JPEG.to_vec()); 3],
         warnings: vec![],
     }
 }

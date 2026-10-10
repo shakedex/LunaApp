@@ -101,8 +101,8 @@ pub(crate) fn build(report: &Report, image_ref: &mut dyn FnMut(ImageRef) -> Stri
                                 .thumbnails
                                 .iter()
                                 .map(|t| match t {
-                                    Thumbnail::Jpeg(bytes) => ThumbView {
-                                        src: Some(image_ref(ImageRef::Thumb(bytes))),
+                                    Thumbnail::Jpeg(jpeg) => ThumbView {
+                                        src: Some(image_ref(ImageRef::Thumb(jpeg.bytes()))),
                                         reason: None,
                                     },
                                     Thumbnail::Missing { reason } => ThumbView {

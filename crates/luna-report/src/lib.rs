@@ -15,7 +15,7 @@ pub use error::ReportError;
 pub use html::write_html;
 pub use logo::{Logo, LogoError, LogoFormat};
 pub use model::{
-    Camera, Card, Clip, ClipFields, CustomField, FIELD_LABELS, Header, IdentitySource, MISSING,
-    Report, Thumbnail, Totals, Unreadable, UnreadableKind, format_bytes,
+    Camera, Card, Clip, ClipFields, CustomField, FIELD_LABELS, Header, IdentitySource, Jpeg,
+    MISSING, Report, Thumbnail, Totals, Unreadable, UnreadableKind, format_bytes,
 };
 pub use pdf::{PdfInspection, TextRun, inspect_pdf, write_pdf};
