@@ -562,14 +562,15 @@ pub(crate) fn hammer(seed: u64, original: &[u8], rounds: usize) {
                     v.truncate(cut);
                 }
             }
-            _ => {
+            _ if v.len() > 9 => {
                 // Hostile lengths: overwrite a BER length byte run.
-                let i = rng.below(v.len().saturating_sub(9));
+                let i = rng.below(v.len() - 9);
                 v[i] = 0x88;
                 for b in &mut v[i + 1..i + 9] {
                     *b = 0xff;
                 }
             }
+            _ => {}
         }
         let _ = probe_source(Cursor::new(v), &[]);
     }
@@ -611,4 +612,106 @@ fn every_truncation_of_the_synthetic_clip() {
     for n in 0..b.len() {
         let _ = run(&b[..n]);
     }
+}
+
+macro_rules! fixture {
+    ($name:literal) => {
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/fixtures/mxf/",
+            $name
+        ))
+        .as_slice()
+    };
+}
+
+const HEADERS: &[&[u8]] = &[
+    fixture!("alexa35_prores_header.bin"),
+    fixture!("alexa35_arriraw_header.bin"),
+    fixture!("minilf_prores_header.bin"),
+    fixture!("burano_xocn_header.bin"),
+    fixture!("venice2_xocn_header.bin"),
+    fixture!("fx6_xavc_header.bin"),
+    fixture!("c50_xfavc_header.bin"),
+];
+
+#[test]
+fn corruption_harness_real_headers() {
+    for (i, h) in HEADERS.iter().enumerate() {
+        hammer(100 + i as u64, h, 600);
+    }
+}
+
+#[test]
+fn rdd18_from_real_anc() {
+    use super::rdd18::{anc_payload, parse};
+    let v2 = parse(&anc_payload(fixture!("venice2_anc.bin")));
+    assert_eq!(
+        v2.camera_attributes.as_deref(),
+        Some("MPC-3626 0010119 Version3.00")
+    );
+    assert_eq!(v2.exposure_index, Some(1250));
+    assert_eq!(v2.iso, Some(800));
+    assert_eq!(v2.white_balance, Some(3600));
+    assert_eq!(v2.nd_setting, Some(2));
+    assert_eq!(v2.shutter_angle, Some(180.0));
+    assert_eq!(v2.lens_attributes.as_deref(), Some("7085.2501"));
+    assert!((v2.focal_mm.unwrap() - 85.0).abs() < 1e-9);
+    assert!((v2.iris_t.unwrap() - 2.83).abs() < 0.01);
+
+    // BURANO: the same values its XML sidecar states.
+    let b = parse(&anc_payload(fixture!("burano_anc.bin")));
+    assert!((b.iris_f.unwrap() - 1.84).abs() < 0.01);
+    assert!((b.iris_t.unwrap() - 1.92).abs() < 0.01);
+    assert!((b.focal_mm.unwrap() - 50.0).abs() < 1e-9);
+    assert_eq!(b.nd_setting, Some(4));
+    assert_eq!(b.white_balance, Some(3600));
+
+    let fx6 = parse(&anc_payload(fixture!("fx6_anc.bin")));
+    assert_eq!(
+        fx6.camera_attributes.as_deref(),
+        Some("ILME-FX6V 4000254 Version1.00")
+    );
+    assert_eq!(fx6.exposure_index, Some(12800));
+    assert_eq!(fx6.lens_attributes.as_deref(), Some("Unknown"));
+
+    let c50 = parse(&anc_payload(fixture!("c50_anc.bin")));
+    assert_eq!(c50.vendor_model.as_deref(), Some("Canon EOS C50"));
+    assert_eq!(c50.vendor_serial.as_deref(), Some("123456789012"));
+    assert_eq!(c50.vendor_date, Some((2025, 1, 7, 22, 40, 21)));
+    assert_eq!(c50.capture_fps, Some((25000, 1000)));
+}
+
+#[test]
+fn arri_frame_meta_from_real_element() {
+    let f = super::arri::frame_meta(fixture!("alexa35_frame_meta.bin"));
+    assert_eq!(f.exposure_index, Some(800));
+    assert_eq!(f.white_balance, Some(5600));
+    assert_eq!(f.exposure_time, Some((1, 50)));
+    assert_eq!(f.sensor_fps, Some((24000, 1000)));
+    assert_eq!(f.focal_um, Some(44978));
+    assert_eq!(f.iris_t1000, Some(5190));
+    assert_eq!(f.focus_mm, Some(14471));
+    assert_eq!(f.nd, Some(1.2));
+}
+
+#[test]
+fn arri_legacy_header_from_mini_lf() {
+    let slice = fixture!("minilf_prores_header.bin");
+    let at = slice
+        .windows(8)
+        .position(|w| w == [b'A', b'R', b'R', b'I', 0x12, 0x34, 0x56, 0x78])
+        .unwrap();
+    let l = super::arri::parse_legacy(&slice[at..]);
+    assert_eq!(l.camera_model.as_deref(), Some("ARRI ALEXA Mini LF"));
+    assert_eq!(l.lens_model.as_deref(), Some("Zeiss CZ.2 70-200 01"));
+    assert_eq!(l.exposure_index, Some(800));
+    assert_eq!(l.white_balance, Some(5600));
+    assert_eq!(l.exposure_us, Some(20000));
+    assert_eq!(l.shutter_angle_1000, Some(172_800));
+    assert_eq!(l.sensor_fps_1000, Some(24_000));
+    assert_eq!(l.focal_um, Some(200_000));
+    assert_eq!(l.camera_index.as_deref(), Some("F"));
+    assert_eq!(l.reel_name.as_deref(), Some("F003MN99"));
+    assert_eq!(l.clip_name.as_deref(), Some("F003C004_190925_MN99"));
 }
