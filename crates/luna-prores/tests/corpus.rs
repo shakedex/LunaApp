@@ -13,7 +13,9 @@ mod common;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
-use common::{compare, first_mov_frame, first_mxf_frame, oracle_first_frame, reference_planes};
+use common::{
+    box_error, compare, first_mov_frame, first_mxf_frame, oracle_first_frame, reference_planes,
+};
 
 /// Minimum share of samples identical to the oracle at 12 bits.
 const MIN_EXACT_12BIT: f64 = 0.80;
@@ -102,27 +104,6 @@ fn oracle_format(path: &Path) -> &'static str {
     } else {
         "yuv444p12le"
     }
-}
-
-/// Mean absolute difference between a box-downscaled `full` plane and `small`.
-fn box_error(full: &[u16], w: usize, h: usize, small: &[u16], ds: usize) -> f64 {
-    let sw = w.div_ceil(ds);
-    let sh = h.div_ceil(ds);
-    let mut total = 0f64;
-    for sy in 0..sh {
-        for sx in 0..sw {
-            let (mut sum, mut n) = (0u64, 0u64);
-            for y in sy * ds..((sy + 1) * ds).min(h) {
-                for x in sx * ds..((sx + 1) * ds).min(w) {
-                    sum += full[y * w + x] as u64;
-                    n += 1;
-                }
-            }
-            let mean = sum as f64 / n as f64;
-            total += (mean - small[sy * sw + sx] as f64).abs();
-        }
-    }
-    total / (sw * sh) as f64
 }
 
 #[test]

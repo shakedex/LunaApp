@@ -95,6 +95,63 @@ fn p4444xq_eight_mb_slices() {
     check("p4444xq", 200, 120, 3);
 }
 
+/// Reduced decodes have the promised dimensions and track a box filter of
+/// the full decode (exactly for 2 and 4 on progressive frames, which average
+/// within each block; DC-only for 8; fields merged when interlaced).
+#[test]
+fn downscaled_decodes_track_the_full_picture() {
+    for (name, interlaced) in [
+        ("proxy", false),
+        ("hq", false),
+        ("p4444", false),
+        ("p4444_alpha", false),
+        ("interlaced_tff", true),
+        ("interlaced_bff", true),
+    ] {
+        let frame = fixture(&format!("{name}.prores"));
+        let full = luna_prores::decode(&frame, 1).unwrap();
+        let (w, h) = (full.width as usize, full.height as usize);
+        let cw = full.cb.len() / h;
+        for ds in [2u8, 4, 8] {
+            let small = luna_prores::decode(&frame, ds).unwrap();
+            let d = ds as usize;
+            assert_eq!(small.width as usize, w.div_ceil(d), "{name} /{ds}");
+            assert_eq!(small.height as usize, h.div_ceil(d), "{name} /{ds}");
+            assert_eq!(
+                small.cb.len(),
+                cw.div_ceil(d) * h.div_ceil(d),
+                "{name} /{ds}"
+            );
+            let luma = common::box_error(&full.y, w, h, &small.y, d);
+            let chroma = common::box_error(&full.cb, cw, h, &small.cb, d);
+            // Tolerances in codes at the picture's bit depth (10 or 12).
+            let one = if full.bits == 10 { 1.0 } else { 4.0 };
+            let bound = match (interlaced, ds) {
+                (false, 2 | 4) => 0.5,
+                (false, _) => 2.0 * one,
+                (true, _) => 0.5 * one,
+            };
+            eprintln!("{name} /{ds}: luma {luma:.3} chroma {chroma:.3} (bound {bound})");
+            assert!(luma <= bound && chroma <= bound, "{name} /{ds}");
+        }
+    }
+}
+
+#[test]
+fn threaded_decode_matches_single_threaded() {
+    for name in ["hq", "interlaced_bff", "p4444xq"] {
+        let frame = fixture(&format!("{name}.prores"));
+        let one = luna_prores::decode(&frame, 1).unwrap();
+        for threads in [2, 3, 16] {
+            assert_eq!(
+                luna_prores::decode_with_threads(&frame, 1, threads).unwrap(),
+                one,
+                "{name} x{threads}"
+            );
+        }
+    }
+}
+
 #[test]
 fn colour_description_is_reported() {
     let pic = luna_prores::decode(&fixture("hq.prores"), 1).unwrap();

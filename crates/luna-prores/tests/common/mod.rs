@@ -271,3 +271,24 @@ pub fn mismatch_report(got: &[u16], want: &[u16]) -> String {
     }
     format!("{hist:?} {samples:?}")
 }
+
+/// Mean absolute difference between a box-downscaled `full` plane and `small`.
+pub fn box_error(full: &[u16], w: usize, h: usize, small: &[u16], ds: usize) -> f64 {
+    let sw = w.div_ceil(ds);
+    let sh = h.div_ceil(ds);
+    let mut total = 0f64;
+    for sy in 0..sh {
+        for sx in 0..sw {
+            let (mut sum, mut n) = (0u64, 0u64);
+            for y in sy * ds..((sy + 1) * ds).min(h) {
+                for x in sx * ds..((sx + 1) * ds).min(w) {
+                    sum += full[y * w + x] as u64;
+                    n += 1;
+                }
+            }
+            let mean = sum as f64 / n as f64;
+            total += (mean - small[sy * sw + sx] as f64).abs();
+        }
+    }
+    total / (sw * sh) as f64
+}

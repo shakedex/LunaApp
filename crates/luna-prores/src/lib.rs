@@ -103,22 +103,58 @@ pub fn decode_with_threads(frame: &[u8], downscale: u8, threads: usize) -> Resul
     if let [layout] = layouts.as_slice() {
         decode_picture(layout, &ctx, out.bands(), threads)?;
     } else {
-        let field_rows = layouts[0].mb_height * 16 / ds;
+        // Each output line spans `ds` frame lines: `ds / 2` from each field.
+        // So fields decode at half the reduction (full size when ds is 1)
+        // and are then merged: interleaved at full size, otherwise averaged
+        // over the two fields and horizontal pairs, which keeps the result a
+        // box filter of the frame.
+        let field_ds = (ds / 2).max(1);
+        let field_ctx = PictureCtx {
+            downscale: field_ds,
+            ..ctx
+        };
+        let field_width = hdr.width.div_ceil(field_ds);
+        let field_chroma = if chroma444 {
+            field_width
+        } else {
+            field_width.div_ceil(2)
+        };
+        let field_rows = layouts[0].mb_height * 16 / field_ds;
         let mut fields = Vec::with_capacity(2);
         for layout in &layouts {
-            let mut field = Planes::new(width, chroma_width, field_rows);
-            decode_picture(layout, &ctx, field.bands(), threads)?;
+            let mut field = Planes::new(field_width, field_chroma, field_rows);
+            decode_picture(layout, &field_ctx, field.bands(), threads)?;
             fields.push(field);
         }
         if hdr.interlace == Interlace::BottomFieldFirst {
             fields.swap(0, 1);
         }
-        // Output line j comes from field j % 2 (0 = top), line j / 2.
+        let [top, bottom] = &mut fields[..] else {
+            unreachable!("two fields")
+        };
         for plane in 0..3 {
             let stride = out.stride(plane);
+            let field_stride = top.stride(plane);
+            let (top, bottom) = (top.plane_mut(plane), bottom.plane_mut(plane));
             for (j, line) in out.plane_mut(plane).chunks_exact_mut(stride).enumerate() {
-                let at = (j >> 1) * stride;
-                line.copy_from_slice(&fields[j & 1].plane_mut(plane)[at..at + stride]);
+                if ds == 1 {
+                    // Line j comes from field j % 2 (0 = top), line j / 2.
+                    let src = if j & 1 == 0 { &*top } else { &*bottom };
+                    let at = (j >> 1) * stride;
+                    line.copy_from_slice(&src[at..at + stride]);
+                    continue;
+                }
+                let row = j * field_stride;
+                for (i, out) in line.iter_mut().enumerate() {
+                    let (mut sum, mut n) = (0u32, 0u32);
+                    for x in [2 * i, 2 * i + 1] {
+                        if x < field_stride {
+                            sum += top[row + x] as u32 + bottom[row + x] as u32;
+                            n += 2;
+                        }
+                    }
+                    *out = ((sum + n / 2) / n) as u16;
+                }
             }
         }
     }
