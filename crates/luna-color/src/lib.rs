@@ -5,6 +5,7 @@
 //! downscale, JPEG.
 
 mod curves;
+mod gamut;
 
 use luna_decode::Frame;
 
