@@ -109,6 +109,10 @@ pub(crate) fn probe_source(src: &dyn Source) -> Result<Probe, FormatError> {
     let mut moov = vec![0u8; moov_len as usize];
     src.read_at(moov_at, &mut moov)?;
     let movie = Movie::parse(&moov, &mut warnings);
+    let media = Media {
+        file_len: src.len(),
+        moov: (moov_at, moov_len),
+    };
 
     let video = movie
         .tracks
@@ -135,7 +139,7 @@ pub(crate) fn probe_source(src: &dyn Source) -> Result<Probe, FormatError> {
     let frame_count = video.sizes.count() as u64;
     let frame_rate = frame_rate(video, &mut warnings);
     edit_warnings(video, &mut warnings);
-    let frames = frame_index(video, src.len(), &mut warnings);
+    let frames = frame_index(video, media, &mut warnings);
 
     let mut meta = ClipMeta {
         frame_rate,
@@ -145,7 +149,7 @@ pub(crate) fn probe_source(src: &dyn Source) -> Result<Probe, FormatError> {
         ..ClipMeta::default()
     };
 
-    let tc = timecode(&movie, video, src, &mut warnings);
+    let tc = timecode(&movie, video, src, media, &mut warnings);
     meta.start_timecode = tc.as_ref().and_then(|t| t.0);
 
     // Vendor metadata first: it is the most specific. Generic QuickTime
@@ -156,10 +160,10 @@ pub(crate) fn probe_source(src: &dyn Source) -> Result<Probe, FormatError> {
     if let Some(u) = &movie.canon_uuid {
         vendors.extend(canon::read_uuid(u));
     }
-    if let Some(s) = meta_sample(&movie, b"cndm", src, &mut warnings) {
+    if let Some(s) = meta_sample(&movie, b"cndm", src, media, &mut warnings) {
         vendors.push(canon::read_rdd18(&s));
     }
-    if let Some(s) = meta_sample(&movie, b"djmd", src, &mut warnings) {
+    if let Some(s) = meta_sample(&movie, b"djmd", src, media, &mut warnings) {
         vendors.extend(dji::read(&s));
     }
     let vendor_colour = vendors
@@ -182,6 +186,24 @@ pub(crate) fn probe_source(src: &dyn Source) -> Result<Probe, FormatError> {
         layout,
         warnings,
     })
+}
+
+/// Where samples may lie: inside the file and outside the movie header.
+#[derive(Clone, Copy)]
+struct Media {
+    file_len: u64,
+    /// File offset and length of the `moov` payload.
+    moov: (u64, u64),
+}
+
+impl Media {
+    fn holds(&self, r: ByteRange) -> bool {
+        let Some(end) = r.offset.checked_add(r.len) else {
+            return false;
+        };
+        let (m, l) = self.moov;
+        end <= self.file_len && (end <= m || r.offset >= m.saturating_add(l))
+    }
 }
 
 /// Copies every field of `from` into `into` where `into` has none.
@@ -296,7 +318,14 @@ fn edit_warnings(t: &Track, warnings: &mut Vec<String>) {
     }
 }
 
-fn frame_index(t: &Track, file_len: u64, warnings: &mut Vec<String>) -> FrameIndex {
+fn frame_index(t: &Track, media: Media, warnings: &mut Vec<String>) -> FrameIndex {
+    // Every coded frame takes at least one byte of the file.
+    if u64::from(t.sizes.count()) > media.file_len {
+        warnings.push(
+            "The frame index can't be built: it lists more frames than the file has bytes.".into(),
+        );
+        return FrameIndex::Ranges(Vec::new());
+    }
     let ranges = match track::sample_ranges(t) {
         Ok(r) => r,
         Err(e) => {
@@ -309,13 +338,10 @@ fn frame_index(t: &Track, file_len: u64, warnings: &mut Vec<String>) -> FrameInd
         None => ranges,
     };
     let total = ordered.len();
-    let inside: Vec<ByteRange> = ordered
-        .into_iter()
-        .filter(|r| r.offset.checked_add(r.len).is_some_and(|e| e <= file_len))
-        .collect();
+    let inside: Vec<ByteRange> = ordered.into_iter().filter(|r| media.holds(*r)).collect();
     if inside.len() < total {
         warnings.push(format!(
-            "{} of {} frames lie past the end of the file; it may be truncated.",
+            "{} of {} frames lie outside the file's media data; it may be truncated or damaged.",
             total - inside.len(),
             total
         ));
@@ -328,6 +354,7 @@ fn timecode(
     movie: &Movie,
     video: &Track,
     src: &dyn Source,
+    media: Media,
     warnings: &mut Vec<String>,
 ) -> Option<(Option<Timecode>, Option<String>)> {
     let tmcd = video
@@ -347,7 +374,7 @@ fn timecode(
         return Some((None, name));
     }
     let start = track::first_sample(tmcd)
-        .filter(|r| r.len >= 4)
+        .filter(|r| r.len >= 4 && media.holds(*r))
         .and_then(|r| {
             let mut b = [0u8; 4];
             src.read_at(r.offset, &mut b)
@@ -373,14 +400,15 @@ fn meta_sample(
     movie: &Movie,
     format: &[u8; 4],
     src: &dyn Source,
+    media: Media,
     warnings: &mut Vec<String>,
 ) -> Option<Vec<u8>> {
     let t = movie.tracks.iter().find(|t| &t.entry_format == format)?;
     let r = track::first_sample(t).filter(|r| r.len > 0 && r.len <= MAX_META_SAMPLE)?;
     let mut buf = vec![0u8; r.len as usize];
-    match src.read_at(r.offset, &mut buf) {
-        Ok(()) => Some(buf),
-        Err(_) => {
+    match media.holds(r).then(|| src.read_at(r.offset, &mut buf)) {
+        Some(Ok(())) => Some(buf),
+        _ => {
             warnings.push(format!(
                 "The camera metadata track ('{}') can't be read.",
                 String::from_utf8_lossy(format)
