@@ -1,13 +1,14 @@
 //! Decoding a few frames of a clip for thumbnails.
 //!
 //! One entry point, [`decode_frames`], picks a backend from the probed codec:
-//! our own decoders (ProRes, X-OCN, CRM), bundled vendor SDKs (BRAW;
+//! our own decoders (ProRes, ARRIRAW, X-OCN, CRM), bundled vendor SDKs (BRAW;
 //! R3D through the closed add-on loaded at runtime), or the platform decoder
 //! (Media Foundation on Windows, AVFoundation on macOS). Platform APIs live only
 //! in this crate, behind `cfg(target_os)`.
 
 use luna_formats::{ClipFiles, Codec, ColourHint, Container, Gamut, Probe, Transfer};
 
+mod arri_raw;
 mod braw_sdk;
 mod crm_raw;
 #[cfg(windows)]
@@ -141,14 +142,7 @@ pub fn decode_frames(
             Backend::Crm => crm_raw::decode(clip, probe, positions, min_width),
             Backend::Braw => braw_sdk::decode(clip, probe, positions, min_width),
             Backend::R3d => r3d::decode(clip, probe, positions, min_width),
-            // Waits for the verified decoder in its own repo (decoders/arri-decoder);
-            // a guessed exposure or white balance would misinform the report.
-            Backend::ArriRaw => util::all_err(
-                positions.len(),
-                DecodeError::Unsupported(
-                    "ARRIRAW thumbnails are waiting on Luna's verified ARRI decoder".into(),
-                ),
-            ),
+            Backend::ArriRaw => arri_raw::decode(clip, probe, positions, min_width),
             Backend::ProRes => prores::decode(clip, probe, positions, min_width),
             Backend::Platform => platform_decode(clip, probe, positions, min_width),
             Backend::None => util::all_err(

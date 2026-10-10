@@ -6,6 +6,7 @@ license.workspace = true
 
 [dependencies]
 braw.workspace = true
+arri.workspace = true
 crm.workspace = true
 libloading = "0.9.0"
 luna-formats = { version = "0.0.0", path = "../luna-formats" }

@@ -183,7 +183,7 @@ fn r3d_through_the_addon() {
 }
 
 #[test]
-fn arriraw_waits_for_the_verified_decoder() {
+fn arriraw_alexa35_through_the_verified_decoder() {
     let Some(path) = corpus("T_CAM/DW0001C021_251020_132307_a1I7H_arri-raw.mxf") else {
         return;
     };
@@ -193,10 +193,20 @@ fn arriraw_waits_for_the_verified_decoder() {
         PictureLayout::default(),
     );
     let out = decode_frames(&files(Container::Mxf, &path), &p, &[0, 82, 164], 640);
-    assert!(
-        out.iter()
-            .all(|r| matches!(r, Err(DecodeError::Unsupported(_))))
-    );
+    for r in out {
+        let f = r.unwrap();
+        let Decoded::Rgb16 {
+            width,
+            transfer,
+            gamut,
+            ..
+        } = f.image
+        else {
+            panic!("expected LogC4 RGB")
+        };
+        assert!(width >= 640, "{width}");
+        assert_eq!((transfer, gamut), (Transfer::LogC4, Gamut::ArriWideGamut4));
+    }
 }
 
 #[test]
