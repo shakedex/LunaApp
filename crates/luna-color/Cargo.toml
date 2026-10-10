@@ -1,0 +1,9 @@
+[package]
+name = "luna-color"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+luna-decode = { version = "0.0.0", path = "../luna-decode" }
+luna-formats = { version = "0.0.0", path = "../luna-formats" }

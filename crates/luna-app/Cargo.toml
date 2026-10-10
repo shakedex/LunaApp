@@ -1,0 +1,9 @@
+[package]
+name = "luna-app"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+luna-core = { version = "0.0.0", path = "../luna-core" }
+luna-worker = { version = "0.0.0", path = "../luna-worker" }

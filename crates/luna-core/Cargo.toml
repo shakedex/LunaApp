@@ -1,0 +1,10 @@
+[package]
+name = "luna-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+luna-formats = { version = "0.0.0", path = "../luna-formats" }
+luna-report = { version = "0.0.0", path = "../luna-report" }
+luna-worker = { version = "0.0.0", path = "../luna-worker" }
