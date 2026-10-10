@@ -562,3 +562,38 @@ impl<'a> Engine<'a> {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::bits::Rbsp;
+
+    /// Throughput of the arithmetic decoder alone (run with --ignored).
+    #[test]
+    #[ignore]
+    fn engine_throughput() {
+        let mut x = 88172645463325252u64;
+        let data: Vec<u8> = (0..8_000_000)
+            .map(|_| {
+                x ^= x << 13;
+                x ^= x >> 7;
+                x ^= x << 17;
+                (x >> 24) as u8 & 0x7f
+            })
+            .collect();
+        let rb = Rbsp::new(&data);
+        let mut e = Engine::new(rb.reader()).unwrap();
+        let mut ctx = init_contexts(30);
+        let t = std::time::Instant::now();
+        let mut acc = 0u32;
+        let n = 40_000_000;
+        for i in 0..n {
+            acc += e.decision(&mut ctx[105 + (i & 15)]);
+        }
+        let el = t.elapsed();
+        eprintln!(
+            "{n} bins in {el:?} ({:.2} ns/bin) {acc}",
+            el.as_nanos() as f64 / n as f64
+        );
+    }
+}

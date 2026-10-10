@@ -623,24 +623,12 @@ impl<'a> SliceDecoder<'a> {
             dqp = if k & 1 == 1 { (k + 1) / 2 } else { -(k / 2) };
         }
         // Residual.
-        let mut buf = [0i32; 64];
         if d.kind == KIND_I16 {
             let ca = nb.a.is_none_or(|m| m.cbf >> CBF_LUMA_DC & 1 == 1);
             let cb = nb.b.is_none_or(|m| m.cbf >> CBF_LUMA_DC & 1 == 1);
-            buf[..16].fill(0);
-            if residual_cabac(
-                e,
-                ctx,
-                0,
-                16,
-                1,
-                Some(ca as usize + 2 * cb as usize),
-                &mut buf,
-            )? {
+            let inc = ca as usize + 2 * cb as usize;
+            if residual_cabac(e, ctx, 0, 1, Some(inc), &ZIGZAG4, &mut d.dc)? {
                 cur.cbf |= 1 << CBF_LUMA_DC;
-                for k in 0..16 {
-                    d.dc[ZIGZAG4[k] as usize] = buf[k];
-                }
             }
         }
         for b8 in 0..4 {
@@ -648,11 +636,8 @@ impl<'a> SliceDecoder<'a> {
                 continue;
             }
             if d.kind == KIND_I8 {
-                buf.fill(0);
-                residual_cabac(e, ctx, 5, 64, 1, None, &mut buf)?;
-                for k in 0..64 {
-                    d.luma[b8 * 64 + ZIGZAG8[k] as usize] = buf[k];
-                }
+                let out = &mut d.luma[b8 * 64..b8 * 64 + 64];
+                residual_cabac(e, ctx, 5, 1, None, &ZIGZAG8, out)?;
                 cur.cbf |= 0xf << (b8 * 4);
                 d.luma_coded |= 0xf << (b8 * 4);
                 continue;
@@ -672,19 +657,11 @@ impl<'a> SliceDecoder<'a> {
                     nb.b.is_none_or(|m| m.cbf >> BLK4_AT[3][bx] & 1 == 1)
                 };
                 let inc = ca as usize + 2 * cb as usize;
-                buf[..16].fill(0);
+                let out = &mut d.luma[blk * 16..blk * 16 + 16];
                 let coded = if d.kind == KIND_I16 {
-                    let c = residual_cabac(e, ctx, 1, 15, 1, Some(inc), &mut buf)?;
-                    for i in 0..15 {
-                        d.luma[blk * 16 + ZIGZAG4[i + 1] as usize] = buf[i];
-                    }
-                    c
+                    residual_cabac(e, ctx, 1, 1, Some(inc), &ZIGZAG4[1..], out)?
                 } else {
-                    let c = residual_cabac(e, ctx, 2, 16, 1, Some(inc), &mut buf)?;
-                    for i in 0..16 {
-                        d.luma[blk * 16 + ZIGZAG4[i] as usize] = buf[i];
-                    }
-                    c
+                    residual_cabac(e, ctx, 2, 1, Some(inc), &ZIGZAG4, out)?
                 };
                 if coded {
                     cur.cbf |= 1 << blk;
@@ -702,10 +679,10 @@ impl<'a> SliceDecoder<'a> {
                     })
                 };
                 let inc = f(&nb.a) as usize + 2 * f(&nb.b) as usize;
-                buf[..8].fill(0);
-                if residual_cabac(e, ctx, 3, nblk, self.p.num_c8x8, Some(inc), &mut buf)? {
+                let scan = &IDENT[..nblk];
+                let nc = self.p.num_c8x8;
+                if residual_cabac(e, ctx, 3, nc, Some(inc), scan, &mut d.cdc[c])? {
                     cur.cbf |= 1 << bit;
-                    d.cdc[c][..nblk].copy_from_slice(&buf[..nblk]);
                 }
             }
         }
@@ -730,13 +707,10 @@ impl<'a> SliceDecoder<'a> {
                         nb.b.is_none_or(|m| nbit(&m, (rows - 1) * 2 + bx))
                     };
                     let inc = ca as usize + 2 * cb as usize;
-                    buf[..16].fill(0);
-                    if residual_cabac(e, ctx, 4, 15, 1, Some(inc), &mut buf)? {
+                    let out = &mut d.cac[c][blk * 16..blk * 16 + 16];
+                    if residual_cabac(e, ctx, 4, 1, Some(inc), &ZIGZAG4[1..], out)? {
                         cur.cbf |= 1 << (base + blk as u32);
                         d.cac_coded[c] |= 1 << blk;
-                        for i in 0..15 {
-                            d.cac[c][blk * 16 + ZIGZAG4[i + 1] as usize] = buf[i];
-                        }
                     }
                 }
             }
@@ -1055,16 +1029,31 @@ const CBF_OFF: [usize; 5] = [0, 4, 8, 12, 16];
 const SIG_OFF: [usize; 5] = [0, 15, 29, 44, 47];
 const ABS_OFF: [usize; 5] = [0, 10, 20, 30, 39];
 
+/// Identity scan (chroma DC) and the ctxIdxInc of each coefficient index
+/// for blocks whose increment is the index itself.
+const IDENT: [u8; 64] = {
+    let mut t = [0u8; 64];
+    let mut i = 0;
+    while i < 64 {
+        t[i] = i as u8;
+        i += 1;
+    }
+    t
+};
+/// Chroma DC ctxIdxInc, Min(i / NumC8x8, 2), for 4:2:0 and 4:2:2.
+const CDC_INC: [[u8; 7]; 2] = [[0, 1, 2, 2, 2, 2, 2], [0, 0, 1, 1, 2, 2, 2]];
+
 /// residual_block_cabac (7.3.5.3.3) for ctxBlockCat `cat`. `cbf_inc` is the
 /// coded_block_flag ctxIdxInc, `None` when the flag is not coded (cat 5).
-/// Writes levels in scan order to `out`; returns whether the block is coded.
+/// Coefficient `i` lands at `out[scan[i]]` (the block's coefficient count
+/// is `scan.len()`); returns whether the block is coded.
 fn residual_cabac(
     e: &mut Engine,
     ctx: &mut [u8; NUM_CTX],
     cat: usize,
-    max: usize,
     num_c8x8: usize,
     cbf_inc: Option<usize>,
+    scan: &[u8],
     out: &mut [i32],
 ) -> Result<bool, Error> {
     if let Some(inc) = cbf_inc
@@ -1072,27 +1061,31 @@ fn residual_cabac(
     {
         return Ok(false);
     }
+    let max = scan.len();
     let (sig_base, last_base, abs_base) = if cat == 5 {
         (402, 417, 426)
     } else {
         (105 + SIG_OFF[cat], 166 + SIG_OFF[cat], 227 + ABS_OFF[cat])
     };
+    let (sig_inc, last_inc): (&[u8], &[u8]) = match cat {
+        5 => (&SIG8, &LAST8),
+        3 => {
+            let t = &CDC_INC[num_c8x8 - 1];
+            (t, t)
+        }
+        _ => (&IDENT, &IDENT),
+    };
+    let (lo, hi) = ctx.split_at_mut(last_base);
+    let sig_ctx = &mut lo[sig_base..];
+    let (last_ctx, abs_ctx) = hi.split_at_mut(abs_base - last_base);
     let mut sig = [0u8; 64];
     let mut n = 0usize;
     let mut i = 0usize;
     while i + 1 < max {
-        let (si, li) = match cat {
-            5 => (SIG8[i] as usize, LAST8[i] as usize),
-            3 => {
-                let v = (i / num_c8x8).min(2);
-                (v, v)
-            }
-            _ => (i, i),
-        };
-        if e.decision(&mut ctx[sig_base + si]) == 1 {
+        if e.decision(&mut sig_ctx[sig_inc[i] as usize]) == 1 {
             sig[n] = i as u8;
             n += 1;
-            if e.decision(&mut ctx[last_base + li]) == 1 {
+            if e.decision(&mut last_ctx[last_inc[i] as usize]) == 1 {
                 break;
             }
         }
@@ -1105,13 +1098,13 @@ fn residual_cabac(
     let mut eq1 = 0usize;
     let mut gt1 = 0usize;
     let gt1_cap = if cat == 3 { 3 } else { 4 };
-    for k in (0..n).rev() {
+    for &pos in sig[..n].iter().rev() {
         let inc0 = if gt1 != 0 { 0 } else { (1 + eq1).min(4) };
         let mut abs = 1i32;
-        if e.decision(&mut ctx[abs_base + inc0]) == 1 {
-            let c = abs_base + 5 + gt1.min(gt1_cap);
+        if e.decision(&mut abs_ctx[inc0]) == 1 {
+            let c = &mut abs_ctx[5 + gt1.min(gt1_cap)];
             let mut prefix = 1;
-            while prefix < 14 && e.decision(&mut ctx[c]) == 1 {
+            while prefix < 14 && e.decision(c) == 1 {
                 prefix += 1;
             }
             abs = prefix + 1;
@@ -1132,14 +1125,12 @@ fn residual_cabac(
                 }
                 abs += suf;
             }
-        }
-        if abs == 1 {
-            eq1 += 1;
-        } else {
             gt1 += 1;
+        } else {
+            eq1 += 1;
         }
         let v = if e.bypass() == 1 { -abs } else { abs };
-        out[sig[k] as usize] = v;
+        out[scan[pos as usize] as usize] = v;
     }
     Ok(true)
 }
