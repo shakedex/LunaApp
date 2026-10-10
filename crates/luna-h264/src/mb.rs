@@ -915,7 +915,7 @@ impl<'a> SliceDecoder<'a> {
                     }
                     let mut pred = [0i32; 64];
                     intra::pred8x8(d.modes[b8 * 4], &tp, &lf, a, bd, &mut pred)?;
-                    if d.luma_coded >> (b8 * 4) & 1 == 1 {
+                    if (d.luma_coded >> (b8 * 4)) & 0xf != 0 {
                         let mut c: [i32; 64] =
                             d.luma[b8 * 64..b8 * 64 + 64].try_into().unwrap_or([0; 64]);
                         transform::scale8(&mut c, ls, qp);

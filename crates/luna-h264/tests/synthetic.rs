@@ -19,7 +19,39 @@ const TESTSRC: &str = "testsrc2=size=176x144:rate=25";
 const NOISY: &str = "testsrc2=size=160x96:rate=25,noise=alls=60:allf=t";
 const ODD: &str = "testsrc2=size=200x120:rate=25";
 
+const SOFT_NOISE: &str = "testsrc2=size=160x96:rate=25,noise=alls=8:allf=t";
+
 const CASES: &[Case] = &[
+    // CAVLC 8x8 blocks whose first interleaved 4x4 is empty while the
+    // others are not (seen in XAVC-I).
+    Case {
+        name: "cavlc422_10bit_8x8_sparse",
+        source: SOFT_NOISE,
+        pix_fmt: "yuv422p10le",
+        profile: "high422",
+        args: &[
+            "-coder",
+            "0",
+            "-qp",
+            "30",
+            "-x264-params",
+            "keyint=1:no-deblock=1",
+        ],
+    },
+    Case {
+        name: "cavlc420_8x8_qp38",
+        source: SOFT_NOISE,
+        pix_fmt: "yuv420p",
+        profile: "high",
+        args: &["-coder", "0", "-qp", "38", "-x264-params", "keyint=1"],
+    },
+    Case {
+        name: "cabac422_10bit_8x8_qp34",
+        source: SOFT_NOISE,
+        pix_fmt: "yuv422p10le",
+        profile: "high422",
+        args: &["-qp", "34", "-x264-params", "keyint=1"],
+    },
     Case {
         name: "cavlc420_nodeblock_4x4",
         source: TESTSRC,
