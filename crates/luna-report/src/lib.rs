@@ -2,9 +2,11 @@
 //!
 //! The writers return bytes. Where they are written, and when, is the caller's job.
 
+mod csv;
 mod logo;
 mod model;
 
+pub use csv::write_csv;
 pub use logo::{Logo, LogoError, LogoFormat};
 pub use model::{
     Camera, Card, Clip, ClipFields, CustomField, FIELD_LABELS, Header, IdentitySource, MISSING,
