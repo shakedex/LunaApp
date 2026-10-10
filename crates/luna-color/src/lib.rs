@@ -6,6 +6,8 @@
 
 mod curves;
 mod gamut;
+mod scale;
+mod tone;
 
 use luna_decode::Frame;
 
