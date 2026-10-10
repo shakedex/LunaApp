@@ -1,0 +1,126 @@
+// Credits: Luna's licence, the bundled components and Slint's AboutSlint
+// panel (required by Slint's royalty-free licence).
+
+import { AboutSlint, ScrollView } from "std-widgets.slint";
+import { Theme } from "theme.slint";
+import { LunaButton } from "controls.slint";
+
+export struct Component {
+    name: string,
+    licence: string,
+    role: string,
+}
+
+component Rule inherits Rectangle {
+    height: 1px;
+    background: Theme.line;
+}
+
+export component CreditsWindow inherits Window {
+    title: "Luna Credits";
+    icon: @image-url("assets/luna-icon.png");
+    min-width: 600px;
+    min-height: 560px;
+    preferred-width: 660px;
+    preferred-height: 720px;
+    background: Theme.canvas;
+    default-font-size: Theme.size-body;
+
+    in property <[Component]> components;
+    callback close-clicked();
+
+    VerticalLayout {
+        ScrollView {
+            vertical-stretch: 1;
+            VerticalLayout {
+                padding: 36px;
+                padding-top: 32px;
+                spacing: 24px;
+
+                VerticalLayout {
+                    spacing: 8px;
+                    Text {
+                        text: "Credits";
+                        font-size: Theme.size-title;
+                        font-weight: 600;
+                        color: Theme.text;
+                    }
+
+                    Text {
+                        text: "Luna is open source under the MIT licence. It is built on these components:";
+                        color: Theme.text-muted;
+                        wrap: word-wrap;
+                    }
+                }
+
+                Rectangle {
+                    border-radius: Theme.radius-large;
+                    background: Theme.surface;
+                    border-width: 1px;
+                    border-color: Theme.line;
+                    VerticalLayout {
+                        for c[i] in root.components: VerticalLayout {
+                            if i > 0: Rule { }
+                            HorizontalLayout {
+                                padding: 14px;
+                                padding-left: 18px;
+                                padding-right: 18px;
+                                spacing: 16px;
+                                VerticalLayout {
+                                    spacing: 2px;
+                                    horizontal-stretch: 1;
+                                    Text {
+                                        text: c.name;
+                                        font-size: 15px;
+                                        font-weight: 600;
+                                        color: Theme.text;
+                                    }
+
+                                    Text {
+                                        text: c.role;
+                                        font-size: 13px;
+                                        color: Theme.text-muted;
+                                    }
+                                }
+
+                                Text {
+                                    text: c.licence;
+                                    font-size: 13px;
+                                    color: Theme.text-muted;
+                                    vertical-alignment: center;
+                                    horizontal-alignment: right;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Rectangle {
+                    border-radius: Theme.radius-large;
+                    background: Theme.surface;
+                    border-width: 1px;
+                    border-color: Theme.line;
+                    HorizontalLayout {
+                        padding: 20px;
+                        alignment: center;
+                        AboutSlint { }
+                    }
+                }
+            }
+        }
+
+        Rule { }
+
+        HorizontalLayout {
+            padding: 16px;
+            padding-right: 24px;
+            alignment: end;
+            LunaButton {
+                text: "Close";
+                clicked => {
+                    root.close-clicked();
+                }
+            }
+        }
+    }
+}

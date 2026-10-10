@@ -1,0 +1,621 @@
+//! Binds the Slint windows to the flow, the run backend and the settings store.
+//!
+//! All state transitions are decided in `flow` / `settings_edit`; this module
+//! only forwards UI callbacks, opens native dialogs and copies view models
+//! into window properties.
+
+use std::cell::{Cell, RefCell};
+use std::path::{Path, PathBuf};
+use std::rc::{Rc, Weak};
+use std::sync::{Arc, Mutex};
+
+use luna_core::settings::Settings;
+use slint::winit_030::winit::event::WindowEvent;
+use slint::winit_030::{EventResult, WinitWindowAccessor};
+use slint::{ComponentHandle, ModelRc, SharedString, VecModel};
+
+use crate::backend::{RunBackend, RunControl, RunEvent};
+use crate::flow::{Flow, FlowState, validate_source};
+use crate::settings_edit::SettingsEditor;
+use crate::settings_store::SettingsStore;
+use crate::view::{MainView, ViewPhase, main_view};
+
+slint::include_modules!();
+
+/// Opens the main window and runs the event loop until it closes.
+pub fn run(
+    backend: Arc<dyn RunBackend>,
+    store: Rc<dyn SettingsStore>,
+) -> Result<(), slint::PlatformError> {
+    // winit is required for folder drops. The software renderer is the
+    // default because the OpenGL (femtovg) one painted a blank white window on
+    // the Windows test machine; `SLINT_BACKEND` still overrides both.
+    let selector = slint::BackendSelector::new().backend_name("winit".into());
+    let selector = if std::env::var_os("SLINT_BACKEND").is_none() {
+        selector.renderer_name("software".into())
+    } else {
+        selector
+    };
+    selector.select()?;
+
+    let main = MainWindow::new()?;
+    let settings = store.load();
+    let app = Rc::new(App {
+        flow: Arc::new(Mutex::new(Flow::new())),
+        control: RefCell::new(None),
+        backend,
+        editor: RefCell::new(SettingsEditor::new(settings.clone())),
+        settings: RefCell::new(settings),
+        store,
+        settings_window: RefCell::new(None),
+        credits_window: RefCell::new(None),
+        dialog_open: Cell::new(false),
+        main,
+    });
+    App::wire(&app);
+    app.render();
+    app.main.show()?;
+    slint::run_event_loop_until_quit()?;
+    Ok(())
+}
+
+struct App {
+    main: MainWindow,
+    /// Shared with the backend's event callback, which runs on a worker thread
+    /// and hops back to the UI thread before touching it.
+    flow: Arc<Mutex<Flow>>,
+    control: RefCell<Option<Box<dyn RunControl>>>,
+    backend: Arc<dyn RunBackend>,
+    store: Rc<dyn SettingsStore>,
+    /// The saved settings a run starts with.
+    settings: RefCell<Settings>,
+    editor: RefCell<SettingsEditor>,
+    settings_window: RefCell<Option<SettingsWindow>>,
+    credits_window: RefCell<Option<CreditsWindow>>,
+    /// A native file dialog is open; ignore further requests until it closes.
+    dialog_open: Cell<bool>,
+}
+
+/// Wraps a callback so it only holds a weak reference to the app.
+fn with_app<A: 'static>(app: &Rc<App>, f: impl Fn(&Rc<App>, A) + 'static) -> impl Fn(A) + 'static {
+    let weak: Weak<App> = Rc::downgrade(app);
+    move |args| {
+        if let Some(app) = weak.upgrade() {
+            f(&app, args);
+        }
+    }
+}
+
+impl App {
+    fn wire(app: &Rc<App>) {
+        let m = &app.main;
+        let unit = |f: fn(&Rc<App>)| with_app(app, move |a, ()| f(a));
+        m.on_pick_folder({
+            let f = unit(App::pick_source);
+            move || f(())
+        });
+        m.on_start({
+            let f = unit(App::start);
+            move || f(())
+        });
+        m.on_cancel({
+            let f = unit(|a| a.cancel());
+            move || f(())
+        });
+        m.on_back({
+            let f = unit(|a| {
+                a.flow.lock().expect("flow lock").back();
+                a.render();
+            });
+            move || f(())
+        });
+        m.on_new_report({
+            let f = unit(|a| {
+                a.flow.lock().expect("flow lock").new_report();
+                a.control.borrow_mut().take();
+                a.main.set_open_error(SharedString::new());
+                a.render();
+            });
+            move || f(())
+        });
+        m.on_open_pdf({
+            let f = unit(|a| a.open_output(|o| o.pdf.clone()));
+            move || f(())
+        });
+        m.on_open_html({
+            let f = unit(|a| a.open_output(|o| o.html.clone()));
+            move || f(())
+        });
+        m.on_show_folder({
+            let f = unit(|a| a.open_output(|o| o.folder.clone()));
+            move || f(())
+        });
+        m.on_open_settings({
+            let f = unit(App::open_settings);
+            move || f(())
+        });
+        m.on_open_credits({
+            let f = unit(App::open_credits);
+            move || f(())
+        });
+
+        // Closing the main window quits, even if Settings or Credits is open.
+        m.window().on_close_requested(|| {
+            let _ = slint::quit_event_loop();
+            slint::CloseRequestResponse::HideWindow
+        });
+
+        // Folders dragged onto the window.
+        let on_drop = with_app(app, |a, event: WindowEvent| a.window_event(&event));
+        m.window().on_winit_window_event(move |_, event| {
+            if matches!(
+                event,
+                WindowEvent::HoveredFile(_)
+                    | WindowEvent::HoveredFileCancelled
+                    | WindowEvent::DroppedFile(_)
+            ) {
+                on_drop(event.clone());
+            }
+            EventResult::Propagate
+        });
+    }
+
+    fn render(&self) {
+        let view = main_view(&self.flow.lock().expect("flow lock"));
+        apply_view(&self.main, &view);
+        self.main.set_output_dir(
+            self.settings
+                .borrow()
+                .output_dir
+                .display()
+                .to_string()
+                .into(),
+        );
+    }
+
+    fn window_event(&self, event: &WindowEvent) {
+        let accepts = self.flow.lock().expect("flow lock").accepts_source();
+        match event {
+            WindowEvent::HoveredFile(_) => self.main.set_drag_hover(accepts),
+            WindowEvent::HoveredFileCancelled => self.main.set_drag_hover(false),
+            WindowEvent::DroppedFile(path) => {
+                self.main.set_drag_hover(false);
+                if accepts {
+                    self.flow
+                        .lock()
+                        .expect("flow lock")
+                        .pick_source(validate_source(path));
+                    self.render();
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn pick_source(self: &Rc<Self>) {
+        self.pick_folder(self.main.window(), None, |app, path| {
+            app.flow
+                .lock()
+                .expect("flow lock")
+                .pick_source(validate_source(&path));
+            app.render();
+        });
+    }
+
+    fn start(self: &Rc<Self>) {
+        let Some((run, source)) = self.flow.lock().expect("flow lock").start() else {
+            return;
+        };
+        self.render();
+        let flow = self.flow.clone();
+        let weak = self.main.as_weak();
+        let events = Box::new(move |event: RunEvent| {
+            let flow = flow.clone();
+            let _ = weak.upgrade_in_event_loop(move |main| {
+                let mut flow = flow.lock().expect("flow lock");
+                flow.apply(run, event);
+                apply_view(&main, &main_view(&flow));
+            });
+        });
+        let control = self
+            .backend
+            .start(source, self.settings.borrow().clone(), events);
+        *self.control.borrow_mut() = Some(control);
+    }
+
+    fn cancel(&self) {
+        if self.flow.lock().expect("flow lock").request_cancel() {
+            if let Some(control) = self.control.borrow().as_ref() {
+                control.cancel();
+            }
+            self.render();
+        }
+    }
+
+    fn open_output(&self, which: impl Fn(&crate::backend::RunOutcome) -> PathBuf) {
+        let path = match self.flow.lock().expect("flow lock").state() {
+            FlowState::Done { outcome, .. } => which(outcome),
+            _ => return,
+        };
+        let error = if !path.exists() {
+            format!(
+                "{} isn't there any more. It may have been moved or deleted.",
+                file_name(&path)
+            )
+        } else {
+            match open::that_detached(&path) {
+                Ok(()) => String::new(),
+                Err(e) => format!("Couldn't open {}: {e}", file_name(&path)),
+            }
+        };
+        self.main.set_open_error(error.into());
+    }
+
+    /// Shows a native folder dialog parented to `parent` and hands the choice
+    /// to `done` on the UI thread.
+    fn pick_folder(
+        self: &Rc<Self>,
+        parent: &slint::Window,
+        start_in: Option<PathBuf>,
+        done: impl FnOnce(&Rc<App>, PathBuf) + 'static,
+    ) {
+        let mut dialog = rfd::AsyncFileDialog::new();
+        if let Some(dir) = start_in.filter(|d| d.is_dir()) {
+            dialog = dialog.set_directory(dir);
+        }
+        self.run_dialog(parent, dialog, false, done);
+    }
+
+    fn run_dialog(
+        self: &Rc<Self>,
+        parent: &slint::Window,
+        dialog: rfd::AsyncFileDialog,
+        file: bool,
+        done: impl FnOnce(&Rc<App>, PathBuf) + 'static,
+    ) {
+        if self.dialog_open.replace(true) {
+            return;
+        }
+        let dialog = parent
+            .with_winit_window(|w| dialog.clone().set_parent(w))
+            .unwrap_or(dialog);
+        let weak = Rc::downgrade(self);
+        let spawned = slint::spawn_local(async move {
+            let picked = if file {
+                dialog.pick_file().await
+            } else {
+                dialog.pick_folder().await
+            };
+            if let Some(app) = weak.upgrade() {
+                app.dialog_open.set(false);
+                if let Some(handle) = picked {
+                    done(&app, handle.path().to_path_buf());
+                }
+            }
+        });
+        if spawned.is_err() {
+            self.dialog_open.set(false);
+        }
+    }
+
+    // ----- Settings -----
+
+    fn open_settings(self: &Rc<Self>) {
+        let existing = self
+            .settings_window
+            .borrow()
+            .as_ref()
+            .map(|w| w.clone_strong());
+        let win = match existing {
+            Some(w) => w,
+            None => match SettingsWindow::new() {
+                Ok(w) => {
+                    self.wire_settings(&w);
+                    *self.settings_window.borrow_mut() = Some(w.clone_strong());
+                    w
+                }
+                Err(_) => return,
+            },
+        };
+        if !win.window().is_visible() {
+            *self.editor.borrow_mut() = SettingsEditor::new(self.settings.borrow().clone());
+            win.set_logo_error(SharedString::new());
+            win.set_save_error(SharedString::new());
+            self.fill_settings(&win);
+        }
+        let _ = win.show();
+    }
+
+    fn wire_settings(self: &Rc<Self>, w: &SettingsWindow) {
+        let sw = |f: fn(&Rc<App>, &SettingsWindow)| {
+            with_app(self, move |app, ()| {
+                let win = app
+                    .settings_window
+                    .borrow()
+                    .as_ref()
+                    .map(|w| w.clone_strong());
+                if let Some(win) = win {
+                    f(app, &win);
+                }
+            })
+        };
+        w.on_text_edited({
+            let f = sw(|app, win| {
+                {
+                    let mut ed = app.editor.borrow_mut();
+                    let d = ed.draft_mut();
+                    d.production = win.get_production().into();
+                    d.company = win.get_company().into();
+                    d.author = win.get_author().into();
+                }
+                app.refresh_dirty(win);
+            });
+            move || f(())
+        });
+        w.on_label_edited({
+            let f = with_app(self, |app, (i, t): (i32, SharedString)| {
+                app.editor.borrow_mut().set_label(i as usize, &t);
+                app.with_settings_window(|w| app.refresh_dirty(w));
+            });
+            move |i, t| f((i, t))
+        });
+        w.on_value_edited({
+            let f = with_app(self, |app, (i, t): (i32, SharedString)| {
+                app.editor.borrow_mut().set_value(i as usize, &t);
+                app.with_settings_window(|w| app.refresh_dirty(w));
+            });
+            move |i, t| f((i, t))
+        });
+        w.on_add_field({
+            let f = sw(|app, win| {
+                app.editor.borrow_mut().add_field();
+                app.fill_fields(win);
+            });
+            move || f(())
+        });
+        let row_op = |op: fn(&mut SettingsEditor, usize)| {
+            with_app(self, move |app, i: i32| {
+                op(&mut app.editor.borrow_mut(), i as usize);
+                app.with_settings_window(|w| app.fill_fields(w));
+            })
+        };
+        w.on_remove_field(row_op(SettingsEditor::remove_field));
+        w.on_move_up(row_op(SettingsEditor::move_up));
+        w.on_move_down(row_op(SettingsEditor::move_down));
+        w.on_pick_logo({
+            let f = sw(App::pick_logo);
+            move || f(())
+        });
+        w.on_remove_logo({
+            let f = sw(|app, win| {
+                app.store.clear_logo(app.editor.borrow_mut().draft_mut());
+                win.set_logo_error(SharedString::new());
+                app.fill_logo(win);
+                app.refresh_dirty(win);
+            });
+            move || f(())
+        });
+        w.on_pick_output({
+            let f = sw(|app, win| {
+                let start = Some(app.editor.borrow().draft().output_dir.clone());
+                app.pick_folder(win.window(), start, |app, path| {
+                    app.editor.borrow_mut().draft_mut().output_dir = path;
+                    app.with_settings_window(|w| {
+                        w.set_output_dir(output_text(app.editor.borrow().draft()).into());
+                        app.refresh_dirty(w);
+                    });
+                });
+            });
+            move || f(())
+        });
+        w.on_save({
+            let f = sw(|a, w| a.save_settings(w));
+            move || f(())
+        });
+        w.on_cancel({
+            let f = sw(|app, win| {
+                app.editor.borrow_mut().revert();
+                let _ = win.hide();
+            });
+            move || f(())
+        });
+        let close = with_app(self, |app, ()| app.editor.borrow_mut().revert());
+        w.window().on_close_requested(move || {
+            close(());
+            slint::CloseRequestResponse::HideWindow
+        });
+    }
+
+    fn with_settings_window(&self, f: impl FnOnce(&SettingsWindow)) {
+        let win = self
+            .settings_window
+            .borrow()
+            .as_ref()
+            .map(|w| w.clone_strong());
+        if let Some(win) = win {
+            f(&win);
+        }
+    }
+
+    fn fill_settings(&self, win: &SettingsWindow) {
+        {
+            let ed = self.editor.borrow();
+            let d = ed.draft();
+            win.set_production(d.production.clone().into());
+            win.set_company(d.company.clone().into());
+            win.set_author(d.author.clone().into());
+            win.set_output_dir(output_text(d).into());
+        }
+        self.fill_logo(win);
+        self.fill_fields(win);
+        self.refresh_dirty(win);
+    }
+
+    fn fill_fields(&self, win: &SettingsWindow) {
+        // A fresh model each time: rows are re-created, so reordered text
+        // can't be left behind in a recycled field.
+        let rows: Vec<CustomField> = self
+            .editor
+            .borrow()
+            .draft()
+            .custom
+            .iter()
+            .map(|(l, v)| CustomField {
+                label: l.into(),
+                value: v.into(),
+            })
+            .collect();
+        win.set_fields(ModelRc::new(VecModel::from(rows)));
+        self.refresh_dirty(win);
+    }
+
+    fn fill_logo(&self, win: &SettingsWindow) {
+        let logo = self.editor.borrow().draft().logo.clone();
+        match logo
+            .as_deref()
+            .and_then(|p| Some((p, slint::Image::load_from_path(p).ok()?)))
+        {
+            Some((path, image)) => {
+                win.set_logo(image);
+                win.set_logo_name(file_name(path).into());
+                win.set_has_logo(true);
+            }
+            None => {
+                win.set_logo(slint::Image::default());
+                win.set_logo_name(SharedString::new());
+                win.set_has_logo(false);
+            }
+        }
+    }
+
+    fn refresh_dirty(&self, win: &SettingsWindow) {
+        win.set_can_save(self.editor.borrow().is_dirty());
+        win.set_save_error(SharedString::new());
+    }
+
+    fn pick_logo(self: &Rc<Self>, win: &SettingsWindow) {
+        let dialog = rfd::AsyncFileDialog::new()
+            .add_filter("Logo (PNG, JPEG, SVG)", &["png", "jpg", "jpeg", "svg"]);
+        self.run_dialog(win.window(), dialog, true, |app, path| {
+            let mut candidate = app.editor.borrow().draft().clone();
+            let result = app.store.set_logo(&mut candidate, &path).and_then(|()| {
+                let shown = candidate.logo.as_deref().unwrap_or(&path);
+                slint::Image::load_from_path(shown)
+                    .map(|_| ())
+                    .map_err(|_| {
+                        "Luna couldn't read that image. Use a PNG, JPEG or SVG file.".to_string()
+                    })
+            });
+            app.with_settings_window(|w| match result {
+                Ok(()) => {
+                    *app.editor.borrow_mut().draft_mut() = candidate;
+                    w.set_logo_error(SharedString::new());
+                    app.fill_logo(w);
+                    app.refresh_dirty(w);
+                }
+                Err(e) => w.set_logo_error(format!("{}: {e}", file_name(&path)).into()),
+            });
+        });
+    }
+
+    fn save_settings(&self, win: &SettingsWindow) {
+        let validated = self.editor.borrow().validated();
+        let result = validated.and_then(|s| self.store.save(&s).map(|()| s));
+        match result {
+            Ok(saved) => {
+                self.editor.borrow_mut().mark_saved(saved.clone());
+                *self.settings.borrow_mut() = saved;
+                self.render();
+                let _ = win.hide();
+            }
+            Err(e) => win.set_save_error(e.into()),
+        }
+    }
+
+    // ----- Credits -----
+
+    fn open_credits(self: &Rc<Self>) {
+        let existing = self
+            .credits_window
+            .borrow()
+            .as_ref()
+            .map(|w| w.clone_strong());
+        let win = match existing {
+            Some(w) => w,
+            None => match CreditsWindow::new() {
+                Ok(w) => {
+                    w.set_components(ModelRc::new(VecModel::from(credits())));
+                    let weak = w.as_weak();
+                    w.on_close_clicked(move || {
+                        if let Some(w) = weak.upgrade() {
+                            let _ = w.hide();
+                        }
+                    });
+                    *self.credits_window.borrow_mut() = Some(w.clone_strong());
+                    w
+                }
+                Err(_) => return,
+            },
+        };
+        let _ = win.show();
+    }
+}
+
+fn credits() -> Vec<Component> {
+    [
+        ("Slint", "Royalty-free 2.0", "User interface toolkit"),
+        ("Typst", "Apache-2.0", "Typesetting for the PDF report"),
+        (
+            "askama",
+            "MIT or Apache-2.0",
+            "Templates for the HTML report",
+        ),
+        ("rfd", "MIT", "Native file and folder dialogs"),
+        ("open", "MIT", "Opens reports in their default app"),
+    ]
+    .into_iter()
+    .map(|(name, licence, role)| Component {
+        name: name.into(),
+        licence: licence.into(),
+        role: role.into(),
+    })
+    .collect()
+}
+
+fn apply_view(main: &MainWindow, v: &MainView) {
+    main.set_phase(match v.phase {
+        ViewPhase::Idle => Phase::Idle,
+        ViewPhase::Picked => Phase::Picked,
+        ViewPhase::Running => Phase::Running,
+        ViewPhase::Done => Phase::Done,
+        ViewPhase::Failed => Phase::Failed,
+        ViewPhase::Cancelled => Phase::Cancelled,
+    });
+    main.set_source(v.source.as_str().into());
+    main.set_source_name(v.source_name.as_str().into());
+    main.set_source_error(v.source_error.as_str().into());
+    main.set_files_found(v.files_found.as_str().into());
+    main.set_clips_done(v.clips_done.as_str().into());
+    main.set_clips_total(v.clips_total.as_str().into());
+    main.set_problems(v.problems.as_str().into());
+    main.set_has_problems(v.has_problems);
+    main.set_progress(v.progress);
+    main.set_indeterminate(v.indeterminate);
+    main.set_cancelling(v.cancelling);
+    main.set_summary(v.summary.as_str().into());
+    main.set_pdf_name(v.pdf_name.as_str().into());
+    main.set_html_name(v.html_name.as_str().into());
+    main.set_csv_name(v.csv_name.as_str().into());
+    main.set_folder(v.folder.as_str().into());
+    main.set_failure(v.failure.as_str().into());
+}
+
+fn output_text(s: &Settings) -> String {
+    s.output_dir.display().to_string()
+}
+
+fn file_name(p: &Path) -> String {
+    p.file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_else(|| p.display().to_string())
+}

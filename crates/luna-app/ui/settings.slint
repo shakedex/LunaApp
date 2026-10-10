@@ -1,0 +1,374 @@
+// Settings: what the report header says, the logo, custom fields and where
+// reports go. Edits are kept as a draft until Save.
+
+import { ScrollView } from "std-widgets.slint";
+import { Theme } from "theme.slint";
+import { LunaButton, ButtonKind, IconButton, IconKind, TextField, Field, SectionHeading, ErrorLine, FolderGlyph } from "controls.slint";
+
+export struct CustomField {
+    label: string,
+    value: string,
+}
+
+component Rule inherits Rectangle {
+    height: 1px;
+    background: Theme.line;
+}
+
+export component SettingsWindow inherits Window {
+    title: "Luna Settings";
+    icon: @image-url("assets/luna-icon.png");
+    min-width: 720px;
+    min-height: 600px;
+    preferred-width: 780px;
+    preferred-height: 760px;
+    background: Theme.canvas;
+    default-font-size: Theme.size-body;
+
+    in-out property <string> production;
+    in-out property <string> company;
+    in-out property <string> author;
+    in property <image> logo;
+    in property <bool> has-logo;
+    in property <string> logo-name;
+    in property <string> logo-error;
+    in property <[CustomField]> fields;
+    in property <string> output-dir;
+    in property <bool> can-save;
+    in property <string> save-error;
+
+    callback text-edited();
+    callback pick-logo();
+    callback remove-logo();
+    callback add-field();
+    callback remove-field(int);
+    callback move-up(int);
+    callback move-down(int);
+    callback label-edited(int, string);
+    callback value-edited(int, string);
+    callback pick-output();
+    callback save();
+    callback cancel();
+
+    VerticalLayout {
+        ScrollView {
+            vertical-stretch: 1;
+            VerticalLayout {
+                padding: 36px;
+                padding-top: 32px;
+                spacing: 32px;
+
+                Text {
+                    text: "Settings";
+                    font-size: Theme.size-title;
+                    font-weight: 600;
+                    color: Theme.text;
+                }
+
+                // Report header.
+                VerticalLayout {
+                    spacing: 16px;
+                    SectionHeading {
+                        title: "Report header";
+                        note: "Printed at the top of every report.";
+                    }
+
+                    Field {
+                        label: "Production";
+                        placeholder: "e.g. The Long Night";
+                        text <=> root.production;
+                        edited => {
+                            root.text-edited();
+                        }
+                    }
+
+                    HorizontalLayout {
+                        spacing: 16px;
+                        Field {
+                            label: "Company";
+                            placeholder: "Production company";
+                            text <=> root.company;
+                            edited => {
+                                root.text-edited();
+                            }
+                        }
+
+                        Field {
+                            label: "Report author";
+                            placeholder: "Your name";
+                            text <=> root.author;
+                            edited => {
+                                root.text-edited();
+                            }
+                        }
+                    }
+                }
+
+                Rule { }
+
+                // Logo.
+                VerticalLayout {
+                    spacing: 16px;
+                    SectionHeading {
+                        title: "Company logo";
+                        note: "PNG, JPEG or SVG. Shown in the report header.";
+                    }
+
+                    HorizontalLayout {
+                        spacing: 20px;
+                        alignment: start;
+                        Rectangle {
+                            width: 220px;
+                            height: 88px;
+                            border-radius: Theme.radius;
+                            // Logos are mostly drawn for white paper; preview them on light.
+                            background: root.has-logo ? #f3f4f6 : Theme.field;
+                            border-width: 1px;
+                            border-color: Theme.line-strong;
+                            if root.has-logo: Image {
+                                x: 12px;
+                                y: 12px;
+                                width: parent.width - 24px;
+                                height: parent.height - 24px;
+                                source: root.logo;
+                                image-fit: contain;
+                            }
+                            if !root.has-logo: Text {
+                                text: "No logo";
+                                color: Theme.text-faint;
+                                font-size: 13px;
+                            }
+                        }
+
+                        VerticalLayout {
+                            alignment: center;
+                            spacing: 10px;
+                            if root.has-logo: Text {
+                                text: root.logo-name;
+                                font-size: 13px;
+                                color: Theme.text-muted;
+                                overflow: elide;
+                                max-width: 320px;
+                            }
+                            HorizontalLayout {
+                                spacing: 10px;
+                                alignment: start;
+                                LunaButton {
+                                    text: root.has-logo ? "Replace logo…" : "Choose logo…";
+                                    clicked => {
+                                        root.pick-logo();
+                                    }
+                                }
+
+                                if root.has-logo: LunaButton {
+                                    text: "Remove";
+                                    kind: ButtonKind.quiet;
+                                    clicked => {
+                                        root.remove-logo();
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if root.logo-error != "": ErrorLine {
+                        text: root.logo-error;
+                    }
+                }
+
+                Rule { }
+
+                // Custom fields.
+                VerticalLayout {
+                    spacing: 14px;
+                    SectionHeading {
+                        title: "Custom fields";
+                        note: "Extra lines for the report header, printed in this order. For example Episode, Unit or Location.";
+                    }
+
+                    if root.fields.length == 0: Text {
+                        text: "No custom fields yet.";
+                        font-size: 13px;
+                        color: Theme.text-faint;
+                    }
+
+                    if root.fields.length > 0: HorizontalLayout {
+                        spacing: 10px;
+                        Text {
+                            text: "Label";
+                            font-size: 13px;
+                            color: Theme.text-muted;
+                            horizontal-stretch: 2;
+                            min-width: 120px;
+                        }
+
+                        Text {
+                            text: "Value";
+                            font-size: 13px;
+                            color: Theme.text-muted;
+                            horizontal-stretch: 3;
+                            min-width: 120px;
+                        }
+
+                        Rectangle {
+                            width: 3 * 32px + 2 * 2px;
+                            horizontal-stretch: 0;
+                        }
+                    }
+
+                    for field[i] in root.fields: HorizontalLayout {
+                        spacing: 10px;
+                        TextField {
+                            horizontal-stretch: 2;
+                            label: "Label of field " + (i + 1);
+                            text: field.label;
+                            placeholder: "Label";
+                            edited(t) => {
+                                root.label-edited(i, t);
+                            }
+                        }
+
+                        TextField {
+                            horizontal-stretch: 3;
+                            label: "Value of field " + (i + 1);
+                            text: field.value;
+                            placeholder: "Value";
+                            edited(t) => {
+                                root.value-edited(i, t);
+                            }
+                        }
+
+                        HorizontalLayout {
+                            spacing: 2px;
+                            width: 3 * 32px + 2 * 2px;
+                            horizontal-stretch: 0;
+                            VerticalLayout {
+                                alignment: center;
+                                IconButton {
+                                    icon: IconKind.up;
+                                    label: "Move field " + (i + 1) + " up";
+                                    enabled: i > 0;
+                                    clicked => {
+                                        root.move-up(i);
+                                    }
+                                }
+                            }
+
+                            VerticalLayout {
+                                alignment: center;
+                                IconButton {
+                                    icon: IconKind.down;
+                                    label: "Move field " + (i + 1) + " down";
+                                    enabled: i < root.fields.length - 1;
+                                    clicked => {
+                                        root.move-down(i);
+                                    }
+                                }
+                            }
+
+                            VerticalLayout {
+                                alignment: center;
+                                IconButton {
+                                    icon: IconKind.remove;
+                                    label: "Remove field " + (i + 1);
+                                    clicked => {
+                                        root.remove-field(i);
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    HorizontalLayout {
+                        alignment: start;
+                        LunaButton {
+                            text: "Add field";
+                            clicked => {
+                                root.add-field();
+                            }
+                        }
+                    }
+                }
+
+                Rule { }
+
+                // Output.
+                VerticalLayout {
+                    spacing: 16px;
+                    SectionHeading {
+                        title: "Output location";
+                        note: "Each run writes its own folder here.";
+                    }
+
+                    Rectangle {
+                        border-radius: Theme.radius;
+                        background: Theme.surface;
+                        border-width: 1px;
+                        border-color: Theme.line;
+                        HorizontalLayout {
+                            padding: 10px;
+                            padding-left: 14px;
+                            spacing: 12px;
+                            VerticalLayout {
+                                alignment: center;
+                                FolderGlyph { }
+                            }
+
+                            Text {
+                                text: root.output-dir;
+                                color: Theme.text;
+                                vertical-alignment: center;
+                                overflow: elide;
+                                horizontal-stretch: 1;
+                            }
+
+                            LunaButton {
+                                text: "Choose folder…";
+                                clicked => {
+                                    root.pick-output();
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Rule { }
+
+        HorizontalLayout {
+            padding: 16px;
+            padding-left: 36px;
+            padding-right: 24px;
+            spacing: 12px;
+            VerticalLayout {
+                alignment: center;
+                horizontal-stretch: 1;
+                if root.save-error != "": ErrorLine {
+                    text: root.save-error;
+                }
+                if root.save-error == "": Text {
+                    text: root.can-save ? "You have unsaved changes." : "";
+                    font-size: 13px;
+                    color: Theme.text-muted;
+                }
+            }
+
+            LunaButton {
+                text: root.can-save ? "Discard" : "Close";
+                clicked => {
+                    root.cancel();
+                }
+            }
+
+            LunaButton {
+                text: "Save";
+                kind: ButtonKind.primary;
+                enabled: root.can-save;
+                clicked => {
+                    root.save();
+                }
+            }
+        }
+    }
+}
