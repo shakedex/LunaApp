@@ -74,12 +74,10 @@ impl SettingsStore for MemorySettingsStore {
 }
 
 /// `Documents/Luna Reports` in the user's home folder.
+/// `Documents/Luna Reports`, from the platform's real Documents folder
+/// (which may be redirected).
 pub fn default_output_dir() -> PathBuf {
-    let home = std::env::var_os("USERPROFILE")
-        .or_else(|| std::env::var_os("HOME"))
-        .map(PathBuf::from)
-        .unwrap_or_default();
-    home.join("Documents").join("Luna Reports")
+    luna_core::settings::default_output_dir()
 }
 
 #[cfg(test)]

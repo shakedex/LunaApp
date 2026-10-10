@@ -5,6 +5,7 @@
 //! them to the Slint components in `ui/`.
 
 pub mod backend;
+pub mod core_backend;
 pub mod flow;
 pub mod settings_edit;
 pub mod settings_store;
