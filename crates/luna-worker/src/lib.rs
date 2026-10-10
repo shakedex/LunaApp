@@ -112,7 +112,9 @@ pub fn run_job(job: &ClipJob) -> ClipResult {
     let strip = job.strip as usize;
     let mut warnings = Vec::new();
 
-    let probe = match luna_formats::probe(files) {
+    // Vendor formats (CRM, BRAW, R3D) are read through their decoders; the rest by our parsers.
+    let probe = luna_decode::vendor_probe(files).unwrap_or_else(|| luna_formats::probe(files));
+    let probe = match probe {
         Ok(p) => p,
         Err(e) => {
             let reason = format!("Could not read this clip: {e}");
