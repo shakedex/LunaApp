@@ -183,41 +183,20 @@ fn r3d_through_the_addon() {
 }
 
 #[test]
-fn arriraw_alexa35() {
+fn arriraw_waits_for_the_verified_decoder() {
     let Some(path) = corpus("T_CAM/DW0001C021_251020_132307_a1I7H_arri-raw.mxf") else {
         return;
     };
-    let ranges = common::mxf_picture_ranges(&path).unwrap();
-    assert_eq!(ranges.len(), 165);
     let p = probe(
         Codec::ArriRaw,
-        FrameIndex::Ranges(ranges),
-        PictureLayout {
-            stored_width: 2048,
-            stored_height: 1152,
-            raw_bits: Some(13),
-            pixel_aspect: None,
-        },
+        FrameIndex::DecoderOwned,
+        PictureLayout::default(),
     );
-    let clip = files(Container::Mxf, &path);
-    let out = decode_frames(&clip, &p, &[0, 82, 164], 640);
-    for r in out {
-        let f = r.unwrap();
-        assert_eq!(mosaic_size(&f), (2048, 1152));
-        let Decoded::Mosaic {
-            ref data,
-            black,
-            white,
-            ..
-        } = f.image
-        else {
-            unreachable!()
-        };
-        assert_eq!((black, white), (256.0, 8191.0));
-        // Smooth, sane data: no sample under black - noise, mean well above black.
-        assert!(data.iter().all(|&v| v >= 200));
-        assert!(mosaic_mean(&f) > 300.0);
-    }
+    let out = decode_frames(&files(Container::Mxf, &path), &p, &[0, 82, 164], 640);
+    assert!(
+        out.iter()
+            .all(|r| matches!(r, Err(DecodeError::Unsupported(_))))
+    );
 }
 
 #[test]

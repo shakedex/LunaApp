@@ -3,8 +3,7 @@
 //! ```text
 //! cargo run -p luna-decode --release --example dump -- <kind> <file> [frame] [out.png] [min_width]
 //! ```
-//! `kind`: xocn, crm, braw, r3d, prores, h264, hevc, or `arriraw:WxHxBITS`
-//! (e.g. `arriraw:2048x1152x13`). Vendor containers also print their metadata.
+//! `kind`: xocn, crm, braw, r3d, prores, h264, hevc. Vendor containers also print their metadata.
 
 #[path = "../tests/common/mod.rs"]
 mod common;
@@ -13,7 +12,7 @@ use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 use luna_decode::{Decoded, decode_frames, vendor_probe};
-use luna_formats::{Codec, Container, FrameIndex, PictureLayout, ProResProfile};
+use luna_formats::{Codec, Container, FrameIndex, ProResProfile};
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -84,27 +83,6 @@ fn main() {
                 Default::default(),
             ),
         ),
-        k if k.starts_with("arriraw:") => {
-            let dims: Vec<u32> = k[8..].split('x').filter_map(|s| s.parse().ok()).collect();
-            let [w, h, bits] = dims[..] else {
-                panic!("arriraw:WxHxBITS");
-            };
-            let ranges = common::mxf_picture_ranges(path).expect("index");
-            println!("{} frames", ranges.len());
-            (
-                Container::Mxf,
-                common::probe(
-                    Codec::ArriRaw,
-                    FrameIndex::Ranges(ranges),
-                    PictureLayout {
-                        stored_width: w,
-                        stored_height: h,
-                        raw_bits: Some(bits as u8),
-                        pixel_aspect: None,
-                    },
-                ),
-            )
-        }
         other => panic!("unknown kind {other}"),
     };
 
