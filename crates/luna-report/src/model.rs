@@ -39,6 +39,8 @@ pub enum IdentitySource {
     FileName,
     Folder,
     FolderName,
+    /// Not named by the clip itself; taken from the other clips on its card.
+    Card,
 }
 
 impl IdentitySource {
@@ -48,6 +50,7 @@ impl IdentitySource {
             Self::FileName => "file name",
             Self::Folder => "folder structure",
             Self::FolderName => "folder name",
+            Self::Card => "card neighbours",
         }
     }
 }
