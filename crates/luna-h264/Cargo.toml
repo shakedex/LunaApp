@@ -1,0 +1,11 @@
+[package]
+name = "luna-h264"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Clean-room H.264 intra-picture decoder for camera thumbnails"
+
+[dependencies]
+
+[dev-dependencies]
+luna-formats = { version = "0.0.0", path = "../luna-formats" }

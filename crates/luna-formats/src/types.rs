@@ -307,6 +307,10 @@ pub struct Probe {
     pub meta: ClipMeta,
     pub frames: FrameIndex,
     pub layout: PictureLayout,
+    /// The codec's out-of-band configuration when the container carries one
+    /// (QuickTime `avcC` / `hvcC` record body), for decoders that need it.
+    #[serde(default)]
+    pub codec_config: Option<Vec<u8>>,
     /// Things the parser noticed but could not settle, for the report's clip warnings.
     pub warnings: Vec<String>,
 }

@@ -1,7 +1,7 @@
 //! Decoding a few frames of a clip for thumbnails.
 //!
 //! One entry point, [`decode_frames`], picks a backend from the probed codec:
-//! our own decoders (ProRes, ARRIRAW, X-OCN, CRM), bundled vendor SDKs (BRAW;
+//! our own decoders (ProRes, intra H.264, ARRIRAW, X-OCN, CRM), bundled vendor SDKs (BRAW;
 //! R3D through the closed add-on loaded at runtime), or the platform decoder
 //! (Media Foundation on Windows, AVFoundation on macOS). Platform APIs live only
 //! in this crate, behind `cfg(target_os)`.
@@ -11,6 +11,7 @@ use luna_formats::{ClipFiles, Codec, ColourHint, Container, Gamut, Probe, Transf
 mod arri_raw;
 mod braw_sdk;
 mod crm_raw;
+mod h264;
 #[cfg(windows)]
 mod mf;
 mod mosaic;
@@ -144,7 +145,14 @@ pub fn decode_frames(
             Backend::R3d => r3d::decode(clip, probe, positions, min_width),
             Backend::ArriRaw => arri_raw::decode(clip, probe, positions, min_width),
             Backend::ProRes => prores::decode(clip, probe, positions, min_width),
-            Backend::Platform => platform_decode(clip, probe, positions, min_width),
+            Backend::H264 => h264::decode(clip, probe, positions, min_width),
+            Backend::Platform => with_h264_fallback(
+                clip,
+                probe,
+                positions,
+                min_width,
+                platform_decode(clip, probe, positions, min_width),
+            ),
             Backend::None => util::all_err(
                 positions.len(),
                 DecodeError::Unsupported(format!("No decoder for {} yet", probe.codec.label())),
@@ -174,6 +182,7 @@ enum Backend {
     R3d,
     ArriRaw,
     ProRes,
+    H264,
     Platform,
     None,
 }
@@ -187,6 +196,7 @@ impl Backend {
             Backend::R3d => "R3D",
             Backend::ArriRaw => "ARRIRAW",
             Backend::ProRes => "ProRes",
+            Backend::H264 => "H.264",
             Backend::Platform => "platform video",
             Backend::None => "no",
         }
@@ -201,9 +211,38 @@ fn backend_for(clip: &ClipFiles, probe: &Probe) -> Backend {
         (Codec::Redcode, _) | (_, Container::R3d) => Backend::R3d,
         (Codec::ArriRaw, _) => Backend::ArriRaw,
         (Codec::ProRes(_), Container::Mxf | Container::QuickTime) => Backend::ProRes,
+        (Codec::H264, Container::Mxf) => Backend::H264,
         (Codec::H264 | Codec::Hevc, Container::QuickTime) => Backend::Platform,
         _ => Backend::None,
     }
+}
+
+/// H.264 positions the platform decoder can't take (High 4:2:2 and High 10
+/// on Windows) go to our own intra decoder when the clip's frames are indexed.
+fn with_h264_fallback(
+    clip: &ClipFiles,
+    probe: &Probe,
+    positions: &[u64],
+    min_width: u32,
+    mut out: Vec<Result<Frame, DecodeError>>,
+) -> Vec<Result<Frame, DecodeError>> {
+    if probe.codec != Codec::H264 || !matches!(probe.frames, luna_formats::FrameIndex::Ranges(_)) {
+        return out;
+    }
+    let redo: Vec<usize> = (0..out.len().min(positions.len()))
+        .filter(|&k| matches!(out[k], Err(DecodeError::Unsupported(_))))
+        .collect();
+    if redo.is_empty() {
+        return out;
+    }
+    let again: Vec<u64> = redo.iter().map(|&k| positions[k]).collect();
+    for (k, r) in redo
+        .into_iter()
+        .zip(h264::decode(clip, probe, &again, min_width))
+    {
+        out[k] = r;
+    }
+    out
 }
 
 #[cfg(windows)]
@@ -263,6 +302,7 @@ mod tests {
             meta: ClipMeta::default(),
             frames: FrameIndex::DecoderOwned,
             layout: PictureLayout::default(),
+            codec_config: None,
             warnings: vec![],
         }
     }
@@ -284,7 +324,7 @@ mod tests {
         );
         assert_eq!(backend_for(&mov, &probe(Codec::H264)), Backend::Platform);
         assert_eq!(backend_for(&mov, &probe(Codec::Hevc)), Backend::Platform);
-        assert_eq!(backend_for(&mxf, &probe(Codec::H264)), Backend::None);
+        assert_eq!(backend_for(&mxf, &probe(Codec::H264)), Backend::H264);
         assert_eq!(backend_for(&mov, &probe(Codec::ProResRaw)), Backend::None);
         let crm = clip(Container::Crm, "a.crm");
         assert_eq!(

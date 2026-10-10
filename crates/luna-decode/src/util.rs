@@ -5,7 +5,9 @@ use std::io::{Read, Seek, SeekFrom};
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::path::{Path, PathBuf};
 
-use crate::{DecodeError, Frame};
+use luna_formats::{Gamut, Transfer};
+
+use crate::{DecodeError, Frame, YcbcrMatrix};
 
 /// Runs `f`, turning a panic inside a decoder into an error instead of taking
 /// the worker down.
@@ -91,6 +93,36 @@ pub(crate) fn read_range(path: &Path, offset: u64, len: u64) -> Result<Vec<u8>, 
 
 pub(crate) fn failed(e: impl std::fmt::Display) -> DecodeError {
     DecodeError::Failed(e.to_string())
+}
+
+/// ITU-T H.273 matrix code; unspecified falls back on size (SD → 601).
+pub(crate) fn matrix_for(code: u8, height: u32) -> YcbcrMatrix {
+    match code {
+        1 => YcbcrMatrix::Bt709,
+        9 => YcbcrMatrix::Bt2020,
+        5 | 6 => YcbcrMatrix::Bt601,
+        _ if height >= 720 => YcbcrMatrix::Bt709,
+        _ => YcbcrMatrix::Bt601,
+    }
+}
+
+/// ITU-T H.273 transfer characteristics Luna can display.
+pub(crate) fn transfer_for(code: u8) -> Option<Transfer> {
+    match code {
+        1 | 6 | 14 | 15 => Some(Transfer::Rec709),
+        16 => Some(Transfer::Pq),
+        18 => Some(Transfer::Hlg),
+        _ => None,
+    }
+}
+
+/// ITU-T H.273 colour primaries Luna can display.
+pub(crate) fn gamut_for(code: u8) -> Option<Gamut> {
+    match code {
+        1 => Some(Gamut::Rec709),
+        9 => Some(Gamut::Rec2020),
+        _ => None,
+    }
 }
 
 #[cfg(test)]

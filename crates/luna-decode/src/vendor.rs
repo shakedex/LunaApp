@@ -39,6 +39,7 @@ fn probe_of(codec: Codec, meta: ClipMeta, layout: PictureLayout) -> Probe {
         meta,
         frames: FrameIndex::DecoderOwned,
         layout,
+        codec_config: None,
         warnings: Vec::new(),
     }
 }

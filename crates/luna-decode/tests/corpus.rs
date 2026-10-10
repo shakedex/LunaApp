@@ -209,20 +209,76 @@ fn arriraw_alexa35_through_the_verified_decoder() {
     }
 }
 
-#[test]
-fn h264_422_is_unsupported_on_windows() {
-    let Some(path) = corpus("S_cam/S002/lumix_s5.mov") else {
+/// First, middle and last frame of an H.264 clip through the real parser
+/// and our own intra decoder (directly for MXF, as the platform fallback for
+/// MOV).
+fn h264_thumbnails(rel: &str, container: Container, size: (u32, u32), full_range: bool) {
+    let Some(path) = corpus(rel) else {
         return;
     };
-    let clip = files(Container::QuickTime, &path);
-    let p = probe(Codec::H264, FrameIndex::DecoderOwned, Default::default());
-    let out = decode_frames(&clip, &p, &[0, 100], 640);
+    let clip = files(container, &path);
+    let p = luna_formats::probe(&clip).unwrap();
+    assert_eq!(p.codec, Codec::H264);
+    let n = p.meta.frame_count.unwrap();
+    let t = std::time::Instant::now();
+    let out = decode_frames(&clip, &p, &[0, n / 2, n - 1], 640);
+    eprintln!("{rel}: 3 frames in {:?}", t.elapsed());
     for r in out {
-        match r {
-            Err(DecodeError::Unsupported(m)) => assert!(m.contains("isn't supported"), "{m}"),
-            other => panic!("expected unsupported, got {other:?}"),
-        }
+        let f = r.unwrap_or_else(|e| panic!("{rel}: {e}"));
+        let Decoded::Ycbcr {
+            width,
+            height,
+            chroma_width,
+            chroma_height,
+            bits,
+            full_range: fr,
+            ref y,
+            ..
+        } = f.image
+        else {
+            panic!("expected ycbcr")
+        };
+        assert_eq!((width, height), size);
+        assert_eq!(
+            (chroma_width, chroma_height, bits),
+            (size.0 / 2, size.1, 10)
+        );
+        assert_eq!(fr, full_range);
+        // A real picture, not a flat fill.
+        let mean = y.iter().map(|&v| v as f64).sum::<f64>() / y.len() as f64;
+        let var = y.iter().map(|&v| (v as f64 - mean).powi(2)).sum::<f64>() / y.len() as f64;
+        assert!(var > 10.0, "{rel}: flat picture");
     }
+}
+
+#[test]
+fn h264_xavc_intra_mxf() {
+    h264_thumbnails(
+        "S_cam/S003/Filmplusgear-FX6-testfile-1-254_0110.MXF",
+        Container::Mxf,
+        (4096, 2160),
+        true,
+    );
+}
+
+#[test]
+fn h264_canon_xf_avc_long_gop_mxf() {
+    h264_thumbnails(
+        "S_cam/s004/s_0004C062A250107_2240217S_CANON.MXF",
+        Container::Mxf,
+        (3840, 2160),
+        true,
+    );
+}
+
+#[test]
+fn h264_422_mov_falls_back_to_luna_h264() {
+    h264_thumbnails(
+        "S_cam/S002/lumix_s5.mov",
+        Container::QuickTime,
+        (3840, 2160),
+        true,
+    );
 }
 
 #[cfg(windows)]

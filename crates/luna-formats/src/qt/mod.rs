@@ -124,7 +124,8 @@ pub(crate) fn probe_source(src: &dyn Source) -> Result<Probe, FormatError> {
     }
 
     let codec = entry::codec(&video.entry_format);
-    let ve = entry::video_entry(&video.entry).unwrap_or_default();
+    let mut ve = entry::video_entry(&video.entry).unwrap_or_default();
+    let codec_config = ve.config.take();
     if ve.fields == Some(2) {
         warnings.push("The picture is interlaced (two fields per frame).".into());
     }
@@ -184,6 +185,7 @@ pub(crate) fn probe_source(src: &dyn Source) -> Result<Probe, FormatError> {
         meta,
         frames,
         layout,
+        codec_config,
         warnings,
     })
 }
