@@ -29,17 +29,29 @@ const MAX_PREFIX: u32 = 24;
 pub(crate) struct BitReader<'a> {
     data: &'a [u8],
     pos: usize,
+    /// Meaningful bits; `data` may carry zero padding beyond them.
+    len_bits: usize,
 }
 
 impl<'a> BitReader<'a> {
     pub fn new(data: &'a [u8]) -> Self {
-        Self { data, pos: 0 }
+        Self::padded(data, data.len())
+    }
+
+    /// A reader over the first `len` bytes of `data`, whose remaining bytes
+    /// are zero padding that lets reads skip the end-of-buffer path.
+    pub fn padded(data: &'a [u8], len: usize) -> Self {
+        Self {
+            data,
+            pos: 0,
+            len_bits: len * 8,
+        }
     }
 
     /// The next 64 bits (zero past the end), left-aligned; at least the top
     /// 57 are meaningful.
     #[inline(always)]
-    fn peek64(&self) -> u64 {
+    pub fn peek64(&self) -> u64 {
         let byte = self.pos >> 3;
         let word = if let Some(chunk) = self.data.get(byte..byte + 8) {
             u64::from_be_bytes(chunk.try_into().unwrap())
@@ -63,7 +75,11 @@ impl<'a> BitReader<'a> {
     /// True once more bits have been consumed than the buffer holds.
     #[inline(always)]
     pub fn overrun(&self) -> bool {
-        self.pos > self.data.len() * 8
+        self.pos > self.len_bits
+    }
+
+    pub fn seek(&mut self, bit: usize) {
+        self.pos = bit;
     }
 
     #[inline(always)]
@@ -102,6 +118,99 @@ impl<'a> BitReader<'a> {
             self.pos += (q + len) as usize;
             Some(value - (1 << book.k_exp) + (rice_prefixes << book.k_rice))
         }
+    }
+}
+
+/// A bit reader that keeps the next bits in a register, for the hot AC loop:
+/// consuming is a shift, and memory is touched once per 32 bits.
+pub(crate) struct CachedReader<'a> {
+    data: &'a [u8],
+    next: usize,
+    buf: u64,
+    avail: u32,
+}
+
+impl<'a> CachedReader<'a> {
+    /// Starts at bit `bit` of `data` (bytes past the end read as zero).
+    pub fn at(data: &'a [u8], bit: usize) -> Self {
+        let byte = bit >> 3;
+        let mut word = [0u8; 8];
+        if let Some(tail) = data.get(byte..) {
+            let n = tail.len().min(8);
+            word[..n].copy_from_slice(&tail[..n]);
+        }
+        let skew = (bit & 7) as u32;
+        Self {
+            data,
+            next: byte + 8,
+            buf: u64::from_be_bytes(word) << skew,
+            avail: 64 - skew,
+        }
+    }
+
+    /// Ensures more than 32 bits are buffered.
+    #[inline(always)]
+    pub fn refill(&mut self) {
+        if self.avail <= 32 {
+            let word = match self.data.get(self.next..self.next + 4) {
+                Some(b) => u32::from_be_bytes(b.try_into().unwrap()),
+                None => 0,
+            };
+            self.buf |= (word as u64) << (32 - self.avail);
+            self.next += 4;
+            self.avail += 32;
+        }
+    }
+
+    /// The buffered bits, left-aligned.
+    #[inline(always)]
+    pub fn peek(&self) -> u64 {
+        self.buf
+    }
+
+    /// Drops `bits` (at most what is buffered).
+    #[inline(always)]
+    pub fn consume(&mut self, bits: u32) {
+        self.buf <<= bits;
+        self.avail -= bits;
+    }
+
+    #[inline(always)]
+    pub fn position(&self) -> usize {
+        self.next * 8 - self.avail as usize
+    }
+}
+
+/// Index width of the codeword lookup tables.
+pub(crate) const LUT_BITS: u32 = 10;
+
+/// Direct lookup for codewords of at most [`LUT_BITS`] bits, indexed by the
+/// next `LUT_BITS` bits. An entry holds the consumed length in its low byte
+/// and the payload above it; zero means "longer code, decode the slow way".
+pub(crate) struct Lut(pub [u32; 1 << LUT_BITS]);
+
+impl Lut {
+    /// Builds the table for `book`. With `level_sign`, the payload is
+    /// `(value + 1) << 1 | sign`: an AC level magnitude and its sign bit.
+    pub fn build(book: Codebook, level_sign: bool) -> Lut {
+        let mut table = [0u32; 1 << LUT_BITS];
+        for (i, entry) in table.iter_mut().enumerate() {
+            let bytes = ((i as u64) << (64 - LUT_BITS)).to_be_bytes();
+            let mut r = BitReader::new(&bytes);
+            let Some(value) = r.read_code(book) else {
+                continue;
+            };
+            let payload = if level_sign {
+                ((value + 1) << 1) | r.read_bit()
+            } else {
+                value
+            };
+            let len = r.position();
+            if len <= LUT_BITS as usize && payload < 1 << 24 {
+                *entry = (payload << 8) | len as u32;
+            }
+        }
+        Lut(table)
     }
 }
 

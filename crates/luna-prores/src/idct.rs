@@ -2,71 +2,64 @@
 //!
 //! RDD 36 defines the inverse transform mathematically (the orthonormal 2-D
 //! DCT-III) rather than as a particular integer algorithm, so this is a
-//! direct separable evaluation in single precision: accurate to far better
-//! than one output code, which is what the specification asks for.
+//! separable evaluation in single precision through an even/odd split of the
+//! 8-point transform: accurate to far better than one output code, which is
+//! what the specification asks for.
 
-use std::sync::OnceLock;
+type Rows = [[f32; 8]; 8];
 
-/// `BASIS[u][x] = c(u)/2 · cos((2x+1)uπ/16)`, `c(0) = 1/√2`, else 1.
-fn basis() -> &'static [[f32; 8]; 8] {
-    static BASIS: OnceLock<[[f32; 8]; 8]> = OnceLock::new();
-    BASIS.get_or_init(|| {
-        let mut t = [[0f32; 8]; 8];
-        for (u, row) in t.iter_mut().enumerate() {
-            let c = if u == 0 {
-                std::f64::consts::FRAC_1_SQRT_2
-            } else {
-                1.0
-            };
-            for (x, v) in row.iter_mut().enumerate() {
-                let angle = ((2 * x + 1) * u) as f64 * std::f64::consts::PI / 16.0;
-                *v = (c / 2.0 * angle.cos()) as f32;
-            }
+/// `cos(kπ/16) / 2`: the 1-D transform's ½ normalisation folded in.
+const H1: f32 = 0.490_392_64;
+const H2: f32 = 0.461_939_77;
+const H3: f32 = 0.415_734_8;
+const H4: f32 = 0.353_553_38;
+const H5: f32 = 0.277_785_12;
+const H6: f32 = 0.191_341_72;
+const H7: f32 = 0.097_545_16;
+
+/// 1-D inverse transform down each column: row `k` of `x` holds frequency
+/// `k` for all eight columns, which the compiler processes as SIMD lanes.
+///
+/// `out[n] = Σ_k c(k)/2 · X[k] · cos((2n+1)kπ/16)`, evaluated as an even
+/// part (k = 0, 2, 4, 6) and an odd part (k = 1, 3, 5, 7) whose sum and
+/// difference give the mirrored outputs `n` and `7 − n`.
+#[inline(always)]
+fn columns(x: &Rows) -> Rows {
+    let mut out = [[0f32; 8]; 8];
+    for l in 0..8 {
+        let a0 = (x[0][l] + x[4][l]) * H4;
+        let a1 = (x[0][l] - x[4][l]) * H4;
+        let b0 = x[2][l] * H2 + x[6][l] * H6;
+        let b1 = x[2][l] * H6 - x[6][l] * H2;
+        let even = [a0 + b0, a1 + b1, a1 - b1, a0 - b0];
+
+        let (x1, x3, x5, x7) = (x[1][l], x[3][l], x[5][l], x[7][l]);
+        let odd = [
+            x1 * H1 + x3 * H3 + x5 * H5 + x7 * H7,
+            x1 * H3 - x3 * H7 - x5 * H1 - x7 * H5,
+            x1 * H5 - x3 * H1 + x5 * H7 + x7 * H3,
+            x1 * H7 - x3 * H5 + x5 * H3 - x7 * H1,
+        ];
+        for n in 0..4 {
+            out[n][l] = even[n] + odd[n];
+            out[7 - n][l] = even[n] - odd[n];
         }
-        t
-    })
+    }
+    out
+}
+
+fn transpose(m: &Rows) -> Rows {
+    std::array::from_fn(|r| std::array::from_fn(|c| m[c][r]))
 }
 
 /// Inverse-transforms one block of dequantised coefficients (raster order)
 /// into spatial values (raster order).
 #[inline]
 pub(crate) fn idct8x8(coefs: &[f32; 64], out: &mut [f32; 64]) {
-    let t = basis();
-    // Rows: tmp[v][x] = Σ_u F[v][u] · T[u][x].
-    let mut tmp = [[0f32; 8]; 8];
-    let mut live_rows = 0u8;
-    for v in 0..8 {
-        let row = &coefs[v * 8..v * 8 + 8];
-        let mut acc = [0f32; 8];
-        let mut any = false;
-        for u in 0..8 {
-            let f = row[u];
-            if f != 0.0 {
-                any = true;
-                for x in 0..8 {
-                    acc[x] += f * t[u][x];
-                }
-            }
-        }
-        if any {
-            live_rows |= 1 << v;
-            tmp[v] = acc;
-        }
-    }
-    // Columns: out[y][x] = Σ_v T[v][y] · tmp[v][x].
-    let mut res = [[0f32; 8]; 8];
-    for v in 0..8 {
-        if live_rows & (1 << v) == 0 {
-            continue;
-        }
-        let r = &tmp[v];
-        for (y, out_row) in res.iter_mut().enumerate() {
-            let w = t[v][y];
-            for x in 0..8 {
-                out_row[x] += w * r[x];
-            }
-        }
-    }
+    // Transposed input: the first pass then transforms rows (Fᵀ → (F·T)ᵀ),
+    // the transpose turns that into F·T, and the second pass gives Tᵀ·F·T.
+    let input: Rows = std::array::from_fn(|r| std::array::from_fn(|c| coefs[c * 8 + r]));
+    let res = columns(&transpose(&columns(&input)));
     for (y, row) in res.iter().enumerate() {
         out[y * 8..y * 8 + 8].copy_from_slice(row);
     }

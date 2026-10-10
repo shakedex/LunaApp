@@ -1,7 +1,9 @@
 //! Constant tables from RDD 36: coefficient scan orders and the adaptive
 //! codebooks for DC differences, AC runs and AC levels.
 
-use crate::bits::{Codebook, cb};
+use std::sync::OnceLock;
+
+use crate::bits::{Codebook, Lut, cb};
 
 /// Progressive-frame scan: scan index → raster position (row × 8 + column).
 pub(crate) const PROGRESSIVE_SCAN: [u8; 64] = [
@@ -76,6 +78,47 @@ pub(crate) const LEVEL: [Codebook; 10] = [
     cb(1, 2, 0),
     cb(2, 3, 0),
 ];
+
+/// Lookup tables for the AC codebooks, shared by identical codebooks.
+pub(crate) struct AcLuts {
+    luts: Vec<Lut>,
+    run: [u8; 16],
+    level: [u8; 10],
+}
+
+impl AcLuts {
+    /// Run table for the previous run (already clamped to 15).
+    #[inline(always)]
+    pub fn run(&self, prev: usize) -> &Lut {
+        &self.luts[self.run[prev] as usize]
+    }
+
+    /// Level-and-sign table for the previous level (already clamped to 9).
+    #[inline(always)]
+    pub fn level(&self, prev: usize) -> &Lut {
+        &self.luts[self.level[prev] as usize]
+    }
+}
+
+pub(crate) fn ac_luts() -> &'static AcLuts {
+    static LUTS: OnceLock<AcLuts> = OnceLock::new();
+    LUTS.get_or_init(|| {
+        let mut keys: Vec<(u8, u8, u8, bool)> = Vec::new();
+        let mut luts = Vec::new();
+        let mut index = |book: Codebook, level_sign: bool| -> u8 {
+            let key = (book.k_rice, book.k_exp, book.last_rice_q, level_sign);
+            let at = keys.iter().position(|k| *k == key).unwrap_or_else(|| {
+                keys.push(key);
+                luts.push(Lut::build(book, level_sign));
+                keys.len() - 1
+            });
+            at as u8
+        };
+        let run = RUN.map(|b| index(b, false));
+        let level = LEVEL.map(|b| index(b, true));
+        AcLuts { luts, run, level }
+    })
+}
 
 #[cfg(test)]
 mod tests {

@@ -3,9 +3,9 @@
 //! reconstruction into the output planes.
 
 use crate::Error;
-use crate::bits::{BitReader, end_of_ones};
+use crate::bits::{BitReader, CachedReader, LUT_BITS, end_of_ones};
 use crate::idct::idct8x8;
-use crate::tables::{DC, FIRST_DC, LEVEL, RUN};
+use crate::tables::{DC, FIRST_DC, LEVEL, RUN, ac_luts};
 
 fn corrupt(msg: &str) -> Error {
     Error::Corrupt(msg.into())
@@ -36,6 +36,7 @@ pub(crate) struct PlaneBand<'a> {
 pub(crate) struct Scratch {
     coefs: Vec<f32>,
     has_ac: Vec<bool>,
+    padded: Vec<u8>,
 }
 
 /// Quantiser scale for a slice's quantisation index.
@@ -62,17 +63,21 @@ fn decode_component(
     factors: &[f32; 64],
     scan: &[u8; 64],
     dc_only: bool,
-    coefs: &mut [f32],
-    has_ac: &mut [bool],
+    scratch: &mut Scratch,
 ) -> Result<(), Error> {
     let blocks = 1usize << log2_blocks;
-    let coefs = &mut coefs[..blocks * 64];
-    let has_ac = &mut has_ac[..blocks];
+    let coefs = &mut scratch.coefs[..blocks * 64];
+    let has_ac = &mut scratch.has_ac[..blocks];
     coefs.fill(0.0);
     has_ac.fill(false);
     let bad = || corrupt("bad coefficient code");
 
-    let mut r = BitReader::new(data);
+    // A zero-padded copy keeps every 64-bit peek on the fast path.
+    let padded = &mut scratch.padded;
+    padded.clear();
+    padded.extend_from_slice(data);
+    padded.resize(data.len() + 16, 0);
+    let mut r = BitReader::padded(padded, data.len());
     let mut dc = signed(r.read_code(FIRST_DC).ok_or_else(bad)?);
     coefs[0] = dc as f32 * factors[0];
     let mut prev = 5u32;
@@ -96,22 +101,48 @@ fn decode_component(
         let limit = 64 << log2_blocks;
         let mask = blocks - 1;
         let mut pos = blocks - 1;
-        let mut run = 4u32;
-        let mut level = 2u32;
-        while r.position() < end {
-            run = r.read_code(RUN[run.min(15) as usize]).ok_or_else(bad)?;
-            pos += run as usize + 1;
+        let luts = ac_luts();
+        let mut run = 4usize;
+        let mut level = 2usize;
+        let mut c = CachedReader::at(padded, r.position());
+        while c.position() < end {
+            // After a refill at least 33 bits are buffered: enough for a
+            // table-decoded run and level (≤ LUT_BITS each).
+            c.refill();
+            let prev_run = run.min(15);
+            let entry = luts.run(prev_run).0[(c.peek() >> (64 - LUT_BITS)) as usize];
+            if entry != 0 {
+                c.consume(entry & 0xff);
+                run = (entry >> 8) as usize;
+            } else {
+                r.seek(c.position());
+                run = r.read_code(RUN[prev_run]).ok_or_else(bad)? as usize;
+                c = CachedReader::at(padded, r.position());
+            }
+            pos += run + 1;
             if pos >= limit {
                 return Err(corrupt("coefficient run past the block"));
             }
-            level = r.read_code(LEVEL[level.min(9) as usize]).ok_or_else(bad)? + 1;
-            let negative = r.read_bit() == 1;
+            let prev_level = level.min(9);
+            let entry = luts.level(prev_level).0[(c.peek() >> (64 - LUT_BITS)) as usize];
+            let negative = if entry != 0 {
+                c.consume(entry & 0xff);
+                level = (entry >> 9) as usize;
+                entry & 0x100 != 0
+            } else {
+                r.seek(c.position());
+                level = r.read_code(LEVEL[prev_level]).ok_or_else(bad)? as usize + 1;
+                let negative = r.read_bit() == 1;
+                c = CachedReader::at(padded, r.position());
+                negative
+            };
             let block = pos & mask;
             let raster = scan[pos >> log2_blocks] as usize;
             let value = level as f32 * factors[raster];
             coefs[block * 64 + raster] = if negative { -value } else { value };
             has_ac[block] = true;
         }
+        r.seek(c.position());
     }
     if r.overrun() {
         return Err(corrupt("component data overrun"));
@@ -122,13 +153,24 @@ fn decode_component(
 /// Converts a spatial value to a clipped output sample.
 #[inline(always)]
 fn to_sample(v: f32, bits: u8) -> u16 {
+    // Rounds half up: clipping first keeps the value positive, where
+    // truncation equals floor (and avoids a libm call per sample).
     if bits == 10 {
-        let s = ((v / 4.0) + 512.5).floor();
-        s.clamp(4.0, 1019.0) as u16
+        (v * 0.25 + 512.5).clamp(4.0, 1019.0) as u16
     } else {
-        let s = (v + 2048.5).floor();
-        s.clamp(4.0, 4091.0) as u16
+        (v + 2048.5).clamp(4.0, 4091.0) as u16
     }
+}
+
+/// [`to_sample`] over one row of eight values.
+#[inline(always)]
+fn to_samples(row: &[f32], bits: u8) -> [u16; 8] {
+    let (scale, offset, hi) = if bits == 10 {
+        (0.25, 512.5, 1019.0)
+    } else {
+        (1.0, 2048.5, 4091.0)
+    };
+    std::array::from_fn(|i| (row[i] * scale + offset).clamp(4.0, hi) as u16)
 }
 
 /// Writes one reconstructed block whose full-resolution top-left corner is
@@ -166,9 +208,8 @@ fn put_block(
     if ds == 1 {
         for r in 0..rows {
             let at = (oy + r) * band.stride + ox;
-            for (c, out) in band.data[at..at + cols].iter_mut().enumerate() {
-                *out = to_sample(spatial[r * 8 + c], ctx.bits);
-            }
+            let row = to_samples(&spatial[r * 8..r * 8 + 8], ctx.bits);
+            band.data[at..at + cols].copy_from_slice(&row[..cols]);
         }
     } else {
         let n = (ds * ds) as u32;
@@ -251,8 +292,7 @@ pub(crate) fn decode_slice(
         &luma_factors,
         ctx.scan,
         dc_only,
-        &mut scratch.coefs,
-        &mut scratch.has_ac,
+        scratch,
     )?;
     for b in 0..blocks {
         let x = (mb_x + (b >> 2)) * 16 + (b & 1) * 8;
@@ -279,8 +319,7 @@ pub(crate) fn decode_slice(
             &chroma_factors,
             ctx.scan,
             dc_only,
-            &mut scratch.coefs,
-            &mut scratch.has_ac,
+            scratch,
         )?;
         for b in 0..chroma_blocks {
             let (x, y) = if ctx.chroma444 {
