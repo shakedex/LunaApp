@@ -16,6 +16,8 @@ fn main() -> ExitCode {
         return ExitCode::SUCCESS;
     }
 
+    luna_app::log::install_panic_hook();
+
     // `LUNA_FAKE_BACKEND=1` simulates runs (UI work); otherwise the real pipeline.
     let fake = std::env::var_os("LUNA_FAKE_BACKEND").is_some();
     let backend: Arc<dyn RunBackend> = if fake {
@@ -24,7 +26,7 @@ fn main() -> ExitCode {
         match WorkerSpec::current_exe() {
             Ok(spec) => Arc::new(CoreBackend::new(spec)),
             Err(e) => {
-                eprintln!("Luna couldn't find its own executable: {e}");
+                luna_app::log::error(&format!("Luna couldn't find its own executable: {e}"));
                 return ExitCode::FAILURE;
             }
         }
@@ -37,7 +39,7 @@ fn main() -> ExitCode {
     match luna_app::ui::run(backend, store) {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
-            eprintln!("Luna couldn't open its window: {e}");
+            luna_app::log::error(&format!("Luna couldn't open its window: {e}"));
             ExitCode::FAILURE
         }
     }

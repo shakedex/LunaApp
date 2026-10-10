@@ -7,6 +7,7 @@
 pub mod backend;
 pub mod core_backend;
 pub mod flow;
+pub mod log;
 pub mod settings_edit;
 pub mod settings_store;
 pub mod ui;

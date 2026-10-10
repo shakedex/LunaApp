@@ -5,6 +5,7 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+dirs = "7.0.0"
 luna-core = { version = "0.0.0", path = "../luna-core" }
 luna-worker = { version = "0.0.0", path = "../luna-worker" }
 open = "5.4.4"
