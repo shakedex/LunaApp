@@ -430,3 +430,79 @@ fn clips_order_by_recording_start_then_file_name() {
 fn nothing_in_nothing_out() {
     assert!(resolve_identity(&root(), &[]).is_empty());
 }
+
+fn body(model: &str, serial: Option<&str>) -> ClipMeta {
+    ClipMeta {
+        camera_model: Some(model.into()),
+        camera_serial: serial.map(Into::into),
+        ..ClipMeta::default()
+    }
+}
+
+fn camera_names(groups: &[CameraGroup]) -> Vec<String> {
+    groups.iter().map(|c| c.name.clone()).collect()
+}
+
+#[test]
+fn one_letter_on_different_bodies_splits_into_cameras() {
+    let root = PathBuf::from("D:/Shoot");
+    let alexa = body("ARRI ALEXA 35", Some("60123"));
+    let c70 = body("Canon EOS C70", Some("1234"));
+    let clips = vec![
+        (
+            clip(&root.join("A_CAM/A001/A0001C027_251020_135413_p1I7H.mxf")),
+            Some(&alexa),
+        ),
+        (
+            clip(&root.join("canon/c70/A001C004_22032472_CANON.CRM")),
+            Some(&c70),
+        ),
+    ];
+    let g = resolve_identity(&root, &clips);
+    assert_eq!(camera_names(&g), ["A · ARRI ALEXA 35", "A · Canon EOS C70"]);
+}
+
+#[test]
+fn same_model_different_serials_name_the_serial() {
+    let root = PathBuf::from("D:/Shoot");
+    let one = body("ARRI ALEXA 35", Some("60123"));
+    let two = body("ARRI ALEXA 35", Some("60999"));
+    let clips = vec![
+        (
+            clip(&root.join("X/A001/A001C001_251020_R1AB.mxf")),
+            Some(&one),
+        ),
+        (
+            clip(&root.join("Y/A002/A002C001_251020_R1AB.mxf")),
+            Some(&two),
+        ),
+    ];
+    let g = resolve_identity(&root, &clips);
+    assert_eq!(
+        camera_names(&g),
+        ["A · ARRI ALEXA 35 #60123", "A · ARRI ALEXA 35 #60999"]
+    );
+}
+
+#[test]
+fn one_body_or_unknown_bodies_stay_one_camera() {
+    let root = PathBuf::from("D:/Shoot");
+    let alexa = body("ARRI ALEXA 35", Some("60123"));
+    let clips = vec![
+        (
+            clip(&root.join("A_CAM/A001/A001C001_251020_R1AB.mxf")),
+            Some(&alexa),
+        ),
+        (
+            clip(&root.join("A_CAM/A002/A002C001_251020_R1AB.mxf")),
+            Some(&alexa),
+        ),
+        (
+            clip(&root.join("A_CAM/A003/A003C001_251020_R1AB.mxf")),
+            None,
+        ),
+    ];
+    let g = resolve_identity(&root, &clips);
+    assert_eq!(camera_names(&g), ["A"]);
+    assert_eq!(g[0].cards.len(), 3);
+}

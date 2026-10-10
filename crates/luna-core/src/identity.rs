@@ -63,6 +63,8 @@ pub fn resolve_identity(root: &Path, clips: &[(ClipFiles, Option<&ClipMeta>)]) -
     }
 
     let mut cameras: Vec<CameraGroup> = Vec::new();
+    // The camera body behind each entry of `cameras`, when the metadata names one.
+    let mut bodies: Vec<(String, Option<Body>)> = Vec::new();
     for (dir, evs) in folders {
         let folder = relative(root, &dir);
         for bucket in split_by_embedded_reel(evs) {
@@ -80,20 +82,35 @@ pub fn resolve_identity(root: &Path, clips: &[(ClipFiles, Option<&ClipMeta>)]) -
                 })
                 .collect();
             card_clips.sort_by(|a, b| clip_order(clips, a.0, b.0));
+            let card_body = body(card_clips.iter().map(|(e, _)| clips[e.index].1));
             let card = CardGroup {
                 reel: reel.value,
                 folder: folder.clone(),
                 clips: card_clips.into_iter().map(|(_, id)| id).collect(),
             };
-            match cameras.iter_mut().find(|c| same(&c.name, &camera.value)) {
-                Some(c) => c.cards.push(card),
-                None => cameras.push(CameraGroup {
-                    name: camera.value,
-                    cards: vec![card],
-                }),
+            // One letter can be several physical cameras (bodies left on the
+            // default "A"): when the metadata names different bodies, keep them apart.
+            match bodies
+                .iter()
+                .position(|(name, b)| same(name, &camera.value) && compatible(b, &card_body))
+            {
+                Some(i) => {
+                    cameras[i].cards.push(card);
+                    if bodies[i].1.is_none() {
+                        bodies[i].1 = card_body;
+                    }
+                }
+                None => {
+                    bodies.push((camera.value.clone(), card_body));
+                    cameras.push(CameraGroup {
+                        name: camera.value,
+                        cards: vec![card],
+                    });
+                }
             }
         }
     }
+    name_bodies(&mut cameras, &bodies);
 
     for cam in &mut cameras {
         disambiguate_reels(&mut cam.cards);
@@ -102,6 +119,76 @@ pub fn resolve_identity(root: &Path, clips: &[(ClipFiles, Option<&ClipMeta>)]) -
     }
     cameras.sort_by(|a, b| camera_key(&a.name, &b.name));
     cameras
+}
+
+/// A physical camera as the metadata names it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct Body {
+    model: Option<String>,
+    serial: Option<String>,
+}
+
+/// The most common body among a card's clips; `None` when no clip names one.
+fn body<'a>(metas: impl Iterator<Item = Option<&'a ClipMeta>>) -> Option<Body> {
+    let mut counts: Vec<(Body, usize)> = Vec::new();
+    for m in metas.flatten() {
+        if m.camera_model.is_none() && m.camera_serial.is_none() {
+            continue;
+        }
+        let b = Body {
+            model: m.camera_model.clone(),
+            serial: m.camera_serial.clone(),
+        };
+        match counts.iter_mut().find(|(c, _)| *c == b) {
+            Some((_, n)) => *n += 1,
+            None => counts.push((b, 1)),
+        }
+    }
+    counts.into_iter().max_by_key(|(_, n)| *n).map(|(b, _)| b)
+}
+
+/// Unknown bodies join anything; known ones must name the same camera.
+fn compatible(a: &Option<Body>, b: &Option<Body>) -> bool {
+    match (a, b) {
+        (Some(a), Some(b)) => match (&a.serial, &b.serial) {
+            (Some(x), Some(y)) => x == y,
+            _ => a.model == b.model,
+        },
+        _ => true,
+    }
+}
+
+/// When one camera name covers several bodies, names each one: the model, plus
+/// the serial when the model alone doesn't tell them apart.
+fn name_bodies(cameras: &mut [CameraGroup], bodies: &[(String, Option<Body>)]) {
+    for i in 0..cameras.len() {
+        let name = bodies[i].0.clone();
+        let siblings: Vec<usize> = (0..cameras.len())
+            .filter(|&j| same(&bodies[j].0, &name))
+            .collect();
+        if siblings.len() < 2 {
+            continue;
+        }
+        let Some(b) = &bodies[i].1 else {
+            continue;
+        };
+        let model_shared = siblings
+            .iter()
+            .any(|&j| j != i && bodies[j].1.as_ref().is_some_and(|o| o.model == b.model));
+        let mut label = b.model.clone().unwrap_or_default();
+        if model_shared || label.is_empty() {
+            if let Some(s) = &b.serial {
+                label = if label.is_empty() {
+                    format!("#{s}")
+                } else {
+                    format!("{label} #{s}")
+                };
+            }
+        }
+        if !label.is_empty() {
+            cameras[i].name = format!("{name} · {label}");
+        }
+    }
 }
 
 /// Recognises camera-original naming conventions. Conservative: `None` unless
