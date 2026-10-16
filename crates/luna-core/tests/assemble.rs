@@ -115,13 +115,13 @@ fn duration_without_timecode_uses_frame_rate() {
 #[test]
 fn thumbnails_keep_order_and_reasons() {
     let t = thumbnails(vec![
-        Err("No decoder for ARRICORE yet".into()),
+        Err("No decoder for ProRes RAW yet".into()),
         Ok(vec![1, 2, 3]),
     ]);
     assert_eq!(
         t[0],
         Thumbnail::Missing {
-            reason: "No decoder for ARRICORE yet".into()
+            reason: "No decoder for ProRes RAW yet".into()
         }
     );
     assert_eq!(

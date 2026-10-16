@@ -262,7 +262,10 @@ checksum = "d3fb67a6e08acf24fdeccbac2cb6ac4305825bd1f117462e0e6f2f193345ad56"
 [[package]]
 name = "arri"
 version = "0.1.0"
-source = "git+file:///E:/Coding/decoders/arri-decoder?rev=9cfc9f79198e6745dde4628272ce4b1a05b59f59#9cfc9f79198e6745dde4628272ce4b1a05b59f59"
+source = "git+file:///E:/Coding/decoders/arri-decoder?rev=5ad6add7dcaa9bc9af52ee41d0eee9f9e83973e2#5ad6add7dcaa9bc9af52ee41d0eee9f9e83973e2"
+dependencies = [
+ "oxideav-jpegxs",
+]
 
 [[package]]
 name = "as-raw-xcb-connection"
@@ -4230,6 +4233,12 @@ checksum = "36820e9051aca1014ddc75770aab4d68bc1e9e632f0f5627c4086bc216fb583b"
 dependencies = [
  "ttf-parser",
 ]
+
+[[package]]
+name = "oxideav-jpegxs"
+version = "0.0.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3e0e6600faa598e04d089d3d4c77337bac8addd3f9674662d673e22627c9e85d"
 
 [[package]]
 name = "palette"

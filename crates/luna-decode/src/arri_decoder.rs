@@ -1,7 +1,8 @@
-//! ARRIRAW through Luna's verified ARRI decoder (the private `arri` crate,
-//! checked against ARRI's own `art-cmd`): a binned linear preview, ARRI's
-//! as-shot colour model to AWG4 scene-linear, then LogC4-encoded so the colour
-//! stage renders it exactly like ARRI's own LogC4 → Rec.709 path.
+//! ARRIRAW and ARRICORE through Luna's verified ARRI decoder (the private
+//! `arri` crate, checked against ARRI's own `art-cmd`): a binned linear preview
+//! (from the mosaic, or from ARRICORE's JPEG XS base image), ARRI's as-shot
+//! colour model to AWG4 scene-linear, then LogC4-encoded so the colour stage
+//! renders it exactly like ARRI's own LogC4 → Rec.709 path.
 
 use luna_formats::{ClipFiles, ColourHint, Gamut, Probe, Transfer};
 
@@ -10,11 +11,12 @@ use crate::{DecodeError, Decoded, Frame};
 
 pub(crate) fn decode(
     clip: &ClipFiles,
-    _probe: &Probe,
+    probe: &Probe,
     positions: &[u64],
     min_width: u32,
 ) -> Vec<Result<Frame, DecodeError>> {
-    let opened = util::guard("ARRIRAW", || arri::Clip::open(&clip.main).map_err(failed));
+    let what = probe.codec.label();
+    let opened = util::guard(&what, || arri::Clip::open(&clip.main).map_err(failed));
     let a = match opened {
         Ok(a) => a,
         Err(e) => return util::all_err(positions.len(), e),
@@ -28,7 +30,7 @@ pub(crate) fn decode(
         transfer: Some(Transfer::LogC4),
         gamut: Some(Gamut::ArriWideGamut4),
     };
-    util::per_frame("ARRIRAW", positions, a.frame_count() as u64, |i| {
+    util::per_frame(&what, positions, a.frame_count() as u64, |i| {
         let i = i as usize;
         let preview = a.decode_preview(i, scale).map_err(failed)?;
         let colour = a.color(i).map_err(failed)?;

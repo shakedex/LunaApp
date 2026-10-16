@@ -11,5 +11,7 @@ license = "MIT"
 # Private decoders (not published), pinned to the commits Luna was verified against.
 xocn = { git = "file:///E:/Coding/decoders/xocn-decoder", rev = "2b183188fbc5a97544e6844333ab3bc07744e169" }
 crm = { git = "file:///E:/Coding/decoders/crm-decoder", rev = "d4725b19b4af7bde2f1699b19bfa163ed4fbc89f" }
-arri = { git = "file:///E:/Coding/decoders/arri-decoder", rev = "9cfc9f79198e6745dde4628272ce4b1a05b59f59" }
+# `arricore` ships a JPEG XS decoder (patent-pooled codec): drop the feature to
+# turn ARRICORE thumbnails off.
+arri = { git = "file:///E:/Coding/decoders/arri-decoder", rev = "5ad6add7dcaa9bc9af52ee41d0eee9f9e83973e2", features = ["arricore"] }
 braw = { git = "file:///E:/Coding/decoders/braw-sdk", rev = "1fd58351bdc92dda7a239265172d81465ff35e19" }

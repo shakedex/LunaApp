@@ -1,14 +1,14 @@
 //! Decoding a few frames of a clip for thumbnails.
 //!
 //! One entry point, [`decode_frames`], picks a backend from the probed codec:
-//! our own decoders (ProRes, intra H.264, ARRIRAW, X-OCN, CRM), bundled vendor SDKs (BRAW;
+//! our own decoders (ProRes, intra H.264, ARRIRAW/ARRICORE, X-OCN, CRM), bundled vendor SDKs (BRAW;
 //! R3D through the closed add-on loaded at runtime), or the platform decoder
 //! (Media Foundation on Windows, AVFoundation on macOS). Platform APIs live only
 //! in this crate, behind `cfg(target_os)`.
 
 use luna_formats::{ClipFiles, Codec, ColourHint, Container, Gamut, Probe, Transfer};
 
-mod arri_raw;
+mod arri_decoder;
 mod braw_sdk;
 mod crm_raw;
 mod h264;
@@ -143,7 +143,7 @@ pub fn decode_frames(
             Backend::Crm => crm_raw::decode(clip, probe, positions, min_width),
             Backend::Braw => braw_sdk::decode(clip, probe, positions, min_width),
             Backend::R3d => r3d::decode(clip, probe, positions, min_width),
-            Backend::ArriRaw => arri_raw::decode(clip, probe, positions, min_width),
+            Backend::Arri => arri_decoder::decode(clip, probe, positions, min_width),
             Backend::ProRes => prores::decode(clip, probe, positions, min_width),
             Backend::H264 => h264::decode(clip, probe, positions, min_width),
             Backend::Platform => with_h264_fallback(
@@ -180,7 +180,7 @@ enum Backend {
     Crm,
     Braw,
     R3d,
-    ArriRaw,
+    Arri,
     ProRes,
     H264,
     Platform,
@@ -194,7 +194,7 @@ impl Backend {
             Backend::Crm => "Cinema RAW Light",
             Backend::Braw => "Blackmagic RAW",
             Backend::R3d => "R3D",
-            Backend::ArriRaw => "ARRIRAW",
+            Backend::Arri => "ARRI",
             Backend::ProRes => "ProRes",
             Backend::H264 => "H.264",
             Backend::Platform => "platform video",
@@ -211,7 +211,7 @@ fn backend_for(clip: &ClipFiles, probe: &Probe) -> Backend {
         (Codec::Redcode | Codec::NRaw | Codec::R3dNe, _) | (_, Container::R3d | Container::Nev) => {
             Backend::R3d
         }
-        (Codec::ArriRaw, _) => Backend::ArriRaw,
+        (Codec::ArriRaw | Codec::ArriCore, _) => Backend::Arri,
         (Codec::ProRes(_), Container::Mxf | Container::QuickTime) => Backend::ProRes,
         (Codec::H264, Container::Mxf) => Backend::H264,
         (Codec::H264 | Codec::Hevc, Container::QuickTime) => Backend::Platform,
@@ -314,8 +314,8 @@ mod tests {
         let mxf = clip(Container::Mxf, "a.mxf");
         let mov = clip(Container::QuickTime, "a.mov");
         assert_eq!(backend_for(&mxf, &probe(Codec::XOcn)), Backend::XOcn);
-        assert_eq!(backend_for(&mxf, &probe(Codec::ArriRaw)), Backend::ArriRaw);
-        assert_eq!(backend_for(&mxf, &probe(Codec::ArriCore)), Backend::None);
+        assert_eq!(backend_for(&mxf, &probe(Codec::ArriRaw)), Backend::Arri);
+        assert_eq!(backend_for(&mxf, &probe(Codec::ArriCore)), Backend::Arri);
         assert_eq!(
             backend_for(&mxf, &probe(Codec::ProRes(ProResProfile::Hq))),
             Backend::ProRes
@@ -345,7 +345,7 @@ mod tests {
     fn unknown_codecs_are_unsupported_once_per_position() {
         let out = decode_frames(
             &clip(Container::Mxf, "a.mxf"),
-            &probe(Codec::ArriCore),
+            &probe(Codec::ProResRaw),
             &[0, 5, 9],
             640,
         );
@@ -354,7 +354,7 @@ mod tests {
             assert_eq!(
                 r,
                 Err(DecodeError::Unsupported(
-                    "No decoder for ARRICORE yet".into()
+                    "No decoder for ProRes RAW yet".into()
                 ))
             );
         }
@@ -390,6 +390,7 @@ mod tests {
             (Container::Crm, Codec::CinemaRawLight),
             (Container::Mxf, Codec::ProRes(ProResProfile::Hq)),
             (Container::Mxf, Codec::ArriRaw),
+            (Container::Mxf, Codec::ArriCore),
             (Container::QuickTime, Codec::H264),
         ] {
             let out = decode_frames(

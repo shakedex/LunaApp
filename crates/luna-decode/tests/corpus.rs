@@ -264,6 +264,41 @@ fn arriraw_alexa35_through_the_verified_decoder() {
     }
 }
 
+#[test]
+fn arricore_alexa35_through_the_verified_decoder() {
+    let Some(path) = corpus("T_CAM/DW0001C014_251020_123457_c1I7H-arricore.mxf") else {
+        return;
+    };
+    let clip = files(Container::Mxf, &path);
+    let p = luna_formats::probe(&clip).unwrap();
+    assert_eq!(p.codec, Codec::ArriCore);
+    let out = decode_frames(&clip, &p, &[0, 79, 157], 640);
+    for r in out {
+        let f = r.unwrap();
+        let Decoded::Rgb16 {
+            width,
+            height,
+            transfer,
+            gamut,
+            ref data,
+        } = f.image
+        else {
+            panic!("expected LogC4 RGB")
+        };
+        // quarter of 3840x1608: the base image binned 2x2
+        assert_eq!((width, height), (960, 402));
+        assert_eq!((transfer, gamut), (Transfer::LogC4, Gamut::ArriWideGamut4));
+        // a lit scene, not a flat or clipped frame
+        let mut g: Vec<u16> = data.iter().skip(1).step_by(3).copied().collect();
+        g.sort_unstable();
+        let (lo, mid, hi) = (g[g.len() / 20], g[g.len() / 2], g[g.len() * 19 / 20]);
+        assert!(
+            lo > 10_000 && hi < 60_000 && hi - lo > 8_000,
+            "{lo} {mid} {hi}"
+        );
+    }
+}
+
 /// First, middle and last frame of an H.264 clip through the real parser
 /// and our own intra decoder (directly for MXF, as the platform fallback for
 /// MOV).
