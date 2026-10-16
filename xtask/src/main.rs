@@ -126,8 +126,13 @@ fn package() -> Result<PathBuf> {
 }
 
 fn installer() -> Result<PathBuf> {
-    // Before any build: an installer without a signed feed can't update.
+    // Before any build: an installer without a signed feed can't update, and
+    // one signed by another key can't be installed.
     let key = update::load_key()?;
+    update::check_public_key(
+        &key,
+        &read(&root().join("packaging/update-public-key.txt"))?,
+    )?;
     let app = package()?;
     let root = root();
     let version = version()?;
@@ -214,9 +219,10 @@ fn release(exact: Option<&str>) -> Result {
 
 /// Creates the signing key and records its public half in the repository.
 fn update_key() -> Result {
+    let public_file = root().join("packaging").join("update-public-key.txt");
+    update::refuse_if_committed(&fs::read_to_string(&public_file).unwrap_or_default())?;
     let path = update::key_path();
     let public = update::new_key(&path)?;
-    let public_file = root().join("packaging").join("update-public-key.txt");
     write(&public_file, &format!("{public}\n"))?;
     println!(
         "Private key: {} (keep it safe; copy it to the other build machine)\n\
@@ -807,6 +813,18 @@ mod tests {
         ] {
             assert!(plist.contains(want), "missing {want}");
         }
+    }
+
+    #[test]
+    fn update_relaunch_runs_as_the_original_user() {
+        // An elevated relaunch would block drag-and-drop (UIPI) and use the
+        // admin's settings.
+        let iss = read(&root().join("packaging/windows/luna.iss")).unwrap();
+        let relaunch = iss
+            .lines()
+            .find(|l| l.contains("skipifnotsilent"))
+            .expect("a relaunch entry for silent updates");
+        assert!(relaunch.contains("runasoriginaluser"), "{relaunch}");
     }
 
     #[test]

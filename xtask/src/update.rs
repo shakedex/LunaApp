@@ -40,8 +40,8 @@ pub fn load_key() -> Result<SigningKey, String> {
 pub fn load_key_from(path: &Path) -> Result<SigningKey, String> {
     let text = fs::read_to_string(path).map_err(|_| {
         format!(
-            "no update signing key at {}; run `cargo xtask update-key` on a fresh machine \
-             or copy it from the other build machine",
+            "no update signing key at {}; copy it from the build machine that made it \
+             (a new key would stop every installed Luna from updating)",
             path.display()
         )
     })?;
@@ -51,6 +51,32 @@ pub fn load_key_from(path: &Path) -> Result<SigningKey, String> {
         .and_then(|b| b.try_into().ok())
         .ok_or(format!("{} isn't an update signing key", path.display()))?;
     Ok(SigningKey::from_bytes(&seed))
+}
+
+/// The key must be the one whose public half the app ships with
+/// (`packaging/update-public-key.txt`), or installed copies refuse the update.
+pub fn check_public_key(key: &SigningKey, committed: &str) -> Result<(), String> {
+    let ours = STANDARD.encode(key.verifying_key().to_bytes());
+    if committed.trim() != ours {
+        return Err(format!(
+            "the update signing key at {} doesn't match packaging/update-public-key.txt; \
+             copy the key from the build machine that made it",
+            key_path().display()
+        ));
+    }
+    Ok(())
+}
+
+/// One key signs every update: never make a second once one is committed.
+pub fn refuse_if_committed(committed: &str) -> Result<(), String> {
+    if !committed.trim().is_empty() {
+        return Err(
+            "packaging/update-public-key.txt already has a key; copy ~/.luna/update-key \
+             from the build machine that made it instead"
+                .into(),
+        );
+    }
+    Ok(())
 }
 
 /// Makes a new key at `path` (never over an existing one) and returns its
@@ -177,6 +203,37 @@ mod tests {
         let missing = temp("nokey").join("update-key");
         let err = load_key_from(&missing).unwrap_err();
         assert!(err.contains(&missing.display().to_string()), "{err}");
+    }
+
+    #[test]
+    fn key_must_match_committed_public_key() {
+        let key = SigningKey::from_bytes(&[7u8; 32]);
+        let ours = STANDARD.encode(key.verifying_key().to_bytes());
+        assert!(check_public_key(&key, &format!("{ours}\n")).is_ok());
+        let other = STANDARD.encode(
+            SigningKey::from_bytes(&[8u8; 32])
+                .verifying_key()
+                .to_bytes(),
+        );
+        let err = check_public_key(&key, &other).unwrap_err();
+        assert!(err.contains("doesn't match"), "{err}");
+    }
+
+    #[test]
+    fn no_new_key_once_one_is_committed() {
+        assert!(refuse_if_committed("").is_ok());
+        assert!(refuse_if_committed("\n").is_ok());
+        let err =
+            refuse_if_committed("Q9+DsOpRFbNAWuEGO1htLzOelw1YHDEir0UWYX/Wd5c=\n").unwrap_err();
+        assert!(err.contains("copy"), "{err}");
+    }
+
+    #[test]
+    fn missing_key_says_where_to_copy_it_from() {
+        let missing = temp("nokey2").join("update-key");
+        let err = load_key_from(&missing).unwrap_err();
+        assert!(err.contains("build machine that made it"), "{err}");
+        assert!(!err.contains("update-key on a fresh machine"), "{err}");
     }
 
     #[test]

@@ -44,5 +44,6 @@ Name: "{autodesktop}\Luna"; Filename: "{app}\Luna.exe"; IconFilename: "{app}\lun
 
 [Run]
 Filename: "{app}\Luna.exe"; Description: "{cm:LaunchProgram,Luna}"; Flags: nowait postinstall skipifsilent
-; After a silent update, reopen Luna.
-Filename: "{app}\Luna.exe"; Flags: nowait skipifnotsilent
+; After a silent update, reopen Luna as the user, not elevated (an elevated
+; window can't take drag-and-drop from Explorer).
+Filename: "{app}\Luna.exe"; Flags: nowait skipifnotsilent runasoriginaluser
