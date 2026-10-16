@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use std::sync::atomic::AtomicBool;
 use std::time::Duration;
 
-use luna_core::run::{RunError, RunRequest, WorkerSpec, run};
+use luna_core::run::{RunError, RunRequest, WorkerSpec, run, source_roots};
 use luna_core::settings::Settings;
 
 #[test]
@@ -34,4 +34,27 @@ fn unreadable_second_source_fails_up_front() {
         other => panic!("expected SourceUnreadable, got {other:?}"),
     }
     assert_eq!(std::fs::read_dir(out.path()).unwrap().count(), 0);
+}
+
+#[test]
+fn overlapping_sources_collapse_to_one_root() {
+    let t = tempfile::tempdir().unwrap();
+    std::fs::create_dir_all(t.path().join("Footage/A001")).unwrap();
+    let footage = t.path().join("Footage");
+    let roots = source_roots(&[
+        t.path().join("Footage/A001/../A001"),
+        footage.clone(),
+        footage.join("."),
+    ])
+    .unwrap();
+    assert_eq!(roots, [dunce::canonicalize(&footage).unwrap()]);
+}
+
+#[cfg(windows)]
+#[test]
+fn source_case_differences_are_the_same_folder() {
+    let t = tempfile::tempdir().unwrap();
+    std::fs::create_dir_all(t.path().join("Footage/A001")).unwrap();
+    let roots = source_roots(&[t.path().join("footage"), t.path().join("FOOTAGE/a001")]).unwrap();
+    assert_eq!(roots.len(), 1);
 }

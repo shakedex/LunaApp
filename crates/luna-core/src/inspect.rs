@@ -9,7 +9,7 @@ use serde::Serialize;
 
 use crate::assemble::clip_fields;
 use crate::identity::resolve_identity;
-use crate::run::{Progress, RunError, WorkerSpec, check_sources, probe_all};
+use crate::run::{Progress, RunError, WorkerSpec, probe_all, source_roots};
 use crate::scan::{Scan, scan_roots};
 use crate::select::camera_letter;
 
@@ -49,10 +49,10 @@ pub fn inspect(
     progress: &(dyn Fn(Progress) + Sync),
     cancel: &AtomicBool,
 ) -> Result<Inspection, RunError> {
-    check_sources(roots)?;
-    let scanned = scan_roots(roots);
+    let roots = source_roots(roots)?;
+    let scanned = scan_roots(&roots);
     let outcomes = probe_all(&scanned, workers, progress, cancel)?;
-    Ok(inspection(roots, &scanned, &outcomes))
+    Ok(inspection(&roots, &scanned, &outcomes))
 }
 
 /// The inspection of a scan, given one probe outcome per clip (same order).

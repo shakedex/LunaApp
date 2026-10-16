@@ -11,7 +11,7 @@ use luna_worker::{ClipJob, ClipResult};
 
 use crate::assemble::{OutputFiles, clip_fields, output_folder, thumbnails, write_outputs};
 use crate::identity::resolve_identity;
-use crate::scan::{Scan, scan_roots};
+use crate::scan::{Scan, outermost, scan_roots};
 use crate::select::CameraFilter;
 use crate::settings::Settings;
 
@@ -131,16 +131,24 @@ impl std::fmt::Display for RunError {
 
 impl std::error::Error for RunError {}
 
-/// Fails with the first source folder that can't be read.
-pub(crate) fn check_sources(sources: &[PathBuf]) -> Result<(), RunError> {
+/// The source folders as one set of roots: each made absolute and canonical
+/// (so `E:\footage`, `E:\Footage\` and `E:\Footage\A001\..` are one folder),
+/// then any root inside another dropped. Fails with the first source that
+/// can't be read.
+pub fn source_roots(sources: &[PathBuf]) -> Result<Vec<PathBuf>, RunError> {
     if sources.is_empty() {
         return Err(RunError::SourceUnreadable("no source folder given".into()));
     }
+    let unreadable = |s: &PathBuf, e: std::io::Error| {
+        RunError::SourceUnreadable(format!("{}: {e}", s.display()))
+    };
+    let mut roots = Vec::with_capacity(sources.len());
     for source in sources {
-        std::fs::read_dir(source)
-            .map_err(|e| RunError::SourceUnreadable(format!("{}: {e}", source.display())))?;
+        let root = dunce::canonicalize(source).map_err(|e| unreadable(source, e))?;
+        std::fs::read_dir(&root).map_err(|e| unreadable(source, e))?;
+        roots.push(root);
     }
-    Ok(())
+    Ok(outermost(&roots))
 }
 
 /// Scans the request's sources, reads every clip in worker processes, and
@@ -152,8 +160,8 @@ pub fn run(
     cancel: &AtomicBool,
 ) -> Result<RunOutcome, RunError> {
     let settings = &req.settings;
-    check_sources(&req.sources)?;
-    let scanned = scan_roots(&req.sources);
+    let roots = source_roots(&req.sources)?;
+    let scanned = scan_roots(&roots);
     let files = scanned
         .clips
         .iter()
@@ -175,7 +183,7 @@ pub fn run(
         )
     } else {
         let probed = probe_all(&scanned, workers, progress, cancel)?;
-        let selected = selected_clips(&req.sources, &scanned, &probed, &filter)?;
+        let selected = selected_clips(&roots, &scanned, &probed, &filter)?;
         (probed, selected)
     };
 
@@ -200,7 +208,7 @@ pub fn run(
 
     let now = jiff::Zoned::now();
     let report = build_report(
-        &req.sources,
+        &roots,
         settings,
         scanned,
         outcomes,
