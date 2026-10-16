@@ -9,6 +9,7 @@ use std::path::{Path, PathBuf};
 use std::rc::{Rc, Weak};
 use std::sync::{Arc, Mutex};
 
+use luna_core::run::RunRequest;
 use luna_core::settings::ReportTheme;
 use luna_core::settings::Settings;
 use slint::winit_030::winit::event::WindowEvent;
@@ -430,9 +431,10 @@ impl App {
                 apply_view(&main, &main_view(&flow));
             });
         });
-        let control = self
-            .backend
-            .start(source, self.settings.borrow().clone(), events);
+        let control = self.backend.start(
+            RunRequest::folder(source, self.settings.borrow().clone()),
+            events,
+        );
         *self.control.borrow_mut() = Some(control);
     }
 

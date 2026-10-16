@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use luna_core::run::{build_report, summary};
 use luna_core::scan::Scan;
@@ -66,7 +66,7 @@ fn groups_clips_and_carries_lists_and_header() {
         read(2, vec![Err("No decoder".into())]),
     ];
     let r = build_report(
-        Path::new("D:/Shoot"),
+        &[PathBuf::from("D:/Shoot")],
         &settings(),
         scan(),
         outcomes,
@@ -93,7 +93,13 @@ fn groups_clips_and_carries_lists_and_header() {
 #[test]
 fn a_crashed_or_slow_clip_keeps_its_row_with_reasons() {
     let outcomes = vec![JobOutcome::Crashed, JobOutcome::TimedOut, read(2, vec![])];
-    let r = build_report(Path::new("D:/Shoot"), &settings(), scan(), outcomes, "now");
+    let r = build_report(
+        &[PathBuf::from("D:/Shoot")],
+        &settings(),
+        scan(),
+        outcomes,
+        "now",
+    );
     let a = &r.cameras[0].cards[0].clips;
     assert_eq!(a[0].fields.file_name, "A001C001_251020_R1AB.mxf");
     assert_eq!(a[0].thumbnails.len(), 3);
@@ -109,7 +115,7 @@ fn a_crashed_or_slow_clip_keeps_its_row_with_reasons() {
 fn summary_names_the_problems() {
     let good = || vec![Ok(THUMB.to_vec()); 3];
     let ok = vec![read(0, good()), read(1, good()), read(2, good())];
-    let r = build_report(Path::new("D:/Shoot"), &settings(), scan(), ok, "now");
+    let r = build_report(&[PathBuf::from("D:/Shoot")], &settings(), scan(), ok, "now");
     assert_eq!(summary(&r), "3 clips, no problems");
 
     let bad = vec![
@@ -117,11 +123,23 @@ fn summary_names_the_problems() {
         read(1, vec![Err("x".into())]),
         read(2, good()),
     ];
-    let r = build_report(Path::new("D:/Shoot"), &settings(), scan(), bad, "now");
+    let r = build_report(
+        &[PathBuf::from("D:/Shoot")],
+        &settings(),
+        scan(),
+        bad,
+        "now",
+    );
     assert_eq!(summary(&r), "2 of 3 clips need attention");
 
     let mut empty = scan();
     empty.clips.clear();
-    let r = build_report(Path::new("D:/Shoot"), &settings(), empty, vec![], "now");
+    let r = build_report(
+        &[PathBuf::from("D:/Shoot")],
+        &settings(),
+        empty,
+        vec![],
+        "now",
+    );
     assert_eq!(summary(&r), "No camera clips in this folder");
 }

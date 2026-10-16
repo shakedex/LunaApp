@@ -1,6 +1,6 @@
 //! One run from source folder to the three report files.
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
@@ -11,7 +11,7 @@ use luna_worker::{ClipJob, ClipResult};
 
 use crate::assemble::{OutputFiles, clip_fields, output_folder, thumbnails, write_outputs};
 use crate::identity::resolve_identity;
-use crate::scan::{Scan, scan};
+use crate::scan::{Scan, scan_roots};
 use crate::settings::Settings;
 
 /// Thumbnails per clip: first, middle, last.
@@ -53,10 +53,38 @@ pub enum Progress {
     },
 }
 
+/// What to report on: the source folders, which cameras, and the details.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RunRequest {
+    pub sources: Vec<PathBuf>,
+    /// Camera selectors; empty means every camera.
+    pub cameras: Vec<String>,
+    /// Saved settings with this run's overrides already applied.
+    pub settings: Settings,
+    /// Report folder name; `None` names it from the production and run date.
+    pub name: Option<String>,
+}
+
+impl RunRequest {
+    /// One folder, every camera, the given settings: what the window starts.
+    pub fn folder(source: PathBuf, settings: Settings) -> Self {
+        Self {
+            sources: vec![source],
+            cameras: Vec::new(),
+            settings,
+            name: None,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RunOutcome {
     pub files: OutputFiles,
     pub summary: String,
+    pub clips: usize,
+    pub clips_with_problems: usize,
+    pub not_included: usize,
+    pub unreadable: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -82,17 +110,29 @@ impl std::fmt::Display for RunError {
 
 impl std::error::Error for RunError {}
 
-/// Scans `source`, reads every clip in worker processes, and writes the PDF,
-/// HTML and CSV into a new folder under the settings' output location.
+/// Fails with the first source folder that can't be read.
+pub(crate) fn check_sources(sources: &[PathBuf]) -> Result<(), RunError> {
+    if sources.is_empty() {
+        return Err(RunError::SourceUnreadable("no source folder given".into()));
+    }
+    for source in sources {
+        std::fs::read_dir(source)
+            .map_err(|e| RunError::SourceUnreadable(format!("{}: {e}", source.display())))?;
+    }
+    Ok(())
+}
+
+/// Scans the request's sources, reads every clip in worker processes, and
+/// writes the PDF, HTML and CSV into a new folder under the output location.
 pub fn run(
-    source: &Path,
-    settings: &Settings,
+    req: &RunRequest,
     workers: &WorkerSpec,
     progress: &(dyn Fn(Progress) + Sync),
     cancel: &AtomicBool,
 ) -> Result<RunOutcome, RunError> {
-    std::fs::read_dir(source).map_err(|e| RunError::SourceUnreadable(e.to_string()))?;
-    let scanned = scan(source);
+    let settings = &req.settings;
+    check_sources(&req.sources)?;
+    let scanned = scan_roots(&req.sources);
     let files = scanned
         .clips
         .iter()
@@ -150,7 +190,7 @@ pub fn run(
 
     let now = jiff::Zoned::now();
     let report = build_report(
-        source,
+        &req.sources,
         settings,
         scanned,
         outcomes,
@@ -165,6 +205,7 @@ pub fn run(
     let target = output_folder(
         &settings.output_dir,
         &settings.production,
+        req.name.as_deref(),
         &now.strftime("%Y-%m-%d %H%M").to_string(),
     );
     let stem = target
@@ -173,9 +214,14 @@ pub fn run(
         .unwrap_or_else(|| "Luna Report".into());
     let files = write_outputs(&target, &stem, &pdf, &html, &csv)
         .map_err(|e| RunError::Output(e.to_string()))?;
+    let totals = report.totals();
     Ok(RunOutcome {
         summary: summary(&report),
         files,
+        clips: totals.clips,
+        clips_with_problems: totals.clips_with_problems,
+        not_included: report.not_included.len(),
+        unreadable: report.unreadable.len(),
     })
 }
 
@@ -191,7 +237,7 @@ fn outcome_has_problems(outcome: &JobOutcome) -> bool {
 /// The report model from the scan, the worker outcomes (one per scanned clip,
 /// same order) and the settings.
 pub fn build_report(
-    root: &Path,
+    roots: &[PathBuf],
     settings: &Settings,
     scanned: Scan,
     outcomes: Vec<JobOutcome>,
@@ -221,7 +267,7 @@ pub fn build_report(
         .zip(&results)
         .map(|(files, r)| (files.clone(), r.meta.as_ref()))
         .collect();
-    let groups = resolve_identity(&[root.to_path_buf()], &identity_input);
+    let groups = resolve_identity(roots, &identity_input);
 
     let cameras = groups
         .into_iter()
@@ -269,7 +315,10 @@ pub fn build_report(
     Report {
         header: header(settings),
         theme: settings.report_theme,
-        sources: vec![root.to_string_lossy().into_owned()],
+        sources: roots
+            .iter()
+            .map(|r| r.to_string_lossy().into_owned())
+            .collect(),
         generated_at: generated_at.to_owned(),
         luna_version: env!("CARGO_PKG_VERSION").to_owned(),
         cameras,

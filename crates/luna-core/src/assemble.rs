@@ -90,14 +90,21 @@ pub fn thumbnails(results: Vec<Result<Vec<u8>, String>>) -> Vec<Thumbnail> {
         .collect()
 }
 
-/// `<output_dir>/<production> <stamp>`, with characters no file system accepts
+/// `<output_dir>/<name>`, or `<output_dir>/<production> <stamp>` without a
+/// name, with characters no file system accepts
 /// replaced, and " (2)", " (3)"… appended when the folder already exists.
-pub fn output_folder(output_dir: &Path, production: &str, stamp: &str) -> PathBuf {
-    let name = sanitize(production.trim());
-    let base = if name.is_empty() {
-        format!("Luna Report {stamp}")
-    } else {
-        format!("{name} {stamp}")
+pub fn output_folder(
+    output_dir: &Path,
+    production: &str,
+    name: Option<&str>,
+    stamp: &str,
+) -> PathBuf {
+    let given = name.map(|n| sanitize(n.trim())).filter(|n| !n.is_empty());
+    let production = sanitize(production.trim());
+    let base = match given {
+        Some(n) => n,
+        None if production.is_empty() => format!("Luna Report {stamp}"),
+        None => format!("{production} {stamp}"),
     };
     let mut candidate = output_dir.join(&base);
     let mut n = 2;

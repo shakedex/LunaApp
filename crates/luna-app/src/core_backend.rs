@@ -1,11 +1,11 @@
 //! The real backend: `luna_core::run` on a background thread, and the
 //! platform settings store.
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use luna_core::run::{Progress, RunError, WorkerSpec, run};
+use luna_core::run::{Progress, RunError, RunRequest, WorkerSpec, run};
 use luna_core::settings::{Settings, SettingsStore as CoreStore};
 
 use crate::backend::{RunBackend, RunControl, RunEvent, RunOutcome};
@@ -32,8 +32,7 @@ impl RunControl for Control {
 impl RunBackend for CoreBackend {
     fn start(
         &self,
-        source: PathBuf,
-        settings: Settings,
+        request: RunRequest,
         events: Box<dyn Fn(RunEvent) + Send>,
     ) -> Box<dyn RunControl> {
         let cancel = Arc::new(AtomicBool::new(false));
@@ -57,7 +56,7 @@ impl RunBackend for CoreBackend {
                     },
                 })
             };
-            let result = run(&source, &settings, &workers, &progress, &flag);
+            let result = run(&request, &workers, &progress, &flag);
             emit(match result {
                 Ok(outcome) => RunEvent::Finished(RunOutcome {
                     pdf: outcome.files.pdf,

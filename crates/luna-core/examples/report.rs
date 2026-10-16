@@ -38,13 +38,8 @@ fn main() {
             problems,
         } => eprintln!("{done}/{total} clips ({problems} with problems)"),
     };
-    match run(
-        source.as_ref(),
-        &settings,
-        &workers,
-        &progress,
-        &AtomicBool::new(false),
-    ) {
+    let request = luna_core::run::RunRequest::folder(source.into(), settings);
+    match run(&request, &workers, &progress, &AtomicBool::new(false)) {
         Ok(outcome) => {
             println!("{}", outcome.summary);
             println!("{}", outcome.files.pdf.display());
