@@ -1,631 +1,35 @@
-// The main window: one flow from picking a source to the written report.
+// The main window is one moon. It is new while Luna waits for a folder, waxes
+// as clips are read, and is full when the report is written. Everything else
+// lives in Settings.
 
 import { Theme } from "theme.slint";
-import { LunaButton, ButtonKind, ProgressBar, FileTag, FolderGlyph, ErrorLine } from "controls.slint";
+import { LunaButton, ButtonKind, ErrorLine, IconButton } from "controls.slint";
 
 export enum Phase { idle, picked, running, done, failed, cancelled }
 
-component Title inherits Text {
-    font-size: Theme.size-title;
-    font-weight: 600;
-    color: Theme.text;
-    wrap: word-wrap;
-}
+// A quiet text link: the secondary actions under the moon.
+component TextLink {
+    in property <string> text;
+    in property <color> color: Theme.text-muted;
+    callback clicked;
 
-component Lead inherits Text {
-    font-size: Theme.size-body;
-    color: Theme.text-muted;
-    wrap: word-wrap;
-}
-
-// "Reports are saved to …" with a way to change it.
-component OutputLine {
-    in property <string> path;
-    callback change();
-
-    HorizontalLayout {
-        spacing: 10px;
-        alignment: LayoutAlignment.start;
-        Text {
-            text: "Reports are saved to " + root.path;
-            font-size: 13px;
-            color: Theme.text-muted;
-            vertical-alignment: center;
-            overflow: elide;
-            horizontal-stretch: 1;
-        }
-
-        LunaButton {
-            text: "Change";
-            kind: ButtonKind.quiet;
-            clicked => {
-                root.change();
-            }
-        }
-    }
-}
-
-component DropZone {
-    in property <bool> hover;
-    callback pick();
-
-    min-height: 240px;
     accessible-role: button;
-    accessible-label: "Choose a source folder";
+    accessible-label: root.text;
     accessible-action-default => {
-        root.pick();
+        root.clicked();
     }
 
-    Rectangle {
-        border-radius: Theme.radius-large;
-        background: root.hover ? Theme.accent-soft : zone-ta.has-hover ? #1b1f24 : Theme.surface;
-        border-width: root.hover ? 2px : 1px;
-        border-color: root.hover ? Theme.accent : Theme.line-strong;
-        animate background, border-color { duration: 120ms; }
+    Text {
+        text: root.text;
+        font-size: Theme.size-body;
+        color: ta.has-hover ? Theme.text : root.color;
+        vertical-alignment: center;
     }
 
-    zone-ta := TouchArea {
+    ta := TouchArea {
         mouse-cursor: pointer;
         clicked => {
-            root.pick();
-        }
-    }
-
-    VerticalLayout {
-        alignment: center;
-        spacing: 14px;
-        HorizontalLayout {
-            alignment: center;
-            FolderGlyph {
-                width: 32px;
-                height: 32px;
-                color: root.hover ? Theme.accent : Theme.text-muted;
-            }
-        }
-
-        Text {
-            text: root.hover ? "Release to use this folder" : "Drop the camera folder here";
-            font-size: Theme.size-lead;
-            color: Theme.text;
-            horizontal-alignment: center;
-        }
-
-        HorizontalLayout {
-            alignment: center;
-            LunaButton {
-                text: "Choose folder…";
-                kind: ButtonKind.primary;
-                clicked => {
-                    root.pick();
-                }
-            }
-        }
-    }
-}
-
-component SourceRow {
-    in property <string> name;
-    in property <string> path;
-    in property <bool> hover;
-    in property <bool> can-change: true;
-    callback change();
-
-    Rectangle {
-        border-radius: Theme.radius-large;
-        background: root.hover ? Theme.accent-soft : Theme.surface;
-        border-width: root.hover ? 2px : 1px;
-        border-color: root.hover ? Theme.accent : Theme.line;
-    }
-
-    HorizontalLayout {
-        padding: 14px;
-        padding-left: 18px;
-        spacing: 14px;
-        VerticalLayout {
-            alignment: center;
-            FolderGlyph {
-                color: Theme.accent;
-            }
-        }
-
-        VerticalLayout {
-            alignment: center;
-            spacing: 2px;
-            horizontal-stretch: 1;
-            Text {
-                text: root.name;
-                font-size: Theme.size-lead;
-                font-weight: 600;
-                color: Theme.text;
-                overflow: elide;
-            }
-
-            Text {
-                text: root.path;
-                font-size: 13px;
-                color: Theme.text-muted;
-                overflow: elide;
-            }
-        }
-
-        if root.can-change: VerticalLayout {
-            alignment: center;
-            LunaButton {
-                text: "Change…";
-                clicked => {
-                    root.change();
-                }
-            }
-        }
-    }
-}
-
-component Stat {
-    in property <string> label;
-    in property <string> value;
-    in property <bool> alert;
-
-    VerticalLayout {
-        spacing: 4px;
-        horizontal-stretch: 1;
-        Text {
-            text: root.label;
-            font-size: 13px;
-            color: Theme.text-muted;
-        }
-
-        Text {
-            text: root.value;
-            font-size: 22px;
-            font-weight: 600;
-            color: root.alert ? Theme.problem : Theme.text;
-        }
-    }
-}
-
-component VRule inherits Rectangle {
-    width: 1px;
-    background: Theme.line;
-}
-
-component HRule inherits Rectangle {
-    height: 1px;
-    background: Theme.line;
-}
-
-component FileRow {
-    in property <string> kind;
-    in property <string> name;
-    in property <string> action;
-    callback activate();
-
-    min-height: 58px;
-    HorizontalLayout {
-        padding-left: 16px;
-        padding-right: 12px;
-        spacing: 14px;
-        VerticalLayout {
-            alignment: center;
-            FileTag {
-                text: root.kind;
-            }
-        }
-
-        Text {
-            text: root.name;
-            font-size: 15px;
-            color: Theme.text;
-            vertical-alignment: center;
-            overflow: elide;
-            horizontal-stretch: 1;
-        }
-
-        if root.action != "": VerticalLayout {
-            alignment: center;
-            LunaButton {
-                width: 112px;
-                text: root.action;
-                clicked => {
-                    root.activate();
-                }
-            }
-        }
-    }
-}
-
-component IdleView {
-    in property <bool> hover;
-    in property <string> error;
-    in property <string> output-dir;
-    callback pick();
-    callback change-output();
-
-    VerticalLayout {
-        spacing: 0;
-        Title {
-            text: "New camera report";
-        }
-
-        Rectangle {
-            height: 10px;
-        }
-
-        Lead {
-            text: "Choose the folder with the camera originals. Luna reads every clip and writes the report as PDF, HTML and CSV.";
-        }
-
-        Rectangle {
-            height: 28px;
-        }
-
-        DropZone {
-            hover: root.hover;
-            pick => {
-                root.pick();
-            }
-        }
-
-        if root.error != "": VerticalLayout {
-            padding-top: 14px;
-            ErrorLine {
-                text: root.error;
-            }
-        }
-
-        Rectangle {
-            height: 18px;
-        }
-
-        OutputLine {
-            path: root.output-dir;
-            change => {
-                root.change-output();
-            }
-        }
-    }
-}
-
-component PickedView {
-    in property <string> source;
-    in property <string> source-name;
-    in property <bool> hover;
-    in property <string> output-dir;
-    callback pick();
-    callback start();
-    callback change-output();
-
-    VerticalLayout {
-        Title {
-            text: "New camera report";
-        }
-
-        Rectangle {
-            height: 10px;
-        }
-
-        Lead {
-            text: "Luna will read every clip in this folder, then write the report.";
-        }
-
-        Rectangle {
-            height: 28px;
-        }
-
-        SourceRow {
-            name: root.source-name;
-            path: root.source;
-            hover: root.hover;
-            change => {
-                root.pick();
-            }
-        }
-
-        Rectangle {
-            height: 18px;
-        }
-
-        OutputLine {
-            path: root.output-dir;
-            change => {
-                root.change-output();
-            }
-        }
-
-        Rectangle {
-            height: 28px;
-        }
-
-        HorizontalLayout {
-            alignment: LayoutAlignment.start;
-            start-button := LunaButton {
-                text: "Start";
-                kind: ButtonKind.primary;
-                large: true;
-                clicked => {
-                    root.start();
-                }
-            }
-        }
-    }
-}
-
-component RunningView {
-    in property <string> source;
-    in property <string> source-name;
-    in property <string> files-found;
-    in property <string> clips-done;
-    in property <string> clips-total;
-    in property <string> problems;
-    in property <bool> has-problems;
-    in property <float> progress;
-    in property <bool> indeterminate;
-    in property <bool> cancelling;
-    callback cancel();
-
-    VerticalLayout {
-        Title {
-            text: root.cancelling ? "Stopping…" : root.indeterminate ? "Looking for clips…" : "Reading clips";
-        }
-
-        Rectangle {
-            height: 10px;
-        }
-
-        Lead {
-            text: "From " + root.source;
-            overflow: elide;
-            wrap: no-wrap;
-        }
-
-        Rectangle {
-            height: 36px;
-        }
-
-        HorizontalLayout {
-            alignment: LayoutAlignment.start;
-            spacing: 12px;
-            Text {
-                text: root.clips-done;
-                font-size: Theme.size-figure;
-                font-weight: 300;
-                color: Theme.text;
-                vertical-alignment: bottom;
-            }
-
-            VerticalLayout {
-                alignment: end;
-                padding-bottom: 12px;
-                Text {
-                    text: "of " + root.clips-total + " clips";
-                    font-size: 20px;
-                    color: Theme.text-muted;
-                }
-            }
-        }
-
-        Rectangle {
-            height: 18px;
-        }
-
-        ProgressBar {
-            progress: root.progress;
-            indeterminate: root.indeterminate;
-        }
-
-        Rectangle {
-            height: 28px;
-        }
-
-        HorizontalLayout {
-            spacing: 24px;
-            Stat {
-                label: "Files found";
-                value: root.files-found;
-            }
-
-            VRule { }
-
-            Stat {
-                label: "Clips done";
-                value: root.clips-done + " / " + root.clips-total;
-            }
-
-            VRule { }
-
-            Stat {
-                label: "Clips with problems";
-                value: root.problems;
-                alert: root.has-problems;
-            }
-        }
-
-        Rectangle {
-            height: 40px;
-        }
-
-        HorizontalLayout {
-            alignment: LayoutAlignment.start;
-            spacing: 16px;
-            LunaButton {
-                width: 112px;
-                text: root.cancelling ? "Stopping…" : "Cancel";
-                enabled: !root.cancelling;
-                clicked => {
-                    root.cancel();
-                }
-            }
-
-            Text {
-                text: "Cancel stops the run and writes no report.";
-                font-size: 13px;
-                color: Theme.text-faint;
-                vertical-alignment: center;
-            }
-        }
-    }
-}
-
-component DoneView {
-    in property <string> summary;
-    in property <bool> has-problems;
-    in property <string> pdf-name;
-    in property <string> html-name;
-    in property <string> csv-name;
-    in property <string> folder;
-    in property <string> open-error;
-    callback open-pdf();
-    callback open-html();
-    callback show-folder();
-    callback new-report();
-
-    VerticalLayout {
-        Title {
-            text: "Report written";
-        }
-
-        Rectangle {
-            height: 12px;
-        }
-
-        if root.has-problems: ErrorLine {
-            text: root.summary;
-        }
-        if !root.has-problems: Lead {
-            text: root.summary;
-        }
-
-        Rectangle {
-            height: 28px;
-        }
-
-        Rectangle {
-            border-radius: Theme.radius-large;
-            background: Theme.surface;
-            border-width: 1px;
-            border-color: Theme.line;
-
-            VerticalLayout {
-                FileRow {
-                    kind: "PDF";
-                    name: root.pdf-name;
-                    action: "Open PDF";
-                    activate => {
-                        root.open-pdf();
-                    }
-                }
-
-                HRule { }
-
-                FileRow {
-                    kind: "HTML";
-                    name: root.html-name;
-                    action: "Open HTML";
-                    activate => {
-                        root.open-html();
-                    }
-                }
-
-                HRule { }
-
-                FileRow {
-                    kind: "CSV";
-                    name: root.csv-name;
-                }
-            }
-        }
-
-        Rectangle {
-            height: 12px;
-        }
-
-        Text {
-            text: "Saved in " + root.folder;
-            font-size: 13px;
-            color: Theme.text-muted;
-            overflow: elide;
-        }
-
-        if root.open-error != "": VerticalLayout {
-            padding-top: 14px;
-            ErrorLine {
-                text: root.open-error;
-            }
-        }
-
-        Rectangle {
-            height: 32px;
-        }
-
-        HorizontalLayout {
-            spacing: 12px;
-            LunaButton {
-                text: "Show in folder";
-                clicked => {
-                    root.show-folder();
-                }
-            }
-
-            Rectangle {
-                horizontal-stretch: 1;
-            }
-
-            LunaButton {
-                text: "New report";
-                kind: ButtonKind.primary;
-                clicked => {
-                    root.new-report();
-                }
-            }
-        }
-    }
-}
-
-component StoppedView {
-    in property <string> title;
-    in property <string> message;
-    in property <bool> is-error;
-    callback back();
-
-    VerticalLayout {
-        Title {
-            text: root.title;
-        }
-
-        Rectangle {
-            height: 20px;
-        }
-
-        if root.is-error: Rectangle {
-            border-radius: Theme.radius;
-            background: Theme.problem-soft;
-            border-width: 1px;
-            border-color: #f2806f40;
-            HorizontalLayout {
-                padding: 16px;
-                Text {
-                    text: root.message;
-                    font-size: 15px;
-                    color: Theme.text;
-                    wrap: word-wrap;
-                }
-            }
-        }
-        if !root.is-error: Lead {
-            text: root.message;
-        }
-
-        Rectangle {
-            height: 32px;
-        }
-
-        HorizontalLayout {
-            alignment: LayoutAlignment.start;
-            LunaButton {
-                text: "Back";
-                clicked => {
-                    root.back();
-                }
-            }
+            root.clicked();
         }
     }
 }
@@ -633,12 +37,13 @@ component StoppedView {
 export component MainWindow inherits Window {
     title: "Luna";
     icon: @image-url("assets/luna-icon.png");
-    min-width: 900px;
-    min-height: 600px;
-    preferred-width: 1040px;
-    preferred-height: 700px;
+    min-width: 720px;
+    min-height: 560px;
+    preferred-width: 880px;
+    preferred-height: 640px;
     background: Theme.canvas;
     default-font-size: Theme.size-body;
+    default-font-family: Theme.font;
 
     in property <Phase> phase: Phase.idle;
     in property <bool> drag-hover;
@@ -661,29 +66,55 @@ export component MainWindow inherits Window {
     in property <string> folder;
     in property <string> failure;
     in property <string> open-error;
+    in property <string> header-production;
+    in property <string> header-company;
 
     callback pick-folder();
     callback start();
     callback cancel();
     callback open-pdf();
     callback open-html();
+    callback open-csv();
     callback show-folder();
     callback new-report();
     callback back();
     callback open-settings();
     callback open-credits();
 
+    property <bool> waiting: root.phase == Phase.idle || root.phase == Phase.picked;
+    // The engraved Moon, drawn live by `moon.rs`: the image is square, the
+    // Moon takes 72% of it and the orbit dial 84%.
+    in property <image> moon-image;
+    out property <length> moon-box: 300px;
+
+    // The whole window takes a click to choose a folder while Luna waits for one.
+    if root.waiting: TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            root.pick-folder();
+        }
+    }
+
     VerticalLayout {
+        padding: 22px;
+        padding-top: 18px;
+
+        // Top line: Luna's logo, and Settings.
         HorizontalLayout {
-            height: 56px;
-            padding-left: 28px;
-            padding-right: 16px;
-            spacing: 4px;
+            spacing: 10px;
+            VerticalLayout {
+                alignment: center;
+                Image {
+                    source: @image-url("assets/luna-icon.png");
+                    width: 22px;
+                    height: 22px;
+                }
+            }
+
             Text {
                 text: "Luna";
-                font-size: 17px;
-                font-weight: 700;
-                letter-spacing: 0.2px;
+                font-size: Theme.size-lead;
+                font-weight: 600;
                 color: Theme.text;
                 vertical-alignment: center;
             }
@@ -692,124 +123,207 @@ export component MainWindow inherits Window {
                 horizontal-stretch: 1;
             }
 
-            VerticalLayout {
-                alignment: center;
-                LunaButton {
-                    text: "Settings";
-                    kind: ButtonKind.quiet;
-                    clicked => {
-                        root.open-settings();
-                    }
-                }
-            }
-
-            VerticalLayout {
-                alignment: center;
-                LunaButton {
-                    text: "Credits";
-                    kind: ButtonKind.quiet;
-                    clicked => {
-                        root.open-credits();
-                    }
+            IconButton {
+                icon: @image-url("icons/gear-six.svg");
+                label: "Settings";
+                clicked => {
+                    root.open-settings();
                 }
             }
         }
 
-        HRule { }
-
-        HorizontalLayout {
-            padding-left: 72px;
-            padding-right: 72px;
-            padding-top: 56px;
-            padding-bottom: 40px;
+        Rectangle {
             vertical-stretch: 1;
+        }
 
-            VerticalLayout {
-                alignment: LayoutAlignment.start;
-                horizontal-stretch: 1;
-                max-width: 680px;
+        // The moon.
+        HorizontalLayout {
+            alignment: center;
+            Rectangle {
+                width: root.moon-box;
+                height: root.moon-box;
 
-                if root.phase == Phase.idle: IdleView {
-                    hover: root.drag-hover;
-                    error: root.source-error;
-                    output-dir: root.output-dir;
-                    pick => {
-                        root.pick-folder();
-                    }
-                    change-output => {
-                        root.open-settings();
-                    }
+                Image {
+                    width: parent.width;
+                    height: parent.height;
+                    source: root.moon-image;
+                    image-fit: contain;
+                    accessible-role: none;
                 }
-                if root.phase == Phase.picked: PickedView {
-                    source: root.source;
-                    source-name: root.source-name;
-                    hover: root.drag-hover;
-                    output-dir: root.output-dir;
-                    pick => {
-                        root.pick-folder();
-                    }
-                    start => {
-                        root.start();
-                    }
-                    change-output => {
-                        root.open-settings();
-                    }
+
+                // A blue ring on the dial while a folder is held over the window.
+                Rectangle {
+                    width: root.moon-box * 0.86;
+                    height: self.width;
+                    border-radius: self.width / 2;
+                    border-width: 2px;
+                    border-color: root.drag-hover ? Theme.accent : transparent;
+                    animate border-color { duration: 150ms; }
                 }
-                if root.phase == Phase.running: RunningView {
-                    source: root.source;
-                    source-name: root.source-name;
-                    files-found: root.files-found;
-                    clips-done: root.clips-done;
-                    clips-total: root.clips-total;
-                    problems: root.problems;
-                    has-problems: root.has-problems;
-                    progress: root.progress;
-                    indeterminate: root.indeterminate;
-                    cancelling: root.cancelling;
-                    cancel => {
-                        root.cancel();
-                    }
+            }
+        }
+
+        Rectangle {
+            height: 12px;
+        }
+
+        // What is happening, in one line, and its detail.
+        VerticalLayout {
+            spacing: 8px;
+            Text {
+                text: root.phase == Phase.idle ? (root.drag-hover ? "Release to use this folder" : "Drop a camera folder")
+                    : root.phase == Phase.picked ? root.source-name
+                    : root.phase == Phase.running ? (root.cancelling ? "Stopping"
+                        : root.indeterminate ? "Looking for clips"
+                        : root.clips-done + " of " + root.clips-total + " clips")
+                    : root.phase == Phase.done ? "Report ready"
+                    : root.phase == Phase.failed ? "Report not written"
+                    : "Cancelled";
+                font-size: Theme.size-title;
+                font-weight: 600;
+                color: Theme.text;
+                horizontal-alignment: center;
+                overflow: elide;
+            }
+
+            Text {
+                text: root.phase == Phase.idle ? "or click anywhere to choose one"
+                    : root.phase == Phase.picked ? root.source
+                    : root.phase == Phase.running ? (root.has-problems ? root.problems + " need attention" : root.source)
+                    : root.phase == Phase.done ? root.summary
+                    : root.phase == Phase.failed ? root.failure
+                    : "Nothing was written.";
+                font-size: Theme.size-body;
+                color: (root.phase == Phase.running && root.has-problems)
+                    || (root.phase == Phase.done && root.has-problems)
+                    || root.phase == Phase.failed ? Theme.problem : Theme.text-faint;
+                horizontal-alignment: center;
+                wrap: word-wrap;
+            }
+
+            if root.source-error != "" && root.phase == Phase.idle: HorizontalLayout {
+                alignment: center;
+                ErrorLine {
+                    max-width: 420px;
+                    text: root.source-error;
                 }
-                if root.phase == Phase.done: DoneView {
-                    summary: root.summary;
-                    has-problems: root.has-problems;
-                    pdf-name: root.pdf-name;
-                    html-name: root.html-name;
-                    csv-name: root.csv-name;
-                    folder: root.folder;
-                    open-error: root.open-error;
-                    open-pdf => {
-                        root.open-pdf();
-                    }
-                    open-html => {
-                        root.open-html();
-                    }
-                    show-folder => {
-                        root.show-folder();
-                    }
-                    new-report => {
-                        root.new-report();
-                    }
+            }
+        }
+
+        Rectangle {
+            height: 26px;
+        }
+
+        // The one next step, and its quiet alternatives.
+        HorizontalLayout {
+            alignment: center;
+            spacing: 18px;
+            height: 34px;
+
+            if root.phase == Phase.picked: LunaButton {
+                text: "Create report";
+                kind: ButtonKind.primary;
+                large: true;
+                clicked => {
+                    root.start();
                 }
-                if root.phase == Phase.failed: StoppedView {
-                    title: "Couldn't write the report";
-                    message: root.failure;
-                    is-error: true;
-                    back => {
-                        root.back();
-                    }
+            }
+            if root.phase == Phase.picked: TextLink {
+                text: "Change folder";
+                clicked => {
+                    root.pick-folder();
                 }
-                if root.phase == Phase.cancelled: StoppedView {
-                    title: "Run cancelled";
-                    message: "No report was written. The source folder is still selected, so you can start again.";
-                    back => {
-                        root.back();
-                    }
+            }
+
+            if root.phase == Phase.running: LunaButton {
+                text: root.cancelling ? "Stopping" : "Cancel";
+                enabled: !root.cancelling;
+                large: true;
+                clicked => {
+                    root.cancel();
+                }
+            }
+
+            if root.phase == Phase.done: LunaButton {
+                text: "Open PDF";
+                kind: ButtonKind.primary;
+                large: true;
+                clicked => {
+                    root.open-pdf();
+                }
+            }
+            if root.phase == Phase.done: TextLink {
+                text: "HTML";
+                clicked => {
+                    root.open-html();
+                }
+            }
+            if root.phase == Phase.done: TextLink {
+                text: "CSV";
+                clicked => {
+                    root.open-csv();
+                }
+            }
+            if root.phase == Phase.done: TextLink {
+                text: "Show in folder";
+                clicked => {
+                    root.show-folder();
+                }
+            }
+
+            if root.phase == Phase.failed || root.phase == Phase.cancelled: LunaButton {
+                text: "Back";
+                large: true;
+                clicked => {
+                    root.back();
+                }
+            }
+        }
+
+        if root.open-error != "": HorizontalLayout {
+            alignment: center;
+            padding-top: 10px;
+            ErrorLine {
+                max-width: 420px;
+                text: root.open-error;
+            }
+        }
+
+        Rectangle {
+            vertical-stretch: 1;
+        }
+
+        // Bottom line: which report this is, and where it goes.
+        HorizontalLayout {
+            spacing: 16px;
+            TextLink {
+                text: root.header-production == "" ? "No production set" : root.header-production;
+                color: Theme.text-faint;
+                clicked => {
+                    root.open-settings();
                 }
             }
 
             Rectangle {
-                horizontal-stretch: 0.0001;
+                horizontal-stretch: 1;
+            }
+
+            if root.phase == Phase.done: TextLink {
+                text: "New report";
+                color: Theme.text-muted;
+                clicked => {
+                    root.new-report();
+                }
+            }
+
+            if root.phase != Phase.done: Text {
+                text: root.output-dir;
+                font-size: Theme.size-body;
+                color: Theme.text-faint;
+                horizontal-alignment: right;
+                vertical-alignment: center;
+                overflow: elide;
+                max-width: 360px;
             }
         }
     }

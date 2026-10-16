@@ -9,5 +9,20 @@ Notable components:
     Typst (typesetting, PDF output)     Apache-2.0
     askama (HTML templates)             MIT OR Apache-2.0
 
+Bundled typeface:
+    IBM Plex Sans and IBM Plex Sans Condensed, Copyright 2017 IBM Corp.,
+    with Reserved Font Name "Plex". SIL Open Font License 1.1; the full
+    licence is in Assets/fonts/OFL.txt.
+
+Lunar surface map:
+    Adapted from the CGI Moon Kit color map (LRO LROC data), NASA's
+    Scientific Visualization Studio, https://svs.gsfc.nasa.gov/4720.
+    Used under NASA's media usage guidelines; no endorsement implied.
+    Source in tools/moon/; baked by tools/moon/bake_albedo.py.
+
+Bundled icons:
+    Phosphor Icons, Copyright 2023 Phosphor Icons. MIT licence; the full
+    licence is in crates/luna-app/ui/icons/LICENSE.
+
 The earlier browser app (tag luna-web-final) and the retired .NET desktop app
 (branch archive/dotnet, tag dotnet-final) carry their own NOTICE files.

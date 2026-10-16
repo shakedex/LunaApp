@@ -3,7 +3,7 @@
 
 import { ScrollView } from "std-widgets.slint";
 import { Theme } from "theme.slint";
-import { LunaButton, ButtonKind, IconButton, IconKind, TextField, Field, SectionHeading, ErrorLine, FolderGlyph } from "controls.slint";
+import { LunaButton, ButtonKind, IconButton, TextField, Field, SectionHeading, ErrorLine, Icon, Segmented } from "controls.slint";
 
 export struct CustomField {
     label: string,
@@ -24,6 +24,7 @@ export component SettingsWindow inherits Window {
     preferred-height: 760px;
     background: Theme.canvas;
     default-font-size: Theme.size-body;
+    default-font-family: Theme.font;
 
     in-out property <string> production;
     in-out property <string> company;
@@ -35,6 +36,7 @@ export component SettingsWindow inherits Window {
     in property <[CustomField]> fields;
     in property <string> output-dir;
     in property <bool> can-save;
+    in property <bool> report-dark;
     in property <string> save-error;
 
     callback text-edited();
@@ -49,6 +51,8 @@ export component SettingsWindow inherits Window {
     callback pick-output();
     callback save();
     callback cancel();
+    callback set-report-dark(bool);
+    callback open-credits();
 
     VerticalLayout {
         ScrollView {
@@ -70,12 +74,11 @@ export component SettingsWindow inherits Window {
                     spacing: 16px;
                     SectionHeading {
                         title: "Report header";
-                        note: "Printed at the top of every report.";
                     }
 
                     Field {
                         label: "Production";
-                        placeholder: "e.g. The Long Night";
+                        placeholder: "The Long Night";
                         text <=> root.production;
                         edited => {
                             root.text-edited();
@@ -94,7 +97,7 @@ export component SettingsWindow inherits Window {
                         }
 
                         Field {
-                            label: "Report author";
+                            label: "Report by";
                             placeholder: "Your name";
                             text <=> root.author;
                             edited => {
@@ -106,12 +109,34 @@ export component SettingsWindow inherits Window {
 
                 Rule { }
 
+                // Report theme. Saved as soon as it changes.
+                VerticalLayout {
+                    spacing: 12px;
+                    SectionHeading {
+                        title: "Report theme";
+                        note: "Light for printing, dark for screens on set";
+                    }
+
+                    Segmented {
+                        width: 220px;
+                        label: "Report theme";
+                        first: "Light";
+                        second: "Dark";
+                        second-selected: root.report-dark;
+                        changed(d) => {
+                            root.set-report-dark(d);
+                        }
+                    }
+                }
+
+                Rule { }
+
                 // Logo.
                 VerticalLayout {
                     spacing: 16px;
                     SectionHeading {
-                        title: "Company logo";
-                        note: "PNG, JPEG or SVG. Shown in the report header.";
+                        title: "Logo";
+                        note: "PNG, JPEG or SVG";
                     }
 
                     HorizontalLayout {
@@ -133,10 +158,11 @@ export component SettingsWindow inherits Window {
                                 source: root.logo;
                                 image-fit: contain;
                             }
-                            if !root.has-logo: Text {
-                                text: "No logo";
-                                color: Theme.text-faint;
-                                font-size: 13px;
+                            if !root.has-logo: Icon {
+                                source: @image-url("icons/image.svg");
+                                width: 28px;
+                                height: 28px;
+                                tint: Theme.text-faint;
                             }
                         }
 
@@ -154,7 +180,8 @@ export component SettingsWindow inherits Window {
                                 spacing: 10px;
                                 alignment: start;
                                 LunaButton {
-                                    text: root.has-logo ? "Replace logo…" : "Choose logo…";
+                                    text: root.has-logo ? "Replace" : "Choose logo";
+                                    icon: @image-url("icons/image.svg");
                                     clicked => {
                                         root.pick-logo();
                                     }
@@ -162,6 +189,7 @@ export component SettingsWindow inherits Window {
 
                                 if root.has-logo: LunaButton {
                                     text: "Remove";
+                                    icon: @image-url("icons/trash.svg");
                                     kind: ButtonKind.quiet;
                                     clicked => {
                                         root.remove-logo();
@@ -183,13 +211,7 @@ export component SettingsWindow inherits Window {
                     spacing: 14px;
                     SectionHeading {
                         title: "Custom fields";
-                        note: "Extra lines for the report header, printed in this order. For example Episode, Unit or Location.";
-                    }
-
-                    if root.fields.length == 0: Text {
-                        text: "No custom fields yet.";
-                        font-size: 13px;
-                        color: Theme.text-faint;
+                        note: "Episode, unit, shoot day: printed under the header in this order";
                     }
 
                     if root.fields.length > 0: HorizontalLayout {
@@ -245,7 +267,7 @@ export component SettingsWindow inherits Window {
                             VerticalLayout {
                                 alignment: center;
                                 IconButton {
-                                    icon: IconKind.up;
+                                    icon: @image-url("icons/caret-up.svg");
                                     label: "Move field " + (i + 1) + " up";
                                     enabled: i > 0;
                                     clicked => {
@@ -257,7 +279,7 @@ export component SettingsWindow inherits Window {
                             VerticalLayout {
                                 alignment: center;
                                 IconButton {
-                                    icon: IconKind.down;
+                                    icon: @image-url("icons/caret-down.svg");
                                     label: "Move field " + (i + 1) + " down";
                                     enabled: i < root.fields.length - 1;
                                     clicked => {
@@ -269,7 +291,8 @@ export component SettingsWindow inherits Window {
                             VerticalLayout {
                                 alignment: center;
                                 IconButton {
-                                    icon: IconKind.remove;
+                                    icon: @image-url("icons/trash.svg");
+                                    danger: true;
                                     label: "Remove field " + (i + 1);
                                     clicked => {
                                         root.remove-field(i);
@@ -283,6 +306,7 @@ export component SettingsWindow inherits Window {
                         alignment: start;
                         LunaButton {
                             text: "Add field";
+                            icon: @image-url("icons/plus.svg");
                             clicked => {
                                 root.add-field();
                             }
@@ -296,8 +320,7 @@ export component SettingsWindow inherits Window {
                 VerticalLayout {
                     spacing: 16px;
                     SectionHeading {
-                        title: "Output location";
-                        note: "Each run writes its own folder here.";
+                        title: "Save reports to";
                     }
 
                     Rectangle {
@@ -311,7 +334,9 @@ export component SettingsWindow inherits Window {
                             spacing: 12px;
                             VerticalLayout {
                                 alignment: center;
-                                FolderGlyph { }
+                                Icon {
+                                    source: @image-url("icons/folder-simple.svg");
+                                }
                             }
 
                             Text {
@@ -323,7 +348,8 @@ export component SettingsWindow inherits Window {
                             }
 
                             LunaButton {
-                                text: "Choose folder…";
+                                text: "Change";
+                                icon: @image-url("icons/folder-open.svg");
                                 clicked => {
                                     root.pick-output();
                                 }
@@ -336,11 +362,21 @@ export component SettingsWindow inherits Window {
 
         Rule { }
 
-        HorizontalLayout {
+        Rectangle {
+            background: Theme.chrome;
+            HorizontalLayout {
             padding: 16px;
             padding-left: 36px;
             padding-right: 24px;
             spacing: 12px;
+            LunaButton {
+                text: "Credits";
+                kind: ButtonKind.quiet;
+                clicked => {
+                    root.open-credits();
+                }
+            }
+
             VerticalLayout {
                 alignment: center;
                 horizontal-stretch: 1;
@@ -348,7 +384,7 @@ export component SettingsWindow inherits Window {
                     text: root.save-error;
                 }
                 if root.save-error == "": Text {
-                    text: root.can-save ? "You have unsaved changes." : "";
+                    text: root.can-save ? "Unsaved changes" : "";
                     font-size: 13px;
                     color: Theme.text-muted;
                 }
@@ -368,6 +404,7 @@ export component SettingsWindow inherits Window {
                 clicked => {
                     root.save();
                 }
+            }
             }
         }
     }

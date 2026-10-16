@@ -1,5 +1,13 @@
 // Entry point compiled by build.rs: every window the app opens.
 
+// IBM Plex Sans, the report's typeface (SIL OFL 1.1, Assets/fonts/OFL.txt).
+// Its figures are tabular, so counters and paths don't jitter as they change.
+import "../../../Assets/fonts/IBMPlexSans-Light.ttf";
+import "../../../Assets/fonts/IBMPlexSans-Regular.ttf";
+import "../../../Assets/fonts/IBMPlexSans-Medium.ttf";
+import "../../../Assets/fonts/IBMPlexSans-SemiBold.ttf";
+import "../../../Assets/fonts/IBMPlexSans-Bold.ttf";
+
 export { MainWindow, Phase } from "main.slint";
 export { SettingsWindow, CustomField } from "settings.slint";
 export { CreditsWindow, Component } from "credits.slint";

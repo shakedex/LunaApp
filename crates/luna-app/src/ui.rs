@@ -9,6 +9,7 @@ use std::path::{Path, PathBuf};
 use std::rc::{Rc, Weak};
 use std::sync::{Arc, Mutex};
 
+use luna_core::settings::ReportTheme;
 use luna_core::settings::Settings;
 use slint::winit_030::winit::event::WindowEvent;
 use slint::winit_030::{EventResult, WinitWindowAccessor};
@@ -16,6 +17,7 @@ use slint::{ComponentHandle, ModelRc, SharedString, VecModel};
 
 use crate::backend::{RunBackend, RunControl, RunEvent};
 use crate::flow::{Flow, FlowState, validate_source};
+use crate::moon::{MoonFrame, MoonRenderer};
 use crate::settings_edit::SettingsEditor;
 use crate::settings_store::SettingsStore;
 use crate::view::{MainView, ViewPhase, main_view};
@@ -50,10 +52,24 @@ pub fn run(
         settings_window: RefCell::new(None),
         credits_window: RefCell::new(None),
         dialog_open: Cell::new(false),
+        moon: RefCell::new(MoonMotion::new()),
         main,
     });
     App::wire(&app);
     app.render();
+    app.draw_moon();
+    let moon_timer = slint::Timer::default();
+    let weak = Rc::downgrade(&app);
+    moon_timer.start(
+        slint::TimerMode::Repeated,
+        // 15 fps: the Moon turns once in 90 s, so this is smooth and cheap.
+        std::time::Duration::from_millis(66),
+        move || {
+            if let Some(app) = weak.upgrade() {
+                app.draw_moon();
+            }
+        },
+    );
     app.main.show()?;
     slint::run_event_loop_until_quit()?;
     Ok(())
@@ -74,6 +90,44 @@ struct App {
     credits_window: RefCell<Option<CreditsWindow>>,
     /// A native file dialog is open; ignore further requests until it closes.
     dialog_open: Cell<bool>,
+    moon: RefCell<MoonMotion>,
+}
+
+/// The Moon's motion: it turns slowly, and its phase and dial ease toward the
+/// run's progress rather than jumping clip by clip.
+struct MoonMotion {
+    renderer: MoonRenderer,
+    started: std::time::Instant,
+    lit: f32,
+    dial: f32,
+}
+
+/// One turn of the Moon takes this long.
+const MOON_TURN_SECONDS: f32 = 90.0;
+/// A crescent, like the logo, while Luna waits.
+const MOON_WAITING: f32 = 0.08;
+
+impl MoonMotion {
+    fn new() -> Self {
+        Self {
+            renderer: MoonRenderer::new(),
+            started: std::time::Instant::now(),
+            lit: MOON_WAITING,
+            dial: 0.0,
+        }
+    }
+
+    /// Advances toward the target state and returns the frame to draw.
+    fn step(&mut self, target_lit: f32, target_dial: f32) -> MoonFrame {
+        self.lit += (target_lit - self.lit) * 0.15;
+        self.dial += (target_dial - self.dial) * 0.22;
+        let spin = self.started.elapsed().as_secs_f32() / MOON_TURN_SECONDS * std::f32::consts::TAU;
+        MoonFrame {
+            lit: self.lit,
+            spin,
+            progress: self.dial,
+        }
+    }
 }
 
 /// Wraps a callback so it only holds a weak reference to the app.
@@ -126,6 +180,10 @@ impl App {
             let f = unit(|a| a.open_output(|o| o.html.clone()));
             move || f(())
         });
+        m.on_open_csv({
+            let f = unit(|a| a.open_output(|o| o.csv.clone()));
+            move || f(())
+        });
         m.on_show_folder({
             let f = unit(|a| a.open_output(|o| o.folder.clone()));
             move || f(())
@@ -160,17 +218,58 @@ impl App {
         });
     }
 
+    /// Draws the next Moon frame, unless the window can't be seen.
+    fn draw_moon(&self) {
+        let window = self.main.window();
+        if !window.is_visible() || window.is_minimized() {
+            return;
+        }
+        let progress = if self.main.get_indeterminate() {
+            0.0
+        } else {
+            self.main.get_progress()
+        };
+        let (lit, dial) = match self.main.get_phase() {
+            Phase::Running => (MOON_WAITING + (1.0 - MOON_WAITING) * progress, progress),
+            Phase::Done => (1.0, 1.0),
+            _ => (MOON_WAITING, 0.0),
+        };
+        let scale = window.scale_factor();
+        let size = (self.main.get_moon_box() * scale).round() as u32;
+        let supersample = if scale >= 1.5 { 1 } else { 2 };
+        let mut moon = self.moon.borrow_mut();
+        let frame = moon.step(lit, dial);
+        let pixels = moon.renderer.render(size, supersample, frame);
+        self.main.set_moon_image(slint::Image::from_rgb8(pixels));
+    }
+
     fn render(&self) {
         let view = main_view(&self.flow.lock().expect("flow lock"));
         apply_view(&self.main, &view);
-        self.main.set_output_dir(
-            self.settings
-                .borrow()
-                .output_dir
-                .display()
-                .to_string()
-                .into(),
-        );
+        let settings = self.settings.borrow();
+        self.main
+            .set_output_dir(settings.output_dir.display().to_string().into());
+        self.main
+            .set_header_production(settings.production.as_str().into());
+        self.main
+            .set_header_company(settings.company.as_str().into());
+    }
+
+    /// The report theme switch saves at once; it has no draft to discard.
+    fn set_report_dark(&self, dark: bool) {
+        let mut settings = self.settings.borrow().clone();
+        settings.report_theme = if dark {
+            ReportTheme::Dark
+        } else {
+            ReportTheme::Light
+        };
+        match self.store.save(&settings) {
+            Ok(()) => *self.settings.borrow_mut() = settings,
+            Err(e) => crate::log::error(&format!("Couldn't save the report theme: {e}")),
+        }
+        if let Some(w) = self.settings_window.borrow().as_ref() {
+            w.set_report_dark(self.settings.borrow().report_theme == ReportTheme::Dark);
+        }
     }
 
     fn window_event(&self, event: &WindowEvent) {
@@ -352,6 +451,14 @@ impl App {
             });
             move || f(())
         });
+        w.on_set_report_dark({
+            let f = with_app(self, |app, dark: bool| app.set_report_dark(dark));
+            move |dark| f(dark)
+        });
+        w.on_open_credits({
+            let f = with_app(self, |app, ()| app.open_credits());
+            move || f(())
+        });
         w.on_label_edited({
             let f = with_app(self, |app, (i, t): (i32, SharedString)| {
                 app.editor.borrow_mut().set_label(i as usize, &t);
@@ -446,6 +553,7 @@ impl App {
             win.set_author(d.author.clone().into());
             win.set_output_dir(output_text(d).into());
         }
+        win.set_report_dark(self.settings.borrow().report_theme == ReportTheme::Dark);
         self.fill_logo(win);
         self.fill_fields(win);
         self.refresh_dirty(win);
@@ -519,7 +627,12 @@ impl App {
     }
 
     fn save_settings(&self, win: &SettingsWindow) {
-        let validated = self.editor.borrow().validated();
+        // The theme is switched in the main window, not in this draft.
+        let theme = self.settings.borrow().report_theme;
+        let validated = self.editor.borrow().validated().map(|mut s| {
+            s.report_theme = theme;
+            s
+        });
         let result = validated.and_then(|s| self.store.save(&s).map(|()| s));
         match result {
             Ok(saved) => {
@@ -572,6 +685,17 @@ fn credits() -> Vec<Component> {
         ),
         ("rfd", "MIT", "Native file and folder dialogs"),
         ("open", "MIT", "Opens reports in their default app"),
+        (
+            "IBM Plex Sans",
+            "OFL-1.1",
+            "Typeface of the app and the report",
+        ),
+        ("Phosphor Icons", "MIT", "Icons"),
+        (
+            "NASA CGI Moon Kit",
+            "NASA media",
+            "Lunar surface map, by NASA's Scientific Visualization Studio",
+        ),
     ]
     .into_iter()
     .map(|(name, licence, role)| Component {

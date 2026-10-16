@@ -1,39 +1,45 @@
-// Cinema Dark: graphite surfaces, one tungsten accent, coral only for problems.
+// Luna at night: midnight surfaces, moonlight text, and the blue of the
+// crescent in Luna's logo for the next step. Coral only for problems.
 
 export global Theme {
-    // Surfaces, darkest to lightest.
-    out property <color> canvas: #121418;
-    out property <color> field: #0d0f12;
-    out property <color> surface: #181b20;
-    out property <color> raised: #20242a;
-    out property <color> raised-hover: #282d34;
-    out property <color> line: #262a31;
-    out property <color> line-strong: #3a4049;
+    out property <string> font: "IBM Plex Sans";
 
-    // Text.
-    out property <color> text: #eceff3;
-    out property <color> text-muted: #a3abb6;
-    out property <color> text-faint: #6f7783;
+    // Surfaces, darkest to lightest. `chrome` is the toolbar and status bar,
+    // `canvas` the clip area, `surface` the side panels, `raised` panel headers
+    // and controls.
+    out property <color> chrome: #07090d;
+    out property <color> canvas: #0c0f14;
+    out property <color> field: #090b0f;
+    out property <color> surface: #11151b;
+    out property <color> raised: #181d25;
+    out property <color> raised-hover: #212833;
+    out property <color> line: #1d232d;
+    out property <color> line-strong: #2b3341;
 
-    // The one accent: tungsten, like a 3200 K practical.
-    out property <color> accent: #e9a640;
-    out property <color> accent-hover: #f2b75e;
-    out property <color> accent-pressed: #d4922c;
-    out property <color> accent-soft: #e9a64014;
-    out property <color> on-accent: #1d1406;
-    out property <color> focus: #f5c97f;
+    // Moonlight.
+    out property <color> text: #e4e8ef;
+    out property <color> text-muted: #99a2b2;
+    out property <color> text-faint: #5d6676;
 
-    // Problems.
-    out property <color> problem: #f2806f;
-    out property <color> problem-soft: #f2806f14;
+    // The logo's crescent.
+    out property <color> accent: #79caea;
+    out property <color> accent-hover: #95d7f1;
+    out property <color> accent-pressed: #5fb7db;
+    out property <color> accent-soft: #79caea1c;
+    out property <color> on-accent: #04141c;
+    out property <color> focus: #a9e2f6;
 
-    out property <length> radius: 6px;
-    out property <length> radius-large: 10px;
+    out property <color> problem: #f07a6a;
+    out property <color> problem-soft: #f07a6a1c;
 
-    // Type scale.
-    out property <length> size-small: 12px;
-    out property <length> size-body: 14px;
-    out property <length> size-lead: 16px;
-    out property <length> size-title: 26px;
-    out property <length> size-figure: 60px;
+    out property <length> radius: 4px;
+    out property <length> radius-large: 6px;
+
+    // Type scale: dense, like the tools DITs already use.
+    out property <length> size-tiny: 10px;
+    out property <length> size-small: 11px;
+    out property <length> size-body: 12px;
+    out property <length> size-lead: 14px;
+    out property <length> size-title: 20px;
+    out property <length> size-figure: 44px;
 }
