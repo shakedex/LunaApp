@@ -57,6 +57,83 @@ pub fn relative(root: &Path, path: &Path) -> String {
     }
 }
 
+/// The given roots without duplicates and without any root that sits inside
+/// another one (its files are already part of the outer walk). Order kept.
+pub fn outermost(roots: &[PathBuf]) -> Vec<PathBuf> {
+    roots
+        .iter()
+        .enumerate()
+        .filter(|&(i, r)| {
+            !roots
+                .iter()
+                .enumerate()
+                .any(|(j, o)| (o != r && r.starts_with(o)) || (o == r && j < i))
+        })
+        .map(|(_, r)| r.clone())
+        .collect()
+}
+
+/// The root `path` lives in; the longest when several contain it.
+pub fn containing_root<'a>(roots: &'a [PathBuf], path: &Path) -> Option<&'a PathBuf> {
+    roots
+        .iter()
+        .filter(|r| path.starts_with(r))
+        .max_by_key(|r| r.components().count())
+}
+
+/// `path` for display: relative to the root with one root, and prefixed with
+/// its root (`E:/A_CAM/A001`) when there are several, so paths from different
+/// drives stay apart.
+pub fn display_path(roots: &[PathBuf], path: &Path) -> String {
+    let roots = outermost(roots);
+    match containing_root(&roots, path) {
+        Some(root) if roots.len() == 1 => relative(root, path),
+        Some(root) => join_display(root, &relative(root, path)),
+        None => path.to_string_lossy().replace('\\', "/"),
+    }
+}
+
+fn join_display(root: &Path, rel: &str) -> String {
+    let root = root.to_string_lossy().replace('\\', "/");
+    let root = match root.trim_end_matches('/') {
+        "" => "/",
+        r => r,
+    };
+    match rel {
+        "." => root.to_owned(),
+        rel if root.ends_with('/') => format!("{root}{rel}"),
+        rel => format!("{root}/{rel}"),
+    }
+}
+
+/// Walks every root (see [`outermost`]) and merges what they found. With one
+/// root this is [`scan`]; with several, `not_included` and `unreadable` paths
+/// carry their root (see [`display_path`]).
+pub fn scan_roots(roots: &[PathBuf]) -> Scan {
+    let roots = outermost(roots);
+    if let [root] = roots.as_slice() {
+        return scan(root);
+    }
+    let mut out = Scan::default();
+    for root in &roots {
+        let s = scan(root);
+        out.clips.extend(s.clips);
+        out.not_included.extend(
+            s.not_included
+                .into_iter()
+                .map(|rel| join_display(root, &rel)),
+        );
+        out.unreadable.extend(s.unreadable.into_iter().map(|mut u| {
+            u.path = join_display(root, &u.path);
+            u
+        }));
+    }
+    out.clips.sort_by(|a, b| a.main.cmp(&b.main));
+    out.not_included.sort();
+    out.unreadable.sort_by(|a, b| a.path.cmp(&b.path));
+    out
+}
+
 /// Walks `root` recursively and assembles clips.
 pub fn scan(root: &Path) -> Scan {
     let mut out = Scan::default();

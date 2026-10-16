@@ -221,7 +221,7 @@ pub fn build_report(
         .zip(&results)
         .map(|(files, r)| (files.clone(), r.meta.as_ref()))
         .collect();
-    let groups = resolve_identity(root, &identity_input);
+    let groups = resolve_identity(&[root.to_path_buf()], &identity_input);
 
     let cameras = groups
         .into_iter()

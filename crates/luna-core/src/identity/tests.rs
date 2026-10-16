@@ -184,7 +184,7 @@ fn single_card_as_root_with_camera_names() {
         (clip(&root.join("A001C002_200101_R1AB.mxf")), None),
         (clip(&root.join("A001C001_200101_R1AB.mxf")), None),
     ];
-    let g = resolve_identity(&root, &clips);
+    let g = resolve_identity(std::slice::from_ref(&root), &clips);
     assert_eq!(
         flat(&g, &clips),
         [f(
@@ -205,14 +205,20 @@ fn single_card_as_root_uses_its_own_folder_names() {
     let root = at("B_CAM/B007");
     let clips: Vec<(ClipFiles, Option<&ClipMeta>)> = vec![(clip(&root.join("clip.mov")), None)];
     assert_eq!(
-        flat(&resolve_identity(&root, &clips), &clips),
+        flat(
+            &resolve_identity(std::slice::from_ref(&root), &clips),
+            &clips
+        ),
         [f("B", "B007", &[("clip.mov", Folder, Folder)])]
     );
     // An arbitrary parent outside the root is not evidence.
     let root = at("Desktop/Card 7");
     let clips: Vec<(ClipFiles, Option<&ClipMeta>)> = vec![(clip(&root.join("clip.mov")), None)];
     assert_eq!(
-        flat(&resolve_identity(&root, &clips), &clips),
+        flat(
+            &resolve_identity(std::slice::from_ref(&root), &clips),
+            &clips
+        ),
         [f(
             "Card 7",
             "Card 7",
@@ -234,7 +240,7 @@ fn whole_drive_with_several_cameras() {
         (clip(&at("Shoot/X001/generic.mov")), None),
     ];
     assert_eq!(
-        flat(&resolve_identity(&root(), &clips), &clips),
+        flat(&resolve_identity(&[root()], &clips), &clips),
         [
             f(
                 "A",
@@ -277,7 +283,7 @@ fn mixed_evidence_in_one_card_borrows_the_strongest() {
         (clip(&at("Day1/Card1/odd name.mov")), None),
     ];
     assert_eq!(
-        flat(&resolve_identity(&root(), &clips), &clips),
+        flat(&resolve_identity(&[root()], &clips), &clips),
         [f(
             "A",
             "A007",
@@ -296,7 +302,7 @@ fn metadata_outranks_file_name_and_folder() {
     let clips: Vec<(ClipFiles, Option<&ClipMeta>)> =
         vec![(clip(&at("A_CAM/A001/A001C001_200101_R1AB.mxf")), Some(&m))];
     assert_eq!(
-        flat(&resolve_identity(&root(), &clips), &clips),
+        flat(&resolve_identity(&[root()], &clips), &clips),
         [f(
             "Z",
             "Z009",
@@ -311,7 +317,7 @@ fn blank_metadata_is_not_evidence() {
     let clips: Vec<(ClipFiles, Option<&ClipMeta>)> =
         vec![(clip(&at("A_CAM/A001/A001C001_200101_R1AB.mxf")), Some(&m))];
     assert_eq!(
-        flat(&resolve_identity(&root(), &clips), &clips),
+        flat(&resolve_identity(&[root()], &clips), &clips),
         [f(
             "A",
             "A001",
@@ -331,7 +337,7 @@ fn disagreeing_embedded_reels_split_the_folder() {
         (clip(&at("dump/stray.mov")), None),
     ];
     assert_eq!(
-        flat(&resolve_identity(&root(), &clips), &clips),
+        flat(&resolve_identity(&[root()], &clips), &clips),
         [
             f("A", "A001", &[("one.mxf", Metadata, Metadata)]),
             f(
@@ -363,7 +369,7 @@ fn same_reel_from_different_folders_stays_apart_and_says_where() {
             None,
         ),
     ];
-    let g = resolve_identity(&root(), &clips);
+    let g = resolve_identity(&[root()], &clips);
     assert_eq!(g.len(), 1);
     let reels: Vec<_> = g[0].cards.iter().map(|c| c.reel.as_str()).collect();
     assert_eq!(
@@ -406,7 +412,7 @@ fn clips_order_by_recording_start_then_file_name() {
         (clip(&at("X001/early.mov")), Some(&early)),
         (clip(&at("X001/mid.mov")), Some(&early_tc)),
     ];
-    let g = resolve_identity(&root(), &clips);
+    let g = resolve_identity(&[root()], &clips);
     let order: Vec<_> = g[0].cards[0]
         .clips
         .iter()
@@ -428,7 +434,7 @@ fn clips_order_by_recording_start_then_file_name() {
 
 #[test]
 fn nothing_in_nothing_out() {
-    assert!(resolve_identity(&root(), &[]).is_empty());
+    assert!(resolve_identity(&[root()], &[]).is_empty());
 }
 
 fn body(model: &str, serial: Option<&str>) -> ClipMeta {
@@ -458,7 +464,7 @@ fn one_letter_on_different_bodies_splits_into_cameras() {
             Some(&c70),
         ),
     ];
-    let g = resolve_identity(&root, &clips);
+    let g = resolve_identity(std::slice::from_ref(&root), &clips);
     assert_eq!(camera_names(&g), ["A (ARRI ALEXA 35)", "A (Canon EOS C70)"]);
 }
 
@@ -477,7 +483,7 @@ fn same_model_different_serials_name_the_serial() {
             Some(&two),
         ),
     ];
-    let g = resolve_identity(&root, &clips);
+    let g = resolve_identity(std::slice::from_ref(&root), &clips);
     assert_eq!(
         camera_names(&g),
         ["A (ARRI ALEXA 35 #60123)", "A (ARRI ALEXA 35 #60999)"]
@@ -502,7 +508,7 @@ fn one_body_or_unknown_bodies_stay_one_camera() {
             None,
         ),
     ];
-    let g = resolve_identity(&root, &clips);
+    let g = resolve_identity(std::slice::from_ref(&root), &clips);
     assert_eq!(camera_names(&g), ["A"]);
     assert_eq!(g[0].cards.len(), 3);
 }
@@ -526,7 +532,7 @@ fn unknown_bodies_never_join_one_of_several_known_bodies() {
             Some(&dji),
         ),
     ];
-    let g = resolve_identity(&root, &clips);
+    let g = resolve_identity(std::slice::from_ref(&root), &clips);
     assert_eq!(
         camera_names(&g),
         ["A", "A (Canon EOS C50)", "A (DJI HG4180)"]
@@ -551,7 +557,24 @@ fn camera_names_carry_the_make() {
         (clip(&root.join("S_cam/S003/fx6.MXF")), Some(&fx6)),
     ];
     assert_eq!(
-        camera_names(&resolve_identity(&root, &clips)),
+        camera_names(&resolve_identity(std::slice::from_ref(&root), &clips)),
         ["S (Panasonic DC-S5)", "S (Sony ILME-FX6V)"]
     );
+}
+
+#[test]
+fn cards_on_two_drives_join_one_camera() {
+    let e = PathBuf::from(if cfg!(windows) { "E:\\" } else { "/Volumes/E" });
+    let f = PathBuf::from(if cfg!(windows) { "F:\\" } else { "/Volumes/F" });
+    let clips: Vec<(ClipFiles, Option<&ClipMeta>)> = vec![
+        (clip(&e.join("A_CAM/A001/A001C001_200101_R1AB.mxf")), None),
+        (clip(&f.join("A_CAM/A002/A002C001_200102_R1AB.mxf")), None),
+    ];
+    let g = resolve_identity(&[e.clone(), f.clone()], &clips);
+    assert_eq!(camera_names(&g), ["A"]);
+    let reels: Vec<&str> = g[0].cards.iter().map(|c| c.reel.as_str()).collect();
+    assert_eq!(reels, ["A001", "A002"]);
+    // Card folders name their drive when there are several roots.
+    assert!(g[0].cards[1].folder.ends_with("A_CAM/A002"));
+    assert!(g[0].cards[1].folder.len() > "A_CAM/A002".len());
 }

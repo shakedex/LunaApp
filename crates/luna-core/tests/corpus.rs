@@ -32,7 +32,7 @@ fn corpus_groups_by_camera_and_card() {
 
     let input: Vec<(ClipFiles, Option<&ClipMeta>)> =
         s.clips.iter().cloned().map(|c| (c, None)).collect();
-    let groups = resolve_identity(root, &input);
+    let groups = resolve_identity(&[root.to_path_buf()], &input);
 
     // folder → (camera, reel, clip count, camera source, reel source)
     let mut cards: BTreeMap<String, (String, String, usize, IdentitySource, IdentitySource)> =
