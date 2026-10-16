@@ -1,6 +1,6 @@
 //! Decodes the real camera corpus. Skipped unless `LUNA_CORPUS` points at the
 //! corpus root (`...\TEST_PROJECT_LUNA\CAMERA`). R3D also needs the add-on
-//! (`LUNA_R3D_ADDON`, plus `LUNA_R3D_SDK_DIR` when RED's library isn't next to it).
+//! (`LUNA_R3D_ADDON` and `LUNA_R3D_SDK_DIR`). `.cargo/config.toml` sets all three.
 
 mod common;
 
