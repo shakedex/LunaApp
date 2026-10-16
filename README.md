@@ -28,17 +28,19 @@ Requires a stable Rust toolchain, the private decoder checkouts in
 | `cargo xtask check`             | fmt check, clippy and tests; run before every commit         |
 | `cargo xtask package`           | Build the app into `dist/` (`dist\Luna` or `dist/Luna.app`)  |
 | `cargo xtask installer`         | Package, then build the installer into `dist/`               |
-| `cargo xtask release <bump>`    | Check, bump the version, build the installer, commit and tag |
+| `cargo xtask release`           | Check, set the next version, build the installer, commit and tag |
 | `cargo xtask publish`           | Push the tag and upload this machine's installer to GitHub   |
 
-`<bump>` is `patch`, `minor` or an exact version (`0.4.0`). The installers are
+Versions are calendar based, `YEAR.MONTH.N`: the first release in October 2026
+is `2026.10.0`, the next that month `2026.10.1`, and November starts at
+`2026.11.0`. `cargo xtask release 2026.11.0` sets one exactly. The installers are
 `Luna-<version>-windows-x64-setup.exe` (needs [Inno Setup](https://jrsoftware.org/isdl.php))
 and `Luna-<version>-macos.dmg`. `cargo xtask` lists the environment variables
 that override the SDK and tool locations.
 
 ### Releasing
 
-1. On Windows, from a clean `master`: `cargo xtask release minor`. This leaves
+1. On Windows, from a clean `master`: `cargo xtask release`. This leaves
    a release commit, a `v<version>` tag and the Windows installer in `dist/`.
    Nothing is pushed.
 2. `cargo xtask publish` pushes `master` and the tag, and creates the GitHub

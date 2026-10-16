@@ -16,8 +16,10 @@ Luna build tasks
   cargo xtask check             fmt check, clippy and tests (before every commit)
   cargo xtask package           build the app into dist/ to try it
   cargo xtask installer         package, then build the installer into dist/
-  cargo xtask release <bump>    check, set the version, build the installer,
-                                commit and tag. <bump>: patch, minor or 0.4.0
+  cargo xtask release           check, set the next version, build the
+                                installer, commit and tag. Versions are
+                                YEAR.MONTH.N (2026.10.0, then 2026.10.1);
+                                `release 2026.11.0` sets one exactly
   cargo xtask publish           push the release tag and upload this machine's
                                 installer to its GitHub release
 
@@ -37,10 +39,7 @@ fn main() -> ExitCode {
         Some("package") => package().map(|_| ()),
         Some("installer") => installer().map(|_| ()),
         Some("publish") => publish(),
-        Some("release") => match args.get(1) {
-            Some(bump) => release(bump),
-            None => Err("release needs a bump: patch, minor or a version like 0.4.0".into()),
-        },
+        Some("release") => release(args.get(1).map(String::as_str)),
         None | Some("help" | "-h" | "--help") => {
             print!("{HELP}");
             Ok(())
@@ -125,7 +124,7 @@ fn installer() -> Result<PathBuf> {
     Ok(out)
 }
 
-fn release(bump: &str) -> Result {
+fn release(exact: Option<&str>) -> Result {
     let root = root();
     let status = output(Command::new("git").args(["status", "--porcelain"]))?;
     if !status.trim().is_empty() {
@@ -134,7 +133,7 @@ fn release(bump: &str) -> Result {
         );
     }
     let old = version()?;
-    let new = bumped(&old, bump)?;
+    let new = next_version(&old, today(), exact)?;
     let tag = format!("v{new}");
     if !output(Command::new("git").args(["tag", "--list", &tag]))?
         .trim()
@@ -176,7 +175,7 @@ fn publish() -> Result {
     let version = version()?;
     let tag = format!("v{version}");
     let tagged = output(Command::new("git").args(["rev-parse", &format!("{tag}^{{commit}}")]))
-        .map_err(|_| format!("no tag {tag}; run `cargo xtask release <bump>` first"))?;
+        .map_err(|_| format!("no tag {tag}; run `cargo xtask release` first"))?;
     let head = output(Command::new("git").args(["rev-parse", "HEAD"]))?;
     if tagged.trim() != head.trim() {
         return Err(format!("HEAD isn't {tag}; check it out first"));
@@ -473,27 +472,49 @@ fn set_version(manifest: &str, new: &str) -> Result<String> {
     Ok(out.join("\n") + "\n")
 }
 
-fn bumped(old: &str, bump: &str) -> Result<String> {
+/// The next CalVer version, YEAR.MONTH.N: N counts releases within the month
+/// and restarts at 0 in a new month. `exact` overrides it but must be newer.
+fn next_version(old: &str, (year, month): (u64, u64), exact: Option<&str>) -> Result<String> {
     let parse = |v: &str| -> Option<[u64; 3]> {
         let mut it = v.split('.').map(|n| n.parse::<u64>().ok());
         let parts = [it.next()??, it.next()??, it.next()??];
         it.next().is_none().then_some(parts)
     };
-    let [major, minor, patch] = parse(old).ok_or(format!("bad current version {old}"))?;
-    let new = match bump {
-        "patch" => [major, minor, patch + 1],
-        "minor" => [major, minor + 1, 0],
-        exact => parse(exact).ok_or(format!(
-            "`{exact}` isn't patch, minor or a version like 0.4.0"
-        ))?,
+    let current = parse(old).ok_or(format!("bad current version {old}"))?;
+    let new = match exact {
+        Some(v) => parse(v).ok_or(format!("`{v}` isn't a version like 2026.10.0"))?,
+        None if current[..2] == [year, month] => [year, month, current[2] + 1],
+        None => [year, month, 0],
     };
-    if new <= [major, minor, patch] {
+    if new <= current {
         return Err(format!(
             "{}.{}.{} isn't newer than {old}",
             new[0], new[1], new[2]
         ));
     }
     Ok(format!("{}.{}.{}", new[0], new[1], new[2]))
+}
+
+/// Today's (year, month) in UTC.
+fn today() -> (u64, u64) {
+    let secs = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs());
+    year_month((secs / 86_400) as i64)
+}
+
+/// (year, month) of a day count since 1970-01-01 (Howard Hinnant's
+/// civil_from_days).
+fn year_month(days: i64) -> (u64, u64) {
+    let z = days + 719_468;
+    let era = z.div_euclid(146_097);
+    let doe = z.rem_euclid(146_097);
+    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let month = if mp < 10 { mp + 3 } else { mp - 9 };
+    let year = yoe + era * 400 + i64::from(month <= 2);
+    (year as u64, month as u64)
 }
 
 // ---- helpers ----
@@ -573,13 +594,30 @@ mod tests {
     use super::*;
 
     #[test]
-    fn bumps() {
-        assert_eq!(bumped("0.3.4", "patch").unwrap(), "0.3.5");
-        assert_eq!(bumped("0.3.4", "minor").unwrap(), "0.4.0");
-        assert_eq!(bumped("0.3.4", "0.10.0").unwrap(), "0.10.0");
-        assert!(bumped("0.3.4", "0.3.4").is_err());
-        assert!(bumped("0.3.4", "0.3").is_err());
-        assert!(bumped("0.3.4", "major").is_err());
+    fn calendar_versions() {
+        let oct = (2026, 10);
+        assert_eq!(next_version("0.0.0", oct, None).unwrap(), "2026.10.0");
+        assert_eq!(next_version("2026.10.0", oct, None).unwrap(), "2026.10.1");
+        assert_eq!(next_version("2026.9.4", oct, None).unwrap(), "2026.10.0");
+        assert_eq!(
+            next_version("2026.10.1", (2027, 1), None).unwrap(),
+            "2027.1.0"
+        );
+        assert_eq!(
+            next_version("2026.10.1", oct, Some("2026.10.5")).unwrap(),
+            "2026.10.5"
+        );
+        assert!(next_version("2026.10.1", oct, Some("2026.10.1")).is_err());
+        assert!(next_version("2026.10.1", oct, Some("2026.10")).is_err());
+        assert!(next_version("2026.11.0", oct, None).is_err());
+    }
+
+    #[test]
+    fn months_from_days() {
+        assert_eq!(year_month(0), (1970, 1));
+        assert_eq!(year_month(20_741), (2026, 10)); // 2026-10-15
+        assert_eq!(year_month(20_819), (2027, 1)); // 2027-01-01
+        assert_eq!(year_month(20_818), (2026, 12)); // 2026-12-31
     }
 
     #[test]
