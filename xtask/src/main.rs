@@ -10,6 +10,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
 
+mod update;
+
 const HELP: &str = "\
 Luna build tasks
 
@@ -20,6 +22,8 @@ Luna build tasks
                                 installer, commit and tag. Versions are
                                 YEAR.MONTH.N (2026.10.0, then 2026.10.1);
                                 `release 2026.11.0` sets one exactly
+  cargo xtask update-key        create the update signing key (once, then copy
+                                ~/.luna/update-key to the other build machine)
   cargo xtask publish           push the release tag and upload this machine's
                                 installer to its GitHub release
 
@@ -32,6 +36,17 @@ Inputs (environment variables, each with a default):
 
 type Result<T = ()> = std::result::Result<T, String>;
 
+const RELEASES: &str = "https://github.com/shakedex/LunaApp/releases";
+
+/// WinSparkle (Windows updates), pinned to the release Luna was tested with.
+const WINSPARKLE_URL: &str =
+    "https://github.com/vslavik/winsparkle/releases/download/v0.9.4/WinSparkle-0.9.4.zip";
+const WINSPARKLE_SHA256: &str = "6037df37fc263bd1650a1c4949681a9d40ffe991d01f35892a406cb5d103c976";
+const WINSPARKLE_DIR: &str = "WinSparkle-0.9.4";
+
+/// How WinSparkle runs the Inno Setup installer for an update.
+const WINDOWS_UPDATE_ARGS: &str = "/SILENT /SP- /NOCANCEL /NORESTART";
+
 fn main() -> ExitCode {
     let args: Vec<String> = env::args().skip(1).collect();
     let result = match args.first().map(String::as_str) {
@@ -39,6 +54,7 @@ fn main() -> ExitCode {
         Some("package") => package().map(|_| ()),
         Some("installer") => installer().map(|_| ()),
         Some("publish") => publish(),
+        Some("update-key") => update_key(),
         Some("release") => release(args.get(1).map(String::as_str)),
         None | Some("help" | "-h" | "--help") => {
             print!("{HELP}");
@@ -101,6 +117,8 @@ fn package() -> Result<PathBuf> {
 }
 
 fn installer() -> Result<PathBuf> {
+    // Before any build: an installer without a signed feed can't update.
+    let key = update::load_key()?;
     let app = package()?;
     let root = root();
     let version = version()?;
@@ -118,7 +136,15 @@ fn installer() -> Result<PathBuf> {
             .arg(format!("/DOutputDir={}", dist.display()))
             .arg(format!("/DRepoDir={}", root.display()))
             .arg(root.join("packaging").join("windows").join("luna.iss")))?;
-        require(out)?
+        let out = require(out)?;
+        write_appcast(
+            &dist.join("appcast-windows.xml"),
+            &version,
+            &out,
+            Some(WINDOWS_UPDATE_ARGS),
+            &key,
+        )?;
+        out
     };
     println!("Installer: {}", out.display());
     Ok(out)
@@ -168,6 +194,21 @@ fn release(exact: Option<&str>) -> Result {
     Ok(())
 }
 
+/// Creates the signing key and records its public half in the repository.
+fn update_key() -> Result {
+    let path = update::key_path();
+    let public = update::new_key(&path)?;
+    let public_file = root().join("packaging").join("update-public-key.txt");
+    write(&public_file, &format!("{public}\n"))?;
+    println!(
+        "Private key: {} (keep it safe; copy it to the other build machine)\n\
+         Public key:  {} (commit it)",
+        path.display(),
+        public_file.display()
+    );
+    Ok(())
+}
+
 /// Pushes the tag for the current version and uploads this machine's
 /// installer to that tag's GitHub release, creating the release if needed.
 /// Run once per platform; uploading again replaces the file.
@@ -180,12 +221,7 @@ fn publish() -> Result {
     if tagged.trim() != head.trim() {
         return Err(format!("HEAD isn't {tag}; check it out first"));
     }
-    let file = root().join("dist").join(if cfg!(target_os = "macos") {
-        format!("Luna-{version}-macos.dmg")
-    } else {
-        format!("Luna-{version}-windows-x64-setup.exe")
-    });
-    let file = require(file).map_err(|e| format!("{e}\nrun `cargo xtask installer` first"))?;
+    let files = release_files(&version)?;
 
     step(&format!("Publishing {tag}"));
     let branch = output(Command::new("git").args(["branch", "--show-current"]))?;
@@ -203,7 +239,7 @@ fn publish() -> Result {
     if exists {
         run(Command::new("gh")
             .args(["release", "upload", &tag, "--clobber"])
-            .arg(&file)
+            .args(&files)
             .current_dir(root()))?;
     } else {
         run(Command::new("gh")
@@ -215,10 +251,70 @@ fn publish() -> Result {
                 "--generate-notes",
             ])
             .args(["--title", &format!("Luna {version}")])
-            .arg(&file)
+            .args(&files)
             .current_dir(root()))?;
     }
-    println!("Published {} to {tag}", file.display());
+    println!("Published {} files to {tag}", files.len());
+    Ok(())
+}
+
+/// This platform's release files: the installer and its signed update feed.
+fn release_files(version: &str) -> Result<Vec<PathBuf>> {
+    let dist = root().join("dist");
+    let again = |e: String| format!("{e}\nrun `cargo xtask installer` first");
+    let (installer, feed) = if cfg!(target_os = "macos") {
+        (
+            dist.join(format!("Luna-{version}-macos.dmg")),
+            dist.join("appcast-macos.xml"),
+        )
+    } else {
+        (
+            dist.join(format!("Luna-{version}-windows-x64-setup.exe")),
+            dist.join("appcast-windows.xml"),
+        )
+    };
+    let installer = require(installer).map_err(again)?;
+    feed_is_fresh(&installer, &feed).map_err(again)?;
+    Ok(vec![installer, feed])
+}
+
+/// The feed must exist and be written after the installer it signs.
+fn feed_is_fresh(installer: &Path, feed: &Path) -> Result {
+    let modified = |p: &Path| {
+        fs::metadata(p)
+            .and_then(|m| m.modified())
+            .map_err(|_| format!("missing: {}", p.display()))
+    };
+    if modified(feed)? < modified(installer)? {
+        return Err(format!(
+            "{} is older than {}",
+            feed.display(),
+            installer.display()
+        ));
+    }
+    Ok(())
+}
+
+/// Signs `file` and writes the one-release appcast that points at it on the
+/// GitHub release for `version`.
+fn write_appcast(
+    path: &Path,
+    version: &str,
+    file: &Path,
+    installer_arguments: Option<&str>,
+    key: &ed25519_dalek::SigningKey,
+) -> Result {
+    let bytes = fs::read(file).map_err(|e| format!("read {}: {e}", file.display()))?;
+    let name = file.file_name().unwrap_or_default().to_string_lossy();
+    let enclosure = update::Enclosure {
+        url: format!("{RELEASES}/download/v{version}/{name}"),
+        length: bytes.len() as u64,
+        signature: update::sign(key, &bytes),
+        installer_arguments: installer_arguments.map(str::to_owned),
+    };
+    let notes = format!("{RELEASES}/tag/v{version}");
+    write(path, &update::appcast(version, &notes, &enclosure))?;
+    println!("Feed: {}", path.display());
     Ok(())
 }
 
@@ -261,6 +357,16 @@ fn assemble_windows(
     for f in ["LICENSE", "NOTICE", "DISCLAIMER.md"] {
         copy(&root.join(f), &app.join(f))?;
     }
+    // WinSparkle (MIT), which updates Luna; its licence travels with it.
+    let winsparkle = extracted(WINSPARKLE_URL, WINSPARKLE_SHA256)?.join(WINSPARKLE_DIR);
+    copy(
+        &winsparkle.join("x64/Release/WinSparkle.dll"),
+        &lib.join("WinSparkle.dll"),
+    )?;
+    copy(
+        &winsparkle.join("COPYING"),
+        &lib.join("WinSparkle-COPYING.txt"),
+    )?;
     write(&app.join("LICENSES.txt"), licences)?;
     Ok(app)
 }
@@ -519,6 +625,59 @@ fn year_month(days: i64) -> (u64, u64) {
 
 // ---- helpers ----
 
+/// A download checked against its pinned SHA-256, cached in `.cache/downloads`.
+fn fetch_pinned(url: &str, sha256: &str) -> Result<PathBuf> {
+    let name = url.rsplit('/').next().unwrap_or("download");
+    let dir = root().join(".cache").join("downloads");
+    let file = dir.join(name);
+    let matches = |p: &Path| fs::read(p).is_ok_and(|b| sha256_hex(&b) == sha256);
+    if !matches(&file) {
+        fs::create_dir_all(&dir).map_err(|e| format!("create {}: {e}", dir.display()))?;
+        run(Command::new("curl")
+            .args(["-fsSL", "-o"])
+            .arg(&file)
+            .arg(url))?;
+        if !matches(&file) {
+            remove(&file)?;
+            return Err(format!("{url} doesn't match its pinned SHA-256"));
+        }
+    }
+    Ok(file)
+}
+
+/// A pinned archive, unpacked once into `.cache/<archive name>.d/`.
+fn extracted(url: &str, sha256: &str) -> Result<PathBuf> {
+    let archive = fetch_pinned(url, sha256)?;
+    let name = archive.file_name().unwrap_or_default().to_string_lossy();
+    let dir = root().join(".cache").join(format!("{name}.d"));
+    let done = dir.join(sha256);
+    if !done.exists() {
+        remove(&dir)?;
+        fs::create_dir_all(&dir).map_err(|e| format!("create {}: {e}", dir.display()))?;
+        // bsdtar reads zip and tar.xz. On Windows use the system one: Git
+        // Bash's GNU tar may come first on PATH and can't read zip.
+        let tar = match env::var_os("SystemRoot") {
+            Some(sys) if cfg!(windows) => PathBuf::from(sys).join("System32").join("tar.exe"),
+            _ => PathBuf::from("tar"),
+        };
+        run(Command::new(tar)
+            .arg("-xf")
+            .arg(&archive)
+            .arg("-C")
+            .arg(&dir))?;
+        write(&done, "")?;
+    }
+    Ok(dir)
+}
+
+fn sha256_hex(bytes: &[u8]) -> String {
+    use sha2::{Digest, Sha256};
+    Sha256::digest(bytes)
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect()
+}
+
 fn step(what: &str) {
     println!("\n== {what}");
 }
@@ -592,6 +751,38 @@ fn remove(p: &Path) -> Result {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn sha256_of_abc() {
+        assert_eq!(
+            sha256_hex(b"abc"),
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        );
+    }
+
+    #[test]
+    fn publish_refuses_stale_or_missing_feed() {
+        let dir = std::env::temp_dir().join(format!("luna-feed-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let setup = dir.join("setup.exe");
+        let feed = dir.join("appcast-windows.xml");
+        fs::write(&setup, "x").unwrap();
+        assert!(feed_is_fresh(&setup, &feed).is_err(), "missing feed");
+        fs::write(&feed, "x").unwrap();
+        assert!(feed_is_fresh(&setup, &feed).is_ok());
+        let later = std::time::SystemTime::now() + std::time::Duration::from_secs(60);
+        fs::File::options()
+            .write(true)
+            .open(&setup)
+            .unwrap()
+            .set_modified(later)
+            .unwrap();
+        assert!(
+            feed_is_fresh(&setup, &feed).is_err(),
+            "installer newer than feed"
+        );
+    }
 
     #[test]
     fn calendar_versions() {

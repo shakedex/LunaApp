@@ -20,6 +20,12 @@ Lunar surface map:
     Used under NASA's media usage guidelines; no endorsement implied.
     Source in tools/moon/; baked by tools/moon/bake_albedo.py.
 
+Bundled libraries:
+    WinSparkle (Windows updates), Copyright 2009-2026 Vaclav Slavik. MIT
+    licence; the full licence ships as lib\WinSparkle-COPYING.txt. Includes
+    software developed by the OpenSSL Project for use in the OpenSSL Toolkit
+    (http://www.openssl.org/).
+
 Bundled icons:
     Phosphor Icons, Copyright 2023 Phosphor Icons. MIT licence; the full
     licence is in crates/luna-app/ui/icons/LICENSE.

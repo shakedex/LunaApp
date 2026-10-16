@@ -28,6 +28,8 @@ PrivilegesRequiredOverridesAllowed=dialog
 Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
+; Updates run this installer silently (WinSparkle); close a running Luna.
+CloseApplications=force
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
@@ -42,3 +44,5 @@ Name: "{autodesktop}\Luna"; Filename: "{app}\Luna.exe"; IconFilename: "{app}\lun
 
 [Run]
 Filename: "{app}\Luna.exe"; Description: "{cm:LaunchProgram,Luna}"; Flags: nowait postinstall skipifsilent
+; After a silent update, reopen Luna.
+Filename: "{app}\Luna.exe"; Flags: nowait skipifnotsilent

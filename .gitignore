@@ -16,5 +16,6 @@ Thumbs.db
 # Kept on disk but not published to the remote.
 /docs/
 
-# Packaged app
+# Packaged app, and the pinned downloads xtask bundles into it
 /dist/
+/.cache/
