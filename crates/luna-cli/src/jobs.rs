@@ -74,6 +74,10 @@ struct Inner {
     state: Mutex<State>,
     wake: Condvar,
     workers: WorkerSpec,
+    /// Held by whatever is using the worker pool: a report, or an inspect.
+    pool: Mutex<()>,
+    /// Set by shutdown; work done under [`Jobs::exclusive`] watches it.
+    stopping: Arc<AtomicBool>,
 }
 
 impl Inner {
@@ -99,6 +103,8 @@ impl Jobs {
             state: Mutex::new(State::default()),
             wake: Condvar::new(),
             workers,
+            pool: Mutex::new(()),
+            stopping: Arc::new(AtomicBool::new(false)),
         });
         let runner_inner = inner.clone();
         let runner = std::thread::spawn(move || runner_loop(&runner_inner));
@@ -158,8 +164,17 @@ impl Jobs {
         Some(job.status.state)
     }
 
+    /// Runs `f` while no report is running, so other work that uses the
+    /// worker pool (an inspect) never doubles the decoder load. `f` gets a
+    /// flag that is set when the server shuts down.
+    pub fn exclusive<T>(&self, f: impl FnOnce(&AtomicBool) -> T) -> T {
+        let _pool = self.inner.pool.lock().unwrap_or_else(|e| e.into_inner());
+        f(&self.inner.stopping)
+    }
+
     /// Cancels everything and waits for the runner to stop.
     pub fn shutdown(&self) {
+        self.inner.stopping.store(true, Ordering::SeqCst);
         {
             let mut state = self.inner.lock();
             state.shutdown = true;
@@ -216,7 +231,10 @@ fn runner_loop(inner: &Inner) {
                 Progress::Probed { .. } => {}
             })
         };
-        let result = run(&request, &inner.workers, &progress, &cancel);
+        let result = {
+            let _pool = inner.pool.lock().unwrap_or_else(|e| e.into_inner());
+            run(&request, &inner.workers, &progress, &cancel)
+        };
         let json = result_json(&result);
         inner.update(&id, |s| {
             // A run that wrote its report is done even if cancel came late.

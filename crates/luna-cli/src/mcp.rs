@@ -5,7 +5,6 @@
 
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::sync::atomic::AtomicBool;
 
 use luna_core::cli::{ReportArgs, Theme};
 use luna_core::inspect::inspect;
@@ -106,8 +105,10 @@ formats, first/last recording date and size in bytes."
         }
         let roots: Vec<PathBuf> = p.paths.into_iter().map(PathBuf::from).collect();
         let workers = self.workers.clone();
+        let jobs = self.jobs.clone();
+        // Waits for any running report: they share the worker pool.
         let result = tokio::task::spawn_blocking(move || {
-            inspect(&roots, &workers, &|_| {}, &AtomicBool::new(false))
+            jobs.exclusive(|stop| inspect(&roots, &workers, &|_| {}, stop))
         })
         .await
         .map_err(|e| ErrorData::internal_error(e.to_string(), None))?;
@@ -212,5 +213,7 @@ pub fn serve(workers: WorkerSpec) -> Result<(), String> {
         Ok::<(), String>(())
     });
     jobs.shutdown();
+    // An inspect still running sees the stop flag; don't wait for it here.
+    runtime.shutdown_background();
     served
 }

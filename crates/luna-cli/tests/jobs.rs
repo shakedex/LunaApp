@@ -96,3 +96,39 @@ fn unknown_id_is_none() {
     assert!(jobs.status("r99").is_none());
     assert!(jobs.cancel("r99").is_none());
 }
+
+#[test]
+fn exclusive_waits_for_the_running_report() {
+    let jobs = std::sync::Arc::new(jobs());
+    let hang = tree(&["A001/A001C001__hang__.mxf"]);
+    let out = tempfile::tempdir().unwrap();
+    let first = jobs.start(request(hang.path(), out.path()));
+    wait_for(&jobs, &first, |s| s == JobState::Running);
+    let (tx, rx) = std::sync::mpsc::channel();
+    let j = jobs.clone();
+    std::thread::spawn(move || tx.send(j.exclusive(|_| "ran")).unwrap());
+    // The pool is busy with the report: the inspect-style work must wait.
+    assert!(rx.recv_timeout(Duration::from_millis(500)).is_err());
+    jobs.cancel(&first);
+    rx.recv_timeout(Duration::from_secs(30))
+        .expect("runs once the report stops");
+}
+
+#[test]
+fn shutdown_stops_exclusive_work() {
+    let jobs = std::sync::Arc::new(jobs());
+    let (tx, rx) = std::sync::mpsc::channel();
+    let j = jobs.clone();
+    std::thread::spawn(move || {
+        j.exclusive(|stop| {
+            tx.send("started").unwrap();
+            while !stop.load(std::sync::atomic::Ordering::SeqCst) {
+                std::thread::sleep(Duration::from_millis(20));
+            }
+        });
+        tx.send("stopped").unwrap();
+    });
+    assert_eq!(rx.recv_timeout(Duration::from_secs(10)), Ok("started"));
+    jobs.shutdown();
+    assert_eq!(rx.recv_timeout(Duration::from_secs(10)), Ok("stopped"));
+}
