@@ -20,6 +20,55 @@ pub(crate) fn codec(fourcc: &[u8; 4]) -> Codec {
     }
 }
 
+/// One sound sample description: channels, rate, and bit depth when the
+/// format is uncompressed PCM (a compressed format's sample size is nominal).
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct SoundEntry {
+    pub channels: u32,
+    pub sample_rate: Option<u32>,
+    pub bits: Option<u32>,
+}
+
+/// QuickTime sound description v0/v1/v2 and the ISO `AudioSampleEntry`
+/// (which shares the v0 layout), from the body after the 8-byte header.
+pub(crate) fn sound_entry(format: &[u8; 4], body: &[u8]) -> Option<SoundEntry> {
+    let mut r = Reader::new(body);
+    r.skip(6 + 2)?;
+    let version = r.u16()?;
+    r.skip(2 + 4)?;
+    let (channels, sample_size, sample_rate, v2_bits) = if version == 2 {
+        r.skip(2 + 2 + 2 + 2 + 4 + 4)?;
+        let rate = f64::from_bits(r.u64()?);
+        let channels = r.u32()?;
+        r.skip(4)?;
+        let bits = r.u32()?;
+        let rate = (1.0..10_000_000.0)
+            .contains(&rate)
+            .then(|| rate.round() as u32);
+        (channels, None, rate, Some(bits).filter(|&b| b > 0))
+    } else {
+        let channels = r.u16()? as u32;
+        let size = r.u16()? as u32;
+        r.skip(2 + 2)?;
+        let rate = r.u32()? >> 16;
+        (channels, Some(size), Some(rate).filter(|&r| r > 0), None)
+    };
+    let bits = match format {
+        b"in24" => Some(24),
+        b"in32" | b"fl32" => Some(32),
+        b"fl64" => Some(64),
+        b"lpcm" => v2_bits,
+        b"twos" | b"sowt" | b"raw " | b"NONE" | b"ipcm" => v2_bits.or(sample_size),
+        _ => None,
+    }
+    .filter(|&b| (8..=64).contains(&b));
+    Some(SoundEntry {
+        channels,
+        sample_rate,
+        bits,
+    })
+}
+
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub(crate) struct VideoEntry {
     pub width: u32,

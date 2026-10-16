@@ -48,7 +48,11 @@ fn renders_grouping_fields_and_lists() {
         "Night Shift",
         "Lumen Rentals",
         "Dana DIT",
-        "Shoot day: 12",
+        "Shoot day",
+        "Camera report",
+        "25 (sensor 50)",
+        "4 ch, 48 kHz, 24-bit",
+        "2 cards, 3 clips, 12.88 GB",
         "Camera A",
         "Reel A001",
         "Reel A002",
@@ -103,7 +107,7 @@ fn hebrew_and_accents_have_glyphs() {
 fn empty_report_still_renders() {
     let i = inspect_pdf(&empty_report()).unwrap();
     assert_eq!(i.pages, 1);
-    assert!(i.text.contains("No camera clips found in this source."));
+    assert!(i.text.contains("No camera clips in this folder."));
 }
 
 #[test]
@@ -124,4 +128,11 @@ fn large_report_compiles() {
         i.pages
     );
     assert!(i.text.contains("A009C099.mxf"));
+}
+
+#[test]
+fn dark_theme_compiles() {
+    let mut r = sample_report();
+    r.theme = luna_report::ReportTheme::Dark;
+    assert!(write_pdf(&r).unwrap().starts_with(b"%PDF-"));
 }

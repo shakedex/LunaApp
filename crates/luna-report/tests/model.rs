@@ -27,8 +27,10 @@ fn display_values_follow_field_labels() {
     let values = common::full_clip("X.mxf").fields.display_values();
     assert_eq!(values.len(), FIELD_LABELS.len());
     assert_eq!(values[0].as_deref(), Some("X.mxf"));
-    assert_eq!(values[7].as_deref(), Some("ProRes 4444"));
-    assert_eq!(values[17].as_deref(), Some("4.29 GB"));
+    assert_eq!(values[6].as_deref(), Some("50"), "sensor FPS follows FPS");
+    assert_eq!(values[8].as_deref(), Some("ProRes 4444"));
+    assert_eq!(values[18].as_deref(), Some("4 ch, 48 kHz, 24-bit"));
+    assert_eq!(values[19].as_deref(), Some("4.29 GB"));
 }
 
 #[test]
@@ -130,6 +132,6 @@ fn logo_rejects_unknown_and_corrupt_files() {
 #[test]
 fn identity_sources_have_report_labels() {
     use luna_report::IdentitySource;
-    assert_eq!(IdentitySource::Metadata.label(), "embedded metadata");
-    assert_eq!(IdentitySource::Card.label(), "card neighbours");
+    assert_eq!(IdentitySource::Metadata.label(), "clip metadata");
+    assert_eq!(IdentitySource::Card.label(), "other clips on the card");
 }

@@ -4,8 +4,8 @@
 use std::path::PathBuf;
 
 use luna_formats::{
-    ByteRange, ClipFiles, ClipMeta, Codec, ColourHint, Container, FrameIndex, Gamut, PictureLayout,
-    ProResProfile, Probe, Rational, SidecarKind, Timecode, Transfer, probe,
+    Audio, ByteRange, ClipFiles, ClipMeta, Codec, ColourHint, Container, FrameIndex, Gamut,
+    PictureLayout, ProResProfile, Probe, Rational, SidecarKind, Timecode, Transfer, probe,
 };
 
 fn probe_corpus(rel: &str, sidecar: Option<(SidecarKind, &str)>) -> Option<Probe> {
@@ -35,6 +35,15 @@ fn tc(frames: u64, base: u32) -> Option<Timecode> {
 
 fn fps(num: u32, den: u32) -> Option<Rational> {
     Some(Rational { num, den })
+}
+
+/// Uncompressed 48 kHz 24-bit, as every camera here records it.
+fn pcm(channels: u32) -> Option<Audio> {
+    Some(Audio {
+        channels,
+        sample_rate: Some(48_000),
+        bits: Some(24),
+    })
 }
 
 fn colour(t: Transfer, g: Gamut) -> ColourHint {
@@ -86,6 +95,8 @@ fn alexa35_prores_meta() -> ClipMeta {
         shutter: s("172.8°"),
         white_balance: s("5600 K"),
         nd: s("1.2"),
+        sensor_fps: fps(24, 1),
+        audio: pcm(2),
         embedded_reel: s("DW0001_1I7H"),
         embedded_camera_id: s("DW"),
         colour: colour(Transfer::LogC4, Gamut::ArriWideGamut4),
@@ -139,6 +150,8 @@ fn alexa35_arriraw() {
             shutter: s("172.8°"),
             white_balance: s("5600 K"),
             nd: s("1.2"),
+            sensor_fps: fps(24, 1),
+            audio: pcm(2),
             embedded_reel: s("DW0001_1I7H"),
             embedded_camera_id: s("DW"),
             colour: colour(Transfer::LogC4, Gamut::ArriWideGamut4),
@@ -183,6 +196,8 @@ fn alexa35_arricore() {
             shutter: s("172.8°"),
             white_balance: s("5600 K"),
             nd: s("1.2"),
+            sensor_fps: fps(24, 1),
+            audio: pcm(2),
             embedded_reel: s("DW0001_1I7H"),
             embedded_camera_id: s("DW"),
             colour: colour(Transfer::LogC4, Gamut::ArriWideGamut4),
@@ -214,6 +229,8 @@ fn mini_lf(lens: &str, focal: &str, wb: &str, date: &str, tc_frames: u64, count:
         shutter: s("172.8°"),
         white_balance: s(wb),
         nd: None,
+        sensor_fps: fps(24, 1),
+        audio: pcm(5),
         embedded_reel: s("F003MN99"),
         embedded_camera_id: s("F"),
         colour: colour(Transfer::LogC3, Gamut::ArriWideGamut3),
@@ -304,6 +321,8 @@ fn burano_xocn_with_xml() {
             shutter: s("180°"),
             white_balance: s("3600 K"),
             nd: s("0.6"),
+            sensor_fps: fps(24, 1),
+            audio: pcm(4),
             embedded_reel: None,
             embedded_camera_id: None,
             colour: colour(Transfer::Linear, Gamut::SGamut3Cine),
@@ -345,6 +364,8 @@ fn venice_xocn_with_xml() {
             shutter: s("180°"),
             white_balance: s("6300 K"),
             nd: s("Clear"),
+            sensor_fps: fps(24000, 1001),
+            audio: pcm(4),
             embedded_reel: None,
             embedded_camera_id: None,
             colour: colour(Transfer::Linear, Gamut::SGamut3Cine),
@@ -383,6 +404,8 @@ fn venice2_xocn_anamorphic_truncated() {
             shutter: s("180°"),
             white_balance: s("3600 K"),
             nd: s("0.3"),
+            sensor_fps: fps(24, 1),
+            audio: pcm(4),
             embedded_reel: None,
             embedded_camera_id: None,
             colour: colour(Transfer::Linear, Gamut::SGamut3Cine),
@@ -422,6 +445,8 @@ fn fx6_xavc_intra() {
             shutter: s("180°"),
             white_balance: s("5600 K"),
             nd: s("Clear"),
+            sensor_fps: fps(50, 1),
+            audio: pcm(8),
             embedded_reel: None,
             embedded_camera_id: None,
             colour: colour(Transfer::SLog3, Gamut::SGamut3Cine),
@@ -460,6 +485,8 @@ fn canon_c50_xf_avc() {
             shutter: s("180°"),
             white_balance: s("5600 K"),
             nd: None,
+            sensor_fps: fps(25, 1),
+            audio: pcm(4),
             embedded_reel: None,
             embedded_camera_id: None,
             colour: ColourHint::default(),

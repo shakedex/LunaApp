@@ -87,17 +87,25 @@ fn test_hooks(job: &ClipJob) {
     }
 }
 
-/// Frame numbers for a strip of `strip` thumbnails: first, evenly spaced, last.
-pub fn strip_positions(frame_count: u64, strip: u32) -> Vec<u64> {
+/// How far the outer thumbnails sit inside the clip. A clip's very first and
+/// last frames are often a flash frame, a slate or the lens cap.
+pub const OUTER_INSET_SECONDS: f64 = 1.0;
+
+/// Frame numbers for a strip of `strip` thumbnails: evenly spaced from `inset`
+/// frames after the start to `inset` frames before the end. The inset never
+/// takes more than a tenth of the clip from either end.
+pub fn strip_positions(frame_count: u64, strip: u32, inset: u64) -> Vec<u64> {
     if frame_count == 0 || strip == 0 {
         return Vec::new();
     }
+    let inset = inset.min(frame_count / 10);
+    let first = inset;
     if strip == 1 {
-        return vec![0];
+        return vec![first];
     }
-    let last = frame_count - 1;
+    let span = frame_count - 1 - 2 * inset;
     (0..strip as u64)
-        .map(|i| i * last / (strip as u64 - 1))
+        .map(|i| first + i * span / (strip as u64 - 1))
         .collect()
 }
 
@@ -117,7 +125,7 @@ pub fn run_job(job: &ClipJob) -> ClipResult {
     let probe = match probe {
         Ok(p) => p,
         Err(e) => {
-            let reason = format!("Could not read this clip: {e}");
+            let reason = e.to_string();
             return ClipResult {
                 id: job.id,
                 meta: None,
@@ -130,10 +138,15 @@ pub fn run_job(job: &ClipJob) -> ClipResult {
     };
     warnings.extend(probe.warnings.iter().cloned());
 
+    let inset = probe
+        .meta
+        .frame_rate
+        .map(|r| (r.as_f64() * OUTER_INSET_SECONDS).round() as u64)
+        .unwrap_or(0);
     let positions = probe
         .meta
         .frame_count
-        .map(|n| strip_positions(n, job.strip))
+        .map(|n| strip_positions(n, job.strip, inset))
         .unwrap_or_default();
     let thumbnails = if positions.is_empty() {
         vec![Err("The clip's frame count is unknown".into()); strip]

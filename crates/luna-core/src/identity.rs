@@ -209,7 +209,7 @@ fn name_bodies(cameras: &mut [CameraGroup], bodies: &[(String, Option<Body>)]) {
             .iter()
             .any(|&j| j != i && bodies[j].1.as_ref().is_some_and(|o| o.model == b.model));
         let mut label = match (&b.make, &b.model) {
-            (Some(make), Some(model)) if !model.to_lowercase().contains(&make.to_lowercase()) => {
+            (Some(make), Some(model)) if !crate::assemble::names_maker(model, make) => {
                 format!("{make} {model}")
             }
             (_, Some(model)) => model.clone(),
@@ -226,7 +226,7 @@ fn name_bodies(cameras: &mut [CameraGroup], bodies: &[(String, Option<Body>)]) {
             };
         }
         if !label.is_empty() {
-            cameras[i].name = format!("{name} · {label}");
+            cameras[i].name = format!("{name} ({label})");
         }
     }
 }

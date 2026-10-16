@@ -89,6 +89,8 @@ fn probe_crm(clip: &ClipFiles) -> Result<Probe, FormatError> {
             .or_else(|| m.exposure_time.and_then(|(n, d)| exposure_time(n, d))),
         white_balance: fm.color_temperature.map(|k| format!("{k} K")),
         nd: None,
+        sensor_fps: None,
+        audio: None,
         embedded_reel: None,
         embedded_camera_id: None,
         // The file doesn't say which gamma/gamut the camera monitored in;
@@ -150,6 +152,8 @@ fn probe_braw(clip: &ClipFiles) -> Result<Probe, FormatError> {
         shutter: f0.shutter.clone(),
         white_balance: f0.white_balance_kelvin.map(|k| format!("{k} K")),
         nd: f0.internal_nd.clone().filter(|nd| !is_zero(nd)),
+        sensor_fps: f0.sensor_rate.and_then(|r| rational(r.num, r.den)),
+        audio: None,
         embedded_reel: info.reel_name.clone(),
         embedded_camera_id: info.camera_number.clone(),
         colour: braw_sdk::HINT,
@@ -261,6 +265,15 @@ fn probe_r3d(clip: &ClipFiles) -> Result<Probe, FormatError> {
         nd: float("nd_stops")
             .filter(|v| *v > 0.0)
             .map(|v| trim_num(v as f64 * 0.3, 1)),
+        // RED's record rate is the rate the sensor ran at.
+        sensor_fps: match (
+            int("record_framerate_numerator"),
+            int("record_framerate_denominator"),
+        ) {
+            (Some(n), Some(d)) => rational(n, d),
+            _ => None,
+        },
+        audio: None,
         embedded_reel: text("reel_id_full"),
         embedded_camera_id: text("camera_id"),
         colour: r3d::HINT,

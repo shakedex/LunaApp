@@ -5,6 +5,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 use luna_report::Logo;
+pub use luna_report::ReportTheme;
 use serde::{Deserialize, Serialize};
 
 const FILE: &str = "settings.toml";
@@ -22,6 +23,7 @@ pub struct Settings {
     pub custom: Vec<(String, String)>,
     /// Where per-run report folders are written. Default `Documents/Luna Reports`.
     pub output_dir: PathBuf,
+    pub report_theme: ReportTheme,
 }
 
 impl Default for Settings {
@@ -33,6 +35,7 @@ impl Default for Settings {
             logo: None,
             custom: Vec::new(),
             output_dir: default_output_dir(),
+            report_theme: ReportTheme::Light,
         }
     }
 }
@@ -100,6 +103,7 @@ struct SettingsFile {
     #[serde(skip_serializing_if = "Option::is_none")]
     output_dir: Option<PathBuf>,
     custom: Vec<CustomEntry>,
+    report_theme: ReportTheme,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]
@@ -156,6 +160,7 @@ impl SettingsStore {
                 .output_dir
                 .filter(|d| !d.as_os_str().is_empty())
                 .unwrap_or_else(default_output_dir),
+            report_theme: file.report_theme,
         }
     }
 
@@ -183,6 +188,7 @@ impl SettingsStore {
                     value: value.clone(),
                 })
                 .collect(),
+            report_theme: settings.report_theme,
         };
         let text = toml::to_string(&file).map_err(io::Error::other)?;
         let tmp = self.dir.join(format!("{FILE}.tmp"));
@@ -248,7 +254,21 @@ mod tests {
                 ("Day".into(), "3 \"wet\"".into()),
             ],
             output_dir: PathBuf::from("/reports/here"),
+            report_theme: ReportTheme::Dark,
         }
+    }
+
+    #[test]
+    fn a_file_without_a_theme_loads_light() {
+        let (_t, store) = store();
+        std::fs::create_dir_all(store.dir()).unwrap();
+        std::fs::write(
+            store.file(),
+            "production = \"X\"
+",
+        )
+        .unwrap();
+        assert_eq!(store.load().report_theme, ReportTheme::Light);
     }
 
     #[test]

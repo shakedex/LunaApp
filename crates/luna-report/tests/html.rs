@@ -11,22 +11,30 @@ fn html(report: &luna_report::Report) -> String {
 fn renders_grouping_fields_and_lists() {
     let h = html(&sample_report());
     for expected in [
-        "Camera report · Night Shift",
-        "Lumen Rentals",
-        "Report by Dana DIT",
-        "Shoot day: 12",
+        "<h1>Night Shift</h1>",
+        "<p class=\"subtitle\">Camera report</p>",
+        "<dt>Company</dt><dd>Lumen Rentals</dd>",
+        "<dt>Report by</dt><dd>Dana DIT</dd>",
+        "<dt>Shoot day</dt><dd>12</dd>",
         "Camera A",
         "Reel A001",
         "Reel A002",
         "Camera B",
         "A001C002_261001_R1AB.mxf",
         "4.29 GB",
-        "Camera from embedded metadata, reel from file name",
+        "4 ch, 48 kHz, 24-bit",
+        "Reel named from the file name",
+        "Camera and reel named from the folder name",
+        "No image",
+        "<span>Need attention</span>",
         "Could not be decoded",
         "Worker crashed while decoding",
         "A001/notes.txt",
-        "Folder C001: Access denied",
-        "2 cameras · 3 cards · 4 clips · 12.88 GB · 1 clips with problems",
+        "<td class=\"muted\">Folder</td><td>C001</td><td class=\"reason\">Access denied</td>",
+        "<strong>2</strong><span>Cameras</span>",
+        "<strong>12.88 GB</strong><span>Data</span>",
+        "2 cards, 3 clips, 12.88 GB",
+        "2 clips, 8.59 GB",
     ] {
         assert!(h.contains(expected), "missing {expected:?}");
     }
@@ -45,7 +53,22 @@ fn camera_sections_keep_report_order() {
 fn missing_values_print_a_dash() {
     let h = html(&sample_report());
     let bare = &h[h.find("B001C001.mov").unwrap()..];
-    assert!(bare.contains("<dt>Codec</dt><dd>—</dd>"));
+    assert!(bare.contains("<dt>Codec</dt><dd class=\"missing\">—</dd>"));
+}
+
+#[test]
+fn off_speed_frame_rate_stands_out() {
+    let h = html(&sample_report());
+    assert!(h.contains("<dt>FPS</dt><dd class=\"accent\">25 (sensor 50)</dd>"));
+}
+
+#[test]
+fn production_absent_means_a_plain_title() {
+    let mut r = sample_report();
+    r.header.production = None;
+    let h = html(&r);
+    assert!(h.contains("<h1>Camera report</h1>"));
+    assert!(!h.contains("class=\"subtitle\""));
 }
 
 #[test]
@@ -71,8 +94,8 @@ fn markup_in_text_is_escaped() {
 #[test]
 fn empty_report_says_so() {
     let h = html(&empty_report());
-    assert!(h.contains("No camera clips found in this source."));
-    assert!(!h.contains("Not included"));
+    assert!(h.contains("No camera clips in this folder."));
+    assert!(!h.contains("Other files"));
     assert!(!h.contains("Unreadable"));
 }
 
@@ -82,4 +105,18 @@ fn non_ascii_survives() {
     assert!(h.contains("<meta charset=\"utf-8\">"));
     assert!(h.contains("הפקת לילה"));
     assert!(h.contains("צילום_001_Café.mov"));
+}
+
+#[test]
+fn dark_theme_marks_the_page() {
+    let mut r = sample_report();
+    assert!(!html(&r).contains("class=\"dark\""));
+    r.theme = luna_report::ReportTheme::Dark;
+    assert!(html(&r).contains("<html lang=\"en\" class=\"dark\">"));
+}
+
+#[test]
+fn a_failed_frame_says_why_once() {
+    let h = html(&sample_report());
+    assert_eq!(h.matches("Worker crashed while decoding").count(), 1);
 }

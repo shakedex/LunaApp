@@ -10,7 +10,9 @@ pub fn write_csv(report: &Report) -> Vec<u8> {
     let mut out = BOM.to_vec();
 
     let mut header = vec!["Camera", "Reel"];
-    header.extend(&FIELD_LABELS[..17]);
+    // Every column but the formatted file size, which becomes an exact byte count.
+    let text_columns = FIELD_LABELS.len() - 1;
+    header.extend(&FIELD_LABELS[..text_columns]);
     header.push("File size (bytes)");
     push_row(&mut out, header.iter().map(|s| s.to_string()));
 
@@ -19,7 +21,11 @@ pub fn write_csv(report: &Report) -> Vec<u8> {
             for clip in &card.clips {
                 let values = clip.fields.display_values();
                 let mut row = vec![camera.name.clone(), card.reel.clone()];
-                row.extend(values[..17].iter().map(|v| v.clone().unwrap_or_default()));
+                row.extend(
+                    values[..text_columns]
+                        .iter()
+                        .map(|v| v.clone().unwrap_or_default()),
+                );
                 row.push(
                     clip.fields
                         .file_size

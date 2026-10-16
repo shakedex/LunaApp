@@ -2,6 +2,8 @@
 //! timecode, and the picture essence descriptor, resolved from local sets.
 
 use super::klv::Ul;
+use crate::types::Audio;
+
 use super::metadata::{INSTANCE_UID, LocalSet, Metadata, Prop, prop, timestamp};
 
 // Identification
@@ -47,12 +49,18 @@ const TRANSFER: Prop = prop(0x3210, "060e2b34010101020401020101010200");
 const PRIMARIES: Prop = prop(0x3219, "060e2b34010101090401020101060100");
 const IMAGE_START_OFFSET: Prop = prop(0x3213, "060e2b34010101020418010200000000");
 const COMPONENT_DEPTH: Prop = prop(0x3301, "060e2b3401010102040105030a000000");
+const AUDIO_SAMPLING_RATE: Prop = prop(0x3d03, "060e2b34010101050402030101010000");
+const CHANNEL_COUNT: Prop = prop(0x3d07, "060e2b34010101050402010104000000");
+const QUANTIZATION_BITS: Prop = prop(0x3d01, "060e2b34010101040402030304000000");
 
 const DD_PICTURE: [u8; 13] = [
     0x06, 0x0e, 0x2b, 0x34, 0x04, 0x01, 0x01, 0x01, 0x01, 0x03, 0x02, 0x02, 0x01,
 ];
 const DD_TIMECODE: [u8; 13] = [
     0x06, 0x0e, 0x2b, 0x34, 0x04, 0x01, 0x01, 0x01, 0x01, 0x03, 0x02, 0x01, 0x01,
+];
+const DD_SOUND: [u8; 13] = [
+    0x06, 0x0e, 0x2b, 0x34, 0x04, 0x01, 0x01, 0x01, 0x01, 0x03, 0x02, 0x02, 0x02,
 ];
 const DD_DATA: [u8; 13] = [
     0x06, 0x0e, 0x2b, 0x34, 0x04, 0x01, 0x01, 0x01, 0x01, 0x03, 0x02, 0x02, 0x03,
@@ -100,6 +108,8 @@ pub(crate) struct Structure {
     /// TrackNumbers of the file package's data tracks (ANC, ARRI frame metadata).
     pub data_track_numbers: Vec<u32>,
     pub picture: Option<PictureDescriptor>,
+    /// The file package's sound, from its sound descriptors.
+    pub audio: Option<Audio>,
     pub body_sid: Option<u32>,
     pub index_sid: Option<u32>,
 }
@@ -151,6 +161,33 @@ fn timecode_of(md: &Metadata, package: &LocalSet) -> Option<(i64, u16, bool)> {
         let _ = data_def(md, seq).filter(|d| d.starts(&DD_TIMECODE));
     }
     None
+}
+
+fn is_sound_descriptor(s: &LocalSet) -> bool {
+    s.has(CHANNEL_COUNT) || s.has(AUDIO_SAMPLING_RATE)
+}
+
+/// Channels added up over the sound descriptors; rate and depth from the first.
+/// `None` when a sound descriptor doesn't state its channel count, or the
+/// package has sound tracks but no sound descriptors to describe them.
+fn audio_of(sounds: &[&LocalSet], sound_tracks: usize) -> Option<Audio> {
+    if sounds.is_empty() {
+        return (sound_tracks == 0).then_some(Audio::default());
+    }
+    let first = sounds[0];
+    Some(Audio {
+        channels: sounds
+            .iter()
+            .map(|s| s.u32(CHANNEL_COUNT))
+            .sum::<Option<u32>>()?,
+        sample_rate: first
+            .rational(AUDIO_SAMPLING_RATE)
+            .filter(|&(n, d)| n > 0 && d > 0)
+            .map(|(n, d)| (n as f64 / d as f64).round() as u32),
+        bits: first
+            .u32(QUANTIZATION_BITS)
+            .filter(|b| (8..=64).contains(b)),
+    })
 }
 
 fn is_picture_descriptor(s: &LocalSet) -> bool {
@@ -230,6 +267,7 @@ pub(crate) fn resolve(md: &Metadata) -> Structure {
             st.timecode = timecode_of(md, fp);
         }
         let mut picture_track_id = None;
+        let mut sound_tracks = 0;
         for t in tracks(md, fp) {
             let Some(seq) = sequence_of(md, t) else {
                 continue;
@@ -244,6 +282,8 @@ pub(crate) fn resolve(md: &Metadata) -> Structure {
                 if st.duration.is_none() {
                     st.duration = seq.i64(DURATION).filter(|&d| d >= 0).map(|d| d as u64);
                 }
+            } else if dd.is_some_and(|d| d.starts(&DD_SOUND)) {
+                sound_tracks += 1;
             } else if dd.is_some_and(|d| d.starts(&DD_DATA))
                 && let Some(n) = t.u32(TRACK_NUMBER)
             {
@@ -259,6 +299,12 @@ pub(crate) fn resolve(md: &Metadata) -> Structure {
             } else {
                 vec![d]
             };
+            let sounds: Vec<&LocalSet> = candidates
+                .iter()
+                .copied()
+                .filter(|s| is_sound_descriptor(s))
+                .collect();
+            st.audio = audio_of(&sounds, sound_tracks);
             let pics: Vec<&&LocalSet> = candidates
                 .iter()
                 .filter(|s| is_picture_descriptor(s))

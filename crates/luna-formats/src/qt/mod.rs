@@ -26,7 +26,7 @@ use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
 
 use crate::types::{
-    ByteRange, ClipFiles, ClipMeta, FormatError, FrameIndex, PictureLayout, Probe, Timecode,
+    Audio, ByteRange, ClipFiles, ClipMeta, FormatError, FrameIndex, PictureLayout, Probe, Timecode,
 };
 use atom::{Atoms, child};
 use meta::Items;
@@ -103,7 +103,7 @@ pub(crate) fn probe_source(src: &dyn Source) -> Result<Probe, FormatError> {
     };
     if moov_len > MAX_MOOV {
         return Err(FormatError::Unsupported(format!(
-            "the movie header is {moov_len} bytes, larger than any camera writes"
+            "The movie header is {moov_len} bytes, larger than any camera writes"
         )));
     }
     let mut moov = vec![0u8; moov_len as usize];
@@ -118,7 +118,7 @@ pub(crate) fn probe_source(src: &dyn Source) -> Result<Probe, FormatError> {
         .tracks
         .iter()
         .find(|t| &t.handler == b"vide" && !t.entry.is_empty())
-        .ok_or_else(|| FormatError::Unsupported("the file has no video track".into()))?;
+        .ok_or_else(|| FormatError::Unsupported("The file has no video track".into()))?;
     for table in &video.damaged {
         warnings.push(format!("The video track's '{table}' table is damaged."));
     }
@@ -149,6 +149,8 @@ pub(crate) fn probe_source(src: &dyn Source) -> Result<Probe, FormatError> {
         height: (height > 0).then_some(height),
         ..ClipMeta::default()
     };
+
+    meta.audio = audio(&movie);
 
     let tc = timecode(&movie, video, src, media, &mut warnings);
     meta.start_timecode = tc.as_ref().and_then(|t| t.0);
@@ -230,6 +232,8 @@ pub(crate) fn fill(into: &mut ClipMeta, from: ClipMeta) {
         shutter,
         white_balance,
         nd,
+        sensor_fps,
+        audio,
         embedded_reel,
         embedded_camera_id
     );
@@ -418,6 +422,22 @@ fn meta_sample(
             None
         }
     }
+}
+
+/// Every sound track's channels added up; rate and depth from the first.
+/// A movie with no sound track has no sound. `None` when a sound track's
+/// description can't be read, since the total would then be a guess.
+fn audio(movie: &Movie) -> Option<Audio> {
+    let mut total = Audio::default();
+    for t in movie.tracks.iter().filter(|t| &t.handler == b"soun") {
+        let e = entry::sound_entry(&t.entry_format, &t.entry)?;
+        if total.channels == 0 {
+            total.sample_rate = e.sample_rate;
+            total.bits = e.bits;
+        }
+        total.channels += e.channels;
+    }
+    Some(total)
 }
 
 /// Make, model and date from QuickTime/ISO generic metadata and `mvhd`.

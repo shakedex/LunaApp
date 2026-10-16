@@ -459,7 +459,7 @@ fn one_letter_on_different_bodies_splits_into_cameras() {
         ),
     ];
     let g = resolve_identity(&root, &clips);
-    assert_eq!(camera_names(&g), ["A · ARRI ALEXA 35", "A · Canon EOS C70"]);
+    assert_eq!(camera_names(&g), ["A (ARRI ALEXA 35)", "A (Canon EOS C70)"]);
 }
 
 #[test]
@@ -480,7 +480,7 @@ fn same_model_different_serials_name_the_serial() {
     let g = resolve_identity(&root, &clips);
     assert_eq!(
         camera_names(&g),
-        ["A · ARRI ALEXA 35 #60123", "A · ARRI ALEXA 35 #60999"]
+        ["A (ARRI ALEXA 35 #60123)", "A (ARRI ALEXA 35 #60999)"]
     );
 }
 
@@ -529,7 +529,7 @@ fn unknown_bodies_never_join_one_of_several_known_bodies() {
     let g = resolve_identity(&root, &clips);
     assert_eq!(
         camera_names(&g),
-        ["A", "A · Canon EOS C50", "A · DJI HG4180"]
+        ["A", "A (Canon EOS C50)", "A (DJI HG4180)"]
     );
 }
 
@@ -552,6 +552,6 @@ fn camera_names_carry_the_make() {
     ];
     assert_eq!(
         camera_names(&resolve_identity(&root, &clips)),
-        ["S · Panasonic DC-S5", "S · Sony ILME-FX6V"]
+        ["S (Panasonic DC-S5)", "S (Sony ILME-FX6V)"]
     );
 }

@@ -31,6 +31,10 @@ pub(crate) fn read(items: &Items) -> Option<ClipMeta> {
         nd: int("NdFilterDensity")
             .filter(|&v| v > 0)
             .map(|v| format!("{:.1}", v as f64 / 1000.0)),
+        // Thousandths of a frame per second.
+        sensor_fps: int("SensorFps")
+            .and_then(|v| u32::try_from(v).ok())
+            .and_then(|v| crate::types::Rational::reduced(v, 1000)),
         embedded_reel: text("ReelName"),
         embedded_camera_id: text("CameraIndex"),
         recording_date: date(text("UserDate"), text("UserTime")),

@@ -69,11 +69,7 @@ fn a_source_becomes_three_report_files() {
     assert!(std::fs::read(&outcome.pdf).unwrap().starts_with(b"%PDF-"));
     assert!(outcome.html.exists() && outcome.csv.exists());
     assert_eq!(outcome.folder, outcome.pdf.parent().unwrap());
-    assert!(
-        outcome.summary.contains("1 of 1 clip has problems"),
-        "{}",
-        outcome.summary
-    );
+    assert_eq!(outcome.summary, "The clip needs attention");
 }
 
 #[test]

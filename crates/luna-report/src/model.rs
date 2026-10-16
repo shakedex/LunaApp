@@ -1,7 +1,7 @@
 //! The report model: everything the writers render, and nothing they compute
 //! beyond formatting.
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use typst::foundations::Bytes;
 use typst::visualize::{ExchangeFormat, RasterImage};
 
@@ -11,13 +11,14 @@ use crate::logo::Logo;
 pub const MISSING: &str = "—";
 
 /// Per-clip columns, in report order.
-pub const FIELD_LABELS: [&str; 18] = [
+pub const FIELD_LABELS: [&str; 20] = [
     "File name",
     "Recording date",
     "TC in",
     "TC out",
     "Duration",
     "FPS",
+    "Sensor FPS",
     "Resolution",
     "Codec",
     "Camera model",
@@ -29,6 +30,7 @@ pub const FIELD_LABELS: [&str; 18] = [
     "Shutter",
     "WB",
     "ND",
+    "Audio",
     "File size",
 ];
 
@@ -46,11 +48,11 @@ pub enum IdentitySource {
 impl IdentitySource {
     pub fn label(self) -> &'static str {
         match self {
-            Self::Metadata => "embedded metadata",
+            Self::Metadata => "clip metadata",
             Self::FileName => "file name",
             Self::Folder => "folder structure",
             Self::FolderName => "folder name",
-            Self::Card => "card neighbours",
+            Self::Card => "other clips on the card",
         }
     }
 }
@@ -71,9 +73,19 @@ pub struct Header {
     pub custom: Vec<CustomField>,
 }
 
+/// Paper for printing, or dark for reading on a screen on set.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ReportTheme {
+    #[default]
+    Light,
+    Dark,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Report {
     pub header: Header,
+    pub theme: ReportTheme,
     /// The source folder as the user picked it.
     pub source_root: String,
     /// Already formatted for display, e.g. "2026-10-10 14:32".
@@ -126,6 +138,8 @@ pub struct ClipFields {
     pub tc_out: Option<String>,
     pub duration: Option<String>,
     pub fps: Option<String>,
+    /// Only when the file records the sensor rate apart from the playback rate.
+    pub sensor_fps: Option<String>,
     pub resolution: Option<String>,
     pub codec: Option<String>,
     pub camera_model: Option<String>,
@@ -137,12 +151,14 @@ pub struct ClipFields {
     pub shutter: Option<String>,
     pub white_balance: Option<String>,
     pub nd: Option<String>,
+    /// e.g. "4 ch, 48 kHz, 24-bit", or "None" for a clip without sound.
+    pub audio: Option<String>,
     pub file_size: Option<u64>,
 }
 
 impl ClipFields {
     /// Values in [`FIELD_LABELS`] order. The file size is formatted with [`format_bytes`].
-    pub fn display_values(&self) -> [Option<String>; 18] {
+    pub fn display_values(&self) -> [Option<String>; 20] {
         [
             Some(self.file_name.clone()),
             self.recording_date.clone(),
@@ -150,6 +166,7 @@ impl ClipFields {
             self.tc_out.clone(),
             self.duration.clone(),
             self.fps.clone(),
+            self.sensor_fps.clone(),
             self.resolution.clone(),
             self.codec.clone(),
             self.camera_model.clone(),
@@ -161,6 +178,7 @@ impl ClipFields {
             self.shutter.clone(),
             self.white_balance.clone(),
             self.nd.clone(),
+            self.audio.clone(),
             self.file_size.map(format_bytes),
         ]
     }

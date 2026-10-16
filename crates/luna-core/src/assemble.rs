@@ -44,14 +44,13 @@ pub fn clip_fields(
     }
     f.recording_date = m.recording_date.clone();
     f.fps = m.frame_rate.map(|r| r.to_string());
+    f.sensor_fps = m.sensor_fps.map(|r| r.to_string());
     f.resolution = match (m.width, m.height) {
         (Some(w), Some(h)) => Some(format!("{w}×{h}")),
         _ => None,
     };
     f.camera_model = match (&m.camera_make, &m.camera_model) {
-        (Some(make), Some(model)) if !model.to_lowercase().contains(&make.to_lowercase()) => {
-            Some(format!("{make} {model}"))
-        }
+        (Some(make), Some(model)) if !names_maker(model, make) => Some(format!("{make} {model}")),
         (_, Some(model)) => Some(model.clone()),
         (Some(make), None) => Some(make.clone()),
         (None, None) => None,
@@ -64,7 +63,20 @@ pub fn clip_fields(
     f.shutter = m.shutter.clone();
     f.white_balance = m.white_balance.clone();
     f.nd = m.nd.clone();
+    f.audio = m.audio.map(|a| a.to_string());
     f
+}
+
+/// The model name already carries the maker: "ARRI ALEXA Mini" for ARRI, or
+/// "Blackmagic Cinema Camera 6K" for "Blackmagic Design".
+pub(crate) fn names_maker(model: &str, make: &str) -> bool {
+    let model = model.to_lowercase();
+    let make = make.to_lowercase();
+    model.contains(&make)
+        || make
+            .split_whitespace()
+            .next()
+            .is_some_and(|w| model.contains(w))
 }
 
 /// Worker thumbnails as report thumbnails. Bytes that don't decode become a reason tile.

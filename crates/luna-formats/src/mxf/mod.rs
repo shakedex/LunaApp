@@ -343,6 +343,7 @@ fn generic_meta(st: &Structure) -> ClipMeta {
             base: b as u32,
             drop_frame: df,
         }),
+        audio: st.audio,
         ..Default::default()
     };
     if let Some(p) = &st.picture {
@@ -369,6 +370,7 @@ struct Vendor {
     shutter: Option<String>,
     white_balance: Option<String>,
     nd: Option<String>,
+    sensor_fps: Option<Rational>,
     reel: Option<String>,
     camera_id: Option<String>,
     start_tc: Option<Timecode>,
@@ -410,6 +412,10 @@ fn arri_meta(md: &metadata::Metadata, unit: &[(Ul, Vec<u8>)], v: &mut Vendor) {
         set(&mut v.lens, l.lens_model);
         set(&mut v.reel, l.reel_name);
         set(&mut v.camera_id, l.camera_index);
+        set(
+            &mut v.sensor_fps,
+            l.sensor_fps_1000.and_then(|f| Rational::reduced(f, 1000)),
+        );
         set(&mut v.iso, l.exposure_index.map(|e| e.to_string()));
         set(
             &mut v.white_balance,
@@ -443,6 +449,10 @@ fn arri_meta(md: &metadata::Metadata, unit: &[(Ul, Vec<u8>)], v: &mut Vendor) {
             &mut v.stop,
             f.iris_t1000
                 .and_then(|t| display::t_stop(t as f64 / 1000.0)),
+        );
+        set(
+            &mut v.sensor_fps,
+            f.sensor_fps.and_then(|(n, d)| Rational::reduced(n, d)),
         );
         if let Some((n, d)) = f.exposure_time {
             let fps = f.sensor_fps.map(|(a, b)| a as f64 / b as f64);
@@ -510,6 +520,10 @@ fn rdd18_meta(a: &rdd18::Acquisition, v: &mut Vendor) {
         display::shutter(n as f64 / d as f64, fps)
     });
     set(&mut v.shutter, shutter);
+    set(
+        &mut v.sensor_fps,
+        a.capture_fps.and_then(|(n, d)| Rational::reduced(n, d)),
+    );
     set(
         &mut v.transfer,
         a.capture_gamma.as_ref().and_then(labels::transfer),
@@ -677,6 +691,7 @@ fn merge(m: &mut ClipMeta, v: Vendor, make: Make, st: &Structure) {
     m.shutter = v.shutter;
     m.white_balance = v.white_balance;
     m.nd = v.nd;
+    m.sensor_fps = v.sensor_fps;
     m.embedded_reel = v.reel;
     m.embedded_camera_id = v.camera_id;
     if m.start_timecode.is_none() {

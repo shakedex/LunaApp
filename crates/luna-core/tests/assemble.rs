@@ -64,6 +64,32 @@ fn model_already_naming_the_make_is_not_doubled() {
 }
 
 #[test]
+fn model_naming_the_brand_skips_the_company_name() {
+    let mut m = meta();
+    m.camera_make = Some("Blackmagic Design".into());
+    m.camera_model = Some("Blackmagic Cinema Camera 6K".into());
+    let f = clip_fields("x.braw", Some(&m), None, 1);
+    assert_eq!(
+        f.camera_model.as_deref(),
+        Some("Blackmagic Cinema Camera 6K")
+    );
+}
+
+#[test]
+fn sensor_rate_and_sound_reach_the_report() {
+    let mut m = meta();
+    m.sensor_fps = Some(luna_formats::Rational { num: 50, den: 1 });
+    m.audio = Some(luna_formats::Audio {
+        channels: 2,
+        sample_rate: Some(48_000),
+        bits: Some(24),
+    });
+    let f = clip_fields("x.mxf", Some(&m), None, 1);
+    assert_eq!(f.sensor_fps.as_deref(), Some("50"));
+    assert_eq!(f.audio.as_deref(), Some("2 ch, 48 kHz, 24-bit"));
+}
+
+#[test]
 fn unknown_metadata_stays_missing() {
     let f = clip_fields("x.mov", None, None, 10);
     assert_eq!(f.file_name, "x.mov");

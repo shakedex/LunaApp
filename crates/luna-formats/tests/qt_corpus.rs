@@ -6,8 +6,8 @@
 use std::path::PathBuf;
 
 use luna_formats::{
-    ByteRange, ClipFiles, ClipMeta, Codec, ColourHint, Container, FrameIndex, Gamut, ProResProfile,
-    Probe, Rational, Timecode, Transfer, probe,
+    Audio, ByteRange, ClipFiles, ClipMeta, Codec, ColourHint, Container, FrameIndex, Gamut,
+    ProResProfile, Probe, Rational, Timecode, Transfer, probe,
 };
 
 fn corpus(rel: &str) -> Option<Probe> {
@@ -48,6 +48,15 @@ fn assert_frames(p: &Probe, count: usize, first: (u64, u64), last: (u64, u64)) {
     assert_eq!(r.last().map(pair), Some(last));
 }
 
+/// 48 kHz sound with this many channels and, for PCM, this bit depth.
+fn audio(channels: u32, bits: Option<u32>) -> Option<Audio> {
+    Some(Audio {
+        channels,
+        sample_rate: Some(48_000),
+        bits,
+    })
+}
+
 fn colour(transfer: Transfer, gamut: Option<Gamut>) -> ColourHint {
     ColourHint {
         transfer: Some(transfer),
@@ -73,6 +82,8 @@ fn arri(date: &str, lens: Option<String>, start: u64, frames: u64, w: u32, h: u3
         shutter: s("172.8°"),
         white_balance: s("5600 K"),
         nd: s("1.2"),
+        sensor_fps: rate(24, 1),
+        audio: audio(5, Some(24)),
         embedded_reel: s("M001R00H"),
         embedded_camera_id: s("M"),
         colour: colour(Transfer::LogC3, Some(Gamut::ArriWideGamut3)),
@@ -150,6 +161,7 @@ fn resolve_prores_4444() {
             height: Some(1080),
             // The name says S-Log3; the file's colr says Rec.709. The file wins.
             colour: colour(Transfer::Rec709, Some(Gamut::Rec709)),
+            audio: audio(2, Some(16)),
             ..ClipMeta::default()
         }
     );
@@ -175,6 +187,7 @@ fn ronin_4d_prores_4444() {
             width: Some(4096),
             height: Some(1712),
             colour: colour(Transfer::Rec709, Some(Gamut::Rec709)),
+            audio: Some(Audio::default()),
             ..ClipMeta::default()
         }
     );
@@ -207,6 +220,7 @@ fn ronin_4d_prores_raw() {
                 transfer: Some(Transfer::DLog),
                 gamut: None,
             },
+            audio: audio(2, Some(24)),
             ..ClipMeta::default()
         }
     );
@@ -236,6 +250,7 @@ fn lumix_s5() {
             iso: s("640"),
             shutter: s("1/60"),
             colour: colour(Transfer::VLog, Some(Gamut::VGamut)),
+            audio: audio(2, Some(16)),
             ..ClipMeta::default()
         }
     );
@@ -270,6 +285,7 @@ fn canon_eos_c50() {
             iso: s("800"),
             shutter: s("1/50"),
             white_balance: s("5600 K"),
+            audio: audio(2, None),
             ..ClipMeta::default()
         }
     );

@@ -4,6 +4,7 @@
 
 mod csv;
 mod error;
+mod fonts;
 mod html;
 mod logo;
 mod model;
@@ -16,6 +17,6 @@ pub use html::write_html;
 pub use logo::{Logo, LogoError, LogoFormat};
 pub use model::{
     Camera, Card, Clip, ClipFields, CustomField, FIELD_LABELS, Header, IdentitySource, Jpeg,
-    MISSING, Report, Thumbnail, Totals, Unreadable, UnreadableKind, format_bytes,
+    MISSING, Report, ReportTheme, Thumbnail, Totals, Unreadable, UnreadableKind, format_bytes,
 };
 pub use pdf::{PdfInspection, TextRun, inspect_pdf, write_pdf};

@@ -13,9 +13,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     std::fs::write(dir.join("sample.pdf"), luna_report::write_pdf(&report)?)?;
     std::fs::write(dir.join("sample.html"), luna_report::write_html(&report)?)?;
     std::fs::write(dir.join("sample.csv"), luna_report::write_csv(&report))?;
-    println!(
-        "wrote sample.pdf, sample.html, sample.csv to {}",
-        dir.display()
-    );
+    let mut dark = report.clone();
+    dark.theme = luna_report::ReportTheme::Dark;
+    std::fs::write(dir.join("sample-dark.pdf"), luna_report::write_pdf(&dark)?)?;
+    std::fs::write(
+        dir.join("sample-dark.html"),
+        luna_report::write_html(&dark)?,
+    )?;
+    println!("wrote sample and sample-dark reports to {}", dir.display());
     Ok(())
 }

@@ -208,16 +208,10 @@ pub fn build_report(
         .enumerate()
         .map(|(i, (_, outcome))| match outcome {
             JobOutcome::Done(r) => *r,
-            JobOutcome::Crashed => failed(
-                i,
-                "Luna stopped while reading this clip",
-                "The decoder stopped on this clip",
-            ),
-            JobOutcome::TimedOut => failed(
-                i,
-                "This clip took too long to read",
-                "Reading this clip took too long",
-            ),
+            // The report lists a frame's reason under the clip once, so the
+            // tile reason and the warning say the same thing.
+            JobOutcome::Crashed => failed(i, CRASHED, CRASHED),
+            JobOutcome::TimedOut => failed(i, TIMED_OUT, TIMED_OUT),
         })
         .collect();
 
@@ -274,6 +268,7 @@ pub fn build_report(
 
     Report {
         header: header(settings),
+        theme: settings.report_theme,
         source_root: root.to_string_lossy().into_owned(),
         generated_at: generated_at.to_owned(),
         luna_version: env!("CARGO_PKG_VERSION").to_owned(),
@@ -282,6 +277,9 @@ pub fn build_report(
         unreadable: scanned.unreadable,
     }
 }
+
+const CRASHED: &str = "The decoder crashed on this clip";
+const TIMED_OUT: &str = "Reading this clip timed out";
 
 fn failed(index: usize, warning: &str, tile: &str) -> ClipResult {
     ClipResult {
@@ -322,13 +320,10 @@ fn header(settings: &Settings) -> Header {
 pub fn summary(report: &Report) -> String {
     let t = report.totals();
     match (t.clips, t.clips_with_problems) {
-        (0, _) => "No camera clips found in this source.".into(),
-        (1, 0) => "The clip was read.".into(),
-        (n, 0) => format!("All {n} clips read."),
-        (n, p) => format!(
-            "{p} of {n} clip{} {} problems. Details are in the report.",
-            if n == 1 { "" } else { "s" },
-            if p == 1 { "has" } else { "have" }
-        ),
+        (0, _) => "No camera clips in this folder".into(),
+        (1, 0) => "1 clip, no problems".into(),
+        (n, 0) => format!("{n} clips, no problems"),
+        (1, _) => "The clip needs attention".into(),
+        (n, p) => format!("{p} of {n} clips need attention"),
     }
 }

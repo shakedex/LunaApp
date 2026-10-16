@@ -119,6 +119,21 @@ pub struct Rational {
 }
 
 impl Rational {
+    /// `num/den` in lowest terms; `None` when either is zero.
+    pub fn reduced(num: u32, den: u32) -> Option<Rational> {
+        if num == 0 || den == 0 {
+            return None;
+        }
+        let (mut a, mut b) = (num, den);
+        while b != 0 {
+            (a, b) = (b, a % b);
+        }
+        Some(Rational {
+            num: num / a,
+            den: den / a,
+        })
+    }
+
     pub fn as_f64(self) -> f64 {
         if self.den == 0 {
             0.0
@@ -237,6 +252,39 @@ pub struct ColourHint {
     pub gamut: Option<Gamut>,
 }
 
+/// The sound recorded alongside the picture.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Audio {
+    /// Total channels across every sound track; 0 when there is no sound.
+    pub channels: u32,
+    /// Hz.
+    pub sample_rate: Option<u32>,
+    /// Bits per sample, for uncompressed PCM only.
+    pub bits: Option<u32>,
+}
+
+impl fmt::Display for Audio {
+    /// "4 ch, 48 kHz, 24-bit", or "None" when there is no sound.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.channels == 0 {
+            return write!(f, "None");
+        }
+        write!(f, "{} ch", self.channels)?;
+        if let Some(hz) = self.sample_rate {
+            let khz = hz as f64 / 1000.0;
+            if (khz - khz.round()).abs() < 1e-9 {
+                write!(f, ", {} kHz", khz.round() as u64)?;
+            } else {
+                write!(f, ", {} kHz", format!("{khz:.1}").trim_end_matches(".0"))?;
+            }
+        }
+        if let Some(b) = self.bits {
+            write!(f, ", {b}-bit")?;
+        }
+        Ok(())
+    }
+}
+
 /// Every per-clip value the report shows, plus identity and colour hints.
 /// All text is display-ready; `None` means the file doesn't carry it.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -264,6 +312,11 @@ pub struct ClipMeta {
     pub white_balance: Option<String>,
     /// e.g. "0.6" or "ND 1.2".
     pub nd: Option<String>,
+    /// The rate the sensor ran at, when the file records it separately from
+    /// the playback rate. Differs from `frame_rate` on off-speed shots.
+    pub sensor_fps: Option<Rational>,
+    /// `None` when the container doesn't say; zero channels when it holds no sound.
+    pub audio: Option<Audio>,
     /// Identity from inside the file (step 1 of the identity chain).
     pub embedded_reel: Option<String>,
     /// Camera letter or ID as the camera records it (e.g. "A").
@@ -327,9 +380,9 @@ pub enum FormatError {
 impl fmt::Display for FormatError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            FormatError::Io(m) => write!(f, "could not read the file: {m}"),
-            FormatError::Corrupt(m) => write!(f, "the file is damaged: {m}"),
-            FormatError::Unsupported(m) => write!(f, "not supported: {m}"),
+            FormatError::Io(m) => write!(f, "The file can't be read: {m}"),
+            FormatError::Corrupt(m) => write!(f, "The file is damaged: {m}"),
+            FormatError::Unsupported(m) => write!(f, "{m}"),
         }
     }
 }
@@ -339,5 +392,26 @@ impl std::error::Error for FormatError {}
 impl From<std::io::Error> for FormatError {
     fn from(e: std::io::Error) -> Self {
         FormatError::Io(e.to_string())
+    }
+}
+
+#[cfg(test)]
+mod audio_tests {
+    use super::Audio;
+
+    #[test]
+    fn audio_reads_as_channels_rate_and_depth() {
+        let a = |channels, sample_rate, bits| {
+            Audio {
+                channels,
+                sample_rate,
+                bits,
+            }
+            .to_string()
+        };
+        assert_eq!(a(0, None, None), "None");
+        assert_eq!(a(4, Some(48_000), Some(24)), "4 ch, 48 kHz, 24-bit");
+        assert_eq!(a(2, Some(44_100), None), "2 ch, 44.1 kHz");
+        assert_eq!(a(1, None, None), "1 ch");
     }
 }

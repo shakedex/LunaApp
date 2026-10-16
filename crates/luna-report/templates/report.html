@@ -1,71 +1,207 @@
 <!doctype html>
-<html lang="en">
+<html lang="en"{% if v.theme == crate::model::ReportTheme::Dark %} class="dark"{% endif %}>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Camera report{% if let Some(p) = v.header.production %} · {{ p }}{% endif %}</title>
+<title>{{ v.title }}{% if let Some(s) = v.subtitle %} – {{ s }}{% endif %}</title>
 <style>
-  body { font-family: system-ui, sans-serif; margin: 2rem; color: #111; }
-  header img.logo { max-height: 3rem; }
-  .meta { color: #555; }
-  .clip { border-top: 1px solid #ccc; padding: 0.75rem 0; break-inside: avoid; }
-  .strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; max-width: 48rem; }
-  .strip img, .strip .missing { width: 100%; aspect-ratio: 16 / 9; object-fit: contain; background: #000; }
-  .strip .missing { display: flex; align-items: center; justify-content: center; background: #eee; color: #444; font-size: 0.8rem; text-align: center; }
-  dl { display: grid; grid-template-columns: repeat(6, auto 1fr); gap: 0.15rem 0.6rem; font-size: 0.85rem; }
-  dt { color: #666; }
-  dd { margin: 0; }
-  .identity { color: #666; font-size: 0.8rem; }
-  .warning { color: #a00; font-size: 0.85rem; }
+{{ font_faces|safe }}
+  /* Same design as the PDF: print first, one tungsten accent (camera tape), coral for problems. */
+  :root {
+    --paper: #ffffff;
+    --ink: #17191c;
+    --graphite: #5b626c;
+    --faint: #a2a8b0;
+    --hairline: #dadde2;
+    --band: #f1f2f4;
+    --tape: #e9a640;
+    --tape-ink: #241703;
+    --tungsten: #94590a;
+    --problem: #b3402e;
+    --thumb: 13.5rem;
+  }
+  :root.dark {
+    --paper: #14161a;
+    --ink: #eceff3;
+    --graphite: #a3abb6;
+    --faint: #6f7783;
+    --hairline: #2a2f37;
+    --band: #1d2127;
+    --tungsten: #f2b75e;
+    --problem: #f2806f;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font: 13px/1.45 "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+    font-variant-numeric: tabular-nums;
+  }
+  main { max-width: 84rem; margin: 0 auto; padding: 2.5rem 2rem 4rem; }
+  .muted { color: var(--graphite); }
+  .faint { color: var(--faint); }
+
+  .title { display: flex; gap: 2rem; justify-content: space-between; align-items: flex-start; }
+  .title h1 { margin: 0; font-size: 2.1rem; font-weight: 600; line-height: 1.1; }
+  .title .subtitle { margin: 0.15rem 0 0; font-size: 1.15rem; color: var(--graphite); }
+  .title .logo { max-height: 4rem; max-width: 14rem; }
+  .details { display: flex; flex-wrap: wrap; gap: 0.2rem 1.4rem; margin: 0.7rem 0 0; }
+  .details dt { display: inline; color: var(--graphite); }
+  .details dd { display: inline; margin: 0 0 0 0.3rem; font-weight: 500; }
+
+  .stats {
+    display: flex; flex-wrap: wrap; gap: 0.6rem 2.2rem; align-items: flex-end;
+    margin: 1.5rem 0 0; padding: 0.7rem 0;
+    border-top: 1.5px solid var(--ink); border-bottom: 1px solid var(--hairline);
+  }
+  .stat strong { display: block; font-size: 1.35rem; font-weight: 600; line-height: 1.2; }
+  .stat span { font-size: 0.8rem; color: var(--graphite); }
+  .stat.problem strong { color: var(--problem); }
+  .stat.source { margin-left: auto; text-align: right; overflow-wrap: anywhere; }
+  .stat.source strong { font-size: 1rem; font-weight: 500; }
+
+  h2.camera { display: flex; align-items: center; gap: 0.9rem; margin: 2.2rem 0 0.7rem; font-size: 1rem; font-weight: 400; }
+  h2.camera .tape {
+    background: var(--tape); color: var(--tape-ink);
+    padding: 0.3rem 0.7rem; border-radius: 2px;
+    font: 600 1.3rem/1.2 "IBM Plex Sans Condensed", "IBM Plex Sans", system-ui, sans-serif;
+  }
+  h3.reel {
+    display: flex; justify-content: space-between; gap: 1rem;
+    margin: 0.9rem 0 0; padding: 0.4rem 0.6rem;
+    background: var(--band); font-size: 1rem; font-weight: 600;
+  }
+  h3.reel span { font-weight: 400; color: var(--graphite); }
+
+  .clip {
+    display: grid; grid-template-columns: auto 1fr; gap: 1rem;
+    padding: 0.75rem 0 0.75rem 0.6rem;
+    border-bottom: 1px solid var(--hairline); border-left: 2px solid transparent;
+    break-inside: avoid;
+  }
+  .clip.problem { border-left-color: var(--problem); }
+  .clip > * { min-width: 0; }
+  .strip { display: grid; grid-template-columns: repeat(3, var(--thumb)); gap: 3px; align-self: start; }
+  .strip img, .strip .missing { width: 100%; aspect-ratio: 16 / 9; display: block; }
+  .strip img { object-fit: contain; background: #000; }
+  .strip .missing {
+    display: flex; align-items: center; justify-content: center; padding: 0.5rem;
+    background: var(--band); color: var(--graphite); font-size: 0.8rem; text-align: center;
+  }
+  .clip header { display: flex; justify-content: space-between; gap: 1rem; align-items: baseline; }
+  .clip h4 {
+    margin: 0; overflow-wrap: anywhere;
+    font: 600 1.05rem/1.25 "IBM Plex Sans Condensed", "IBM Plex Sans", system-ui, sans-serif;
+  }
+  .groups { display: grid; grid-template-columns: 0.85fr 1.2fr 1fr; gap: 0 1.2rem; margin: 0.45rem 0 0; }
+  .groups dl { display: grid; grid-template-columns: auto 1fr; gap: 0.18rem 0.6rem; margin: 0; align-content: start; }
+  .groups dt { color: var(--graphite); font-size: 0.88rem; }
+  .groups dd { margin: 0; overflow-wrap: break-word; min-width: 0; }
+  .groups dd.missing { color: var(--faint); }
+  .groups dd.accent { color: var(--tungsten); font-weight: 600; }
+  .identity { margin: 0.4rem 0 0; color: var(--faint); font-size: 0.82rem; }
+  .warning { margin: 0.2rem 0 0; color: var(--problem); font-weight: 500; }
+
+  h2.end { margin: 2.4rem 0 0.5rem; padding-bottom: 0.3rem; border-bottom: 1px solid var(--hairline); font-size: 1.1rem; font-weight: 600; }
+  ul.paths { margin: 0; padding: 0; list-style: none; }
+  ul.paths li { padding: 0.12rem 0; overflow-wrap: anywhere; }
+  table.unreadable { border-collapse: collapse; }
+  table.unreadable td { padding: 0.15rem 1.2rem 0.15rem 0; vertical-align: top; }
+  table.unreadable td.reason { color: var(--problem); }
+
+  footer { margin-top: 3rem; padding-top: 0.6rem; border-top: 1px solid var(--hairline); color: var(--graphite); font-size: 0.85rem; }
+
+  @media (max-width: 70rem) {
+    .clip { grid-template-columns: 1fr; }
+    .strip { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  }
+  @media (max-width: 44rem) {
+    main { padding: 1.5rem 1rem 3rem; }
+    .groups { grid-template-columns: 1fr; gap: 0.18rem; }
+    .stat.source { margin-left: 0; text-align: left; }
+  }
+  @media print {
+    main { max-width: none; padding: 0; }
+    h2.camera, h3.reel { break-after: avoid; }
+  }
 </style>
 </head>
 <body>
-<header>
-  {% if let Some(src) = v.header.logo %}<img class="logo" src="{{ src }}" alt="">{% endif %}
-  <h1>Camera report{% if let Some(p) = v.header.production %} · {{ p }}{% endif %}</h1>
-  {% if let Some(c) = v.header.company %}<p>{{ c }}</p>{% endif %}
-  {% if let Some(a) = v.header.author %}<p>Report by {{ a }}</p>{% endif %}
-  {% for f in v.header.custom %}<p>{{ f.label }}: {{ f.value }}</p>{% endfor %}
-  <p class="meta">Source: {{ v.source_root }} · Generated {{ v.generated_at }} · Luna {{ v.luna_version }}</p>
-  <p class="meta">{{ v.totals.cameras }} cameras · {{ v.totals.cards }} cards · {{ v.totals.clips }} clips · {{ v.total_size }} · {{ v.totals.clips_with_problems }} clips with problems</p>
-</header>
 <main>
-{% if v.cameras.is_empty() %}<p>No camera clips found in this source.</p>{% endif %}
+<header class="title">
+  <div>
+    <h1>{{ v.title }}</h1>
+    {% if let Some(s) = v.subtitle %}<p class="subtitle">{{ s }}</p>{% endif %}
+    <dl class="details">
+      {% if let Some(c) = v.header.company %}<div><dt>Company</dt><dd>{{ c }}</dd></div>{% endif %}
+      {% if let Some(a) = v.header.author %}<div><dt>Report by</dt><dd>{{ a }}</dd></div>{% endif %}
+      {% for f in v.header.custom %}<div><dt>{{ f.label }}</dt><dd>{{ f.value }}</dd></div>{% endfor %}
+    </dl>
+  </div>
+  {% if let Some(src) = v.header.logo %}<img class="logo" src="{{ src }}" alt="">{% endif %}
+</header>
+
+<section class="stats" aria-label="Summary">
+  <div class="stat"><strong>{{ v.totals.cameras }}</strong><span>{% if v.totals.cameras == 1 %}Camera{% else %}Cameras{% endif %}</span></div>
+  <div class="stat"><strong>{{ v.totals.cards }}</strong><span>{% if v.totals.cards == 1 %}Card{% else %}Cards{% endif %}</span></div>
+  <div class="stat"><strong>{{ v.totals.clips }}</strong><span>{% if v.totals.clips == 1 %}Clip{% else %}Clips{% endif %}</span></div>
+  <div class="stat"><strong>{{ v.total_size }}</strong><span>Data</span></div>
+  <div class="stat{% if v.totals.clips_with_problems > 0 %} problem{% endif %}"><strong>{{ v.totals.clips_with_problems }}</strong><span>Need attention</span></div>
+  <div class="stat source"><strong>{{ v.source_root }}</strong><span>Source</span></div>
+</section>
+
+{% if v.cameras.is_empty() %}<p>No camera clips in this folder.</p>{% endif %}
 {% for camera in v.cameras %}
-  <section>
-  <h2>Camera {{ camera.name }}</h2>
+<section>
+  <h2 class="camera"><span class="tape">Camera {{ camera.name }}</span><span class="muted">{{ camera.summary }}</span></h2>
   {% for card in camera.cards %}
-    <h3>Reel {{ card.reel }}</h3>
-    {% for clip in card.clips %}
-      <article class="clip">
-        <div class="strip">
-        {% for t in clip.thumbs %}
-          {% if let Some(src) = t.src %}<img src="{{ src }}" alt="">{% endif %}
-          {% if let Some(reason) = t.reason %}<div class="missing">{{ reason }}</div>{% endif %}
-        {% endfor %}
-        </div>
+  <h3 class="reel">Reel {{ card.reel }}<span>{{ card.summary }}</span></h3>
+  {% for clip in card.clips %}
+  <article class="clip{% if clip.problem %} problem{% endif %}">
+    <div class="strip">
+      {% for t in clip.thumbs %}
+        {% if let Some(src) = t.src %}<img src="{{ src }}" alt="">{% else %}<div class="missing">No image</div>{% endif %}
+      {% endfor %}
+    </div>
+    <div>
+      <header>
+        <h4>{{ clip.name }}</h4>
+        {% if let Some(r) = clip.recorded %}<span class="muted">{{ r }}</span>{% endif %}
+      </header>
+      <div class="groups">
+        {% for group in clip.groups %}
         <dl>
-        {% for value in clip.values %}<dt>{{ v.labels[loop.index0] }}</dt><dd>{{ value }}</dd>{% endfor %}
+          {% for c in group %}<dt>{{ c.label }}</dt><dd{% if c.missing %} class="missing"{% elif c.accent %} class="accent"{% endif %}>{{ c.value }}</dd>{% endfor %}
         </dl>
-        <p class="identity">{{ clip.identity }}</p>
-        {% for w in clip.warnings %}<p class="warning">{{ w }}</p>{% endfor %}
-      </article>
-    {% endfor %}
+        {% endfor %}
+      </div>
+      {% if let Some(i) = clip.identity %}<p class="identity">{{ i }}</p>{% endif %}
+      {% for w in clip.warnings %}<p class="warning">{{ w }}</p>{% endfor %}
+    </div>
+  </article>
   {% endfor %}
-  </section>
+  {% endfor %}
+</section>
 {% endfor %}
+
 {% if !v.not_included.is_empty() %}
-  <section>
-  <h2>Not included</h2>
-  <ul>{% for p in v.not_included %}<li>{{ p }}</li>{% endfor %}</ul>
-  </section>
+<section>
+  <h2 class="end">Other files</h2>
+  <ul class="paths">{% for p in v.not_included %}<li>{{ p }}</li>{% endfor %}</ul>
+</section>
 {% endif %}
 {% if !v.unreadable.is_empty() %}
-  <section>
-  <h2>Unreadable</h2>
-  <ul>{% for u in v.unreadable %}<li>{{ u.kind }} {{ u.path }}: {{ u.reason }}</li>{% endfor %}</ul>
-  </section>
+<section>
+  <h2 class="end">Unreadable</h2>
+  <table class="unreadable">
+    {% for u in v.unreadable %}<tr><td class="muted">{{ u.kind }}</td><td>{{ u.path }}</td><td class="reason">{{ u.reason }}</td></tr>{% endfor %}
+  </table>
+</section>
 {% endif %}
+
+<footer>Luna {{ v.luna_version }}, generated {{ v.generated_at }}</footer>
 </main>
 </body>
 </html>

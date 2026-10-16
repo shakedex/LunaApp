@@ -17,6 +17,7 @@ use typst_layout::PagedDocument;
 use typst_pdf::PdfOptions;
 
 use crate::error::ReportError;
+use crate::fonts::FACES;
 use crate::model::Report;
 use crate::view::{self, ImageRef};
 
@@ -81,7 +82,10 @@ fn walk(frame: &Frame, page: usize, origin: Point, out: &mut PdfInspection) {
                 walk(&group.frame, page, at + shift, out);
             }
             FrameItem::Text(text) => {
-                out.text.push_str(&text.text);
+                // The template lets file names break with zero-width spaces;
+                // they are layout, not content.
+                let plain = text.text.as_str().replace('\u{200b}', "");
+                out.text.push_str(&plain);
                 out.text.push('\n');
                 if text.glyphs.iter().any(|g| g.id == 0) {
                     out.missing_glyphs.push(text.text.to_string());
@@ -91,7 +95,7 @@ fn walk(frame: &Frame, page: usize, origin: Point, out: &mut PdfInspection) {
                     x: at.x.to_pt(),
                     y: at.y.to_pt(),
                     width: text.width().to_pt(),
-                    text: text.text.to_string(),
+                    text: plain,
                 });
             }
             FrameItem::Image(..) => out.images += 1,
@@ -136,6 +140,13 @@ pub(crate) fn check_image(path: &str, bytes: &[u8]) -> Result<(), String> {
 
 fn render(main: FileId, files: HashMap<FileId, Bytes>) -> Result<PagedDocument, String> {
     let mut fonts = FontStore::new();
+    fonts.extend(FACES.iter().flat_map(|face| {
+        Font::iter(Bytes::new(face.data)).map(|font| {
+            let info = font.info().clone();
+            (font, info)
+        })
+    }));
+    // Typst's own fonts stay as the fallback for scripts Plex doesn't cover.
     fonts.extend(typst_kit::fonts::embedded());
     let world = MemoryWorld {
         library: LazyHash::new(Library::builder().build()),

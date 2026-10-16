@@ -107,13 +107,12 @@ fn fill_counts(v: &mut MainView, p: &Progress) {
 
 fn done_summary(summary: &str, p: &Progress) -> String {
     if !summary.trim().is_empty() {
-        let s = summary.trim().trim_end_matches('.');
-        return format!("{s}. Details are in the report.");
+        return summary.trim().to_owned();
     }
     match p.clips_total {
-        Some(1) => "The clip was read without problems.".into(),
-        Some(n) => format!("All {} clips were read without problems.", count(n)),
-        None => "No problems found.".into(),
+        Some(1) => "1 clip, no problems".into(),
+        Some(n) => format!("{} clips, no problems", count(n)),
+        None => "No problems".into(),
     }
 }
 
@@ -241,10 +240,7 @@ mod tests {
         assert_eq!(v.pdf_name, "camera-report.pdf");
         assert_eq!(v.html_name, "camera-report.html");
         assert_eq!(v.csv_name, "camera-report.csv");
-        assert_eq!(
-            v.summary,
-            "2 clips couldn't be decoded. Details are in the report."
-        );
+        assert_eq!(v.summary, "2 clips couldn't be decoded");
     }
 
     #[test]
@@ -259,10 +255,7 @@ mod tests {
             },
         );
         f.apply(run, RunEvent::Finished(outcome("")));
-        assert_eq!(
-            main_view(&f).summary,
-            "All 12 clips were read without problems."
-        );
+        assert_eq!(main_view(&f).summary, "12 clips, no problems");
     }
 
     #[test]

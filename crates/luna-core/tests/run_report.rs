@@ -98,10 +98,10 @@ fn a_crashed_or_slow_clip_keeps_its_row_with_reasons() {
     assert_eq!(a[0].fields.file_name, "A001C001_251020_R1AB.mxf");
     assert_eq!(a[0].thumbnails.len(), 3);
     assert!(
-        matches!(&a[0].thumbnails[0], Thumbnail::Missing { reason } if reason.contains("stopped"))
+        matches!(&a[0].thumbnails[0], Thumbnail::Missing { reason } if reason.contains("crashed"))
     );
-    assert!(a[0].warnings.iter().any(|w| w.contains("stopped")));
-    assert!(a[1].warnings.iter().any(|w| w.contains("too long")));
+    assert!(a[0].warnings.iter().any(|w| w.contains("crashed")));
+    assert!(a[1].warnings.iter().any(|w| w.contains("timed out")));
     assert!(a[0].has_problems() && a[1].has_problems());
 }
 
@@ -110,7 +110,7 @@ fn summary_names_the_problems() {
     let good = || vec![Ok(THUMB.to_vec()); 3];
     let ok = vec![read(0, good()), read(1, good()), read(2, good())];
     let r = build_report(Path::new("D:/Shoot"), &settings(), scan(), ok, "now");
-    assert_eq!(summary(&r), "All 3 clips read.");
+    assert_eq!(summary(&r), "3 clips, no problems");
 
     let bad = vec![
         JobOutcome::Crashed,
@@ -118,13 +118,10 @@ fn summary_names_the_problems() {
         read(2, good()),
     ];
     let r = build_report(Path::new("D:/Shoot"), &settings(), scan(), bad, "now");
-    assert_eq!(
-        summary(&r),
-        "2 of 3 clips have problems. Details are in the report."
-    );
+    assert_eq!(summary(&r), "2 of 3 clips need attention");
 
     let mut empty = scan();
     empty.clips.clear();
     let r = build_report(Path::new("D:/Shoot"), &settings(), empty, vec![], "now");
-    assert_eq!(summary(&r), "No camera clips found in this source.");
+    assert_eq!(summary(&r), "No camera clips in this folder");
 }

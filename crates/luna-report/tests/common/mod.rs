@@ -2,8 +2,8 @@
 #![allow(dead_code)]
 
 use luna_report::{
-    Camera, Card, Clip, ClipFields, CustomField, Header, IdentitySource, Logo, Report, Thumbnail,
-    Unreadable, UnreadableKind,
+    Camera, Card, Clip, ClipFields, CustomField, Header, IdentitySource, Logo, Report, ReportTheme,
+    Thumbnail, Unreadable, UnreadableKind,
 };
 
 pub const THUMB_JPEG: &[u8] = include_bytes!("../fixtures/thumb.jpg");
@@ -18,6 +18,7 @@ pub fn full_clip(file_name: &str) -> Clip {
             tc_out: Some("10:00:10:00".into()),
             duration: Some("00:00:10:00".into()),
             fps: Some("25".into()),
+            sensor_fps: Some("50".into()),
             resolution: Some("4096×2160".into()),
             codec: Some("ProRes 4444".into()),
             camera_model: Some("ALEXA 35".into()),
@@ -29,6 +30,7 @@ pub fn full_clip(file_name: &str) -> Clip {
             shutter: Some("180°".into()),
             white_balance: Some("5600 K".into()),
             nd: Some("0.6".into()),
+            audio: Some("4 ch, 48 kHz, 24-bit".into()),
             file_size: Some(4_294_967_296),
         },
         camera_source: IdentitySource::Metadata,
@@ -60,6 +62,7 @@ pub fn bare_clip(file_name: &str) -> Clip {
 pub fn empty_report() -> Report {
     Report {
         header: Header::default(),
+        theme: ReportTheme::Light,
         source_root: "D:\\Shoot".into(),
         generated_at: "2026-10-10 14:32".into(),
         luna_version: "0.0.0".into(),
