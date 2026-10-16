@@ -27,7 +27,12 @@ MinVersion=10.0
 PrivilegesRequiredOverridesAllowed=dialog
 Compression=lzma2/max
 SolidCompression=yes
-WizardStyle=modern
+; Luna is dark: the dark wizard, Luna's sky and Moon on the welcome and
+; finish pages, the logo on the others (art/make.py; one image per DPI).
+WizardStyle=modern dark
+WizardImageFile={#RepoDir}\packaging\windows\art\wizard-164x314.png,{#RepoDir}\packaging\windows\art\wizard-205x393.png,{#RepoDir}\packaging\windows\art\wizard-246x471.png,{#RepoDir}\packaging\windows\art\wizard-287x550.png,{#RepoDir}\packaging\windows\art\wizard-328x628.png,{#RepoDir}\packaging\windows\art\wizard-369x707.png,{#RepoDir}\packaging\windows\art\wizard-410x785.png
+WizardSmallImageFile={#RepoDir}\packaging\windows\art\small-58x58.png,{#RepoDir}\packaging\windows\art\small-73x73.png,{#RepoDir}\packaging\windows\art\small-87x87.png,{#RepoDir}\packaging\windows\art\small-102x102.png,{#RepoDir}\packaging\windows\art\small-116x116.png,{#RepoDir}\packaging\windows\art\small-131x131.png,{#RepoDir}\packaging\windows\art\small-145x145.png
+WizardImageBackColor=#0c0f14
 ; Updates run this installer silently (WinSparkle); close a running Luna.
 CloseApplications=force
 
