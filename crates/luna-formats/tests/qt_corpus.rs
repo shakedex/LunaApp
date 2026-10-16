@@ -286,6 +286,8 @@ fn canon_eos_c50() {
             shutter: s("1/50"),
             white_balance: s("5600 K"),
             audio: audio(2, None),
+            // Canon's private RDD 18 labels in the `cndm` track.
+            colour: colour(Transfer::CanonLog2, Some(Gamut::CinemaGamut)),
             ..ClipMeta::default()
         }
     );

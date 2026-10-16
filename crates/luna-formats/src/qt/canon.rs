@@ -1,7 +1,8 @@
 //! Canon XF-HEVC/XF-AVC MP4 (Cinema EOS): a movie-level `uuid` box carries a
 //! thumbnail JPEG whose Exif has make, model, date, exposure and lens; the
 //! `cndm` timed-metadata track carries SMPTE RDD 18 acquisition metadata sets
-//! per frame, of which the first frame's standard tags are read.
+//! per frame, of which the first frame's standard tags and Canon's private
+//! transfer/primaries labels are read.
 
 use super::display;
 use crate::types::ClipMeta;
@@ -22,14 +23,19 @@ const RDD18_SET_PREFIX: [u8; 12] = [
     0x06, 0x0E, 0x2B, 0x34, 0x02, 0x53, 0x01, 0x01, 0x0C, 0x02, 0x01, 0x01,
 ];
 const CAMERA_UNIT_SET: u8 = 0x02;
+/// Canon's private set: its transfer (0xE211) and primaries (0xE212) labels.
+const CANON_SET: u8 = 0x7F;
+const TAG_CANON_TRANSFER: u16 = 0xE211;
+const TAG_CANON_PRIMARIES: u16 = 0xE212;
 
 /// RDD 18 Camera Unit tags.
 const TAG_SHUTTER_ANGLE: u16 = 0x8108;
 const TAG_ISO: u16 = 0x810B;
 const TAG_WHITE_BALANCE: u16 = 0x810E;
 
-/// Reads the standard RDD 18 Camera Unit tags from one `cndm` sample:
-/// white balance (kelvin), ISO, shutter angle (1/60 degree units).
+/// Reads the standard RDD 18 Camera Unit tags from one `cndm` sample
+/// (white balance in kelvin, ISO, shutter angle in 1/60 degree units) and the
+/// transfer and primaries labels from Canon's private set.
 pub(crate) fn read_rdd18(sample: &[u8]) -> ClipMeta {
     let mut m = ClipMeta::default();
     let mut p = 0usize;
@@ -51,7 +57,7 @@ pub(crate) fn read_rdd18(sample: &[u8]) -> ClipMeta {
         };
         let body_start = start + 16 + hdr;
         let body_end = body_start.saturating_add(len).min(sample.len());
-        if set == CAMERA_UNIT_SET {
+        if set == CAMERA_UNIT_SET || set == CANON_SET {
             let mut q = body_start;
             while q + 4 <= body_end {
                 let tag = u16::from_be_bytes([sample[q], sample[q + 1]]);
@@ -63,7 +69,15 @@ pub(crate) fn read_rdd18(sample: &[u8]) -> ClipMeta {
                     break;
                 };
                 let uint = || v.iter().fold(0u64, |a, &b| (a << 8) | b as u64);
+                let label = || crate::mxf::klv::Ul::from_slice(v);
                 match tag {
+                    TAG_CANON_TRANSFER if set == CANON_SET => {
+                        m.colour.transfer = label().as_ref().and_then(crate::mxf::labels::transfer)
+                    }
+                    TAG_CANON_PRIMARIES if set == CANON_SET => {
+                        m.colour.gamut = label().as_ref().and_then(crate::mxf::labels::gamut)
+                    }
+                    _ if set != CAMERA_UNIT_SET => {}
                     TAG_WHITE_BALANCE if l == 2 => m.white_balance = display::kelvin(uint() as i64),
                     TAG_ISO if l == 2 => {
                         m.iso = Some(uint()).filter(|&v| v > 0).map(|v| v.to_string())
@@ -103,6 +117,7 @@ fn ber_len(b: &[u8]) -> Option<(usize, usize)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::types::{Gamut, Transfer};
 
     fn set(kind: u8, items: &[(u16, &[u8])]) -> Vec<u8> {
         let mut body = Vec::new();
@@ -135,6 +150,30 @@ mod tests {
         assert_eq!(m.white_balance.as_deref(), Some("5600 K"));
         assert_eq!(m.iso.as_deref(), Some("800"));
         assert_eq!(m.shutter.as_deref(), Some("180°"));
+    }
+
+    #[test]
+    fn canon_private_colour_labels() {
+        // As written by an EOS C50 recording Canon Log 2 / Cinema Gamut.
+        let transfer = [
+            0x06, 0x0E, 0x2B, 0x34, 0x04, 0x01, 0x01, 0x0D, 0x0E, 0x15, 0x00, 0x01, 0x02, 0, 0, 0,
+        ];
+        let primaries = [
+            0x06, 0x0E, 0x2B, 0x34, 0x04, 0x01, 0x01, 0x0D, 0x0E, 0x15, 0x00, 0x02, 0x02, 0, 0, 0,
+        ];
+        let sample = set(
+            CANON_SET,
+            &[
+                (TAG_CANON_TRANSFER, &transfer),
+                (TAG_CANON_PRIMARIES, &primaries),
+            ],
+        );
+        let m = read_rdd18(&sample);
+        assert_eq!(m.colour.transfer, Some(Transfer::CanonLog2));
+        assert_eq!(m.colour.gamut, Some(Gamut::CinemaGamut));
+        // The same tags outside Canon's set are not colour labels.
+        let m = read_rdd18(&set(CAMERA_UNIT_SET, &[(TAG_CANON_TRANSFER, &transfer)]));
+        assert_eq!(m.colour.transfer, None);
     }
 
     #[test]

@@ -489,7 +489,8 @@ fn canon_c50_xf_avc() {
             audio: pcm(4),
             embedded_reel: None,
             embedded_camera_id: None,
-            colour: ColourHint::default(),
+            // Canon's private transfer/primaries labels in the picture descriptor.
+            colour: colour(Transfer::CanonLog2, Gamut::CinemaGamut),
         }
     );
     assert_eq!(p.layout, layout(3840, 2160, None, (1, 1)));

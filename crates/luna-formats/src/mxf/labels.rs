@@ -100,6 +100,16 @@ pub(crate) fn transfer(u: &Ul) -> Option<Transfer> {
     if at(u, 8, &[0x0e, 0x17, 0x04, 0x01, 0x03, 0x01, 0x02, 0x01]) {
         return Some(Transfer::LogC3);
     }
+    // Canon private: 0e 15 00 01 xx. Premiere's MXF importer lists Canon's
+    // transfers 01, 02, 07 against Canon Log, Canon Log 2, Canon Log 3; the C50
+    // MP4's own Canon box agrees (CNLG = 2 with label 02).
+    if at(u, 8, &[0x0e, 0x15, 0x00, 0x01]) {
+        return match u.0[12] {
+            0x02 => Some(Transfer::CanonLog2),
+            0x07 => Some(Transfer::CanonLog3),
+            _ => None,
+        };
+    }
     None
 }
 
@@ -129,6 +139,11 @@ pub(crate) fn gamut(u: &Ul) -> Option<Gamut> {
     }
     if at(u, 8, &[0x0e, 0x17, 0x04, 0x01, 0x03, 0x01, 0x03, 0x01]) {
         return Some(Gamut::ArriWideGamut3);
+    }
+    // Canon private: 0e 15 00 02 xx; 02 sits with the camera-native gamuts in
+    // Premiere's MXF importer and is what Cinema EOS writes beside Canon Log.
+    if at(u, 8, &[0x0e, 0x15, 0x00, 0x02, 0x02]) {
+        return Some(Gamut::CinemaGamut);
     }
     None
 }
@@ -187,6 +202,19 @@ mod tests {
             gamut(&ul("060e2b340401010d0e17040103010301")),
             Some(Gamut::ArriWideGamut3)
         );
-        assert_eq!(transfer(&ul("060e2b340401010d0e15000102000000")), None);
+        assert_eq!(
+            transfer(&ul("060e2b340401010d0e15000102000000")),
+            Some(Transfer::CanonLog2)
+        );
+        assert_eq!(
+            transfer(&ul("060e2b340401010d0e15000107000000")),
+            Some(Transfer::CanonLog3)
+        );
+        // Original Canon Log: no curve to render it with.
+        assert_eq!(transfer(&ul("060e2b340401010d0e15000101000000")), None);
+        assert_eq!(
+            gamut(&ul("060e2b340401010d0e15000202000000")),
+            Some(Gamut::CinemaGamut)
+        );
     }
 }

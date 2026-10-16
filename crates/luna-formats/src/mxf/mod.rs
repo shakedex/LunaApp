@@ -6,8 +6,8 @@
 mod arri;
 mod display;
 mod index;
-mod klv;
-mod labels;
+pub(crate) mod klv;
+pub(crate) mod labels;
 mod metadata;
 mod partition;
 mod rdd18;
@@ -528,8 +528,14 @@ fn rdd18_meta(a: &rdd18::Acquisition, v: &mut Vendor) {
         &mut v.transfer,
         a.capture_gamma.as_ref().and_then(labels::transfer),
     );
+    if v.transfer.is_none() {
+        v.transfer = a.vendor_transfer.as_ref().and_then(labels::transfer);
+    }
     if let Some(g) = a.look_primaries.as_ref().and_then(labels::gamut) {
         v.gamut = Some(g);
+    }
+    if v.gamut.is_none() {
+        v.gamut = a.vendor_primaries.as_ref().and_then(labels::gamut);
     }
     if let Some(d) = a.vendor_date {
         v.date = Some(display::stamp(d));
