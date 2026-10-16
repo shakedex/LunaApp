@@ -16,6 +16,8 @@ pub struct Cli {
     pub command: Command,
 }
 
+// Parsed once per process; boxing the report arguments buys nothing.
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug, Subcommand)]
 pub enum Command {
     /// Make a report from one or more folders.
