@@ -6,8 +6,8 @@ license.workspace = true
 
 [dependencies]
 dirs = "7.0.0"
-luna-core = { version = "0.0.0", path = "../luna-core" }
-luna-worker = { version = "0.0.0", path = "../luna-worker" }
+luna-core = { path = "../luna-core" }
+luna-worker = { path = "../luna-worker" }
 open = "5.4.4"
 rfd = "0.17.2"
 slint = { version = "=1.18.1", features = ["unstable-winit-030"] }

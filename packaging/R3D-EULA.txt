@@ -1,0 +1,34 @@
+Luna R3D add-on: end-user licence agreement
+
+Copyright 2026 Shaked Lipszyc. All rights reserved.
+
+The R3D add-on (luna_r3d and the RED libraries installed with it) lets Luna
+read R3D and N-RAW files. It is not covered by Luna's MIT licence above; this
+agreement covers it.
+
+1. Use. You may use the add-on, as part of Luna, on computers you control. This
+   is a limited, non-exclusive licence. You may not copy the add-on except for
+   backups the law allows.
+
+2. No distribution. You may not distribute, sell, sublicense, rent, lend or
+   lease the add-on.
+
+3. No reverse engineering. You may not reverse engineer, decompile or
+   disassemble the add-on, or try to discover its source code or the file
+   formats it reads.
+
+4. Other RED software. If you need other RED software, get it under its own
+   licence and follow its terms.
+
+5. Ownership. Luna's author and suppliers keep all rights in the add-on.
+
+6. No warranty. The add-on is provided as is. Luna's author and suppliers
+   disclaim all warranties, express or implied, including merchantability,
+   fitness for a particular purpose and non-infringement.
+
+7. Limitation of liability. To the extent the law allows, Luna's author and
+   suppliers are not liable for any indirect, incidental, special or
+   consequential damages arising from the add-on.
+
+Support, updates and liability for the add-on are Luna's, not RED's. RED has
+not certified or endorsed Luna.

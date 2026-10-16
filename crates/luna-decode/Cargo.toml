@@ -9,9 +9,9 @@ braw.workspace = true
 arri.workspace = true
 crm.workspace = true
 libloading = "0.9.0"
-luna-formats = { version = "0.0.0", path = "../luna-formats" }
-luna-h264 = { version = "0.0.0", path = "../luna-h264" }
-luna-prores = { version = "0.0.0", path = "../luna-prores" }
+luna-formats = { path = "../luna-formats" }
+luna-h264 = { path = "../luna-h264" }
+luna-prores = { path = "../luna-prores" }
 xocn.workspace = true
 
 [target."cfg(windows)".dependencies]

@@ -18,13 +18,30 @@ grouped by camera and card, with its metadata and a strip of thumbnails.
 
 ## Develop
 
-Requires a stable Rust toolchain.
+Requires a stable Rust toolchain, the private decoder checkouts in
+`../decoders/`, and the Blackmagic RAW SDK. `.cargo/config.toml` points
+`cargo run` and `cargo test` at the R3D add-on and the camera corpus.
 
-```bash
-cargo test --workspace
-cargo clippy --workspace --all-targets -- -D warnings
-cargo fmt --all
-```
+| Command                         | What it does                                                 |
+| ------------------------------- | ------------------------------------------------------------ |
+| `cargo run -p luna-app`         | Run Luna from source                                         |
+| `cargo xtask check`             | fmt check, clippy and tests; run before every commit         |
+| `cargo xtask package`           | Build the app into `dist/` (`dist\Luna` or `dist/Luna.app`)  |
+| `cargo xtask installer`         | Package, then build the installer into `dist/`               |
+| `cargo xtask release <bump>`    | Check, bump the version, build the installer, commit and tag |
+
+`<bump>` is `patch`, `minor` or an exact version (`0.4.0`). The installers are
+`Luna-<version>-windows-x64-setup.exe` (needs [Inno Setup](https://jrsoftware.org/isdl.php))
+and `Luna-<version>-macos.dmg`. `cargo xtask` lists the environment variables
+that override the SDK and tool locations.
+
+### Releasing
+
+1. On Windows, from a clean `master`: `cargo xtask release minor`. This leaves
+   a release commit, a `v<version>` tag and the Windows installer in `dist/`.
+   Nothing is pushed.
+2. `git push origin HEAD v<version>`
+3. On the Mac: `git fetch --tags && git checkout v<version> && cargo xtask installer`
 
 ## Repo layout
 

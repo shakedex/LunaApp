@@ -7795,6 +7795,10 @@ version = "0.1.0"
 source = "git+file:///E:/Coding/decoders/xocn-decoder?rev=2b183188fbc5a97544e6844333ab3bc07744e169#2b183188fbc5a97544e6844333ab3bc07744e169"
 
 [[package]]
+name = "xtask"
+version = "0.0.0"
+
+[[package]]
 name = "yaml-rust"
 version = "0.4.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"

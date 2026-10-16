@@ -6,8 +6,12 @@
 # fallback for the SDK libraries at run time.
 BRAW_SDK_DIR = { value = 'C:\Program Files (x86)\Blackmagic Design\Blackmagic RAW\Blackmagic RAW SDK', force = false }
 # The R3D add-on, built in the sibling decoders/r3d-sdk checkout
-# (tools/package-windows.ps1 builds it), and RED's library beside it.
+# (`cargo xtask package` builds it), and RED's library beside it.
 LUNA_R3D_ADDON = { value = '../decoders/r3d-sdk/target/release/r3d.dll', relative = true, force = false }
 LUNA_R3D_SDK_DIR = { value = '../decoders/r3d-sdk/reference/Redistributable/win', relative = true, force = false }
 # The camera corpus the corpus tests read; they skip when it isn't there.
 LUNA_CORPUS = { value = 'D:\LUNA_TEST\TEST_PROJECT_LUNA\CAMERA', force = false }
+
+# `cargo xtask` runs Luna's build tasks (xtask/src/main.rs); `cargo xtask` lists them.
+[alias]
+xtask = "run --quiet --package xtask --"

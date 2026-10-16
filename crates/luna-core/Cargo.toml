@@ -7,9 +7,9 @@ license.workspace = true
 [dependencies]
 jiff = "0.2.38"
 dirs = "7.0.0"
-luna-formats = { version = "0.0.0", path = "../luna-formats" }
-luna-report = { version = "0.0.0", path = "../luna-report" }
-luna-worker = { version = "0.0.0", path = "../luna-worker" }
+luna-formats = { path = "../luna-formats" }
+luna-report = { path = "../luna-report" }
+luna-worker = { path = "../luna-worker" }
 serde = { version = "1.0.229", features = ["derive"] }
 toml = "1.1.8"
 
