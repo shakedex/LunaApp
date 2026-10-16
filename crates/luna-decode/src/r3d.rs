@@ -3,7 +3,8 @@
 //! Luna's MIT core never links RED's SDK: R3D support is a separate library
 //! (`luna_r3d` / `r3d`, built from the private `r3d-sdk` crate) that exports
 //! the small C ABI in `r3d-sdk/include/luna_r3d.h`. We look for it in
-//! `<exe dir>/addons/`, or at the path in `LUNA_R3D_ADDON` for development.
+//! Luna's bundled-library folder (`util::lib_dir`), or at the path in
+//! `LUNA_R3D_ADDON` for development.
 //! Its SDK folder (holding `REDR3D-x64.dll` / `REDR3D.dylib`) is the add-on's
 //! own folder unless `LUNA_R3D_SDK_DIR` says otherwise.
 //!
@@ -121,9 +122,9 @@ fn addon_candidates() -> Vec<PathBuf> {
     if let Some(p) = std::env::var_os("LUNA_R3D_ADDON") {
         out.push(PathBuf::from(p));
     }
-    if let Some(exe) = util::exe_dir() {
+    if let Some(lib) = util::lib_dir() {
         for name in addon_names() {
-            out.push(exe.join("addons").join(name));
+            out.push(lib.join(name));
         }
     }
     out
@@ -137,7 +138,7 @@ fn load() -> Result<Addon, DecodeError> {
         DecodeError::Unsupported(format!("The R3D add-on could not be loaded: {e}"))
     };
     // SAFETY: loading the add-on runs its initialisers. It is our own library,
-    // found only in Luna's private add-on folder (or named by the developer).
+    // found only in Luna's bundled-library folder (or named by the developer).
     let lib = unsafe { Library::new(&path) }.map_err(|e| broken(&e))?;
     // SAFETY: each symbol is declared with the exact signature from luna_r3d.h.
     unsafe {

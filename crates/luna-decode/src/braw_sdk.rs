@@ -37,13 +37,13 @@ fn load() -> Result<braw::Sdk, String> {
     ))
 }
 
-/// Where the SDK libraries may be: `<exe dir>/vendor/braw` in a shipped app;
+/// Where the SDK libraries may be: [`util::lib_dir`] in a shipped app;
 /// for development, the SDK install named by `BRAW_SDK_DIR` (at run time, or
 /// as it was when Luna was built).
 fn sdk_dirs() -> Vec<PathBuf> {
     let mut dirs = Vec::new();
-    if let Some(exe) = util::exe_dir() {
-        dirs.push(exe.join("vendor").join("braw"));
+    if let Some(lib) = util::lib_dir() {
+        dirs.push(lib);
     }
     let platform = if cfg!(target_os = "macos") {
         "Mac"
@@ -137,6 +137,6 @@ mod tests {
     #[test]
     fn shipped_folder_is_tried_first() {
         let dirs = sdk_dirs();
-        assert!(dirs[0].ends_with("vendor/braw") || dirs[0].ends_with("vendor\\braw"));
+        assert_eq!(Some(&dirs[0]), util::lib_dir().as_ref());
     }
 }

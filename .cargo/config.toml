@@ -1,5 +1,13 @@
-# Build-time location of the Blackmagic RAW SDK (headers for the braw crate's shim,
-# and the development fallback for the SDK libraries at run time).
-# Windows-only path for now; macOS builders override BRAW_SDK_DIR in their environment.
+# Development defaults for `cargo run` / `cargo test`. Any of these can be
+# overridden from the environment (force = false). Windows paths; the Mac sets
+# its own in the environment.
 [env]
+# Blackmagic RAW SDK: headers for the braw crate's shim, and the development
+# fallback for the SDK libraries at run time.
 BRAW_SDK_DIR = { value = 'C:\Program Files (x86)\Blackmagic Design\Blackmagic RAW\Blackmagic RAW SDK', force = false }
+# The R3D add-on, built in the sibling decoders/r3d-sdk checkout
+# (tools/package-windows.ps1 builds it), and RED's library beside it.
+LUNA_R3D_ADDON = { value = '../decoders/r3d-sdk/target/release/r3d.dll', relative = true, force = false }
+LUNA_R3D_SDK_DIR = { value = '../decoders/r3d-sdk/reference/Redistributable/win', relative = true, force = false }
+# The camera corpus the corpus tests read; they skip when it isn't there.
+LUNA_CORPUS = { value = 'D:\LUNA_TEST\TEST_PROJECT_LUNA\CAMERA', force = false }

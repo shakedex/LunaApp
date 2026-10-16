@@ -26,7 +26,7 @@ fn corpus_groups_by_camera_and_card() {
             "M_CAM/M001/M001R00H_BIN.bin"
         ]
     );
-    assert_eq!(s.clips.len(), 25);
+    assert_eq!(s.clips.len(), 27);
     let sidecars: usize = s.clips.iter().map(|c| c.sidecars.len()).sum();
     assert_eq!(sidecars, 3, "two Sony M01 XMLs and one Canon XML");
 
@@ -113,6 +113,7 @@ fn corpus_groups_by_camera_and_card() {
         ("S_cam/s004", "S", "S0004", 1, FileName, FileName),
         ("T_CAM", "DW", "DW0001", 2, FileName, FileName),
         ("canon/c70", "A", "A001 (canon/c70)", 1, FileName, FileName),
+        ("nikon", "nikon", "nikon", 2, FolderName, FolderName),
     ];
     let got: Vec<_> = cards
         .iter()
@@ -123,6 +124,8 @@ fn corpus_groups_by_camera_and_card() {
     let order: Vec<&str> = groups.iter().map(|g| g.name.as_str()).collect();
     assert_eq!(
         order,
-        ["A", "B", "BURANO", "C", "D", "DW", "F", "M", "P", "S"]
+        [
+            "A", "B", "BURANO", "C", "D", "DW", "F", "M", "nikon", "P", "S"
+        ]
     );
 }

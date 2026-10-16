@@ -68,11 +68,17 @@ pub(crate) fn path_str(p: &Path) -> Result<&str, DecodeError> {
         .ok_or_else(|| DecodeError::Failed(format!("The path is not valid UTF-8: {}", p.display())))
 }
 
-/// The folder holding the running executable.
-pub(crate) fn exe_dir() -> Option<PathBuf> {
-    std::env::current_exe()
-        .ok()
-        .and_then(|p| p.parent().map(Path::to_path_buf))
+/// Where a shipped Luna keeps its bundled libraries (Blackmagic RAW, the R3D
+/// add-on and RED's library): `lib` next to `Luna.exe` on Windows, the app
+/// bundle's `Contents/Frameworks` on macOS.
+pub(crate) fn lib_dir() -> Option<PathBuf> {
+    let exe = std::env::current_exe().ok()?;
+    let dir = exe.parent()?;
+    if cfg!(target_os = "macos") {
+        Some(dir.parent()?.join("Frameworks"))
+    } else {
+        Some(dir.join("lib"))
+    }
 }
 
 /// Reads `len` bytes at `offset`.
