@@ -6,7 +6,7 @@
 //!
 //! It is also its own worker process (`--worker`), like `Luna.exe`.
 
-mod headless;
+use luna_cli::{headless, mcp};
 
 use std::process::ExitCode;
 
@@ -32,9 +32,18 @@ fn main() -> ExitCode {
     ExitCode::from(match cli.command {
         Command::Report(args) => headless::report(args),
         Command::Inspect(args) => headless::inspect_folders(args),
-        Command::Mcp => {
-            eprintln!("MCP isn't available in this build");
-            headless::FAILED
-        }
+        Command::Mcp => match luna_core::run::WorkerSpec::current_exe() {
+            Ok(workers) => match mcp::serve(workers) {
+                Ok(()) => 0,
+                Err(e) => {
+                    eprintln!("{e}");
+                    headless::FAILED
+                }
+            },
+            Err(e) => {
+                eprintln!("Luna couldn't find its own executable: {e}");
+                headless::FAILED
+            }
+        },
     })
 }
