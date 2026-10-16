@@ -693,6 +693,7 @@ fn arri_frame_meta_from_real_element() {
     assert_eq!(f.iris_t1000, Some(5190));
     assert_eq!(f.focus_mm, Some(14471));
     assert_eq!(f.nd, Some(1.2));
+    assert_eq!(f.tint, Some(0.0));
 }
 
 #[test]

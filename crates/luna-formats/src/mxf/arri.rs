@@ -70,7 +70,8 @@ pub(crate) struct FrameMeta {
     pub exposure_time: Option<(u32, u32)>,
     pub exposure_index: Option<u32>,
     pub white_balance: Option<u16>,
-    pub tint: Option<i32>,
+    /// Green-magenta tint (ARRI CC units, -16..+16).
+    pub tint: Option<f32>,
     pub sensor_fps: Option<(u32, u32)>,
     pub nd: Option<f32>,
 }
@@ -110,7 +111,9 @@ pub(crate) fn frame_meta(v: &[u8]) -> FrameMeta {
             .get(&(0x0e, 0x05))
             .and_then(|v| v.get(..2))
             .map(|b| u16::from_be_bytes([b[0], b[1]])),
-        tint: u32_of(0x0e, 0x06).map(|x| x as i32),
+        tint: u32_of(0x0e, 0x06)
+            .map(f32::from_bits)
+            .filter(|f| f.is_finite()),
         sensor_fps: rat(0x0e, 0x07),
         nd: u32_of(0x0e, 0x08)
             .map(f32::from_bits)
@@ -230,6 +233,10 @@ mod tests {
         let mut expo = klv(item_key(0x0e, 0x01), &[0, 0, 0, 1, 0, 0, 0, 50]);
         expo.extend(klv(item_key(0x0e, 0x05), &5600u16.to_be_bytes()));
         expo.extend(klv(item_key(0x0e, 0x08), &1.2f32.to_bits().to_be_bytes()));
+        expo.extend(klv(
+            item_key(0x0e, 0x06),
+            &(-3.0f32).to_bits().to_be_bytes(),
+        ));
         let set = |s: u8| {
             [
                 0x06, 0x0e, 0x2b, 0x34, 0x02, 0x01, 0x01, 0x01, 0x0e, 0x17, 0x01, 0x02, s, 0, 0, 0,
@@ -243,7 +250,8 @@ mod tests {
         assert_eq!(m.exposure_time, Some((1, 50)));
         assert_eq!(m.white_balance, Some(5600));
         assert_eq!(m.nd, Some(1.2));
-        assert_eq!(frame_meta(&v[..v.len() - 3]).nd, None);
+        assert_eq!(m.tint, Some(-3.0));
+        assert_eq!(frame_meta(&v[..v.len() - 3]).tint, None);
     }
 
     #[test]
