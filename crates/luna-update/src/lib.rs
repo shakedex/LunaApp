@@ -8,6 +8,8 @@
 
 use std::sync::{Mutex, OnceLock};
 
+#[cfg(target_os = "macos")]
+mod macos;
 #[cfg(windows)]
 mod windows;
 
@@ -50,12 +52,14 @@ fn emit(event: Event) {
 pub struct Updater {
     #[cfg(windows)]
     inner: windows::WinSparkle,
+    #[cfg(target_os = "macos")]
+    inner: macos::Sparkle,
 }
 
 impl Updater {
     /// A check the user asked for: the library's window shows the result.
     pub fn check_now(&self) {
-        #[cfg(windows)]
+        #[cfg(any(windows, target_os = "macos"))]
         self.inner.check_now();
     }
 }
@@ -89,7 +93,19 @@ fn start_platform(version: &str, handler: Handler) -> Result<Updater, String> {
     Ok(Updater { inner })
 }
 
-#[cfg(not(windows))]
+/// Sparkle reads the feed, key and schedule from Info.plist, and quits Luna
+/// itself to install, so there is no ShutdownRequested on macOS.
+#[cfg(target_os = "macos")]
+fn start_platform(_version: &str, handler: Handler) -> Result<Updater, String> {
+    HANDLER
+        .set(handler)
+        .map_err(|_| "the updater is already running".to_string())?;
+    Ok(Updater {
+        inner: macos::Sparkle::start()?,
+    })
+}
+
+#[cfg(not(any(windows, target_os = "macos")))]
 fn start_platform(_version: &str, _handler: Handler) -> Result<Updater, String> {
     Err("updates aren't available on this platform yet".into())
 }

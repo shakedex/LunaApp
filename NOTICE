@@ -25,6 +25,9 @@ Bundled libraries:
     licence; the full licence ships as lib\WinSparkle-COPYING.txt. Includes
     software developed by the OpenSSL Project for use in the OpenSSL Toolkit
     (http://www.openssl.org/).
+    Sparkle (macOS updates), Copyright 2006-2013 Andy Matuschak and the
+    Sparkle contributors. MIT licence; the full licence ships as
+    Contents/Resources/Sparkle-LICENSE.txt.
 
 Bundled icons:
     Phosphor Icons, Copyright 2023 Phosphor Icons. MIT licence; the full

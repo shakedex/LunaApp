@@ -44,6 +44,15 @@ const WINSPARKLE_URL: &str =
 const WINSPARKLE_SHA256: &str = "6037df37fc263bd1650a1c4949681a9d40ffe991d01f35892a406cb5d103c976";
 const WINSPARKLE_DIR: &str = "WinSparkle-0.9.4";
 
+/// Sparkle (macOS updates), pinned likewise.
+const SPARKLE_URL: &str =
+    "https://github.com/sparkle-project/Sparkle/releases/download/2.10.0/Sparkle-2.10.0.tar.xz";
+const SPARKLE_SHA256: &str = "c2bf58aa8387266ac179357b1415d6f2635f044da8be41042af32425dae6da0c";
+
+/// The macOS feed Sparkle reads (Info.plist `SUFeedURL`).
+const MACOS_FEED_URL: &str =
+    "https://github.com/shakedex/LunaApp/releases/latest/download/appcast-macos.xml";
+
 /// How WinSparkle runs the Inno Setup installer for an update.
 const WINDOWS_UPDATE_ARGS: &str = "/SILENT /SP- /NOCANCEL /NORESTART";
 
@@ -125,7 +134,16 @@ fn installer() -> Result<PathBuf> {
     let dist = root.join("dist");
     step("Building the installer");
     let out = if cfg!(target_os = "macos") {
-        dmg(&app, &dist, &version)?
+        let dmg = dmg(&app, &dist, &version)?;
+        // Sparkle updates from a zip of the app; the DMG is the first install.
+        let zip = dist.join(format!("Luna-{version}-macos.zip"));
+        remove(&zip)?;
+        run(Command::new("ditto")
+            .args(["-c", "-k", "--keepParent"])
+            .arg(&app)
+            .arg(&zip))?;
+        write_appcast(&dist.join("appcast-macos.xml"), &version, &zip, None, &key)?;
+        dmg
     } else {
         let out = dist.join(format!("Luna-{version}-windows-x64-setup.exe"));
         remove(&out)?;
@@ -275,7 +293,11 @@ fn release_files(version: &str) -> Result<Vec<PathBuf>> {
     };
     let installer = require(installer).map_err(again)?;
     feed_is_fresh(&installer, &feed).map_err(again)?;
-    Ok(vec![installer, feed])
+    let mut files = vec![installer, feed];
+    if cfg!(target_os = "macos") {
+        files.push(require(dist.join(format!("Luna-{version}-macos.zip"))).map_err(again)?);
+    }
+    Ok(files)
 }
 
 /// The feed must exist and be written after the installer it signs.
@@ -396,7 +418,11 @@ fn assemble_macos(
         &root.join("target/release/luna-app"),
         &contents.join("MacOS/Luna"),
     )?;
-    write(&contents.join("Info.plist"), &info_plist(version))?;
+    let public_key = read(&root.join("packaging/update-public-key.txt"))?;
+    write(
+        &contents.join("Info.plist"),
+        &info_plist(version, public_key.trim()),
+    )?;
     copy(
         &root.join("Assets/luna-logo.icns"),
         &resources.join("luna.icns"),
@@ -423,6 +449,15 @@ fn assemble_macos(
         copy(&root.join(f), &resources.join(f))?;
     }
     write(&resources.join("LICENSES.txt"), licences)?;
+    // Sparkle (MIT), which updates Luna; its licence travels with it.
+    let sparkle = extracted(SPARKLE_URL, SPARKLE_SHA256)?;
+    run(Command::new("ditto")
+        .arg(sparkle.join("Sparkle.framework"))
+        .arg(frameworks.join("Sparkle.framework")))?;
+    copy(
+        &sparkle.join("LICENSE"),
+        &resources.join("Sparkle-LICENSE.txt"),
+    )?;
 
     let identity = env::var("LUNA_SIGN_IDENTITY").unwrap_or_else(|_| "-".into());
     let mut sign = Command::new("codesign");
@@ -434,7 +469,7 @@ fn assemble_macos(
     Ok(app)
 }
 
-fn info_plist(version: &str) -> String {
+fn info_plist(version: &str, public_key: &str) -> String {
     format!(
         r#"<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -450,6 +485,12 @@ fn info_plist(version: &str) -> String {
     <key>CFBundleVersion</key><string>{version}</string>
     <key>LSMinimumSystemVersion</key><string>13.0</string>
     <key>NSHighResolutionCapable</key><true/>
+    <key>SUFeedURL</key><string>{MACOS_FEED_URL}</string>
+    <key>SUPublicEDKey</key><string>{public_key}</string>
+    <key>SUEnableAutomaticChecks</key><true/>
+    <key>SUScheduledCheckInterval</key><integer>86400</integer>
+    <key>SUAutomaticallyUpdate</key><false/>
+    <key>SUAllowsAutomaticUpdates</key><false/>
 </dict>
 </plist>
 "#
@@ -751,6 +792,22 @@ fn remove(p: &Path) -> Result {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn info_plist_has_sparkle_keys() {
+        let plist = info_plist("2026.10.0", "PUBKEY=");
+        for want in [
+            "<key>SUFeedURL</key><string>https://github.com/shakedex/LunaApp/releases/latest/download/appcast-macos.xml</string>",
+            "<key>SUPublicEDKey</key><string>PUBKEY=</string>",
+            "<key>SUEnableAutomaticChecks</key><true/>",
+            "<key>SUScheduledCheckInterval</key><integer>86400</integer>",
+            "<key>SUAutomaticallyUpdate</key><false/>",
+            "<key>SUAllowsAutomaticUpdates</key><false/>",
+            "<key>CFBundleShortVersionString</key><string>2026.10.0</string>",
+        ] {
+            assert!(plist.contains(want), "missing {want}");
+        }
+    }
 
     #[test]
     fn sha256_of_abc() {
