@@ -105,6 +105,17 @@ impl Flow {
         Some((self.last_run, source))
     }
 
+    /// A run handed over at launch (`Luna.exe report …`): straight from Idle
+    /// to Running, showing `source`. Returns the run id, or `None` when a run
+    /// is already under way or finished.
+    pub fn start_preset(&mut self, source: PathBuf) -> Option<u64> {
+        if !self.accepts_source() {
+            return None;
+        }
+        self.state = FlowState::SourcePicked { source };
+        self.start().map(|(run, _)| run)
+    }
+
     /// Marks the run as stopping. Returns true when the backend should be told.
     pub fn request_cancel(&mut self) -> bool {
         match &mut self.state {
@@ -407,5 +418,22 @@ mod tests {
         let err = validate_source(&file).unwrap_err();
         std::fs::remove_file(&file).unwrap();
         assert!(err.contains("is a file"), "{err}");
+    }
+
+    #[test]
+    fn start_preset_goes_straight_to_running() {
+        let mut f = Flow::new();
+        assert_eq!(f.start_preset("E:/Footage".into()), Some(1));
+        assert!(matches!(
+            f.state(),
+            FlowState::Running { source, run: 1, .. } if source == Path::new("E:/Footage")
+        ));
+    }
+
+    #[test]
+    fn start_preset_ignored_while_running() {
+        let mut f = Flow::new();
+        f.start_preset("E:/Footage".into());
+        assert_eq!(f.start_preset("F:/Other".into()), None);
     }
 }
