@@ -24,8 +24,10 @@ pub enum Container {
     Crm,
     /// Blackmagic RAW `.braw`.
     Braw,
-    /// RED `.R3D` (one segment of a possibly spanned clip).
+    /// RED `.R3D` (one segment of a possibly spanned clip), including Nikon R3D NE.
     R3d,
+    /// Nikon N-RAW `.NEV` (QuickTime-style, `niko` brand); one file per clip.
+    Nev,
     /// One frame of an ARRIRAW `.ari` / `.arx` frame sequence.
     AriFrame,
 }
@@ -67,6 +69,10 @@ pub enum Codec {
     Hevc,
     Braw,
     Redcode,
+    /// Nikon N-RAW (`.NEV`).
+    NRaw,
+    /// Nikon R3D NE (`.R3D` from Nikon cameras).
+    R3dNe,
     CinemaRawLight,
     /// Anything else, named as the container names it.
     Other(String),
@@ -105,6 +111,8 @@ impl Codec {
             Codec::Hevc => "H.265/HEVC".into(),
             Codec::Braw => "Blackmagic RAW".into(),
             Codec::Redcode => "REDCODE RAW".into(),
+            Codec::NRaw => "N-RAW".into(),
+            Codec::R3dNe => "R3D NE".into(),
             Codec::CinemaRawLight => "Cinema RAW Light".into(),
             Codec::Other(s) => s.clone(),
         }

@@ -1,6 +1,6 @@
 //! Clip metadata for containers only a vendor decoder can read: Canon Cinema
-//! RAW Light (our `crm` crate), Blackmagic RAW (Blackmagic's SDK) and R3D (the
-//! R3D add-on). `luna-formats` handles everything else.
+//! RAW Light (our `crm` crate), Blackmagic RAW (Blackmagic's SDK), and R3D and
+//! Nikon N-RAW (the R3D add-on). `luna-formats` handles everything else.
 
 use luna_formats::{
     Audio, ClipFiles, ClipMeta, Codec, ColourHint, Container, FormatError, FrameIndex,
@@ -10,14 +10,14 @@ use luna_formats::{
 use crate::r3d::{self, Value};
 use crate::{DecodeError, braw_sdk, util};
 
-/// Reads clip metadata through a vendor decoder. `Some` for `.CRM`, `.braw`
-/// and `.R3D` clips, `None` for every container `luna-formats` reads itself.
+/// Reads clip metadata through a vendor decoder. `Some` for `.CRM`, `.braw`,
+/// `.R3D` and `.NEV` clips, `None` for every container `luna-formats` reads itself.
 /// Never panics.
 pub fn vendor_probe(clip: &ClipFiles) -> Option<Result<Probe, FormatError>> {
     let probe: fn(&ClipFiles) -> Result<Probe, FormatError> = match clip.container {
         Container::Crm => probe_crm,
         Container::Braw => probe_braw,
-        Container::R3d => probe_r3d,
+        Container::R3d | Container::Nev => probe_r3d,
         _ => return None,
     };
     Some(
@@ -237,6 +237,17 @@ fn probe_r3d(clip: &ClipFiles) -> Result<Probe, FormatError> {
             None => date,
         }
     });
+    // RED's SDK also reads Nikon's N-RAW and R3D NE; `redcode` says which.
+    let (codec, make) = match text("redcode").as_deref() {
+        Some("N-RAW") => (Codec::NRaw, "Nikon"),
+        Some("R3D NE") => (Codec::R3dNe, "Nikon"),
+        _ => (Codec::Redcode, "RED"),
+    };
+    let camera_model = text("camera_model").map(|m| match m.get(..6) {
+        // Nikon writes "NIKON Z6_3"; the make is its own field.
+        Some(p) if make == "Nikon" && p.eq_ignore_ascii_case("nikon ") => m[6..].to_string(),
+        _ => m,
+    });
     let lens = match (text("lens_brand"), text("lens_name")) {
         (Some(b), Some(n)) if !n.starts_with(&b) => Some(format!("{b} {n}")),
         (_, Some(n)) => Some(n),
@@ -249,16 +260,14 @@ fn probe_r3d(clip: &ClipFiles) -> Result<Probe, FormatError> {
         frame_count: Some(info.frame_count),
         width: Some(info.width),
         height: Some(info.height),
-        camera_make: Some("RED".into()),
-        camera_model: text("camera_model"),
+        camera_make: Some(make.into()),
+        camera_model,
         camera_serial: text("camera_pin").or_else(|| text("camera_serial_number")),
         lens,
         focal_length: float("lens_focal_length")
             .filter(|v| *v > 0.0)
             .map(|v| format!("{} mm", trim_num(v as f64, 1))),
-        stop: float("lens_aperture")
-            .filter(|v| *v > 0.0)
-            .map(|v| format!("f/{}", trim_num(v as f64, 1))),
+        stop: r3d_stop(int("lens_aperture"), int("lens_aperture_units")),
         iso: int("iso").map(|v| v.to_string()),
         shutter: float("shutter_degrees")
             .filter(|v| *v > 0.0)
@@ -296,13 +305,21 @@ fn probe_r3d(clip: &ClipFiles) -> Result<Probe, FormatError> {
         raw_bits: None,
         pixel_aspect,
     };
-    let mut probe = probe_of(Codec::Redcode, meta, layout);
+    let mut probe = probe_of(codec, meta, layout);
     if info.video_tracks > 1 {
         probe
             .warnings
             .push("HDRx clip: thumbnails show the A track".into());
     }
     Ok(probe)
+}
+
+/// RED's `lens_aperture` is the stop × 10 (0xFFFF = fully closed);
+/// `lens_aperture_units` 1 means a T-stop, anything else an f-stop.
+fn r3d_stop(aperture: Option<u32>, units: Option<u32>) -> Option<String> {
+    let a = aperture.filter(|a| *a > 0 && *a != 0xFFFF)?;
+    let prefix = if units == Some(1) { "T" } else { "f/" };
+    Some(format!("{prefix}{}", trim_num(f64::from(a) / 10.0, 1)))
 }
 
 /// The start timecode on the track the camera was set to show
@@ -484,7 +501,12 @@ mod tests {
         assert!(vendor_probe(&files(Container::Mxf)).is_none());
         assert!(vendor_probe(&files(Container::QuickTime)).is_none());
         assert!(vendor_probe(&files(Container::AriFrame)).is_none());
-        for c in [Container::Crm, Container::Braw, Container::R3d] {
+        for c in [
+            Container::Crm,
+            Container::Braw,
+            Container::R3d,
+            Container::Nev,
+        ] {
             assert!(matches!(vendor_probe(&files(c)), Some(Err(_))), "{c:?}");
         }
     }
@@ -501,6 +523,16 @@ mod tests {
         assert_eq!(r3d_start_timecode(Some(7), abs.clone(), edge.clone()), abs);
         // The preferred track is empty: fall back to the other one.
         assert_eq!(r3d_start_timecode(Some(0), abs.clone(), None), abs);
+    }
+
+    #[test]
+    fn r3d_stop_is_tenths_with_units() {
+        assert_eq!(r3d_stop(Some(25), Some(0)).as_deref(), Some("f/2.5"));
+        assert_eq!(r3d_stop(Some(56), None).as_deref(), Some("f/5.6"));
+        assert_eq!(r3d_stop(Some(20), Some(1)).as_deref(), Some("T2"));
+        assert_eq!(r3d_stop(Some(0xFFFF), Some(0)), None);
+        assert_eq!(r3d_stop(Some(0), Some(0)), None);
+        assert_eq!(r3d_stop(None, Some(0)), None);
     }
 
     #[test]

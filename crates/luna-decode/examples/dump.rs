@@ -3,7 +3,7 @@
 //! ```text
 //! cargo run -p luna-decode --release --example dump -- <kind> <file> [frame] [out.png] [min_width]
 //! ```
-//! `kind`: xocn, crm, braw, r3d, prores, h264, hevc. Vendor containers also print their metadata.
+//! `kind`: xocn, crm, braw, r3d, nev, prores, h264, hevc. Vendor containers also print their metadata.
 
 #[path = "../tests/common/mod.rs"]
 mod common;
@@ -33,10 +33,11 @@ fn main() {
             Container::Mxf,
             common::probe(Codec::XOcn, FrameIndex::DecoderOwned, Default::default()),
         ),
-        "crm" | "braw" | "r3d" => {
+        "crm" | "braw" | "r3d" | "nev" => {
             let container = match kind {
                 "crm" => Container::Crm,
                 "braw" => Container::Braw,
+                "nev" => Container::Nev,
                 _ => Container::R3d,
             };
             let t = Instant::now();

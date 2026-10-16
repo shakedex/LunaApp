@@ -208,7 +208,9 @@ fn backend_for(clip: &ClipFiles, probe: &Probe) -> Backend {
         (Codec::XOcn, _) => Backend::XOcn,
         (Codec::CinemaRawLight, _) | (_, Container::Crm) => Backend::Crm,
         (Codec::Braw, _) | (_, Container::Braw) => Backend::Braw,
-        (Codec::Redcode, _) | (_, Container::R3d) => Backend::R3d,
+        (Codec::Redcode | Codec::NRaw | Codec::R3dNe, _) | (_, Container::R3d | Container::Nev) => {
+            Backend::R3d
+        }
         (Codec::ArriRaw, _) => Backend::ArriRaw,
         (Codec::ProRes(_), Container::Mxf | Container::QuickTime) => Backend::ProRes,
         (Codec::H264, Container::Mxf) => Backend::H264,
@@ -335,6 +337,8 @@ mod tests {
         assert_eq!(backend_for(&braw, &probe(Codec::Braw)), Backend::Braw);
         let r3d = clip(Container::R3d, "a.R3D");
         assert_eq!(backend_for(&r3d, &probe(Codec::Redcode)), Backend::R3d);
+        let nev = clip(Container::Nev, "DSC_0001.NEV");
+        assert_eq!(backend_for(&nev, &probe(Codec::NRaw)), Backend::R3d);
     }
 
     #[test]

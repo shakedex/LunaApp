@@ -201,6 +201,43 @@ fn r3d_through_the_addon() {
 }
 
 #[test]
+fn nikon_nraw_through_the_addon() {
+    let Some(path) = corpus("nikon/05_6K60P_skin_tone_N-Log.NEV") else {
+        return;
+    };
+    let clip = files(Container::Nev, &path);
+    let probed = vendor_probe(&clip).expect("nev is a vendor container");
+    if std::env::var_os("LUNA_R3D_ADDON").is_none()
+        && let Err(e) = &probed
+    {
+        eprintln!("R3D add-on not configured: {e}");
+        return;
+    }
+    let p = probed.unwrap();
+    assert_eq!(p.codec, Codec::NRaw);
+    assert_eq!(p.meta.camera_make.as_deref(), Some("Nikon"));
+    assert_eq!(p.meta.camera_model.as_deref(), Some("Z6_3"));
+    assert_eq!(p.meta.frame_count, Some(306));
+    assert_eq!((p.meta.width, p.meta.height), (Some(6048), Some(3402)));
+    // The camera's tmcd track (ffprobe) says 03:00:00;00; the SDK's absolute TC is time of day.
+    assert_eq!(p.meta.start_timecode.unwrap().to_string(), "03:00:00;00");
+    assert_eq!(p.meta.stop.as_deref(), Some("f/2.5"));
+    assert_eq!(p.meta.iso.as_deref(), Some("800"));
+    assert_eq!(p.meta.lens.as_deref(), Some("NIKON NIKKOR Z 85mm f/1.8 S"));
+    // No sound track in the file (ffprobe): no audio, not unknown.
+    assert_eq!(p.meta.audio.map(|a| a.channels), Some(0));
+    let out = decode_frames(&clip, &p, &[0, 153, 305], 640);
+    for r in out {
+        let f = r.unwrap();
+        let Decoded::Rgb16 { width, height, .. } = f.image else {
+            panic!("expected rgb16")
+        };
+        assert_eq!((width, height), (756, 425));
+        assert_eq!(f.hint.transfer, Some(Transfer::Log3G10));
+    }
+}
+
+#[test]
 fn arriraw_alexa35_through_the_verified_decoder() {
     let Some(path) = corpus("T_CAM/DW0001C021_251020_132307_a1I7H_arri-raw.mxf") else {
         return;

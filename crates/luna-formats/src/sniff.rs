@@ -93,6 +93,10 @@ fn quicktime(head: &[u8], ext: &str) -> Option<Sniffed> {
             original(Container::Crm)
         };
     }
+    // Nikon N-RAW. Nikon's MP4s list `niko` only as a compatible brand.
+    if brands.first().is_some_and(|major| *major == b"niko") {
+        return original(Container::Nev);
+    }
     if brands
         .first()
         .is_some_and(|major| NOT_MOVIE_BRANDS.iter().any(|b| major == b))
@@ -274,6 +278,19 @@ mod tests {
         assert_eq!(s("a.heic", &ftyp(b"heic", &[b"mif1"])), Sniffed::Other);
         assert_eq!(s("a.m4a", &ftyp(b"M4A ", &[b"isom"])), Sniffed::Other);
         assert_eq!(s("a.avif", &ftyp(b"avif", &[b"mif1"])), Sniffed::Other);
+    }
+
+    #[test]
+    fn nikon_nev_by_major_brand() {
+        assert_eq!(
+            s("DSC_0001.NEV", &ftyp(b"niko", &[b"niko"])),
+            Sniffed::CameraOriginal(Container::Nev)
+        );
+        // A Nikon H.264 MP4 is a plain QuickTime clip.
+        assert_eq!(
+            s("DSC_0001.MP4", &ftyp(b"mp42", &[b"mp42", b"avc1", b"niko"])),
+            Sniffed::CameraOriginal(Container::QuickTime)
+        );
     }
 
     #[test]
