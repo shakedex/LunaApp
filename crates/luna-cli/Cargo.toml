@@ -1,0 +1,15 @@
+[package]
+name = "luna-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+clap = "4.6.7"
+ctrlc = "3.5.2"
+luna-core = { path = "../luna-core" }
+luna-worker = { path = "../luna-worker" }
+serde_json = "1.0.154"
+
+[dev-dependencies]
+tempfile = "3.27.0"
