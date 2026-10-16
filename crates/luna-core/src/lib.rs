@@ -3,6 +3,7 @@
 
 pub mod assemble;
 pub mod identity;
+pub mod inspect;
 pub mod run;
 pub mod scan;
 pub mod select;
