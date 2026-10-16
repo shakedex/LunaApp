@@ -269,7 +269,7 @@ pub fn build_report(
     Report {
         header: header(settings),
         theme: settings.report_theme,
-        source_root: root.to_string_lossy().into_owned(),
+        sources: vec![root.to_string_lossy().into_owned()],
         generated_at: generated_at.to_owned(),
         luna_version: env!("CARGO_PKG_VERSION").to_owned(),
         cameras,

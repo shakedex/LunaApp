@@ -143,7 +143,7 @@ pub(crate) fn build(report: &Report, image_ref: &mut dyn FnMut(ImageRef) -> Stri
             logo,
             custom: h.custom.clone(),
         },
-        source_root: report.source_root.clone(),
+        source_root: report.sources.join(", "),
         generated_at: report.generated_at.clone(),
         luna_version: report.luna_version.clone(),
         totals,

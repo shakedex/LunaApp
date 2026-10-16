@@ -86,8 +86,8 @@ pub enum ReportTheme {
 pub struct Report {
     pub header: Header,
     pub theme: ReportTheme,
-    /// The source folder as the user picked it.
-    pub source_root: String,
+    /// The source folders as given.
+    pub sources: Vec<String>,
     /// Already formatted for display, e.g. "2026-10-10 14:32".
     pub generated_at: String,
     pub luna_version: String,

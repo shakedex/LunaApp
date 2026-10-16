@@ -76,7 +76,7 @@ fn groups_clips_and_carries_lists_and_header() {
     assert_eq!(r.header.author.as_deref(), Some("Dana"));
     assert_eq!(r.header.company, None, "empty settings fields are omitted");
     assert_eq!(r.header.custom[0].label, "Day");
-    assert_eq!(r.source_root, "D:/Shoot");
+    assert_eq!(r.sources, vec!["D:/Shoot".to_string()]);
     assert_eq!(r.generated_at, "2026-10-10 14:32");
     let cams: Vec<_> = r.cameras.iter().map(|c| c.name.as_str()).collect();
     assert_eq!(cams, ["A", "B"]);

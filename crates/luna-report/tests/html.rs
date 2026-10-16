@@ -120,3 +120,11 @@ fn a_failed_frame_says_why_once() {
     let h = html(&sample_report());
     assert_eq!(h.matches("Worker crashed while decoding").count(), 1);
 }
+
+#[test]
+fn html_lists_several_sources() {
+    let mut r = common::sample_report();
+    r.sources = vec!["E:/Footage".into(), "F:/Footage".into()];
+    let html = String::from_utf8(luna_report::write_html(&r).unwrap()).unwrap();
+    assert!(html.contains("E:/Footage, F:/Footage"));
+}
