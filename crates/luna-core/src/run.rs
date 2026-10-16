@@ -12,6 +12,7 @@ use luna_worker::{ClipJob, ClipResult};
 use crate::assemble::{OutputFiles, clip_fields, output_folder, thumbnails, write_outputs};
 use crate::identity::resolve_identity;
 use crate::scan::{Scan, scan_roots};
+use crate::select::CameraFilter;
 use crate::settings::Settings;
 
 /// Thumbnails per clip: first, middle, last.
@@ -50,6 +51,11 @@ pub enum Progress {
         done: usize,
         total: usize,
         problems: usize,
+    },
+    /// Metadata read for a camera filter, before any clip is decoded.
+    Probed {
+        done: usize,
+        total: usize,
     },
 }
 
@@ -93,6 +99,11 @@ pub enum RunError {
     Workers(String),
     Report(String),
     Output(String),
+    /// The camera filter matched none of the cameras found.
+    NoSuchCamera {
+        asked: Vec<String>,
+        found: Vec<String>,
+    },
     Cancelled,
 }
 
@@ -103,6 +114,16 @@ impl std::fmt::Display for RunError {
             RunError::Workers(m) => write!(f, "Luna couldn't start reading clips: {m}"),
             RunError::Report(m) => write!(f, "The report couldn't be made: {m}"),
             RunError::Output(m) => write!(f, "The report couldn't be saved: {m}"),
+            RunError::NoSuchCamera { asked, found } => write!(
+                f,
+                "No camera matches {}. Cameras found: {}",
+                asked.join(", "),
+                if found.is_empty() {
+                    "none".to_owned()
+                } else {
+                    found.join(", ")
+                }
+            ),
             RunError::Cancelled => f.write_str("Cancelled"),
         }
     }
@@ -141,20 +162,25 @@ pub fn run(
         + scanned.not_included.len()
         + scanned.unreadable.len();
     progress(Progress::FilesFound(files));
+    let filter = CameraFilter::new(&req.cameras);
     let total = scanned.clips.len();
-    progress(Progress::ClipsTotal(total));
 
-    let jobs = scanned
-        .clips
-        .iter()
-        .enumerate()
-        .map(|(i, files)| ClipJob {
-            id: i as u64,
-            files: files.clone(),
-            strip: STRIP,
-            thumb_width: THUMB_WIDTH,
-        })
-        .collect();
+    // With a camera filter, probe every clip first: identity needs every
+    // clip's metadata (neighbours lend evidence), but only the selected
+    // cameras' clips are decoded.
+    let (mut outcomes, selected) = if filter.is_all() {
+        (
+            vec![JobOutcome::Crashed; total],
+            (0..total).collect::<Vec<_>>(),
+        )
+    } else {
+        let probed = probe_all(&scanned, workers, progress, cancel)?;
+        let selected = selected_clips(&req.sources, &scanned, &probed, &filter)?;
+        (probed, selected)
+    };
+
+    let selected_total = selected.len();
+    progress(Progress::ClipsTotal(selected_total));
     let counts = Mutex::new((0usize, 0usize));
     let on_done = |_: u64, outcome: &JobOutcome| {
         let mut c = counts.lock().unwrap_or_else(|e| e.into_inner());
@@ -162,23 +188,14 @@ pub fn run(
         c.1 += usize::from(outcome_has_problems(outcome));
         progress(Progress::ClipDone {
             done: c.0,
-            total,
+            total: selected_total,
             problems: c.1,
         });
     };
-    let config = PoolConfig {
-        exe: workers.exe.clone(),
-        args: workers.args.clone(),
-        env: vec![],
-        workers: workers.workers,
-        timeout: workers.timeout,
-    };
-    let done = match run_pool(&config, jobs, cancel, &on_done) {
-        Ok(d) => d,
-        Err(PoolError::Cancelled) => return Err(RunError::Cancelled),
-        Err(PoolError::Spawn(m)) => return Err(RunError::Workers(m)),
-    };
-    let mut outcomes = vec![JobOutcome::Crashed; total];
+    let done = run_jobs(&scanned, &selected, STRIP, workers, cancel, &on_done)?;
+    for &i in &selected {
+        outcomes[i] = JobOutcome::Crashed;
+    }
     for (id, outcome) in done {
         if let Some(slot) = outcomes.get_mut(id as usize) {
             *slot = outcome;
@@ -195,6 +212,7 @@ pub fn run(
         scanned,
         outcomes,
         &now.strftime("%Y-%m-%d %H:%M").to_string(),
+        &filter,
     );
     let pdf = luna_report::write_pdf(&report).map_err(|e| RunError::Report(e.to_string()))?;
     let html = luna_report::write_html(&report).map_err(|e| RunError::Report(e.to_string()))?;
@@ -225,6 +243,108 @@ pub fn run(
     })
 }
 
+/// Runs the given clips (indices into the scan) through the worker pool.
+/// `strip: 0` reads metadata only.
+fn run_jobs(
+    scanned: &Scan,
+    indices: &[usize],
+    strip: u32,
+    workers: &WorkerSpec,
+    cancel: &AtomicBool,
+    on_done: &(dyn Fn(u64, &JobOutcome) + Sync),
+) -> Result<Vec<(u64, JobOutcome)>, RunError> {
+    let jobs = indices
+        .iter()
+        .map(|&i| ClipJob {
+            id: i as u64,
+            files: scanned.clips[i].clone(),
+            strip,
+            thumb_width: THUMB_WIDTH,
+        })
+        .collect();
+    let config = PoolConfig {
+        exe: workers.exe.clone(),
+        args: workers.args.clone(),
+        env: vec![],
+        workers: workers.workers,
+        timeout: workers.timeout,
+    };
+    match run_pool(&config, jobs, cancel, on_done) {
+        Ok(d) => Ok(d),
+        Err(PoolError::Cancelled) => Err(RunError::Cancelled),
+        Err(PoolError::Spawn(m)) => Err(RunError::Workers(m)),
+    }
+}
+
+/// Every clip's metadata, no frames: one outcome per scanned clip, in order.
+pub(crate) fn probe_all(
+    scanned: &Scan,
+    workers: &WorkerSpec,
+    progress: &(dyn Fn(Progress) + Sync),
+    cancel: &AtomicBool,
+) -> Result<Vec<JobOutcome>, RunError> {
+    let total = scanned.clips.len();
+    let done_count = Mutex::new(0usize);
+    let on_done = |_: u64, _: &JobOutcome| {
+        let mut d = done_count.lock().unwrap_or_else(|e| e.into_inner());
+        *d += 1;
+        progress(Progress::Probed { done: *d, total });
+    };
+    let all: Vec<usize> = (0..total).collect();
+    let done = run_jobs(scanned, &all, 0, workers, cancel, &on_done)?;
+    if cancel.load(Ordering::SeqCst) {
+        return Err(RunError::Cancelled);
+    }
+    let mut outcomes = vec![JobOutcome::Crashed; total];
+    for (id, outcome) in done {
+        if let Some(slot) = outcomes.get_mut(id as usize) {
+            *slot = outcome;
+        }
+    }
+    Ok(outcomes)
+}
+
+fn meta_of(outcome: &JobOutcome) -> Option<&luna_formats::ClipMeta> {
+    match outcome {
+        JobOutcome::Done(r) => r.meta.as_ref(),
+        _ => None,
+    }
+}
+
+/// The clips of the cameras the filter selects, by scan index. No match is
+/// an error that lists the cameras found.
+fn selected_clips(
+    roots: &[PathBuf],
+    scanned: &Scan,
+    probed: &[JobOutcome],
+    filter: &CameraFilter,
+) -> Result<Vec<usize>, RunError> {
+    let input: Vec<_> = scanned
+        .clips
+        .iter()
+        .zip(probed)
+        .map(|(files, o)| (files.clone(), meta_of(o)))
+        .collect();
+    let groups = resolve_identity(roots, &input);
+    let mut selected: Vec<usize> = groups
+        .iter()
+        .filter(|cam| filter.matches(&cam.name))
+        .flat_map(|cam| {
+            cam.cards
+                .iter()
+                .flat_map(|c| c.clips.iter().map(|id| id.index))
+        })
+        .collect();
+    if selected.is_empty() {
+        return Err(RunError::NoSuchCamera {
+            asked: filter.selectors().to_vec(),
+            found: groups.into_iter().map(|g| g.name).collect(),
+        });
+    }
+    selected.sort_unstable();
+    Ok(selected)
+}
+
 fn outcome_has_problems(outcome: &JobOutcome) -> bool {
     match outcome {
         JobOutcome::Done(r) => {
@@ -242,6 +362,7 @@ pub fn build_report(
     scanned: Scan,
     outcomes: Vec<JobOutcome>,
     generated_at: &str,
+    filter: &CameraFilter,
 ) -> Report {
     let results: Vec<ClipResult> = scanned
         .clips
@@ -271,6 +392,7 @@ pub fn build_report(
 
     let cameras = groups
         .into_iter()
+        .filter(|camera| filter.matches(&camera.name))
         .map(|camera| Camera {
             name: camera.name,
             cards: camera

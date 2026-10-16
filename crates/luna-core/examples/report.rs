@@ -37,6 +37,7 @@ fn main() {
             total,
             problems,
         } => eprintln!("{done}/{total} clips ({problems} with problems)"),
+        Progress::Probed { done, total } => eprintln!("{done}/{total} clips probed"),
     };
     let request = luna_core::run::RunRequest::folder(source.into(), settings);
     match run(&request, &workers, &progress, &AtomicBool::new(false)) {

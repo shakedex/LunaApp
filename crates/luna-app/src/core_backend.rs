@@ -43,6 +43,8 @@ impl RunBackend for CoreBackend {
             let emit = |e: RunEvent| (events.lock().unwrap_or_else(|p| p.into_inner()))(e);
             let progress = |p: Progress| {
                 emit(match p {
+                    // The window counts decoded clips only.
+                    Progress::Probed { .. } => return,
                     Progress::FilesFound(n) => RunEvent::FilesFound(n),
                     Progress::ClipsTotal(n) => RunEvent::ClipsTotal(n),
                     Progress::ClipDone {

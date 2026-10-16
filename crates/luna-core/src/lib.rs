@@ -5,6 +5,7 @@ pub mod assemble;
 pub mod identity;
 pub mod run;
 pub mod scan;
+pub mod select;
 pub mod settings;
 
 #[cfg(test)]
