@@ -36,7 +36,8 @@ fn main() -> ExitCode {
         _ => Rc::new(MemorySettingsStore::default()),
     };
 
-    match luna_app::ui::run(backend, store) {
+    // Only the real app updates itself; a simulated run (UI work) doesn't.
+    match luna_app::ui::run(backend, store, !fake) {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
             luna_app::log::error(&format!("Luna couldn't open its window: {e}"));

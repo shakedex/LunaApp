@@ -66,8 +66,9 @@ fn main() {
     let size = (880, 640);
     let mut moon = MoonRenderer::new();
     let mut sky = BackdropRenderer::new();
-    let screens: [(&str, Screen); 8] = [
+    let screens: [(&str, Screen); 9] = [
         ("1-idle", |_| {}),
+        ("1d-update-pending", |m| m.set_update_pending(true)),
         ("1c-header-open", |m| {
             m.set_header_open(true);
         }),
@@ -188,6 +189,9 @@ fn main() {
         let spin = 0.0;
         let state = m.global::<SettingsState>();
         state.set_production("Night Shift".into());
+        state.set_app_version("2026.10.0".into());
+        state.set_can_check_updates(true);
+        m.set_update_pending(true);
         state.set_company("Lumen Rentals".into());
         state.set_author("Dana Levi".into());
         state.set_fields(ModelRc::new(VecModel::from(vec![CustomField {

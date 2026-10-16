@@ -13,4 +13,5 @@ pub mod moon;
 pub mod settings_edit;
 pub mod settings_store;
 pub mod ui;
+pub mod update_state;
 pub mod view;

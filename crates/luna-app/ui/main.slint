@@ -35,6 +35,53 @@ component TextLink {
     }
 }
 
+// The title-bar mark while an update is waiting; opens the update window.
+component UpdatePill {
+    callback clicked;
+
+    accessible-role: button;
+    accessible-label: "Update";
+    accessible-action-default => {
+        root.clicked();
+    }
+    height: 24px;
+
+    Rectangle {
+        border-radius: self.height / 2;
+        background: ta.pressed ? Theme.accent.with-alpha(0.24) : ta.has-hover ? Theme.accent.with-alpha(0.2) : Theme.accent-soft;
+        border-width: 1px;
+        border-color: Theme.accent.with-alpha(0.55);
+    }
+
+    HorizontalLayout {
+        padding-left: 9px;
+        padding-right: 11px;
+        spacing: 6px;
+        alignment: center;
+        Icon {
+            source: @image-url("icons/arrow-circle-down.svg");
+            width: 14px;
+            height: 14px;
+            tint: ta.has-hover ? Theme.accent-hover : Theme.accent;
+            y: (parent.height - self.height) / 2;
+        }
+
+        Text {
+            text: "Update";
+            font-weight: 500;
+            color: ta.has-hover ? Theme.accent-hover : Theme.accent;
+            vertical-alignment: center;
+        }
+    }
+
+    ta := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            root.clicked();
+        }
+    }
+}
+
 // A minimise / maximise / close button in the title bar.
 component WindowButton {
     in property <image> icon;
@@ -345,6 +392,7 @@ export component MainWindow inherits Window {
     in-out property <bool> header-open;
     in-out property <bool> settings-open;
     in property <bool> is-maximized;
+    in property <bool> update-pending;
 
     callback pick-folder();
     callback start();
@@ -356,6 +404,7 @@ export component MainWindow inherits Window {
     callback new-report();
     callback back();
     callback open-settings();
+    callback show-update();
     callback change-output();
     callback header-production-edited(string);
     callback header-field-edited(int, string);
@@ -447,6 +496,16 @@ export component MainWindow inherits Window {
 
                 Rectangle {
                     horizontal-stretch: 1;
+                }
+
+                if root.update-pending: VerticalLayout {
+                    alignment: center;
+                    padding-right: 6px;
+                    UpdatePill {
+                        clicked => {
+                            root.show-update();
+                        }
+                    }
                 }
 
                 VerticalLayout {

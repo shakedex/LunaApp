@@ -35,6 +35,11 @@ export global SettingsState {
     in property <bool> report-dark;
     in property <string> save-error;
     in property <[Component]> credits;
+    // Luna's version, and whether this build can update itself (packaged
+    // builds only).
+    in property <string> app-version;
+    in property <bool> can-check-updates;
+    callback check-for-updates();
 
     callback text-edited();
     callback pick-logo();
@@ -497,6 +502,22 @@ export component SettingsView inherits Rectangle {
                 kind: ButtonKind.quiet;
                 clicked => {
                     SettingsState.show-credits = true;
+                }
+            }
+
+            VerticalLayout {
+                alignment: center;
+                Text {
+                    text: "Luna " + SettingsState.app-version;
+                    color: Theme.text-faint;
+                }
+            }
+
+            if SettingsState.can-check-updates: LunaButton {
+                text: "Check for updates";
+                kind: ButtonKind.quiet;
+                clicked => {
+                    SettingsState.check-for-updates();
                 }
             }
 

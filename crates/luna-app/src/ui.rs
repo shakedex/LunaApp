@@ -21,14 +21,23 @@ use crate::flow::{Flow, FlowState, validate_source};
 use crate::moon::{MoonFrame, MoonRenderer};
 use crate::settings_edit::SettingsEditor;
 use crate::settings_store::SettingsStore;
+use crate::update_state::{Action, UpdateState};
 use crate::view::{MainView, ViewPhase, main_view};
 
 slint::include_modules!();
 
-/// Opens the main window and runs the event loop until it closes.
+thread_local! {
+    /// Where update events land on the UI thread (the library calls back on
+    /// its own thread).
+    static UPDATE_SINK: RefCell<Weak<App>> = const { RefCell::new(Weak::new()) };
+}
+
+/// Opens the main window and runs the event loop until it closes. With
+/// `check_updates`, a packaged build also starts the update library.
 pub fn run(
     backend: Arc<dyn RunBackend>,
     store: Rc<dyn SettingsStore>,
+    check_updates: bool,
 ) -> Result<(), slint::PlatformError> {
     // winit is required for folder drops. The software renderer is the
     // default because the OpenGL (femtovg) one painted a blank white window on
@@ -55,6 +64,8 @@ pub fn run(
         dialog_open: Cell::new(false),
         moon: RefCell::new(MoonMotion::new()),
         header_fields: Rc::new(VecModel::default()),
+        update: Cell::new(UpdateState::default()),
+        updater: RefCell::new(None),
         main,
     });
     App::wire(&app);
@@ -73,7 +84,12 @@ pub fn run(
         },
     );
     app.main.show()?;
+    if check_updates {
+        app.start_updates();
+    }
     slint::run_event_loop_until_quit()?;
+    // Stop the update library before the window goes away.
+    app.updater.borrow_mut().take();
     Ok(())
 }
 
@@ -137,6 +153,9 @@ struct App {
     /// The custom fields in the main window's header panel. Kept, not
     /// replaced, so a value being typed keeps its field and focus.
     header_fields: Rc<VecModel<CustomField>>,
+    update: Cell<UpdateState>,
+    /// The update library, in packaged builds.
+    updater: RefCell<Option<luna_update::Updater>>,
 }
 
 /// The Moon's motion: it turns slowly, and its phase and dial ease toward the
@@ -417,6 +436,52 @@ impl App {
         *self.control.borrow_mut() = Some(control);
     }
 
+    fn start_updates(self: &Rc<Self>) {
+        UPDATE_SINK.with(|s| *s.borrow_mut() = Rc::downgrade(self));
+        let updater = luna_update::start(env!("CARGO_PKG_VERSION"), |event| {
+            let _ = slint::invoke_from_event_loop(move || {
+                if let Some(app) = UPDATE_SINK.with(|s| s.borrow().upgrade()) {
+                    app.on_update(event);
+                }
+            });
+        });
+        if updater.is_none() {
+            let why = luna_update::unavailable_reason().unwrap_or_default();
+            crate::log::error(&format!("Updates are off: {why}"));
+        }
+        self.settings_state()
+            .set_can_check_updates(updater.is_some());
+        *self.updater.borrow_mut() = updater;
+    }
+
+    fn on_update(&self, event: luna_update::Event) {
+        let running = matches!(
+            self.flow.lock().expect("flow lock").state(),
+            FlowState::Running { .. }
+        );
+        let mut state = self.update.get();
+        let action = state.apply(event, running);
+        self.update.set(state);
+        self.main.set_update_pending(state.pending);
+        match action {
+            Action::None => {}
+            Action::Quit => {
+                let _ = slint::quit_event_loop();
+            }
+            Action::CancelAndQuit => {
+                self.cancel();
+                let _ = slint::quit_event_loop();
+            }
+        }
+    }
+
+    /// The library's own window: the pending update, or "up to date".
+    fn check_for_updates(&self) {
+        if let Some(updater) = self.updater.borrow().as_ref() {
+            updater.check_now();
+        }
+    }
+
     fn cancel(&self) {
         if self.flow.lock().expect("flow lock").request_cancel() {
             if let Some(control) = self.control.borrow().as_ref() {
@@ -518,6 +583,11 @@ impl App {
     fn wire_settings(self: &Rc<Self>) {
         let s = self.settings_state();
         let unit = |f: fn(&Rc<App>)| with_app(self, move |app, ()| f(app));
+        s.set_app_version(env!("CARGO_PKG_VERSION").into());
+        s.on_check_for_updates({
+            let f = unit(|app| app.check_for_updates());
+            move || f(())
+        });
         s.on_text_edited({
             let f = unit(|app| {
                 {
@@ -747,6 +817,10 @@ impl App {
         });
         m.on_close_window(|| {
             let _ = slint::quit_event_loop();
+        });
+        m.on_show_update({
+            let f = unit(|app| app.check_for_updates());
+            move || f(())
         });
         m.on_resize_window({
             let f = with_app(self, |app, dir: i32| {
