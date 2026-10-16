@@ -168,7 +168,7 @@ pub fn run(
     // With a camera filter, probe every clip first: identity needs every
     // clip's metadata (neighbours lend evidence), but only the selected
     // cameras' clips are decoded.
-    let (mut outcomes, selected) = if filter.is_all() {
+    let (probed, selected) = if filter.is_all() {
         (
             vec![JobOutcome::Crashed; total],
             (0..total).collect::<Vec<_>>(),
@@ -193,14 +193,7 @@ pub fn run(
         });
     };
     let done = run_jobs(&scanned, &selected, STRIP, workers, cancel, &on_done)?;
-    for &i in &selected {
-        outcomes[i] = JobOutcome::Crashed;
-    }
-    for (id, outcome) in done {
-        if let Some(slot) = outcomes.get_mut(id as usize) {
-            *slot = outcome;
-        }
-    }
+    let outcomes = merge_outcomes(probed, done, &selected);
     if cancel.load(Ordering::SeqCst) {
         return Err(RunError::Cancelled);
     }
@@ -212,7 +205,7 @@ pub fn run(
         scanned,
         outcomes,
         &now.strftime("%Y-%m-%d %H:%M").to_string(),
-        &filter,
+        (!filter.is_all()).then_some(selected.as_slice()),
     );
     let pdf = luna_report::write_pdf(&report).map_err(|e| RunError::Report(e.to_string()))?;
     let html = luna_report::write_html(&report).map_err(|e| RunError::Report(e.to_string()))?;
@@ -304,6 +297,48 @@ pub(crate) fn probe_all(
     Ok(outcomes)
 }
 
+/// One outcome per scanned clip: the decode outcome for the `selected` clips
+/// (in `done`), the probe outcome for the rest. A selected clip whose decode
+/// crashed, timed out or lost its metadata keeps the probed metadata, so it
+/// stays in its camera and card with its row filled in.
+pub fn merge_outcomes(
+    probed: Vec<JobOutcome>,
+    done: Vec<(u64, JobOutcome)>,
+    selected: &[usize],
+) -> Vec<JobOutcome> {
+    let mut outcomes = probed.clone();
+    for &i in selected {
+        if let Some(slot) = outcomes.get_mut(i) {
+            *slot = JobOutcome::Crashed;
+        }
+    }
+    for (id, outcome) in done {
+        if let Some(slot) = outcomes.get_mut(id as usize) {
+            *slot = outcome;
+        }
+    }
+    for &i in selected {
+        let (Some(slot), Some(JobOutcome::Done(probe))) = (outcomes.get_mut(i), probed.get(i))
+        else {
+            continue;
+        };
+        let mut result = match std::mem::replace(slot, JobOutcome::Crashed) {
+            JobOutcome::Done(r) => *r,
+            JobOutcome::Crashed => failed(i, CRASHED, CRASHED),
+            JobOutcome::TimedOut => failed(i, TIMED_OUT, TIMED_OUT),
+        };
+        if result.meta.is_none() {
+            result.meta = probe.meta.clone();
+            result.codec = result.codec.or_else(|| probe.codec.clone());
+            if result.bytes == 0 {
+                result.bytes = probe.bytes;
+            }
+        }
+        *slot = JobOutcome::Done(Box::new(result));
+    }
+    outcomes
+}
+
 fn meta_of(outcome: &JobOutcome) -> Option<&luna_formats::ClipMeta> {
     match outcome {
         JobOutcome::Done(r) => r.meta.as_ref(),
@@ -355,14 +390,15 @@ fn outcome_has_problems(outcome: &JobOutcome) -> bool {
 }
 
 /// The report model from the scan, the worker outcomes (one per scanned clip,
-/// same order) and the settings.
+/// same order) and the settings. `selected` (sorted scan indices) keeps only
+/// those clips; `None` keeps every clip.
 pub fn build_report(
     roots: &[PathBuf],
     settings: &Settings,
     scanned: Scan,
     outcomes: Vec<JobOutcome>,
     generated_at: &str,
-    filter: &CameraFilter,
+    selected: Option<&[usize]>,
 ) -> Report {
     let results: Vec<ClipResult> = scanned
         .clips
@@ -392,7 +428,17 @@ pub fn build_report(
 
     let cameras = groups
         .into_iter()
-        .filter(|camera| filter.matches(&camera.name))
+        .filter_map(|mut camera| {
+            // Keep only the selected clips; drop cards and cameras left empty.
+            if let Some(keep) = selected {
+                for card in &mut camera.cards {
+                    card.clips
+                        .retain(|id| keep.binary_search(&id.index).is_ok());
+                }
+                camera.cards.retain(|c| !c.clips.is_empty());
+            }
+            (!camera.cards.is_empty()).then_some(camera)
+        })
         .map(|camera| Camera {
             name: camera.name,
             cards: camera

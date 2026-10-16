@@ -160,7 +160,6 @@ mod tests {
     use super::*;
     use crate::run::build_report;
     use crate::scan::Scan;
-    use crate::select::CameraFilter;
     use crate::settings::Settings;
 
     fn clip(path: &str) -> ClipFiles {
@@ -210,14 +209,7 @@ mod tests {
     fn inspection_ids_match_report_cameras() {
         let (roots, scan, outcomes) = fixture();
         let i = inspection(&roots, &scan, &outcomes);
-        let r = build_report(
-            &roots,
-            &Settings::default(),
-            scan,
-            outcomes,
-            "now",
-            &CameraFilter::default(),
-        );
+        let r = build_report(&roots, &Settings::default(), scan, outcomes, "now", None);
         let ids: Vec<_> = i.cameras.iter().map(|c| c.id.clone()).collect();
         let names: Vec<_> = r.cameras.iter().map(|c| c.name.clone()).collect();
         assert_eq!(ids, names);
