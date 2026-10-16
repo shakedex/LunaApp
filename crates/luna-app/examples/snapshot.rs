@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 use luna_app::moon::{MoonFrame, MoonRenderer};
-use luna_app::ui::{Component, CreditsWindow, CustomField, MainWindow, Phase, SettingsWindow};
+use luna_app::ui::{Component, CustomField, MainWindow, Phase, SettingsState};
 use slint::platform::software_renderer::{
     MinimalSoftwareWindow, PremultipliedRgbaColor, RepaintBufferType,
 };
@@ -150,43 +150,44 @@ fn main() {
         m.hide().unwrap();
     }
 
-    let s = SettingsWindow::new().unwrap();
-    s.set_production("Night Shift".into());
-    s.set_company("Lumen Rentals".into());
-    s.set_author("Dana Levi".into());
-    s.set_fields(ModelRc::new(VecModel::from(vec![CustomField {
-        label: "Shoot day".into(),
-        value: "12".into(),
-    }])));
-    s.set_output_dir("C:\\Users\\dana\\Documents\\Luna Reports".into());
-    s.set_can_save(true);
-    s.show().unwrap();
-    snap(
-        &platform.last_window(),
-        (780, 760),
-        &dir.join("7-settings.ppm"),
-    );
-    s.hide().unwrap();
-
-    let c = CreditsWindow::new().unwrap();
-    c.set_components(ModelRc::new(VecModel::from(vec![
-        Component {
-            name: "Slint".into(),
-            licence: "Royalty-free 2.0".into(),
-            role: "Window and controls".into(),
-        },
-        Component {
-            name: "Typst".into(),
-            licence: "Apache-2.0".into(),
-            role: "PDF typesetting".into(),
-        },
-    ])));
-    c.show().unwrap();
-    snap(
-        &platform.last_window(),
-        (640, 560),
-        &dir.join("8-credits.ppm"),
-    );
+    // Settings replaces the moon; Credits sits behind a link in it.
+    for (name, credits) in [("7-settings", false), ("8-credits", true)] {
+        let m = MainWindow::new().unwrap();
+        m.set_output_dir(r"C:\Users\dana\Documents\Luna Reports".into());
+        m.set_header_production("Night Shift".into());
+        set_moon(&m, &mut moon, 0.0);
+        let state = m.global::<SettingsState>();
+        state.set_production("Night Shift".into());
+        state.set_company("Lumen Rentals".into());
+        state.set_author("Dana Levi".into());
+        state.set_fields(ModelRc::new(VecModel::from(vec![CustomField {
+            label: "Shoot day".into(),
+            value: "12".into(),
+        }])));
+        state.set_output_dir(r"C:\Users\dana\Documents\Luna Reports".into());
+        state.set_can_save(true);
+        state.set_show_credits(credits);
+        state.set_credits(ModelRc::new(VecModel::from(vec![
+            Component {
+                name: "Slint".into(),
+                licence: "Royalty-free 2.0".into(),
+                role: "Window and controls".into(),
+            },
+            Component {
+                name: "Typst".into(),
+                licence: "Apache-2.0".into(),
+                role: "PDF typesetting".into(),
+            },
+        ])));
+        m.set_settings_open(true);
+        m.show().unwrap();
+        snap(
+            &platform.last_window(),
+            size,
+            &dir.join(format!("{name}.ppm")),
+        );
+        m.hide().unwrap();
+    }
 }
 
 /// The Moon as the app would draw it for this window's state.

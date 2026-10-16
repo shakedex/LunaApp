@@ -49,8 +49,6 @@ pub fn run(
         editor: RefCell::new(SettingsEditor::new(settings.clone())),
         settings: RefCell::new(settings),
         store,
-        settings_window: RefCell::new(None),
-        credits_window: RefCell::new(None),
         dialog_open: Cell::new(false),
         moon: RefCell::new(MoonMotion::new()),
         main,
@@ -71,6 +69,16 @@ pub fn run(
         },
     );
     app.main.show()?;
+    // Luna draws its own title bar; keep the system's shadow and rounded
+    // corners around the frameless window.
+    #[cfg(windows)]
+    {
+        use slint::winit_030::winit::platform::windows::WindowExtWindows;
+        let _ = app
+            .main
+            .window()
+            .with_winit_window(|w| w.set_undecorated_shadow(true));
+    }
     slint::run_event_loop_until_quit()?;
     Ok(())
 }
@@ -86,8 +94,6 @@ struct App {
     /// The saved settings a run starts with.
     settings: RefCell<Settings>,
     editor: RefCell<SettingsEditor>,
-    settings_window: RefCell<Option<SettingsWindow>>,
-    credits_window: RefCell<Option<CreditsWindow>>,
     /// A native file dialog is open; ignore further requests until it closes.
     dialog_open: Cell<bool>,
     moon: RefCell<MoonMotion>,
@@ -192,12 +198,10 @@ impl App {
             let f = unit(App::open_settings);
             move || f(())
         });
-        m.on_open_credits({
-            let f = unit(App::open_credits);
-            move || f(())
-        });
+        app.wire_settings();
+        app.wire_window();
 
-        // Closing the main window quits, even if Settings or Credits is open.
+        // Closing the main window quits.
         m.window().on_close_requested(|| {
             let _ = slint::quit_event_loop();
             slint::CloseRequestResponse::HideWindow
@@ -221,6 +225,10 @@ impl App {
     /// Draws the next Moon frame, unless the window can't be seen.
     fn draw_moon(&self) {
         let window = self.main.window();
+        // Maximised by snapping or a shortcut, not only by our button.
+        if self.main.get_is_maximized() != window.is_maximized() {
+            self.main.set_is_maximized(window.is_maximized());
+        }
         if !window.is_visible() || window.is_minimized() {
             return;
         }
@@ -267,9 +275,8 @@ impl App {
             Ok(()) => *self.settings.borrow_mut() = settings,
             Err(e) => crate::log::error(&format!("Couldn't save the report theme: {e}")),
         }
-        if let Some(w) = self.settings_window.borrow().as_ref() {
-            w.set_report_dark(self.settings.borrow().report_theme == ReportTheme::Dark);
-        }
+        self.settings_state()
+            .set_report_dark(self.settings.borrow().report_theme == ReportTheme::Dark);
     }
 
     fn window_event(&self, event: &WindowEvent) {
@@ -399,167 +406,130 @@ impl App {
 
     // ----- Settings -----
 
-    fn open_settings(self: &Rc<Self>) {
-        let existing = self
-            .settings_window
-            .borrow()
-            .as_ref()
-            .map(|w| w.clone_strong());
-        let win = match existing {
-            Some(w) => w,
-            None => match SettingsWindow::new() {
-                Ok(w) => {
-                    self.wire_settings(&w);
-                    *self.settings_window.borrow_mut() = Some(w.clone_strong());
-                    w
-                }
-                Err(_) => return,
-            },
-        };
-        if !win.window().is_visible() {
-            *self.editor.borrow_mut() = SettingsEditor::new(self.settings.borrow().clone());
-            win.set_logo_error(SharedString::new());
-            win.set_save_error(SharedString::new());
-            self.fill_settings(&win);
-        }
-        let _ = win.show();
+    fn settings_state(&self) -> SettingsState<'_> {
+        self.main.global::<SettingsState>()
     }
 
-    fn wire_settings(self: &Rc<Self>, w: &SettingsWindow) {
-        let sw = |f: fn(&Rc<App>, &SettingsWindow)| {
-            with_app(self, move |app, ()| {
-                let win = app
-                    .settings_window
-                    .borrow()
-                    .as_ref()
-                    .map(|w| w.clone_strong());
-                if let Some(win) = win {
-                    f(app, &win);
-                }
-            })
-        };
-        w.on_text_edited({
-            let f = sw(|app, win| {
+    fn open_settings(self: &Rc<Self>) {
+        if !self.main.get_settings_open() {
+            *self.editor.borrow_mut() = SettingsEditor::new(self.settings.borrow().clone());
+            let s = self.settings_state();
+            s.set_logo_error(SharedString::new());
+            s.set_save_error(SharedString::new());
+            s.set_show_credits(false);
+            self.fill_settings();
+        }
+        self.main.set_settings_open(true);
+    }
+
+    fn close_settings(&self) {
+        self.editor.borrow_mut().revert();
+        self.main.set_settings_open(false);
+    }
+
+    fn wire_settings(self: &Rc<Self>) {
+        let s = self.settings_state();
+        let unit = |f: fn(&Rc<App>)| with_app(self, move |app, ()| f(app));
+        s.on_text_edited({
+            let f = unit(|app| {
                 {
+                    let s = app.settings_state();
                     let mut ed = app.editor.borrow_mut();
                     let d = ed.draft_mut();
-                    d.production = win.get_production().into();
-                    d.company = win.get_company().into();
-                    d.author = win.get_author().into();
+                    d.production = s.get_production().into();
+                    d.company = s.get_company().into();
+                    d.author = s.get_author().into();
                 }
-                app.refresh_dirty(win);
+                app.refresh_dirty();
             });
             move || f(())
         });
-        w.on_set_report_dark({
+        s.on_set_report_dark({
             let f = with_app(self, |app, dark: bool| app.set_report_dark(dark));
             move |dark| f(dark)
         });
-        w.on_open_credits({
-            let f = with_app(self, |app, ()| app.open_credits());
-            move || f(())
-        });
-        w.on_label_edited({
+        s.on_label_edited({
             let f = with_app(self, |app, (i, t): (i32, SharedString)| {
                 app.editor.borrow_mut().set_label(i as usize, &t);
-                app.with_settings_window(|w| app.refresh_dirty(w));
+                app.refresh_dirty();
             });
             move |i, t| f((i, t))
         });
-        w.on_value_edited({
+        s.on_value_edited({
             let f = with_app(self, |app, (i, t): (i32, SharedString)| {
                 app.editor.borrow_mut().set_value(i as usize, &t);
-                app.with_settings_window(|w| app.refresh_dirty(w));
+                app.refresh_dirty();
             });
             move |i, t| f((i, t))
         });
-        w.on_add_field({
-            let f = sw(|app, win| {
+        s.on_add_field({
+            let f = unit(|app| {
                 app.editor.borrow_mut().add_field();
-                app.fill_fields(win);
+                app.fill_fields();
             });
             move || f(())
         });
         let row_op = |op: fn(&mut SettingsEditor, usize)| {
             with_app(self, move |app, i: i32| {
                 op(&mut app.editor.borrow_mut(), i as usize);
-                app.with_settings_window(|w| app.fill_fields(w));
+                app.fill_fields();
             })
         };
-        w.on_remove_field(row_op(SettingsEditor::remove_field));
-        w.on_move_up(row_op(SettingsEditor::move_up));
-        w.on_move_down(row_op(SettingsEditor::move_down));
-        w.on_pick_logo({
-            let f = sw(App::pick_logo);
+        s.on_remove_field(row_op(SettingsEditor::remove_field));
+        s.on_move_up(row_op(SettingsEditor::move_up));
+        s.on_move_down(row_op(SettingsEditor::move_down));
+        s.on_pick_logo({
+            let f = unit(App::pick_logo);
             move || f(())
         });
-        w.on_remove_logo({
-            let f = sw(|app, win| {
+        s.on_remove_logo({
+            let f = unit(|app| {
                 app.store.clear_logo(app.editor.borrow_mut().draft_mut());
-                win.set_logo_error(SharedString::new());
-                app.fill_logo(win);
-                app.refresh_dirty(win);
+                app.settings_state().set_logo_error(SharedString::new());
+                app.fill_logo();
+                app.refresh_dirty();
             });
             move || f(())
         });
-        w.on_pick_output({
-            let f = sw(|app, win| {
+        s.on_pick_output({
+            let f = unit(|app| {
                 let start = Some(app.editor.borrow().draft().output_dir.clone());
-                app.pick_folder(win.window(), start, |app, path| {
+                app.pick_folder(app.main.window(), start, |app, path| {
                     app.editor.borrow_mut().draft_mut().output_dir = path;
-                    app.with_settings_window(|w| {
-                        w.set_output_dir(output_text(app.editor.borrow().draft()).into());
-                        app.refresh_dirty(w);
-                    });
+                    app.settings_state()
+                        .set_output_dir(output_text(app.editor.borrow().draft()).into());
+                    app.refresh_dirty();
                 });
             });
             move || f(())
         });
-        w.on_save({
-            let f = sw(|a, w| a.save_settings(w));
+        s.on_save({
+            let f = unit(|a| a.save_settings());
             move || f(())
         });
-        w.on_cancel({
-            let f = sw(|app, win| {
-                app.editor.borrow_mut().revert();
-                let _ = win.hide();
-            });
+        s.on_cancel({
+            let f = unit(|a| a.close_settings());
             move || f(())
-        });
-        let close = with_app(self, |app, ()| app.editor.borrow_mut().revert());
-        w.window().on_close_requested(move || {
-            close(());
-            slint::CloseRequestResponse::HideWindow
         });
     }
 
-    fn with_settings_window(&self, f: impl FnOnce(&SettingsWindow)) {
-        let win = self
-            .settings_window
-            .borrow()
-            .as_ref()
-            .map(|w| w.clone_strong());
-        if let Some(win) = win {
-            f(&win);
-        }
-    }
-
-    fn fill_settings(&self, win: &SettingsWindow) {
+    fn fill_settings(&self) {
+        let s = self.settings_state();
         {
             let ed = self.editor.borrow();
             let d = ed.draft();
-            win.set_production(d.production.clone().into());
-            win.set_company(d.company.clone().into());
-            win.set_author(d.author.clone().into());
-            win.set_output_dir(output_text(d).into());
+            s.set_production(d.production.clone().into());
+            s.set_company(d.company.clone().into());
+            s.set_author(d.author.clone().into());
+            s.set_output_dir(output_text(d).into());
         }
-        win.set_report_dark(self.settings.borrow().report_theme == ReportTheme::Dark);
-        self.fill_logo(win);
-        self.fill_fields(win);
-        self.refresh_dirty(win);
+        s.set_report_dark(self.settings.borrow().report_theme == ReportTheme::Dark);
+        self.fill_logo();
+        self.fill_fields();
+        self.refresh_dirty();
     }
 
-    fn fill_fields(&self, win: &SettingsWindow) {
+    fn fill_fields(&self) {
         // A fresh model each time: rows are re-created, so reordered text
         // can't be left behind in a recycled field.
         let rows: Vec<CustomField> = self
@@ -573,38 +543,41 @@ impl App {
                 value: v.into(),
             })
             .collect();
-        win.set_fields(ModelRc::new(VecModel::from(rows)));
-        self.refresh_dirty(win);
+        self.settings_state()
+            .set_fields(ModelRc::new(VecModel::from(rows)));
+        self.refresh_dirty();
     }
 
-    fn fill_logo(&self, win: &SettingsWindow) {
+    fn fill_logo(&self) {
+        let s = self.settings_state();
         let logo = self.editor.borrow().draft().logo.clone();
         match logo
             .as_deref()
             .and_then(|p| Some((p, slint::Image::load_from_path(p).ok()?)))
         {
             Some((path, image)) => {
-                win.set_logo(image);
-                win.set_logo_name(file_name(path).into());
-                win.set_has_logo(true);
+                s.set_logo(image);
+                s.set_logo_name(file_name(path).into());
+                s.set_has_logo(true);
             }
             None => {
-                win.set_logo(slint::Image::default());
-                win.set_logo_name(SharedString::new());
-                win.set_has_logo(false);
+                s.set_logo(slint::Image::default());
+                s.set_logo_name(SharedString::new());
+                s.set_has_logo(false);
             }
         }
     }
 
-    fn refresh_dirty(&self, win: &SettingsWindow) {
-        win.set_can_save(self.editor.borrow().is_dirty());
-        win.set_save_error(SharedString::new());
+    fn refresh_dirty(&self) {
+        let s = self.settings_state();
+        s.set_can_save(self.editor.borrow().is_dirty());
+        s.set_save_error(SharedString::new());
     }
 
-    fn pick_logo(self: &Rc<Self>, win: &SettingsWindow) {
+    fn pick_logo(self: &Rc<Self>) {
         let dialog = rfd::AsyncFileDialog::new()
             .add_filter("Logo (PNG, JPEG, SVG)", &["png", "jpg", "jpeg", "svg"]);
-        self.run_dialog(win.window(), dialog, true, |app, path| {
+        self.run_dialog(self.main.window(), dialog, true, |app, path| {
             let mut candidate = app.editor.borrow().draft().clone();
             let result = app.store.set_logo(&mut candidate, &path).and_then(|()| {
                 let shown = candidate.logo.as_deref().unwrap_or(&path);
@@ -614,20 +587,21 @@ impl App {
                         "Luna couldn't read that image. Use a PNG, JPEG or SVG file.".to_string()
                     })
             });
-            app.with_settings_window(|w| match result {
+            let s = app.settings_state();
+            match result {
                 Ok(()) => {
                     *app.editor.borrow_mut().draft_mut() = candidate;
-                    w.set_logo_error(SharedString::new());
-                    app.fill_logo(w);
-                    app.refresh_dirty(w);
+                    s.set_logo_error(SharedString::new());
+                    app.fill_logo();
+                    app.refresh_dirty();
                 }
-                Err(e) => w.set_logo_error(format!("{}: {e}", file_name(&path)).into()),
-            });
+                Err(e) => s.set_logo_error(format!("{}: {e}", file_name(&path)).into()),
+            }
         });
     }
 
-    fn save_settings(&self, win: &SettingsWindow) {
-        // The theme is switched in the main window, not in this draft.
+    fn save_settings(&self) {
+        // The theme is saved the moment it's switched, not with this draft.
         let theme = self.settings.borrow().report_theme;
         let validated = self.editor.borrow().validated().map(|mut s| {
             s.report_theme = theme;
@@ -639,38 +613,79 @@ impl App {
                 self.editor.borrow_mut().mark_saved(saved.clone());
                 *self.settings.borrow_mut() = saved;
                 self.render();
-                let _ = win.hide();
+                self.main.set_settings_open(false);
             }
-            Err(e) => win.set_save_error(e.into()),
+            Err(e) => self.settings_state().set_save_error(e.into()),
         }
     }
 
-    // ----- Credits -----
+    /// The bottom bar's destination: choosing a folder saves it at once.
+    fn change_output(self: &Rc<Self>) {
+        let start = Some(self.settings.borrow().output_dir.clone());
+        self.pick_folder(self.main.window(), start, |app, path| {
+            let mut settings = app.settings.borrow().clone();
+            settings.output_dir = path;
+            match app.store.save(&settings) {
+                Ok(()) => *app.settings.borrow_mut() = settings,
+                Err(e) => crate::log::error(&format!("Couldn't save the destination: {e}")),
+            }
+            app.render();
+        });
+    }
 
-    fn open_credits(self: &Rc<Self>) {
-        let existing = self
-            .credits_window
-            .borrow()
-            .as_ref()
-            .map(|w| w.clone_strong());
-        let win = match existing {
-            Some(w) => w,
-            None => match CreditsWindow::new() {
-                Ok(w) => {
-                    w.set_components(ModelRc::new(VecModel::from(credits())));
-                    let weak = w.as_weak();
-                    w.on_close_clicked(move || {
-                        if let Some(w) = weak.upgrade() {
-                            let _ = w.hide();
-                        }
-                    });
-                    *self.credits_window.borrow_mut() = Some(w.clone_strong());
-                    w
-                }
-                Err(_) => return,
-            },
-        };
-        let _ = win.show();
+    // ----- Window -----
+
+    fn wire_window(self: &Rc<Self>) {
+        let m = &self.main;
+        let unit = |f: fn(&Rc<App>)| with_app(self, move |app, ()| f(app));
+        m.on_drag_window({
+            let f = unit(|app| {
+                let _ = app.main.window().with_winit_window(|w| w.drag_window());
+            });
+            move || f(())
+        });
+        m.on_toggle_maximized({
+            let f = unit(|app| {
+                let w = app.main.window();
+                let maximize = !w.is_maximized();
+                w.set_maximized(maximize);
+                app.main.set_is_maximized(maximize);
+            });
+            move || f(())
+        });
+        m.on_minimize({
+            let f = unit(|app| app.main.window().set_minimized(true));
+            move || f(())
+        });
+        m.on_close_window(|| {
+            let _ = slint::quit_event_loop();
+        });
+        m.on_resize_window({
+            let f = with_app(self, |app, dir: i32| {
+                use slint::winit_030::winit::window::ResizeDirection as D;
+                let direction = match dir {
+                    0 => D::North,
+                    1 => D::South,
+                    2 => D::East,
+                    3 => D::West,
+                    4 => D::NorthEast,
+                    5 => D::NorthWest,
+                    6 => D::SouthEast,
+                    _ => D::SouthWest,
+                };
+                let _ = app
+                    .main
+                    .window()
+                    .with_winit_window(|w| w.drag_resize_window(direction));
+            });
+            move |dir| f(dir)
+        });
+        m.on_change_output({
+            let f = unit(App::change_output);
+            move || f(())
+        });
+        self.settings_state()
+            .set_credits(ModelRc::new(VecModel::from(credits())));
     }
 }
 

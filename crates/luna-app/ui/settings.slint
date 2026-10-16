@@ -1,31 +1,27 @@
-// Settings: what the report header says, the logo, custom fields and where
-// reports go. Edits are kept as a draft until Save.
+// Settings: what the report header says, the logo, custom fields, the report
+// theme and where reports go, on one page; credits behind a link. Takes the
+// window's place below the title bar while open; edits are kept as a draft
+// until Save. The state lives
+// in `SettingsState` so the Rust side can fill and read it.
 
-import { ScrollView } from "std-widgets.slint";
+import { AboutSlint, ScrollView } from "std-widgets.slint";
 import { Theme } from "theme.slint";
-import { LunaButton, ButtonKind, IconButton, TextField, Field, SectionHeading, ErrorLine, Icon, Segmented } from "controls.slint";
+import { LunaButton, ButtonKind, IconButton, TextField, ErrorLine, Icon, Segmented } from "controls.slint";
 
 export struct CustomField {
     label: string,
     value: string,
 }
 
-component Rule inherits Rectangle {
-    height: 1px;
-    background: Theme.line;
+// A third-party component credited in About.
+export struct Component {
+    name: string,
+    licence: string,
+    role: string,
 }
 
-export component SettingsWindow inherits Window {
-    title: "Luna Settings";
-    icon: @image-url("assets/luna-icon.png");
-    min-width: 720px;
-    min-height: 600px;
-    preferred-width: 780px;
-    preferred-height: 760px;
-    background: Theme.canvas;
-    default-font-size: Theme.size-body;
-    default-font-family: Theme.font;
-
+export global SettingsState {
+    in-out property <bool> show-credits;
     in-out property <string> production;
     in-out property <string> company;
     in-out property <string> author;
@@ -38,6 +34,7 @@ export component SettingsWindow inherits Window {
     in property <bool> can-save;
     in property <bool> report-dark;
     in property <string> save-error;
+    in property <[Component]> credits;
 
     callback text-edited();
     callback pick-logo();
@@ -52,306 +49,436 @@ export component SettingsWindow inherits Window {
     callback save();
     callback cancel();
     callback set-report-dark(bool);
-    callback open-credits();
+}
 
-    VerticalLayout {
-        ScrollView {
-            vertical-stretch: 1;
-            VerticalLayout {
-                padding: 36px;
-                padding-top: 32px;
-                spacing: 32px;
+component Rule inherits Rectangle {
+    height: 1px;
+    background: Theme.line;
+}
+
+// Label on the left, its control on the right.
+component Row inherits HorizontalLayout {
+    in property <string> label;
+    spacing: 14px;
+    min-height: 38px;
+
+    Text {
+        width: 76px;
+        text: root.label;
+        color: Theme.text-muted;
+        vertical-alignment: center;
+    }
+
+    @children
+}
+
+component TextRow inherits Row {
+    in-out property <string> text;
+    in property <string> placeholder;
+
+    TextField {
+        label: root.label;
+        placeholder: root.placeholder;
+        text <=> root.text;
+        edited => {
+            SettingsState.text-edited();
+        }
+    }
+}
+
+component Card inherits Rectangle {
+    border-radius: Theme.radius-large;
+    background: Theme.surface;
+    border-width: 1px;
+    border-color: Theme.line;
+}
+
+component CardTitle inherits Text {
+    font-size: Theme.size-lead;
+    font-weight: 600;
+    color: Theme.text;
+}
+
+component ColumnLabel inherits Text {
+    font-size: Theme.size-small;
+    color: Theme.text-faint;
+}
+
+component CreditsList inherits Card {
+    ScrollView {
+        VerticalLayout {
+            alignment: start;
+            padding: 24px;
+            padding-top: 12px;
+            for c[i] in SettingsState.credits: VerticalLayout {
+                if i > 0: Rule { }
+                HorizontalLayout {
+                    padding-top: 10px;
+                    padding-bottom: 10px;
+                    spacing: 16px;
+                    Text {
+                        text: c.name;
+                        font-weight: 600;
+                        color: Theme.text;
+                        width: 150px;
+                        overflow: elide;
+                    }
+
+                    Text {
+                        text: c.role;
+                        color: Theme.text-muted;
+                        horizontal-stretch: 1;
+                        overflow: elide;
+                    }
+
+                    Text {
+                        text: c.licence;
+                        color: Theme.text-faint;
+                        horizontal-alignment: right;
+                    }
+                }
+            }
+            HorizontalLayout {
+                padding-top: 16px;
+                alignment: space-between;
+                AboutSlint {
+                    width: 160px;
+                    height: 96px;
+                }
 
                 Text {
-                    text: "Settings";
-                    font-size: Theme.size-title;
-                    font-weight: 600;
-                    color: Theme.text;
+                    text: "Luna is MIT licensed";
+                    color: Theme.text-muted;
+                    vertical-alignment: center;
                 }
+            }
+        }
+    }
+}
 
-                // Report header.
+export component SettingsView inherits Rectangle {
+    background: Theme.canvas;
+
+    VerticalLayout {
+        // Back to the moon, or from Credits back to Settings.
+        HorizontalLayout {
+            padding-left: 14px;
+            padding-right: 22px;
+            padding-bottom: 10px;
+            spacing: 6px;
+            VerticalLayout {
+                alignment: center;
+                IconButton {
+                    icon: @image-url("icons/arrow-left.svg");
+                    label: "Back";
+                    clicked => {
+                        if (SettingsState.show-credits) {
+                            SettingsState.show-credits = false;
+                        } else {
+                            SettingsState.cancel();
+                        }
+                    }
+                }
+            }
+
+            Text {
+                text: SettingsState.show-credits ? "Credits" : "Settings";
+                font-size: Theme.size-title;
+                font-weight: 600;
+                color: Theme.text;
+                vertical-alignment: center;
+                horizontal-stretch: 1;
+            }
+        }
+
+        if SettingsState.show-credits: HorizontalLayout {
+            vertical-stretch: 1;
+            padding-left: 22px;
+            padding-right: 22px;
+            padding-bottom: 22px;
+            CreditsList { }
+        }
+
+        if !SettingsState.show-credits: HorizontalLayout {
+            vertical-stretch: 1;
+            padding-left: 22px;
+            padding-right: 22px;
+            spacing: 16px;
+
+            // What the report says and where it goes.
+            Card {
+                horizontal-stretch: 1;
+                preferred-width: 360px;
                 VerticalLayout {
-                    spacing: 16px;
-                    SectionHeading {
-                        title: "Report header";
+                    alignment: start;
+                    padding: 22px;
+                    spacing: 10px;
+                    CardTitle {
+                        text: "Report";
                     }
 
-                    Field {
+                    Rectangle {
+                        height: 2px;
+                    }
+
+                    TextRow {
                         label: "Production";
                         placeholder: "The Long Night";
-                        text <=> root.production;
-                        edited => {
-                            root.text-edited();
-                        }
+                        text <=> SettingsState.production;
                     }
 
-                    HorizontalLayout {
-                        spacing: 16px;
-                        Field {
-                            label: "Company";
-                            placeholder: "Production company";
-                            text <=> root.company;
-                            edited => {
-                                root.text-edited();
+                    TextRow {
+                        label: "Company";
+                        placeholder: "Production company";
+                        text <=> SettingsState.company;
+                    }
+
+                    TextRow {
+                        label: "Report by";
+                        placeholder: "Your name";
+                        text <=> SettingsState.author;
+                    }
+
+                    Row {
+                        label: "Theme";
+                        HorizontalLayout {
+                            alignment: start;
+                            Segmented {
+                                y: (parent.height - self.height) / 2;
+                                width: 160px;
+                                label: "Report theme";
+                                first: "Light";
+                                second: "Dark";
+                                second-selected: SettingsState.report-dark;
+                                changed(d) => {
+                                    SettingsState.set-report-dark(d);
+                                }
                             }
                         }
-
-                        Field {
-                            label: "Report by";
-                            placeholder: "Your name";
-                            text <=> root.author;
-                            edited => {
-                                root.text-edited();
-                            }
-                        }
-                    }
-                }
-
-                Rule { }
-
-                // Report theme. Saved as soon as it changes.
-                VerticalLayout {
-                    spacing: 12px;
-                    SectionHeading {
-                        title: "Report theme";
-                        note: "Light for printing, dark for screens on set";
                     }
 
-                    Segmented {
-                        width: 220px;
-                        label: "Report theme";
-                        first: "Light";
-                        second: "Dark";
-                        second-selected: root.report-dark;
-                        changed(d) => {
-                            root.set-report-dark(d);
-                        }
-                    }
-                }
-
-                Rule { }
-
-                // Logo.
-                VerticalLayout {
-                    spacing: 16px;
-                    SectionHeading {
-                        title: "Logo";
-                        note: "PNG, JPEG or SVG";
-                    }
-
-                    HorizontalLayout {
-                        spacing: 20px;
-                        alignment: start;
+                    Row {
+                        label: "Destination";
                         Rectangle {
-                            width: 220px;
-                            height: 88px;
                             border-radius: Theme.radius;
-                            // Logos are mostly drawn for white paper; preview them on light.
-                            background: root.has-logo ? #f3f4f6 : Theme.field;
+                            background: Theme.field;
                             border-width: 1px;
                             border-color: Theme.line-strong;
-                            if root.has-logo: Image {
-                                x: 12px;
-                                y: 12px;
-                                width: parent.width - 24px;
-                                height: parent.height - 24px;
-                                source: root.logo;
+                            HorizontalLayout {
+                                padding: 5px;
+                                padding-left: 12px;
+                                spacing: 8px;
+                                Text {
+                                    text: SettingsState.output-dir;
+                                    color: Theme.text;
+                                    vertical-alignment: center;
+                                    overflow: elide;
+                                    horizontal-stretch: 1;
+                                }
+
+                                LunaButton {
+                                    text: "Change";
+                                    icon: @image-url("icons/folder-open.svg");
+                                    clicked => {
+                                        SettingsState.pick-output();
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // The logo and the custom fields printed in the header.
+            Card {
+                horizontal-stretch: 1;
+                preferred-width: 360px;
+                VerticalLayout {
+                    padding: 22px;
+                    spacing: 12px;
+                    CardTitle {
+                        text: "Logo";
+                    }
+
+                    HorizontalLayout {
+                        spacing: 14px;
+                        alignment: start;
+                        Rectangle {
+                            width: 132px;
+                            height: 60px;
+                            border-radius: Theme.radius;
+                            // Logos are mostly drawn for white paper; preview them on light.
+                            background: SettingsState.has-logo ? #f3f4f6 : Theme.field;
+                            border-width: 1px;
+                            border-color: Theme.line-strong;
+                            if SettingsState.has-logo: Image {
+                                x: 8px;
+                                y: 8px;
+                                width: parent.width - 16px;
+                                height: parent.height - 16px;
+                                source: SettingsState.logo;
                                 image-fit: contain;
                             }
-                            if !root.has-logo: Icon {
+                            if !SettingsState.has-logo: Icon {
                                 source: @image-url("icons/image.svg");
-                                width: 28px;
-                                height: 28px;
+                                width: 22px;
+                                height: 22px;
                                 tint: Theme.text-faint;
                             }
                         }
 
                         VerticalLayout {
                             alignment: center;
-                            spacing: 10px;
-                            if root.has-logo: Text {
-                                text: root.logo-name;
-                                font-size: 13px;
+                            spacing: 8px;
+                            Text {
+                                text: SettingsState.has-logo ? SettingsState.logo-name : "PNG, JPEG or SVG";
                                 color: Theme.text-muted;
                                 overflow: elide;
-                                max-width: 320px;
+                                max-width: 200px;
                             }
+
                             HorizontalLayout {
-                                spacing: 10px;
+                                spacing: 6px;
                                 alignment: start;
                                 LunaButton {
-                                    text: root.has-logo ? "Replace" : "Choose logo";
-                                    icon: @image-url("icons/image.svg");
+                                    text: SettingsState.has-logo ? "Replace" : "Choose logo";
+                                    icon: @image-url("icons/folder-open.svg");
                                     clicked => {
-                                        root.pick-logo();
+                                        SettingsState.pick-logo();
                                     }
                                 }
 
-                                if root.has-logo: LunaButton {
-                                    text: "Remove";
+                                if SettingsState.has-logo: IconButton {
                                     icon: @image-url("icons/trash.svg");
-                                    kind: ButtonKind.quiet;
-                                    clicked => {
-                                        root.remove-logo();
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    if root.logo-error != "": ErrorLine {
-                        text: root.logo-error;
-                    }
-                }
-
-                Rule { }
-
-                // Custom fields.
-                VerticalLayout {
-                    spacing: 14px;
-                    SectionHeading {
-                        title: "Custom fields";
-                        note: "Episode, unit, shoot day: printed under the header in this order";
-                    }
-
-                    if root.fields.length > 0: HorizontalLayout {
-                        spacing: 10px;
-                        Text {
-                            text: "Label";
-                            font-size: 13px;
-                            color: Theme.text-muted;
-                            horizontal-stretch: 2;
-                            min-width: 120px;
-                        }
-
-                        Text {
-                            text: "Value";
-                            font-size: 13px;
-                            color: Theme.text-muted;
-                            horizontal-stretch: 3;
-                            min-width: 120px;
-                        }
-
-                        Rectangle {
-                            width: 3 * 32px + 2 * 2px;
-                            horizontal-stretch: 0;
-                        }
-                    }
-
-                    for field[i] in root.fields: HorizontalLayout {
-                        spacing: 10px;
-                        TextField {
-                            horizontal-stretch: 2;
-                            label: "Label of field " + (i + 1);
-                            text: field.label;
-                            placeholder: "Label";
-                            edited(t) => {
-                                root.label-edited(i, t);
-                            }
-                        }
-
-                        TextField {
-                            horizontal-stretch: 3;
-                            label: "Value of field " + (i + 1);
-                            text: field.value;
-                            placeholder: "Value";
-                            edited(t) => {
-                                root.value-edited(i, t);
-                            }
-                        }
-
-                        HorizontalLayout {
-                            spacing: 2px;
-                            width: 3 * 32px + 2 * 2px;
-                            horizontal-stretch: 0;
-                            VerticalLayout {
-                                alignment: center;
-                                IconButton {
-                                    icon: @image-url("icons/caret-up.svg");
-                                    label: "Move field " + (i + 1) + " up";
-                                    enabled: i > 0;
-                                    clicked => {
-                                        root.move-up(i);
-                                    }
-                                }
-                            }
-
-                            VerticalLayout {
-                                alignment: center;
-                                IconButton {
-                                    icon: @image-url("icons/caret-down.svg");
-                                    label: "Move field " + (i + 1) + " down";
-                                    enabled: i < root.fields.length - 1;
-                                    clicked => {
-                                        root.move-down(i);
-                                    }
-                                }
-                            }
-
-                            VerticalLayout {
-                                alignment: center;
-                                IconButton {
-                                    icon: @image-url("icons/trash.svg");
+                                    label: "Remove logo";
                                     danger: true;
-                                    label: "Remove field " + (i + 1);
                                     clicked => {
-                                        root.remove-field(i);
+                                        SettingsState.remove-logo();
                                     }
                                 }
                             }
                         }
                     }
 
-                    HorizontalLayout {
-                        alignment: start;
-                        LunaButton {
-                            text: "Add field";
-                            icon: @image-url("icons/plus.svg");
-                            clicked => {
-                                root.add-field();
-                            }
-                        }
-                    }
-                }
-
-                Rule { }
-
-                // Output.
-                VerticalLayout {
-                    spacing: 16px;
-                    SectionHeading {
-                        title: "Save reports to";
+                    if SettingsState.logo-error != "": ErrorLine {
+                        text: SettingsState.logo-error;
                     }
 
                     Rectangle {
-                        border-radius: Theme.radius;
-                        background: Theme.surface;
-                        border-width: 1px;
-                        border-color: Theme.line;
-                        HorizontalLayout {
-                            padding: 10px;
-                            padding-left: 14px;
-                            spacing: 12px;
-                            VerticalLayout {
-                                alignment: center;
-                                Icon {
-                                    source: @image-url("icons/folder-simple.svg");
+                        height: 4px;
+                    }
+
+                    Rule { }
+
+                    Rectangle {
+                        height: 4px;
+                    }
+
+                    CardTitle {
+                        text: "Fields";
+                    }
+
+                    fields-scroll := ScrollView {
+                        vertical-stretch: 1;
+                        VerticalLayout {
+                            width: fields-scroll.visible-width;
+                            alignment: start;
+                            spacing: 8px;
+                            if SettingsState.fields.length > 0: HorizontalLayout {
+                                spacing: 6px;
+                                ColumnLabel {
+                                    horizontal-stretch: 2;
+                                    preferred-width: 90px;
+                                    min-width: 80px;
+                                    text: "Label";
+                                }
+
+                                ColumnLabel {
+                                    horizontal-stretch: 3;
+                                    preferred-width: 90px;
+                                    min-width: 80px;
+                                    text: "Value";
+                                }
+
+                                Rectangle {
+                                    width: 3 * 32px + 2 * 6px;
                                 }
                             }
 
-                            Text {
-                                text: root.output-dir;
-                                color: Theme.text;
-                                vertical-alignment: center;
-                                overflow: elide;
-                                horizontal-stretch: 1;
+                            for field[i] in SettingsState.fields: HorizontalLayout {
+                                spacing: 6px;
+                                TextField {
+                                    horizontal-stretch: 2;
+                                    preferred-width: 90px;
+                                    min-width: 80px;
+                                    label: "Label of field " + (i + 1);
+                                    text: field.label;
+                                    placeholder: "Shoot day";
+                                    edited(t) => {
+                                        SettingsState.label-edited(i, t);
+                                    }
+                                }
+
+                                TextField {
+                                    horizontal-stretch: 3;
+                                    preferred-width: 90px;
+                                    min-width: 80px;
+                                    label: "Value of field " + (i + 1);
+                                    text: field.value;
+                                    placeholder: "12";
+                                    edited(t) => {
+                                        SettingsState.value-edited(i, t);
+                                    }
+                                }
+
+                                VerticalLayout {
+                                    alignment: center;
+                                    horizontal-stretch: 0;
+                                    IconButton {
+                                        icon: @image-url("icons/caret-up.svg");
+                                        label: "Move field " + (i + 1) + " up";
+                                        enabled: i > 0;
+                                        clicked => {
+                                            SettingsState.move-up(i);
+                                        }
+                                    }
+                                }
+
+                                VerticalLayout {
+                                    alignment: center;
+                                    horizontal-stretch: 0;
+                                    IconButton {
+                                        icon: @image-url("icons/caret-down.svg");
+                                        label: "Move field " + (i + 1) + " down";
+                                        enabled: i < SettingsState.fields.length - 1;
+                                        clicked => {
+                                            SettingsState.move-down(i);
+                                        }
+                                    }
+                                }
+
+                                VerticalLayout {
+                                    alignment: center;
+                                    horizontal-stretch: 0;
+                                    IconButton {
+                                        icon: @image-url("icons/trash.svg");
+                                        danger: true;
+                                        label: "Remove field " + (i + 1);
+                                        clicked => {
+                                            SettingsState.remove-field(i);
+                                        }
+                                    }
+                                }
                             }
 
-                            LunaButton {
-                                text: "Change";
-                                icon: @image-url("icons/folder-open.svg");
-                                clicked => {
-                                    root.pick-output();
+                            HorizontalLayout {
+                                alignment: start;
+                                LunaButton {
+                                    text: "Add field";
+                                    icon: @image-url("icons/plus.svg");
+                                    clicked => {
+                                        SettingsState.add-field();
+                                    }
                                 }
                             }
                         }
@@ -360,51 +487,47 @@ export component SettingsWindow inherits Window {
             }
         }
 
-        Rule { }
-
-        Rectangle {
-            background: Theme.chrome;
-            HorizontalLayout {
-            padding: 16px;
-            padding-left: 36px;
-            padding-right: 24px;
-            spacing: 12px;
+        if !SettingsState.show-credits: HorizontalLayout {
+            padding: 14px;
+            padding-left: 22px;
+            padding-right: 22px;
+            spacing: 10px;
             LunaButton {
                 text: "Credits";
                 kind: ButtonKind.quiet;
                 clicked => {
-                    root.open-credits();
+                    SettingsState.show-credits = true;
                 }
             }
 
             VerticalLayout {
                 alignment: center;
                 horizontal-stretch: 1;
-                if root.save-error != "": ErrorLine {
-                    text: root.save-error;
+                if SettingsState.save-error != "": ErrorLine {
+                    text: SettingsState.save-error;
                 }
-                if root.save-error == "": Text {
-                    text: root.can-save ? "Unsaved changes" : "";
-                    font-size: 13px;
+                if SettingsState.save-error == "": Text {
+                    text: SettingsState.can-save ? "Unsaved changes" : "";
                     color: Theme.text-muted;
+                    horizontal-alignment: right;
                 }
             }
 
             LunaButton {
-                text: root.can-save ? "Discard" : "Close";
+                text: "Discard";
+                enabled: SettingsState.can-save;
                 clicked => {
-                    root.cancel();
+                    SettingsState.cancel();
                 }
             }
 
             LunaButton {
                 text: "Save";
                 kind: ButtonKind.primary;
-                enabled: root.can-save;
+                enabled: SettingsState.can-save;
                 clicked => {
-                    root.save();
+                    SettingsState.save();
                 }
-            }
             }
         }
     }

@@ -1,9 +1,10 @@
 // The main window is one moon. It is new while Luna waits for a folder, waxes
-// as clips are read, and is full when the report is written. Everything else
-// lives in Settings.
+// as clips are read, and is full when the report is written. Luna draws its
+// own title bar; Settings takes the moon's place while it's open.
 
 import { Theme } from "theme.slint";
-import { LunaButton, ButtonKind, ErrorLine, IconButton } from "controls.slint";
+import { LunaButton, ButtonKind, ErrorLine, Icon, IconButton } from "controls.slint";
+import { SettingsView, SettingsState } from "settings.slint";
 
 export enum Phase { idle, picked, running, done, failed, cancelled }
 
@@ -34,9 +35,110 @@ component TextLink {
     }
 }
 
+// A minimise / maximise / close button in the title bar.
+component WindowButton {
+    in property <image> icon;
+    in property <string> label;
+    in property <bool> close;
+    callback clicked;
+
+    accessible-role: button;
+    accessible-label: root.label;
+    accessible-action-default => {
+        root.clicked();
+    }
+    width: 46px;
+
+    Rectangle {
+        background: !ta.has-hover ? transparent : root.close ? (ta.pressed ? #a3261a : #c42b1c) : (ta.pressed ? Theme.raised-hover : Theme.raised);
+    }
+
+    Icon {
+        source: root.icon;
+        width: 14px;
+        height: 14px;
+        tint: ta.has-hover && root.close ? #ffffff : Theme.text-muted;
+    }
+
+    ta := TouchArea {
+        clicked => {
+            root.clicked();
+        }
+    }
+}
+
+// A labelled control in the bottom bar: what it is, and what it's set to.
+component FooterControl {
+    in property <string> label;
+    in property <string> value;
+    in property <string> empty;
+    in property <image> icon;
+    in property <bool> align-right;
+    callback clicked;
+
+    accessible-role: button;
+    accessible-label: root.label + ": " + (root.value == "" ? root.empty : root.value);
+    accessible-action-default => {
+        root.clicked();
+    }
+
+    Rectangle {
+        border-radius: Theme.radius;
+        background: ta.pressed ? Theme.raised-hover : ta.has-hover ? Theme.raised : Theme.surface;
+        border-width: 1px;
+        border-color: ta.has-hover ? Theme.accent : Theme.line-strong;
+    }
+
+    HorizontalLayout {
+        padding-left: 10px;
+        padding-right: 10px;
+        padding-top: 6px;
+        padding-bottom: 6px;
+        spacing: 10px;
+        alignment: root.align-right ? LayoutAlignment.end : LayoutAlignment.start;
+
+        VerticalLayout {
+            alignment: center;
+            Icon {
+                source: root.icon;
+                width: 16px;
+                height: 16px;
+                tint: Theme.accent;
+            }
+        }
+
+        VerticalLayout {
+            spacing: 1px;
+            Text {
+                text: root.label;
+                font-size: Theme.size-tiny;
+                color: Theme.text-faint;
+                horizontal-alignment: root.align-right ? right : left;
+            }
+
+            Text {
+                text: root.value == "" ? root.empty : root.value;
+                font-size: Theme.size-body;
+                font-weight: root.value == "" ? 600 : 400;
+                color: root.value == "" ? Theme.accent : Theme.text;
+                overflow: elide;
+                horizontal-alignment: root.align-right ? right : left;
+            }
+        }
+    }
+
+    ta := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            root.clicked();
+        }
+    }
+}
+
 export component MainWindow inherits Window {
     title: "Luna";
     icon: @image-url("assets/luna-icon.png");
+    no-frame: true;
     min-width: 720px;
     min-height: 560px;
     preferred-width: 880px;
@@ -68,6 +170,8 @@ export component MainWindow inherits Window {
     in property <string> open-error;
     in property <string> header-production;
     in property <string> header-company;
+    in-out property <bool> settings-open;
+    in property <bool> is-maximized;
 
     callback pick-folder();
     callback start();
@@ -79,15 +183,22 @@ export component MainWindow inherits Window {
     callback new-report();
     callback back();
     callback open-settings();
-    callback open-credits();
+    callback change-output();
+    callback drag-window();
+    callback toggle-maximized();
+    callback minimize();
+    callback close-window();
+    // 0 north, 1 south, 2 east, 3 west, 4 north-east, 5 north-west,
+    // 6 south-east, 7 south-west.
+    callback resize-window(int);
 
-    property <bool> waiting: root.phase == Phase.idle || root.phase == Phase.picked;
+    property <bool> waiting: (root.phase == Phase.idle || root.phase == Phase.picked) && !root.settings-open;
     // The engraved Moon, drawn live by `moon.rs`: the image is square, the
     // Moon takes 72% of it and the orbit dial 84%.
     in property <image> moon-image;
     out property <length> moon-box: 300px;
 
-    // The whole window takes a click to choose a folder while Luna waits for one.
+    // The window takes a click anywhere to choose a folder while Luna waits.
     if root.waiting: TouchArea {
         mouse-cursor: pointer;
         clicked => {
@@ -96,235 +207,377 @@ export component MainWindow inherits Window {
     }
 
     VerticalLayout {
-        padding: 22px;
-        padding-top: 18px;
-
-        // Top line: Luna's logo, and Settings.
-        HorizontalLayout {
-            spacing: 10px;
-            VerticalLayout {
-                alignment: center;
-                Image {
-                    source: @image-url("assets/luna-icon.png");
-                    width: 22px;
-                    height: 22px;
+        // Title bar: drag to move, double-click to maximise.
+        Rectangle {
+            height: 44px;
+            title-ta := TouchArea {
+                pointer-event(event) => {
+                    if (event.kind == PointerEventKind.down && event.button == PointerEventButton.left) {
+                        root.drag-window();
+                    }
+                }
+                double-clicked => {
+                    root.toggle-maximized();
                 }
             }
 
-            Text {
-                text: "Luna";
-                font-size: Theme.size-lead;
-                font-weight: 600;
-                color: Theme.text;
-                vertical-alignment: center;
-            }
+            HorizontalLayout {
+                padding-left: 16px;
+                spacing: 10px;
 
-            Rectangle {
-                horizontal-stretch: 1;
-            }
+                // The logo, glowing softly in its own blue.
+                VerticalLayout {
+                    alignment: center;
+                    Rectangle {
+                        width: 24px;
+                        height: 24px;
+                        Rectangle {
+                            width: 54px;
+                            height: 54px;
+                            background: @radial-gradient(circle, #79caea8c 0%, #79caea40 30%, #79caea12 55%, #79caea00 72%);
+                        }
 
-            IconButton {
-                icon: @image-url("icons/gear-six.svg");
-                label: "Settings";
-                clicked => {
-                    root.open-settings();
+                        Image {
+                            source: @image-url("assets/luna-icon.png");
+                            width: 22px;
+                            height: 22px;
+                        }
+                    }
+                }
+
+                Text {
+                    text: "Luna";
+                    font-size: Theme.size-lead;
+                    font-weight: 600;
+                    color: Theme.text;
+                    vertical-alignment: center;
+                }
+
+                Rectangle {
+                    horizontal-stretch: 1;
+                }
+
+                VerticalLayout {
+                    alignment: center;
+                    padding-right: 6px;
+                    IconButton {
+                        icon: @image-url("icons/gear-six.svg");
+                        label: "Settings";
+                        clicked => {
+                            root.open-settings();
+                        }
+                    }
+                }
+
+                WindowButton {
+                    icon: @image-url("icons/minus.svg");
+                    label: "Minimise";
+                    clicked => {
+                        root.minimize();
+                    }
+                }
+
+                WindowButton {
+                    icon: root.is-maximized ? @image-url("icons/copy.svg") : @image-url("icons/square.svg");
+                    label: root.is-maximized ? "Restore" : "Maximise";
+                    clicked => {
+                        root.toggle-maximized();
+                    }
+                }
+
+                WindowButton {
+                    icon: @image-url("icons/x.svg");
+                    label: "Close";
+                    close: true;
+                    clicked => {
+                        root.close-window();
+                    }
                 }
             }
         }
 
-        Rectangle {
+        if root.settings-open: SettingsView {
             vertical-stretch: 1;
         }
 
-        // The moon.
-        HorizontalLayout {
-            alignment: center;
+        if !root.settings-open: VerticalLayout {
+            vertical-stretch: 1;
+            padding-left: 22px;
+            padding-right: 22px;
+            padding-bottom: 16px;
+
             Rectangle {
-                width: root.moon-box;
-                height: root.moon-box;
-
-                Image {
-                    width: parent.width;
-                    height: parent.height;
-                    source: root.moon-image;
-                    image-fit: contain;
-                    accessible-role: none;
-                }
-
-                // A blue ring on the dial while a folder is held over the window.
-                Rectangle {
-                    width: root.moon-box * 0.86;
-                    height: self.width;
-                    border-radius: self.width / 2;
-                    border-width: 2px;
-                    border-color: root.drag-hover ? Theme.accent : transparent;
-                    animate border-color { duration: 150ms; }
-                }
-            }
-        }
-
-        Rectangle {
-            height: 12px;
-        }
-
-        // What is happening, in one line, and its detail.
-        VerticalLayout {
-            spacing: 8px;
-            Text {
-                text: root.phase == Phase.idle ? (root.drag-hover ? "Release to use this folder" : "Drop a camera folder")
-                    : root.phase == Phase.picked ? root.source-name
-                    : root.phase == Phase.running ? (root.cancelling ? "Stopping"
-                        : root.indeterminate ? "Looking for clips"
-                        : root.clips-done + " of " + root.clips-total + " clips")
-                    : root.phase == Phase.done ? "Report ready"
-                    : root.phase == Phase.failed ? "Report not written"
-                    : "Cancelled";
-                font-size: Theme.size-title;
-                font-weight: 600;
-                color: Theme.text;
-                horizontal-alignment: center;
-                overflow: elide;
+                vertical-stretch: 1;
             }
 
-            Text {
-                text: root.phase == Phase.idle ? "or click anywhere to choose one"
-                    : root.phase == Phase.picked ? root.source
-                    : root.phase == Phase.running ? (root.has-problems ? root.problems + " need attention" : root.source)
-                    : root.phase == Phase.done ? root.summary
-                    : root.phase == Phase.failed ? root.failure
-                    : "Nothing was written.";
-                font-size: Theme.size-body;
-                color: (root.phase == Phase.running && root.has-problems)
-                    || (root.phase == Phase.done && root.has-problems)
-                    || root.phase == Phase.failed ? Theme.problem : Theme.text-faint;
-                horizontal-alignment: center;
-                wrap: word-wrap;
-            }
-
-            if root.source-error != "" && root.phase == Phase.idle: HorizontalLayout {
+            // The moon.
+            HorizontalLayout {
                 alignment: center;
+                Rectangle {
+                    width: root.moon-box;
+                    height: root.moon-box;
+
+                    Image {
+                        width: parent.width;
+                        height: parent.height;
+                        source: root.moon-image;
+                        image-fit: contain;
+                        accessible-role: none;
+                    }
+
+                    // A blue ring on the dial while a folder is held over the window.
+                    Rectangle {
+                        width: root.moon-box * 0.86;
+                        height: self.width;
+                        border-radius: self.width / 2;
+                        border-width: 2px;
+                        border-color: root.drag-hover ? Theme.accent : transparent;
+                        animate border-color { duration: 150ms; }
+                    }
+                }
+            }
+
+            Rectangle {
+                height: 12px;
+            }
+
+            // What is happening, in one line, and its detail.
+            VerticalLayout {
+                spacing: 8px;
+                Text {
+                    text: root.phase == Phase.idle ? (root.drag-hover ? "Release to use this folder" : "Drop a camera folder")
+                        : root.phase == Phase.picked ? root.source-name
+                        : root.phase == Phase.running ? (root.cancelling ? "Stopping"
+                            : root.indeterminate ? "Looking for clips"
+                            : root.clips-done + " of " + root.clips-total + " clips")
+                        : root.phase == Phase.done ? "Report ready"
+                        : root.phase == Phase.failed ? "Report not written"
+                        : "Cancelled";
+                    font-size: Theme.size-title;
+                    font-weight: 600;
+                    color: Theme.text;
+                    horizontal-alignment: center;
+                    overflow: elide;
+                }
+
+                Text {
+                    text: root.phase == Phase.idle ? "or click anywhere to choose one"
+                        : root.phase == Phase.picked ? root.source
+                        : root.phase == Phase.running ? (root.has-problems ? root.problems + " need attention" : root.source)
+                        : root.phase == Phase.done ? root.summary
+                        : root.phase == Phase.failed ? root.failure
+                        : "Nothing was written.";
+                    font-size: Theme.size-body;
+                    color: (root.phase == Phase.running && root.has-problems)
+                        || (root.phase == Phase.done && root.has-problems)
+                        || root.phase == Phase.failed ? Theme.problem : Theme.text-faint;
+                    horizontal-alignment: center;
+                    wrap: word-wrap;
+                }
+
+                if root.source-error != "" && root.phase == Phase.idle: HorizontalLayout {
+                    alignment: center;
+                    ErrorLine {
+                        max-width: 420px;
+                        text: root.source-error;
+                    }
+                }
+            }
+
+            Rectangle {
+                height: 24px;
+            }
+
+            // The next step.
+            HorizontalLayout {
+                alignment: center;
+                spacing: 12px;
+                height: 34px;
+
+                if root.phase == Phase.picked: LunaButton {
+                    text: "Create report";
+                    kind: ButtonKind.primary;
+                    large: true;
+                    clicked => {
+                        root.start();
+                    }
+                }
+                if root.phase == Phase.picked: LunaButton {
+                    text: "Change folder";
+                    icon: @image-url("icons/folder-open.svg");
+                    kind: ButtonKind.quiet;
+                    large: true;
+                    clicked => {
+                        root.pick-folder();
+                    }
+                }
+
+                if root.phase == Phase.running: LunaButton {
+                    text: root.cancelling ? "Stopping" : "Cancel";
+                    enabled: !root.cancelling;
+                    large: true;
+                    clicked => {
+                        root.cancel();
+                    }
+                }
+
+                if root.phase == Phase.done: LunaButton {
+                    text: "Open PDF";
+                    kind: ButtonKind.primary;
+                    large: true;
+                    clicked => {
+                        root.open-pdf();
+                    }
+                }
+                if root.phase == Phase.done: LunaButton {
+                    text: "New report";
+                    icon: @image-url("icons/plus.svg");
+                    large: true;
+                    clicked => {
+                        root.new-report();
+                    }
+                }
+
+                if root.phase == Phase.failed || root.phase == Phase.cancelled: LunaButton {
+                    text: "Back";
+                    large: true;
+                    clicked => {
+                        root.back();
+                    }
+                }
+            }
+
+            // The rest of what was written.
+            if root.phase == Phase.done: HorizontalLayout {
+                alignment: center;
+                spacing: 18px;
+                padding-top: 12px;
+                TextLink {
+                    text: "Open HTML";
+                    clicked => {
+                        root.open-html();
+                    }
+                }
+
+                TextLink {
+                    text: "Open CSV";
+                    clicked => {
+                        root.open-csv();
+                    }
+                }
+
+                TextLink {
+                    text: "Show in folder";
+                    clicked => {
+                        root.show-folder();
+                    }
+                }
+            }
+
+            if root.open-error != "": HorizontalLayout {
+                alignment: center;
+                padding-top: 10px;
                 ErrorLine {
                     max-width: 420px;
-                    text: root.source-error;
-                }
-            }
-        }
-
-        Rectangle {
-            height: 26px;
-        }
-
-        // The one next step, and its quiet alternatives.
-        HorizontalLayout {
-            alignment: center;
-            spacing: 18px;
-            height: 34px;
-
-            if root.phase == Phase.picked: LunaButton {
-                text: "Create report";
-                kind: ButtonKind.primary;
-                large: true;
-                clicked => {
-                    root.start();
-                }
-            }
-            if root.phase == Phase.picked: TextLink {
-                text: "Change folder";
-                clicked => {
-                    root.pick-folder();
-                }
-            }
-
-            if root.phase == Phase.running: LunaButton {
-                text: root.cancelling ? "Stopping" : "Cancel";
-                enabled: !root.cancelling;
-                large: true;
-                clicked => {
-                    root.cancel();
-                }
-            }
-
-            if root.phase == Phase.done: LunaButton {
-                text: "Open PDF";
-                kind: ButtonKind.primary;
-                large: true;
-                clicked => {
-                    root.open-pdf();
-                }
-            }
-            if root.phase == Phase.done: TextLink {
-                text: "HTML";
-                clicked => {
-                    root.open-html();
-                }
-            }
-            if root.phase == Phase.done: TextLink {
-                text: "CSV";
-                clicked => {
-                    root.open-csv();
-                }
-            }
-            if root.phase == Phase.done: TextLink {
-                text: "Show in folder";
-                clicked => {
-                    root.show-folder();
-                }
-            }
-
-            if root.phase == Phase.failed || root.phase == Phase.cancelled: LunaButton {
-                text: "Back";
-                large: true;
-                clicked => {
-                    root.back();
-                }
-            }
-        }
-
-        if root.open-error != "": HorizontalLayout {
-            alignment: center;
-            padding-top: 10px;
-            ErrorLine {
-                max-width: 420px;
-                text: root.open-error;
-            }
-        }
-
-        Rectangle {
-            vertical-stretch: 1;
-        }
-
-        // Bottom line: which report this is, and where it goes.
-        HorizontalLayout {
-            spacing: 16px;
-            TextLink {
-                text: root.header-production == "" ? "No production set" : root.header-production;
-                color: Theme.text-faint;
-                clicked => {
-                    root.open-settings();
+                    text: root.open-error;
                 }
             }
 
             Rectangle {
-                horizontal-stretch: 1;
+                vertical-stretch: 1;
             }
 
-            if root.phase == Phase.done: TextLink {
-                text: "New report";
-                color: Theme.text-muted;
-                clicked => {
-                    root.new-report();
+            // Bottom bar: which production the report is for, and where it goes.
+            HorizontalLayout {
+                spacing: 16px;
+                FooterControl {
+                    label: "Production";
+                    value: root.header-production;
+                    empty: "Add production";
+                    icon: @image-url("icons/pencil-simple.svg");
+                    max-width: 320px;
+                    clicked => {
+                        root.open-settings();
+                    }
+                }
+
+                Rectangle {
+                    horizontal-stretch: 1;
+                }
+
+                FooterControl {
+                    label: "Destination";
+                    value: root.output-dir;
+                    empty: "Choose a folder";
+                    icon: @image-url("icons/folder-open.svg");
+                    align-right: true;
+                    max-width: 420px;
+                    clicked => {
+                        root.change-output();
+                    }
                 }
             }
+        }
+    }
 
-            if root.phase != Phase.done: Text {
-                text: root.output-dir;
-                font-size: Theme.size-body;
-                color: Theme.text-faint;
-                horizontal-alignment: right;
-                vertical-alignment: center;
-                overflow: elide;
-                max-width: 360px;
-            }
+    // Edges and corners for resizing, since the window has no system frame.
+    if !root.is-maximized: Rectangle {
+        property <length> edge: 5px;
+        TouchArea {
+            y: 0;
+            height: parent.edge;
+            mouse-cursor: MouseCursor.n-resize;
+            pointer-event(e) => { if (e.kind == PointerEventKind.down) { root.resize-window(0); } }
+        }
+        TouchArea {
+            y: parent.height - parent.edge;
+            height: parent.edge;
+            mouse-cursor: MouseCursor.s-resize;
+            pointer-event(e) => { if (e.kind == PointerEventKind.down) { root.resize-window(1); } }
+        }
+        TouchArea {
+            x: parent.width - parent.edge;
+            width: parent.edge;
+            mouse-cursor: MouseCursor.e-resize;
+            pointer-event(e) => { if (e.kind == PointerEventKind.down) { root.resize-window(2); } }
+        }
+        TouchArea {
+            x: 0;
+            width: parent.edge;
+            mouse-cursor: MouseCursor.w-resize;
+            pointer-event(e) => { if (e.kind == PointerEventKind.down) { root.resize-window(3); } }
+        }
+        TouchArea {
+            x: parent.width - parent.edge * 2;
+            y: 0;
+            width: parent.edge * 2;
+            height: parent.edge * 2;
+            mouse-cursor: MouseCursor.ne-resize;
+            pointer-event(e) => { if (e.kind == PointerEventKind.down) { root.resize-window(4); } }
+        }
+        TouchArea {
+            x: 0;
+            y: 0;
+            width: parent.edge * 2;
+            height: parent.edge * 2;
+            mouse-cursor: MouseCursor.nw-resize;
+            pointer-event(e) => { if (e.kind == PointerEventKind.down) { root.resize-window(5); } }
+        }
+        TouchArea {
+            x: parent.width - parent.edge * 2;
+            y: parent.height - parent.edge * 2;
+            width: parent.edge * 2;
+            height: parent.edge * 2;
+            mouse-cursor: MouseCursor.se-resize;
+            pointer-event(e) => { if (e.kind == PointerEventKind.down) { root.resize-window(6); } }
+        }
+        TouchArea {
+            x: 0;
+            y: parent.height - parent.edge * 2;
+            width: parent.edge * 2;
+            height: parent.edge * 2;
+            mouse-cursor: MouseCursor.sw-resize;
+            pointer-event(e) => { if (e.kind == PointerEventKind.down) { root.resize-window(7); } }
         }
     }
 }
