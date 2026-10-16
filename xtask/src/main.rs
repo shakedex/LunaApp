@@ -1,8 +1,8 @@
 //! Luna's build tasks: `cargo xtask <task>` (`cargo xtask` lists them).
 //!
 //! The same commands serve day-to-day development (`check`), a local build to
-//! try (`package`), the installers people download (`installer`), and cutting
-//! a version (`release`). Windows builds `Luna-<version>-windows-x64-setup.exe`
+//! try (`package`), the installers people download (`installer`), cutting a
+//! version (`release`) and putting it on GitHub (`publish`). Windows builds `Luna-<version>-windows-x64-setup.exe`
 //! with Inno Setup; macOS builds `Luna-<version>-macos.dmg` with Apple's tools.
 
 use std::env;
@@ -18,6 +18,8 @@ Luna build tasks
   cargo xtask installer         package, then build the installer into dist/
   cargo xtask release <bump>    check, set the version, build the installer,
                                 commit and tag. <bump>: patch, minor or 0.4.0
+  cargo xtask publish           push the release tag and upload this machine's
+                                installer to its GitHub release
 
 Inputs (environment variables, each with a default):
   BRAW_SDK_DIR         Blackmagic RAW SDK install
@@ -34,6 +36,7 @@ fn main() -> ExitCode {
         Some("check") => check(),
         Some("package") => package().map(|_| ()),
         Some("installer") => installer().map(|_| ()),
+        Some("publish") => publish(),
         Some("release") => match args.get(1) {
             Some(bump) => release(bump),
             None => Err("release needs a bump: patch, minor or a version like 0.4.0".into()),
@@ -160,9 +163,63 @@ fn release(bump: &str) -> Result {
     }
     println!(
         "\nReleased {tag} locally (nothing pushed).\n\
-         Publish:  git push origin HEAD {tag}\n\
-         Mac:      git fetch --tags && git checkout {tag} && cargo xtask installer"
+         Publish:  cargo xtask publish\n\
+         Mac:      git fetch --tags && git checkout {tag} && cargo xtask installer && cargo xtask publish"
     );
+    Ok(())
+}
+
+/// Pushes the tag for the current version and uploads this machine's
+/// installer to that tag's GitHub release, creating the release if needed.
+/// Run once per platform; uploading again replaces the file.
+fn publish() -> Result {
+    let version = version()?;
+    let tag = format!("v{version}");
+    let tagged = output(Command::new("git").args(["rev-parse", &format!("{tag}^{{commit}}")]))
+        .map_err(|_| format!("no tag {tag}; run `cargo xtask release <bump>` first"))?;
+    let head = output(Command::new("git").args(["rev-parse", "HEAD"]))?;
+    if tagged.trim() != head.trim() {
+        return Err(format!("HEAD isn't {tag}; check it out first"));
+    }
+    let file = root().join("dist").join(if cfg!(target_os = "macos") {
+        format!("Luna-{version}-macos.dmg")
+    } else {
+        format!("Luna-{version}-windows-x64-setup.exe")
+    });
+    let file = require(file).map_err(|e| format!("{e}\nrun `cargo xtask installer` first"))?;
+
+    step(&format!("Publishing {tag}"));
+    let branch = output(Command::new("git").args(["branch", "--show-current"]))?;
+    if !branch.trim().is_empty() {
+        run(Command::new("git").args(["push", "origin", branch.trim()]))?;
+    }
+    run(Command::new("git").args(["push", "origin", &format!("refs/tags/{tag}")]))?;
+    let exists = Command::new("gh")
+        .args(["release", "view", &tag])
+        .current_dir(root())
+        .output()
+        .map_err(|e| format!("gh: {e}"))?
+        .status
+        .success();
+    if exists {
+        run(Command::new("gh")
+            .args(["release", "upload", &tag, "--clobber"])
+            .arg(&file)
+            .current_dir(root()))?;
+    } else {
+        run(Command::new("gh")
+            .args([
+                "release",
+                "create",
+                &tag,
+                "--verify-tag",
+                "--generate-notes",
+            ])
+            .args(["--title", &format!("Luna {version}")])
+            .arg(&file)
+            .current_dir(root()))?;
+    }
+    println!("Published {} to {tag}", file.display());
     Ok(())
 }
 
