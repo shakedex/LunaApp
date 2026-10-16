@@ -4,15 +4,18 @@
 //! Visualization Studio), baked by `tools/moon/bake_albedo.py`. Lines run
 //! along the Moon's latitude and thicken with the light on the surface; a
 //! second set cross-hatches the shade near the terminator; the night side is
-//! a sparse stipple of earthshine; an orbit dial of 72 ticks lights up with
-//! progress. Turning the Moon about its axis only shifts longitude, so the
-//! geometry is worked out once per size and each frame is a map lookup and a
-//! little arithmetic per sample. `tools/moon/engrave_proto.py` is the same
-//! model, for look development.
+//! a sparse stipple of earthshine, fixed to the surface so it turns with it;
+//! an orbit dial of 72 ticks lights up with progress. Turning the Moon about
+//! its axis only shifts longitude, so the geometry is worked out once per size
+//! and each frame is a map lookup and a little arithmetic per sample.
+//! `tools/moon/engrave_proto.py` is the same model, for look development.
+//!
+//! The image is premultiplied RGBA: the disc is opaque, and the halo, limb
+//! and dial are light added to whatever lies behind them.
 
 use std::f32::consts::{PI, TAU};
 
-use slint::{Rgb8Pixel, SharedPixelBuffer};
+use slint::{Rgba8Pixel, SharedPixelBuffer};
 
 const ALBEDO: &[u8] = include_bytes!("../assets/moon-albedo-1024x512.u16");
 const MAP_W: usize = 1024;
@@ -58,9 +61,8 @@ struct Disc {
     /// Distance to the nearest line, as a share of the line period.
     main: f32,
     cross: f32,
-    /// Stipple: the dot's coverage here, and the cell's random draw.
-    dot: f32,
-    draw: f32,
+    /// Samples per texel east-west here, for the stipple's dots.
+    east: f32,
     limb: f32,
 }
 
@@ -85,6 +87,11 @@ pub struct MoonRenderer {
     disc: Vec<Disc>,
     around: Vec<Around>,
     samples: Vec<[f32; 3]>,
+    /// Which samples lie on the disc, and so hide what's behind.
+    opaque: Vec<bool>,
+    /// Samples per texel north-south, and the stipple cell in texels.
+    north: f32,
+    cell: f32,
 }
 
 impl Default for MoonRenderer {
@@ -108,10 +115,13 @@ impl MoonRenderer {
             disc: Vec::new(),
             around: Vec::new(),
             samples: Vec::new(),
+            opaque: Vec::new(),
+            north: 1.0,
+            cell: 1.0,
         }
     }
 
-    /// The Moon as a `size`×`size` image on Luna's background, with
+    /// The Moon as a `size`×`size` premultiplied image, with
     /// `supersample`² samples per pixel (2 on ordinary screens, 1 on dense
     /// ones, whose pixels are already small).
     pub fn render(
@@ -119,7 +129,7 @@ impl MoonRenderer {
         size: u32,
         supersample: u32,
         frame: MoonFrame,
-    ) -> SharedPixelBuffer<Rgb8Pixel> {
+    ) -> SharedPixelBuffer<Rgba8Pixel> {
         let size = size.max(8);
         let ss = supersample.clamp(1, 4);
         if size != self.size || ss != self.ss {
@@ -150,8 +160,11 @@ impl MoonRenderer {
             let cross = line(d.cross, per_px * CROSS_STRETCH, shade * 0.3)
                 * (light * 10.0).clamp(0.0, 1.0)
                 * 0.8;
-            let night = mu0 <= 0.0 && d.draw < 0.015 + 0.06 * albedo;
-            let stipple = if night { d.dot } else { 0.0 };
+            let stipple = if mu0 <= 0.0 {
+                self.dot(d.u + shift, d.v, d.east, albedo)
+            } else {
+                0.0
+            };
 
             let s = &mut self.samples[d.index as usize];
             add(s, MOONLIGHT, (main + cross).clamp(0.0, 1.0));
@@ -190,13 +203,19 @@ impl MoonRenderer {
         let (sl, cl) = (-16f32).to_radians().sin_cos();
         let (sa, ca) = 58f32.to_radians().sin_cos();
         let period = LINE_PERIOD * ss as f32;
-        let cell = 4.0 * ss as f32;
         let limb_width = 0.7 * ss as f32;
+        // Samples per texel at the centre of the disc, either way.
+        let texel = r * TAU / MAP_W as f32;
 
         self.size = size;
         self.ss = ss;
+        self.north = texel;
+        // A dot every 4 pixels or so at the centre.
+        self.cell = 4.0 * ss as f32 / texel;
         self.disc.clear();
         self.around.clear();
+        self.opaque.clear();
+        self.opaque.resize(n * n, false);
         for y in 0..n {
             for x in 0..n {
                 let px = x as f32 + 0.5;
@@ -219,14 +238,7 @@ impl MoonRenderer {
                     let cross_axis = ca * sx + sa * sy;
                     let cross = (cross_axis * r + vz * 0.08 * r) / (period * CROSS_STRETCH);
 
-                    let ix = (px / cell).floor() as i64;
-                    let iy = (py / cell).floor() as i64;
-                    let jx = hash01(ix, iy);
-                    let jy = hash01(iy + 91, ix + 17);
-                    let dx = px - (ix as f32 + 0.2 + 0.6 * jx) * cell;
-                    let dy = py - (iy as f32 + 0.2 + 0.6 * jy) * cell;
-                    let dot = (1.2 * ss as f32 - (dx * dx + dy * dy).sqrt()).clamp(0.0, 1.0);
-
+                    self.opaque[index as usize] = true;
                     self.disc.push(Disc {
                         index,
                         u,
@@ -234,8 +246,7 @@ impl MoonRenderer {
                         n: [vx, vy, vz],
                         main: distance_to_line(main),
                         cross: distance_to_line(cross),
-                        dot,
-                        draw: hash01(ix + 5, iy + 3),
+                        east: texel * lat.cos(),
                         limb,
                     });
                 } else if rr < RING + 0.08 || limb > 0.0 {
@@ -263,6 +274,24 @@ impl MoonRenderer {
         }
     }
 
+    /// Earthshine stipple at a map position: one dot per cell of the map, so
+    /// the dots stay on the ground as the Moon turns. Brighter ground has more.
+    fn dot(&self, u: f32, v: f32, east: f32, albedo: f32) -> f32 {
+        let cu = u / self.cell;
+        let cv = v / self.cell;
+        let wrap = (MAP_W as f32 / self.cell).round() as i64;
+        let ix = (cu.floor() as i64).rem_euclid(wrap.max(1));
+        let iy = cv.floor() as i64;
+        if hash01(ix + 5, iy + 3) >= 0.015 + 0.06 * albedo {
+            return 0.0;
+        }
+        let jx = 0.2 + 0.6 * hash01(ix, iy);
+        let jy = 0.2 + 0.6 * hash01(iy + 91, ix + 17);
+        let dx = (cu - cu.floor() - jx) * self.cell * east;
+        let dy = (cv - cv.floor() - jy) * self.cell * self.north;
+        (1.2 * self.ss as f32 - (dx * dx + dy * dy).sqrt()).clamp(0.0, 1.0)
+    }
+
     /// Bilinear albedo at a map position, wrapping in longitude.
     fn sample(&self, u: f32, v: f32) -> f32 {
         let x0f = u.floor();
@@ -279,28 +308,37 @@ impl MoonRenderer {
         a * (1.0 - fy) + b * fy
     }
 
-    /// Averages the samples into pixels.
-    fn resolve(&self, size: u32) -> SharedPixelBuffer<Rgb8Pixel> {
+    /// Averages the samples into premultiplied pixels: disc samples are
+    /// opaque, the rest only the light they add.
+    fn resolve(&self, size: u32) -> SharedPixelBuffer<Rgba8Pixel> {
         let ss = self.ss as usize;
         let n = size as usize * ss;
-        let mut out = SharedPixelBuffer::<Rgb8Pixel>::new(size, size);
+        let mut out = SharedPixelBuffer::<Rgba8Pixel>::new(size, size);
         let pixels = out.make_mut_slice();
         let scale = 255.0 / (ss * ss) as f32;
         for py in 0..size as usize {
             for px in 0..size as usize {
-                let mut acc = [0.0f32; 3];
+                let mut acc = [0.0f32; 4];
                 for sy in 0..ss {
                     let row = (py * ss + sy) * n + px * ss;
-                    for s in &self.samples[row..row + ss] {
+                    for (s, &opaque) in self.samples[row..row + ss]
+                        .iter()
+                        .zip(&self.opaque[row..row + ss])
+                    {
                         for k in 0..3 {
-                            acc[k] += s[k].clamp(0.0, 1.0);
+                            let c = s[k].clamp(0.0, 1.0);
+                            acc[k] += if opaque { c } else { (c - BG[k]).max(0.0) };
                         }
+                        acc[3] += f32::from(u8::from(opaque));
                     }
                 }
-                pixels[py * size as usize + px] = Rgb8Pixel {
-                    r: (acc[0] * scale).round() as u8,
-                    g: (acc[1] * scale).round() as u8,
-                    b: (acc[2] * scale).round() as u8,
+                let alpha = (acc[3] * scale).round();
+                let channel = |v: f32| (v * scale).round().clamp(0.0, 255.0) as u8;
+                pixels[py * size as usize + px] = Rgba8Pixel {
+                    r: channel(acc[0]),
+                    g: channel(acc[1]),
+                    b: channel(acc[2]),
+                    a: alpha as u8,
                 };
             }
         }
@@ -340,7 +378,7 @@ fn hash01(ix: i64, iy: i64) -> f32 {
 mod tests {
     use super::*;
 
-    fn brightness(img: &SharedPixelBuffer<Rgb8Pixel>, x: u32, y: u32, half: u32) -> f32 {
+    fn brightness(img: &SharedPixelBuffer<Rgba8Pixel>, x: u32, y: u32, half: u32) -> f32 {
         let w = img.width();
         let px = img.as_slice();
         let mut sum = 0.0;
@@ -394,7 +432,7 @@ mod tests {
         let ring_x = 100 + (200.0 * RADIUS * RING) as u32;
         let before = m.render(200, 2, frame(0.3, 0.1));
         let after = m.render(200, 2, frame(0.3, 0.4));
-        let blue = |img: &SharedPixelBuffer<Rgb8Pixel>| {
+        let blue = |img: &SharedPixelBuffer<Rgba8Pixel>| {
             let w = img.width();
             (96..104)
                 .flat_map(|y| (ring_x - 3..ring_x + 3).map(move |x| (x, y)))
@@ -418,5 +456,45 @@ mod tests {
             },
         );
         assert_ne!(a.as_slice(), b.as_slice());
+    }
+
+    #[test]
+    fn the_disc_is_opaque_and_the_corners_clear() {
+        let mut m = MoonRenderer::new();
+        let img = m.render(160, 2, frame(0.3, 0.0));
+        let px = img.as_slice();
+        assert_eq!(px[80 * 160 + 80].a, 255);
+        assert_eq!(
+            px[0],
+            Rgba8Pixel {
+                r: 0,
+                g: 0,
+                b: 0,
+                a: 0
+            }
+        );
+    }
+
+    #[test]
+    fn the_night_side_turns_with_the_moon() {
+        // A thin crescent: almost all of the disc is night. Turning it must
+        // move the earthshine, not leave it standing on the screen.
+        let mut m = MoonRenderer::new();
+        let a = m.render(200, 2, frame(0.05, 0.0));
+        let b = m.render(
+            200,
+            2,
+            MoonFrame {
+                spin: 0.05,
+                ..frame(0.05, 0.0)
+            },
+        );
+        let left = |img: &SharedPixelBuffer<Rgba8Pixel>| -> Vec<u8> {
+            (60..140)
+                .flat_map(|y| (50..100).map(move |x| (x, y)))
+                .map(|(x, y)| img.as_slice()[y * 200 + x].b)
+                .collect()
+        };
+        assert_ne!(left(&a), left(&b));
     }
 }

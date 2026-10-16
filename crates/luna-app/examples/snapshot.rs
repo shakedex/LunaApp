@@ -6,6 +6,7 @@ use std::cell::RefCell;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
+use luna_app::backdrop::{BackdropRenderer, Sky, place_moon};
 use luna_app::moon::{MoonFrame, MoonRenderer};
 use luna_app::ui::{Component, CustomField, MainWindow, Phase, SettingsState};
 use slint::platform::software_renderer::{
@@ -64,8 +65,12 @@ fn main() {
 
     let size = (880, 640);
     let mut moon = MoonRenderer::new();
-    let screens: [(&str, Screen); 7] = [
+    let mut sky = BackdropRenderer::new();
+    let screens: [(&str, Screen); 8] = [
         ("1-idle", |_| {}),
+        ("1c-header-open", |m| {
+            m.set_header_open(true);
+        }),
         ("1b-drop-hover", |m| {
             m.set_drag_hover(true);
         }),
@@ -110,9 +115,24 @@ fn main() {
         );
         m.set_header_production("Night Shift".into());
         m.set_header_company("Lumen Rentals".into());
+        m.set_header_summary("Night Shift · Shoot day 12 · Unit Main".into());
+        m.set_header_fields(ModelRc::new(VecModel::from(vec![
+            CustomField {
+                label: "Shoot day".into(),
+                value: "12".into(),
+            },
+            CustomField {
+                label: "Unit".into(),
+                value: "Main".into(),
+            },
+        ])));
         setup(&m);
-        set_moon(&m, &mut moon, 0.0);
+        let spin = 0.0;
         m.show().unwrap();
+        platform
+            .last_window()
+            .set_size(PhysicalSize::new(size.0, size.1));
+        draw(&m, &mut moon, &mut sky, size, spin);
         snap(
             &platform.last_window(),
             size,
@@ -127,6 +147,7 @@ fn main() {
         .ok()
         .and_then(|v| v.parse().ok())
         .unwrap_or(0);
+    let idle = std::env::var_os("LUNA_MOTION_IDLE").is_some();
     for i in 0..frames {
         let t = i as f32 / (frames.max(2) - 1) as f32;
         let m = MainWindow::new().unwrap();
@@ -134,14 +155,23 @@ fn main() {
         m.set_source(r"D:\SHOOT_DAY_12\CAMERA".into());
         m.set_source_name("SHOOT_DAY_12".into());
         m.set_header_production("Night Shift".into());
-        m.set_phase(Phase::Running);
-        let done = (t * 25.0).round() as u32;
-        m.set_clips_done(done.to_string().into());
-        m.set_clips_total("25".into());
-        m.set_progress(t);
-        // Several turns' worth of spin over the clip, so the motion shows.
-        set_moon(&m, &mut moon, t * 1.4);
+        // LUNA_MOTION_IDLE: Luna waiting, at the app's own speed and 15 fps.
+        let spin = if idle {
+            i as f32 / 15.0 / 90.0 * std::f32::consts::TAU
+        } else {
+            m.set_phase(Phase::Running);
+            let done = (t * 25.0).round() as u32;
+            m.set_clips_done(done.to_string().into());
+            m.set_clips_total("25".into());
+            m.set_progress(t);
+            // Several turns' worth of spin over the clip, so the motion shows.
+            t * 1.4
+        };
         m.show().unwrap();
+        platform
+            .last_window()
+            .set_size(PhysicalSize::new(size.0, size.1));
+        draw(&m, &mut moon, &mut sky, size, spin);
         snap(
             &platform.last_window(),
             size,
@@ -155,7 +185,7 @@ fn main() {
         let m = MainWindow::new().unwrap();
         m.set_output_dir(r"C:\Users\dana\Documents\Luna Reports".into());
         m.set_header_production("Night Shift".into());
-        set_moon(&m, &mut moon, 0.0);
+        let spin = 0.0;
         let state = m.global::<SettingsState>();
         state.set_production("Night Shift".into());
         state.set_company("Lumen Rentals".into());
@@ -181,6 +211,10 @@ fn main() {
         ])));
         m.set_settings_open(true);
         m.show().unwrap();
+        platform
+            .last_window()
+            .set_size(PhysicalSize::new(size.0, size.1));
+        draw(&m, &mut moon, &mut sky, size, spin);
         snap(
             &platform.last_window(),
             size,
@@ -190,17 +224,23 @@ fn main() {
     }
 }
 
-/// The Moon as the app would draw it for this window's state.
-fn set_moon(m: &MainWindow, moon: &mut MoonRenderer, spin: f32) {
+/// The sky and the Moon as the app would draw them for this window's state,
+/// once it's laid out. The sky turns with the Moon, much more slowly.
+fn draw(
+    m: &MainWindow,
+    moon: &mut MoonRenderer,
+    sky: &mut BackdropRenderer,
+    size: (u32, u32),
+    spin: f32,
+) {
     let progress = m.get_progress();
     let (lit, dial) = match m.get_phase() {
         Phase::Running => (0.08 + 0.92 * progress, progress),
         Phase::Done => (1.0, 1.0),
         _ => (0.08, 0.0),
     };
-    let size = m.get_moon_box() as u32;
-    let pixels = moon.render(
-        size,
+    let disc = moon.render(
+        m.get_moon_box() as u32,
         2,
         MoonFrame {
             lit,
@@ -208,5 +248,17 @@ fn set_moon(m: &MainWindow, moon: &mut MoonRenderer, spin: f32) {
             progress: dial,
         },
     );
-    m.set_moon_image(slint::Image::from_rgb8(pixels));
+    let centre = [m.get_moon_x(), m.get_moon_y()];
+    let mut pixels = sky.render(
+        Sky {
+            width: size.0,
+            height: size.1,
+            centre,
+            dial: m.get_moon_box() * 0.42,
+            scale: 1.0,
+        },
+        spin.to_degrees() * 0.25 * 90.0 / 360.0,
+    );
+    place_moon(&mut pixels, &disc, centre);
+    m.set_backdrop_image(slint::Image::from_rgb8(pixels));
 }

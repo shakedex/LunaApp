@@ -4,6 +4,7 @@
 //! (`flow`, `view`, `settings_edit`, `settings_store`, `backend`); `ui` binds
 //! them to the Slint components in `ui/`.
 
+pub mod backdrop;
 pub mod backend;
 pub mod core_backend;
 pub mod flow;

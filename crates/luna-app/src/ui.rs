@@ -15,6 +15,7 @@ use slint::winit_030::winit::event::WindowEvent;
 use slint::winit_030::{EventResult, WinitWindowAccessor};
 use slint::{ComponentHandle, ModelRc, SharedString, VecModel};
 
+use crate::backdrop::{BackdropRenderer, Sky, place_moon};
 use crate::backend::{RunBackend, RunControl, RunEvent};
 use crate::flow::{Flow, FlowState, validate_source};
 use crate::moon::{MoonFrame, MoonRenderer};
@@ -51,6 +52,7 @@ pub fn run(
         store,
         dialog_open: Cell::new(false),
         moon: RefCell::new(MoonMotion::new()),
+        header_fields: Rc::new(VecModel::default()),
         main,
     });
     App::wire(&app);
@@ -97,12 +99,16 @@ struct App {
     /// A native file dialog is open; ignore further requests until it closes.
     dialog_open: Cell<bool>,
     moon: RefCell<MoonMotion>,
+    /// The custom fields in the main window's header panel. Kept, not
+    /// replaced, so a value being typed keeps its field and focus.
+    header_fields: Rc<VecModel<CustomField>>,
 }
 
 /// The Moon's motion: it turns slowly, and its phase and dial ease toward the
 /// run's progress rather than jumping clip by clip.
 struct MoonMotion {
     renderer: MoonRenderer,
+    sky: BackdropRenderer,
     started: std::time::Instant,
     lit: f32,
     dial: f32,
@@ -110,6 +116,8 @@ struct MoonMotion {
 
 /// One turn of the Moon takes this long.
 const MOON_TURN_SECONDS: f32 = 90.0;
+/// The sky behind it turns this many degrees a second.
+const SKY_DEGREES_PER_SECOND: f32 = 0.25;
 /// A crescent, like the logo, while Luna waits.
 const MOON_WAITING: f32 = 0.08;
 
@@ -117,6 +125,7 @@ impl MoonMotion {
     fn new() -> Self {
         Self {
             renderer: MoonRenderer::new(),
+            sky: BackdropRenderer::new(),
             started: std::time::Instant::now(),
             lit: MOON_WAITING,
             dial: 0.0,
@@ -247,8 +256,28 @@ impl App {
         let supersample = if scale >= 1.5 { 1 } else { 2 };
         let mut moon = self.moon.borrow_mut();
         let frame = moon.step(lit, dial);
-        let pixels = moon.renderer.render(size, supersample, frame);
-        self.main.set_moon_image(slint::Image::from_rgb8(pixels));
+        // Settings covers the sky and the Moon; don't draw what can't be seen.
+        if self.main.get_settings_open() {
+            return;
+        }
+        let disc = moon.renderer.render(size, supersample, frame);
+        let window_size = window.size();
+        let centre = [
+            self.main.get_moon_x() * scale,
+            self.main.get_moon_y() * scale,
+        ];
+        let sky = Sky {
+            width: window_size.width,
+            height: window_size.height,
+            centre,
+            dial: self.main.get_moon_box() * 0.42 * scale,
+            scale,
+        };
+        let turn = moon.started.elapsed().as_secs_f32() * SKY_DEGREES_PER_SECOND;
+        let mut pixels = moon.sky.render(sky, turn);
+        place_moon(&mut pixels, &disc, centre);
+        self.main
+            .set_backdrop_image(slint::Image::from_rgb8(pixels));
     }
 
     fn render(&self) {
@@ -261,6 +290,20 @@ impl App {
             .set_header_production(settings.production.as_str().into());
         self.main
             .set_header_company(settings.company.as_str().into());
+        sync_fields(&self.header_fields, &settings.custom);
+        self.main
+            .set_header_summary(header_summary(&settings).into());
+    }
+
+    /// A value typed in the header panel is saved as it's typed.
+    fn edit_header(&self, edit: impl FnOnce(&mut Settings)) {
+        let mut settings = self.settings.borrow().clone();
+        edit(&mut settings);
+        match self.store.save(&settings) {
+            Ok(()) => *self.settings.borrow_mut() = settings,
+            Err(e) => crate::log::error(&format!("Couldn't save the report header: {e}")),
+        }
+        self.render();
     }
 
     /// The report theme switch saves at once; it has no draft to discard.
@@ -684,8 +727,69 @@ impl App {
             let f = unit(App::change_output);
             move || f(())
         });
+        m.set_header_fields(ModelRc::from(self.header_fields.clone()));
+        m.on_header_production_edited({
+            let f = with_app(self, |app, t: SharedString| {
+                app.edit_header(|s| s.production = t.into());
+            });
+            move |t| f(t)
+        });
+        m.on_header_field_edited({
+            let f = with_app(self, |app, (i, t): (i32, SharedString)| {
+                app.edit_header(|s| {
+                    if let Some(field) = s.custom.get_mut(i as usize) {
+                        field.1 = t.into();
+                    }
+                });
+            });
+            move |i, t| f((i, t))
+        });
         self.settings_state()
             .set_credits(ModelRc::new(VecModel::from(credits())));
+    }
+}
+
+/// "Night Shift · Shoot day 12 · Unit Main": the filled-in header values.
+fn header_summary(settings: &Settings) -> String {
+    let production = settings.production.trim();
+    let fields = settings.custom.iter().filter_map(|(label, value)| {
+        let value = value.trim();
+        (!value.is_empty()).then(|| format!("{} {value}", label.trim()))
+    });
+    (!production.is_empty())
+        .then(|| production.to_string())
+        .into_iter()
+        .chain(fields)
+        .collect::<Vec<_>>()
+        .join(" · ")
+}
+
+/// Brings `model` in line with `custom`, touching only the rows that differ.
+fn sync_fields(model: &VecModel<CustomField>, custom: &[(String, String)]) {
+    use slint::Model;
+    if model.row_count() != custom.len() {
+        model.set_vec(
+            custom
+                .iter()
+                .map(|(l, v)| CustomField {
+                    label: l.into(),
+                    value: v.into(),
+                })
+                .collect::<Vec<_>>(),
+        );
+        return;
+    }
+    for (i, (l, v)) in custom.iter().enumerate() {
+        let row = model.row_data(i).unwrap_or_default();
+        if row.label != l.as_str() || row.value != v.as_str() {
+            model.set_row_data(
+                i,
+                CustomField {
+                    label: l.into(),
+                    value: v.into(),
+                },
+            );
+        }
     }
 }
 
@@ -757,4 +861,27 @@ fn file_name(p: &Path) -> String {
     p.file_name()
         .map(|n| n.to_string_lossy().into_owned())
         .unwrap_or_else(|| p.display().to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn header_summary_joins_filled_values() {
+        let settings = Settings {
+            production: " Night Shift ".into(),
+            custom: vec![
+                ("Shoot day".into(), "12".into()),
+                ("Episode".into(), " ".into()),
+                ("Unit".into(), "Main".into()),
+            ],
+            ..Settings::default()
+        };
+        assert_eq!(
+            header_summary(&settings),
+            "Night Shift · Shoot day 12 · Unit Main"
+        );
+        assert_eq!(header_summary(&Settings::default()), "");
+    }
 }

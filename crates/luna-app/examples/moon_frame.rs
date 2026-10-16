@@ -24,8 +24,14 @@ fn main() {
         );
         let ms = start.elapsed().as_secs_f64() * 1000.0;
         let mut out = format!("P6\n{size} {size}\n255\n").into_bytes();
+        // Over Luna's background, as the window shows it.
+        let over = |c: u8, bg: u32, a: u8| (c as u32 + bg * (255 - a as u32) / 255).min(255) as u8;
         for p in img.as_slice() {
-            out.extend([p.r, p.g, p.b]);
+            out.extend([
+                over(p.r, 0x0c, p.a),
+                over(p.g, 0x0f, p.a),
+                over(p.b, 0x14, p.a),
+            ]);
         }
         let name = format!("rust-{:03}.ppm", (lit * 100.0) as u32);
         std::fs::write(dir.join(&name), out).unwrap();

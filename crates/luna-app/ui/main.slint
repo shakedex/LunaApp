@@ -3,8 +3,8 @@
 // own title bar; Settings takes the moon's place while it's open.
 
 import { Theme } from "theme.slint";
-import { LunaButton, ButtonKind, ErrorLine, Icon, IconButton } from "controls.slint";
-import { SettingsView, SettingsState } from "settings.slint";
+import { LunaButton, ButtonKind, ErrorLine, Icon, IconButton, TextField } from "controls.slint";
+import { SettingsView, SettingsState, CustomField } from "settings.slint";
 
 export enum Phase { idle, picked, running, done, failed, cancelled }
 
@@ -135,6 +135,176 @@ component FooterControl {
     }
 }
 
+// What the report's header will say, bottom left. Collapsed it reads as one
+// line; expanded it grows upwards into a row per value, edited in place.
+component HeaderPanel inherits Rectangle {
+    in property <string> production;
+    // The production and every field value, joined for the collapsed bar.
+    in property <string> summary;
+    in property <[CustomField]> fields;
+    in property <bool> enabled: true;
+    in-out property <bool> open;
+    callback production-edited(string);
+    callback field-edited(int, string);
+    callback manage();
+
+    property <length> bar: 44px;
+    property <length> row-height: 40px;
+    property <int> rows: 1 + root.fields.length;
+    property <bool> expanded: root.open && root.enabled;
+
+    height: root.expanded ? root.bar + root.rows * root.row-height + 44px : root.bar;
+    animate height { duration: 180ms; easing: ease-out; }
+    clip: true;
+    border-radius: Theme.radius-large;
+    background: root.expanded ? Theme.surface : bar-ta.pressed ? Theme.raised-hover : bar-ta.has-hover ? Theme.raised : Theme.surface;
+    border-width: 1px;
+    border-color: !root.expanded && bar-ta.has-hover ? Theme.accent : Theme.line-strong;
+    accessible-role: groupbox;
+    accessible-label: "Report header";
+
+    // The values, above the bar.
+    VerticalLayout {
+        y: 0;
+        height: parent.height - root.bar;
+        alignment: end;
+        padding-left: 12px;
+        padding-right: 8px;
+        opacity: root.expanded ? 1 : 0;
+        animate opacity { duration: 140ms; }
+
+        HorizontalLayout {
+            height: 44px;
+            alignment: end;
+            VerticalLayout {
+                alignment: center;
+                LunaButton {
+                    text: "Edit fields";
+                    icon: @image-url("icons/sliders-horizontal.svg");
+                    kind: ButtonKind.quiet;
+                    clicked => {
+                        root.manage();
+                    }
+                }
+            }
+        }
+
+        HorizontalLayout {
+            height: root.row-height;
+            spacing: 12px;
+            padding-right: 4px;
+            Text {
+                width: 92px;
+                text: "Production";
+                color: Theme.text-muted;
+                vertical-alignment: center;
+                overflow: elide;
+            }
+
+            VerticalLayout {
+                alignment: center;
+                TextField {
+                    min-height: 32px;
+                    label: "Production";
+                    placeholder: "The Long Night";
+                    text: root.production;
+                    edited(t) => {
+                        root.production-edited(t);
+                    }
+                }
+            }
+        }
+
+        for field[i] in root.fields: HorizontalLayout {
+            height: root.row-height;
+            spacing: 12px;
+            padding-right: 4px;
+            Text {
+                width: 92px;
+                text: field.label;
+                color: Theme.text-muted;
+                vertical-alignment: center;
+                overflow: elide;
+            }
+
+            VerticalLayout {
+                alignment: center;
+                TextField {
+                    min-height: 32px;
+                    label: field.label;
+                    text: field.value;
+                    edited(t) => {
+                        root.field-edited(i, t);
+                    }
+                }
+            }
+        }
+    }
+
+    // The bar: what the header says now; click to open or close.
+    Rectangle {
+        y: parent.height - root.bar;
+        height: root.bar;
+        if root.expanded: Rectangle {
+            y: 0;
+            height: 1px;
+            background: Theme.line;
+        }
+
+        HorizontalLayout {
+            padding-left: 10px;
+            padding-right: 10px;
+            spacing: 10px;
+            VerticalLayout {
+                alignment: center;
+                Icon {
+                    source: @image-url("icons/pencil-simple.svg");
+                    width: 16px;
+                    height: 16px;
+                    tint: Theme.accent;
+                }
+            }
+
+            VerticalLayout {
+                alignment: center;
+                spacing: 1px;
+                horizontal-stretch: 1;
+                Text {
+                    text: "Report header";
+                    font-size: Theme.size-tiny;
+                    color: Theme.text-faint;
+                }
+
+                Text {
+                    text: root.summary == "" ? "Add production" : root.summary;
+                    font-size: Theme.size-body;
+                    font-weight: root.summary == "" ? 600 : 400;
+                    color: root.summary == "" ? Theme.accent : Theme.text;
+                    overflow: elide;
+                }
+            }
+
+            VerticalLayout {
+                alignment: center;
+                Icon {
+                    source: root.expanded ? @image-url("icons/caret-down.svg") : @image-url("icons/caret-up.svg");
+                    width: 14px;
+                    height: 14px;
+                    tint: root.enabled ? Theme.text-muted : Theme.line-strong;
+                }
+            }
+        }
+
+        bar-ta := TouchArea {
+            enabled: root.enabled;
+            mouse-cursor: root.enabled ? pointer : default;
+            clicked => {
+                root.open = !root.open;
+            }
+        }
+    }
+}
+
 export component MainWindow inherits Window {
     title: "Luna";
     icon: @image-url("assets/luna-icon.png");
@@ -170,6 +340,9 @@ export component MainWindow inherits Window {
     in property <string> open-error;
     in property <string> header-production;
     in property <string> header-company;
+    in property <[CustomField]> header-fields;
+    in property <string> header-summary;
+    in-out property <bool> header-open;
     in-out property <bool> settings-open;
     in property <bool> is-maximized;
 
@@ -184,6 +357,8 @@ export component MainWindow inherits Window {
     callback back();
     callback open-settings();
     callback change-output();
+    callback header-production-edited(string);
+    callback header-field-edited(int, string);
     callback drag-window();
     callback toggle-maximized();
     callback minimize();
@@ -193,16 +368,33 @@ export component MainWindow inherits Window {
     callback resize-window(int);
 
     property <bool> waiting: (root.phase == Phase.idle || root.phase == Phase.picked) && !root.settings-open;
-    // The engraved Moon, drawn live by `moon.rs`: the image is square, the
-    // Moon takes 72% of it and the orbit dial 84%.
-    in property <image> moon-image;
+    // The engraved Moon's square: the Moon takes 72% of it, the dial 84%.
     out property <length> moon-box: 300px;
+    // Where the Moon's centre is, for the sky drawn behind it.
+    out property <length> moon-x: moon-frame.absolute-position.x + moon-frame.width / 2;
+    out property <length> moon-y: moon-frame.absolute-position.y + moon-frame.height / 2;
+    // The star chart and the Moon on it, drawn live by `backdrop.rs` and
+    // `moon.rs` into one image behind everything.
+    in property <image> backdrop-image;
+    property <length> header-width: 320px;
+
+    Image {
+        width: parent.width;
+        height: parent.height;
+        source: root.backdrop-image;
+        image-fit: fill;
+        accessible-role: none;
+    }
 
     // The window takes a click anywhere to choose a folder while Luna waits.
     if root.waiting: TouchArea {
         mouse-cursor: pointer;
         clicked => {
-            root.pick-folder();
+            if (root.header-open) {
+                root.header-open = false;
+            } else {
+                root.pick-folder();
+            }
         }
     }
 
@@ -296,12 +488,11 @@ export component MainWindow inherits Window {
             }
         }
 
-        if root.settings-open: SettingsView {
+        // Kept laid out under Settings, so the Moon's place is always known.
+        Rectangle {
             vertical-stretch: 1;
-        }
-
-        if !root.settings-open: VerticalLayout {
-            vertical-stretch: 1;
+            visible: !root.settings-open;
+            VerticalLayout {
             padding-left: 22px;
             padding-right: 22px;
             padding-bottom: 16px;
@@ -313,17 +504,9 @@ export component MainWindow inherits Window {
             // The moon.
             HorizontalLayout {
                 alignment: center;
-                Rectangle {
+                moon-frame := Rectangle {
                     width: root.moon-box;
                     height: root.moon-box;
-
-                    Image {
-                        width: parent.width;
-                        height: parent.height;
-                        source: root.moon-image;
-                        image-fit: contain;
-                        accessible-role: none;
-                    }
 
                     // A blue ring on the dial while a folder is held over the window.
                     Rectangle {
@@ -490,15 +673,10 @@ export component MainWindow inherits Window {
             // Bottom bar: which production the report is for, and where it goes.
             HorizontalLayout {
                 spacing: 16px;
-                FooterControl {
-                    label: "Production";
-                    value: root.header-production;
-                    empty: "Add production";
-                    icon: @image-url("icons/pencil-simple.svg");
-                    max-width: 320px;
-                    clicked => {
-                        root.open-settings();
-                    }
+                // Room for the header panel, drawn over the window below.
+                Rectangle {
+                    width: root.header-width;
+                    height: 44px;
                 }
 
                 Rectangle {
@@ -517,6 +695,34 @@ export component MainWindow inherits Window {
                     }
                 }
             }
+            }
+        }
+    }
+
+    if root.settings-open: SettingsView {
+        y: 44px;
+        width: parent.width;
+        height: parent.height - 44px;
+    }
+
+    if !root.settings-open: HeaderPanel {
+        x: 22px;
+        y: root.height - 16px - self.height;
+        width: root.header-width;
+        production: root.header-production;
+        summary: root.header-summary;
+        fields: root.header-fields;
+        enabled: root.phase != Phase.running;
+        open <=> root.header-open;
+        production-edited(t) => {
+            root.header-production-edited(t);
+        }
+        field-edited(i, t) => {
+            root.header-field-edited(i, t);
+        }
+        manage => {
+            root.header-open = false;
+            root.open-settings();
         }
     }
 
