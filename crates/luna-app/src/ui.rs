@@ -71,18 +71,37 @@ pub fn run(
         },
     );
     app.main.show()?;
-    // Luna draws its own title bar; keep the system's shadow and rounded
-    // corners around the frameless window.
+    // Luna draws its own title bar; the system still draws the shadow, the
+    // rounded corners and the edge around the frameless window.
     #[cfg(windows)]
     {
-        use slint::winit_030::winit::platform::windows::WindowExtWindows;
-        let _ = app
-            .main
-            .window()
-            .with_winit_window(|w| w.set_undecorated_shadow(true));
+        use slint::winit_030::winit::platform::windows::{CornerPreference, WindowExtWindows};
+        let _ = app.main.window().with_winit_window(|w| {
+            w.set_undecorated_shadow(true);
+            w.set_corner_preference(CornerPreference::Round);
+        });
     }
+    set_edge(&app.main, true);
     slint::run_event_loop_until_quit()?;
     Ok(())
+}
+
+/// The window's edge: Luna blue while it has focus, quieter when it hasn't.
+fn set_edge(main: &MainWindow, focused: bool) {
+    #[cfg(windows)]
+    {
+        use slint::winit_030::winit::platform::windows::{Color, WindowExtWindows};
+        let colour = if focused {
+            Color::from_rgb(0x79, 0xca, 0xea)
+        } else {
+            Color::from_rgb(0x2b, 0x33, 0x41)
+        };
+        let _ = main
+            .window()
+            .with_winit_window(|w| w.set_border_color(Some(colour)));
+    }
+    #[cfg(not(windows))]
+    let _ = (main, focused);
 }
 
 struct App {
@@ -218,7 +237,17 @@ impl App {
 
         // Folders dragged onto the window.
         let on_drop = with_app(app, |a, event: WindowEvent| a.window_event(&event));
+        let weak = m.as_weak();
         m.window().on_winit_window_event(move |_, event| {
+            // Recolour after this event is handled, not from inside it.
+            if let WindowEvent::Focused(focused) = *event {
+                let weak = weak.clone();
+                let _ = slint::invoke_from_event_loop(move || {
+                    if let Some(main) = weak.upgrade() {
+                        set_edge(&main, focused);
+                    }
+                });
+            }
             if matches!(
                 event,
                 WindowEvent::HoveredFile(_)
