@@ -3636,6 +3636,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "luna-update"
+version = "0.0.0"
+dependencies = [
+ "base64 0.23.1",
+ "libloading 0.9.0",
+]
+
+[[package]]
 name = "luna-worker"
 version = "0.0.0"
 dependencies = [
