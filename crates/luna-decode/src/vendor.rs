@@ -3,8 +3,8 @@
 //! R3D add-on). `luna-formats` handles everything else.
 
 use luna_formats::{
-    ClipFiles, ClipMeta, Codec, ColourHint, Container, FormatError, FrameIndex, PictureLayout,
-    Probe, Rational, Timecode,
+    Audio, ClipFiles, ClipMeta, Codec, ColourHint, Container, FormatError, FrameIndex,
+    PictureLayout, Probe, Rational, Timecode,
 };
 
 use crate::r3d::{self, Value};
@@ -224,8 +224,12 @@ fn probe_r3d(clip: &ClipFiles) -> Result<Probe, FormatError> {
         _ => fps_rational(info.video_fps),
     };
     let tc_rate = fps_rational(info.timecode_fps).or(frame_rate);
-    let start_timecode =
-        r3d::Info::text(&info.start_absolute_timecode).and_then(|t| parse_timecode(&t, tc_rate));
+    let start_timecode = r3d_start_timecode(
+        int("user_timecode_preference"),
+        r3d::Info::text(&info.start_absolute_timecode),
+        r3d::Info::text(&info.start_edge_timecode),
+    )
+    .and_then(|t| parse_timecode(&t, tc_rate));
     let recording_date = text("local_date").map(|d| {
         let date = compact_date(&d);
         match text("local_time").map(|t| compact_time(&t)) {
@@ -273,7 +277,12 @@ fn probe_r3d(clip: &ClipFiles) -> Result<Probe, FormatError> {
             (Some(n), Some(d)) => rational(n, d),
             _ => None,
         },
-        audio: None,
+        audio: r3d_audio(
+            int("channel_mask"),
+            int("samplerate"),
+            int("sample_size"),
+            text("wav_filename").is_some(),
+        ),
         embedded_reel: text("reel_id_full"),
         embedded_camera_id: text("camera_id"),
         colour: r3d::HINT,
@@ -294,6 +303,46 @@ fn probe_r3d(clip: &ClipFiles) -> Result<Probe, FormatError> {
             .push("HDRx clip: thumbnails show the A track".into());
     }
     Ok(probe)
+}
+
+/// The start timecode on the track the camera was set to show
+/// (`user_timecode_preference`: 0 = edge / run record, 1 = absolute / external).
+/// Absolute when the preference is missing or unknown; the other track when the
+/// preferred one is empty.
+fn r3d_start_timecode(
+    preference: Option<u32>,
+    absolute: Option<String>,
+    edge: Option<String>,
+) -> Option<String> {
+    match preference {
+        Some(0) => edge.or(absolute),
+        _ => absolute.or(edge),
+    }
+}
+
+/// Embedded audio from RED's audio keys, which exist only when the clip has
+/// embedded audio (`channel_mask` bit n = channel n+1). Without them the clip
+/// has no embedded sound, unless the camera recorded a separate WAV
+/// (`wav_filename`): then the sound exists elsewhere, so it's unknown here.
+fn r3d_audio(
+    channel_mask: Option<u32>,
+    sample_rate: Option<u32>,
+    bits: Option<u32>,
+    separate_wav: bool,
+) -> Option<Audio> {
+    match channel_mask {
+        Some(mask) => Some(Audio {
+            channels: mask.count_ones(),
+            sample_rate,
+            bits,
+        }),
+        None if separate_wav => None,
+        None => Some(Audio {
+            channels: 0,
+            sample_rate: None,
+            bits: None,
+        }),
+    }
 }
 
 // ---------------------------------------------------------------- helpers
@@ -438,6 +487,38 @@ mod tests {
         for c in [Container::Crm, Container::Braw, Container::R3d] {
             assert!(matches!(vendor_probe(&files(c)), Some(Err(_))), "{c:?}");
         }
+    }
+
+    #[test]
+    fn r3d_start_timecode_follows_the_cameras_timecode_preference() {
+        let abs = Some("15:43:20:20".to_string());
+        let edge = Some("03:33:58:06".to_string());
+        // RMD_USER_TIMECODE_PREFERENCE: 0 = edge / run record, 1 = absolute / external.
+        assert_eq!(r3d_start_timecode(Some(0), abs.clone(), edge.clone()), edge);
+        assert_eq!(r3d_start_timecode(Some(1), abs.clone(), edge.clone()), abs);
+        // Missing or unknown preference: absolute, which RED guarantees to exist.
+        assert_eq!(r3d_start_timecode(None, abs.clone(), edge.clone()), abs);
+        assert_eq!(r3d_start_timecode(Some(7), abs.clone(), edge.clone()), abs);
+        // The preferred track is empty: fall back to the other one.
+        assert_eq!(r3d_start_timecode(Some(0), abs.clone(), None), abs);
+    }
+
+    #[test]
+    fn r3d_audio_from_embedded_audio_keys() {
+        // channel_mask bit n = channel n+1 enabled.
+        let a = r3d_audio(Some(0b0011), Some(48000), Some(24), false).unwrap();
+        assert_eq!(
+            (a.channels, a.sample_rate, a.bits),
+            (2, Some(48000), Some(24))
+        );
+        assert_eq!(
+            r3d_audio(Some(0b1111), None, None, false).unwrap().channels,
+            4
+        );
+        // RED writes these keys only when the clip has embedded audio.
+        assert_eq!(r3d_audio(None, None, None, false).unwrap().channels, 0);
+        // No embedded audio but the camera recorded a separate WAV: unknown, not "None".
+        assert_eq!(r3d_audio(None, None, None, true), None);
     }
 
     #[test]

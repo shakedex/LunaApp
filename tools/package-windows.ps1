@@ -31,9 +31,8 @@ if ($env:LUNA_R3D_ADDON -and $env:LUNA_R3D_SDK_DIR) {
     $addons = Join-Path $dist 'addons'
     New-Item -ItemType Directory -Force $addons | Out-Null
     Copy-Item $env:LUNA_R3D_ADDON (Join-Path $addons 'luna_r3d.dll')
-    foreach ($dll in 'REDR3D-x64.dll', 'REDDecoder-x64.dll') {
-        Copy-Item (Join-Path $env:LUNA_R3D_SDK_DIR $dll) $addons
-    }
+    # CPU decode only: RED's GPU libraries (REDDecoder, REDCuda, REDOpenCL) never load.
+    Copy-Item (Join-Path $env:LUNA_R3D_SDK_DIR 'REDR3D-x64.dll') $addons
 }
 
 Copy-Item (Join-Path $root 'LICENSE'), (Join-Path $root 'NOTICE'), (Join-Path $root 'DISCLAIMER.md') $dist

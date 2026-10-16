@@ -170,7 +170,25 @@ fn r3d_through_the_addon() {
     assert_eq!(p.meta.camera_model.as_deref(), Some("V-RAPTOR XE 8K VV"));
     assert_eq!(p.meta.frame_count, Some(284));
     assert_eq!(p.meta.embedded_reel.as_deref(), Some("A005_W055_0819CM"));
+    // user_timecode_preference = 1 (absolute) on this clip; edge is 03:33:58:06.
     assert_eq!(p.meta.start_timecode.unwrap().to_string(), "15:43:20:20");
+    assert_eq!(
+        p.meta.recording_date.as_deref(),
+        Some("2025-08-19 23:39:20")
+    );
+    assert_eq!(p.meta.iso.as_deref(), Some("800"));
+    assert_eq!(p.meta.white_balance.as_deref(), Some("5600 K"));
+    assert_eq!(p.meta.shutter.as_deref(), Some("288°"));
+    assert_eq!(p.meta.nd.as_deref(), Some("1.5"));
+    assert_eq!(
+        p.meta.sensor_fps,
+        Some(luna_formats::Rational {
+            num: 48000,
+            den: 1001
+        })
+    );
+    // Sound went to a separate WAV (wav_filename), so it's unknown, not "None".
+    assert_eq!(p.meta.audio, None);
     let out = decode_frames(&clip, &p, &[0, 142, 283], 640);
     for r in out {
         let f = r.unwrap();
