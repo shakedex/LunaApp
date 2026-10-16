@@ -9,6 +9,7 @@ use std::path::{Path, PathBuf};
 use std::rc::{Rc, Weak};
 use std::sync::{Arc, Mutex};
 
+use luna_core::run::RunRequest;
 use luna_core::settings::ReportTheme;
 use luna_core::settings::Settings;
 use slint::winit_030::winit::event::WindowEvent;
@@ -33,11 +34,14 @@ thread_local! {
 }
 
 /// Opens the main window and runs the event loop until it closes. With
-/// `check_updates`, a packaged build also starts the update library.
+/// `check_updates`, a packaged build also starts the update library. A
+/// `preset` (from `Luna.exe report …`) starts that run as soon as the window
+/// shows; an error in it opens the window idle, showing the error.
 pub fn run(
     backend: Arc<dyn RunBackend>,
     store: Rc<dyn SettingsStore>,
     check_updates: bool,
+    preset: Option<Result<RunRequest, String>>,
 ) -> Result<(), slint::PlatformError> {
     // winit is required for folder drops. The software renderer is the
     // default because the OpenGL (femtovg) one painted a blank white window on
@@ -66,6 +70,7 @@ pub fn run(
         header_fields: Rc::new(VecModel::default()),
         update: Cell::new(UpdateState::default()),
         updater: RefCell::new(None),
+        preset: RefCell::new(None),
         main,
     });
     App::wire(&app);
@@ -84,6 +89,14 @@ pub fn run(
         },
     );
     app.main.show()?;
+    match preset {
+        Some(Ok(request)) => app.start_preset(request),
+        Some(Err(error)) => {
+            app.flow.lock().expect("flow lock").pick_source(Err(error));
+            app.render();
+        }
+        None => {}
+    }
     if check_updates {
         app.start_updates();
     }
@@ -156,6 +169,8 @@ struct App {
     update: Cell<UpdateState>,
     /// The update library, in packaged builds.
     updater: RefCell<Option<luna_update::Updater>>,
+    /// The run handed over at launch; Retry on its source runs it again.
+    preset: RefCell<Option<RunRequest>>,
 }
 
 /// The Moon's motion: it turns slowly, and its phase and dial ease toward the
@@ -236,6 +251,7 @@ impl App {
             let f = unit(|a| {
                 a.flow.lock().expect("flow lock").new_report();
                 a.control.borrow_mut().take();
+                a.preset.borrow_mut().take();
                 a.main.set_open_error(SharedString::new());
                 a.render();
             });
@@ -419,6 +435,28 @@ impl App {
         let Some((run, source)) = self.flow.lock().expect("flow lock").start() else {
             return;
         };
+        let preset = self
+            .preset
+            .borrow()
+            .clone()
+            .filter(|p| p.sources.first() == Some(&source));
+        let request =
+            preset.unwrap_or_else(|| RunRequest::folder(source, self.settings.borrow().clone()));
+        self.launch(run, request);
+    }
+
+    fn start_preset(self: &Rc<Self>, request: RunRequest) {
+        let Some(source) = request.sources.first().cloned() else {
+            return;
+        };
+        let Some(run) = self.flow.lock().expect("flow lock").start_preset(source) else {
+            return;
+        };
+        *self.preset.borrow_mut() = Some(request.clone());
+        self.launch(run, request);
+    }
+
+    fn launch(self: &Rc<Self>, run: u64, request: RunRequest) {
         self.render();
         let flow = self.flow.clone();
         let weak = self.main.as_weak();
@@ -430,9 +468,7 @@ impl App {
                 apply_view(&main, &main_view(&flow));
             });
         });
-        let control = self
-            .backend
-            .start(source, self.settings.borrow().clone(), events);
+        let control = self.backend.start(request, events);
         *self.control.borrow_mut() = Some(control);
     }
 

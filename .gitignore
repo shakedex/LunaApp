@@ -19,3 +19,6 @@ Thumbs.db
 # Packaged app, and the pinned downloads xtask bundles into it
 /dist/
 /.cache/
+
+# Python bytecode
+__pycache__/

@@ -14,7 +14,7 @@ use std::path::{Path, PathBuf};
 use luna_formats::{ClipFiles, ClipMeta};
 use luna_report::IdentitySource;
 
-use crate::scan::relative;
+use crate::scan::{containing_root, display_path, outermost};
 
 /// Camera and reel named by a camera-original file name.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -53,10 +53,19 @@ pub struct IdentifiedClip {
 ///
 /// Runs after probing so embedded identity is known; pass `None` for a clip
 /// whose probe failed.
-pub fn resolve_identity(root: &Path, clips: &[(ClipFiles, Option<&ClipMeta>)]) -> Vec<CameraGroup> {
-    // Per-clip evidence, grouped by folder.
+pub fn resolve_identity(
+    roots: &[PathBuf],
+    clips: &[(ClipFiles, Option<&ClipMeta>)],
+) -> Vec<CameraGroup> {
+    let outer = outermost(roots);
+    let fallback = PathBuf::new();
+    // Per-clip evidence, grouped by folder. Each clip reads folder evidence
+    // only inside its own root.
     let mut folders: BTreeMap<PathBuf, Vec<Evidence>> = BTreeMap::new();
     for (index, (files, meta)) in clips.iter().enumerate() {
+        let root = containing_root(&outer, &files.main)
+            .or(outer.first())
+            .unwrap_or(&fallback);
         let dir = files.main.parent().unwrap_or(root).to_path_buf();
         let ev = evidence(root, &dir, index, files, *meta);
         folders.entry(dir).or_default().push(ev);
@@ -67,7 +76,7 @@ pub fn resolve_identity(root: &Path, clips: &[(ClipFiles, Option<&ClipMeta>)]) -
     let mut bodies: Vec<(String, Option<Body>)> = Vec::new();
     let mut pending: Vec<(String, Option<Body>, CardGroup)> = Vec::new();
     for (dir, evs) in folders {
-        let folder = relative(root, &dir);
+        let folder = display_path(&outer, &dir);
         for bucket in split_by_embedded_reel(evs) {
             let camera = strongest(bucket.iter().map(|e| &e.camera));
             let reel = strongest(bucket.iter().map(|e| &e.reel));

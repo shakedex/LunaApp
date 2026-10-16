@@ -282,3 +282,31 @@ fn write_helper_makes_sniffable_files() {
         Sniffed::CameraOriginal(Container::Mxf)
     );
 }
+
+#[test]
+fn two_roots_merge() {
+    let a = tree(&["A001/A001C001_251020_R1AB.mxf"]);
+    let b = tree(&["B001/B001C001_251020_R2CD.mxf", "notes.txt"]);
+    let s = scan_roots(&[a.path().to_path_buf(), b.path().to_path_buf()]);
+    assert_eq!(s.clips.len(), 2);
+    assert_eq!(s.not_included.len(), 1);
+    let expected = display_path(
+        &[a.path().to_path_buf(), b.path().to_path_buf()],
+        &b.path().join("notes.txt"),
+    );
+    assert_eq!(s.not_included[0], expected);
+    assert!(expected.ends_with("/notes.txt") && expected.len() > "/notes.txt".len());
+}
+
+#[test]
+fn nested_roots_are_scanned_once() {
+    let t = tree(&["A001/A001C001_251020_R1AB.mxf"]);
+    let s = scan_roots(&[t.path().to_path_buf(), t.path().join("A001")]);
+    assert_eq!(s.clips.len(), 1);
+}
+
+#[test]
+fn one_root_matches_scan() {
+    let t = tree(&["A001/A001C001_251020_R1AB.mxf", "notes.txt"]);
+    assert_eq!(scan_roots(&[t.path().to_path_buf()]), scan(t.path()));
+}

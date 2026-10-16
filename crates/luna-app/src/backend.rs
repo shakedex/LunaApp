@@ -13,6 +13,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 use std::time::Duration;
 
+use luna_core::run::RunRequest;
 use luna_core::settings::Settings;
 
 /// Starts report runs. Implementations must be cheap to call from the UI
@@ -20,8 +21,7 @@ use luna_core::settings::Settings;
 pub trait RunBackend: Send + Sync {
     fn start(
         &self,
-        source: PathBuf,
-        settings: Settings,
+        request: RunRequest,
         events: Box<dyn Fn(RunEvent) + Send>,
     ) -> Box<dyn RunControl>;
 }
@@ -122,14 +122,16 @@ impl RunControl for FakeControl {
 impl RunBackend for FakeBackend {
     fn start(
         &self,
-        source: PathBuf,
-        settings: Settings,
+        request: RunRequest,
         events: Box<dyn Fn(RunEvent) + Send>,
     ) -> Box<dyn RunControl> {
         let cancel = Arc::new(AtomicBool::new(false));
         let flag = cancel.clone();
         let this = self.clone();
-        thread::spawn(move || this.simulate(&source, &settings, &flag, &*events));
+        thread::spawn(move || {
+            let source = request.sources.first().cloned().unwrap_or_default();
+            this.simulate(&source, &request.settings, &flag, &*events)
+        });
         Box::new(FakeControl(cancel))
     }
 }
@@ -258,8 +260,7 @@ mod tests {
         let source = std::env::temp_dir().join(format!("luna-app-fake-{}", std::process::id()));
         std::fs::create_dir_all(&source).unwrap();
         let ctl = b.start(
-            source,
-            settings,
+            RunRequest::folder(source, settings),
             Box::new(move |e| {
                 let _ = tx.send(e);
             }),

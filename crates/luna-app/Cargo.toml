@@ -5,6 +5,7 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+clap = "4.6.7"
 dirs = "7.0.0"
 luna-core = { path = "../luna-core" }
 luna-update = { path = "../luna-update" }

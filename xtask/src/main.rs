@@ -105,7 +105,7 @@ fn package() -> Result<PathBuf> {
     let r3d_sdk = require(r3d.join("reference"))?;
 
     step(&format!("Building Luna {version}"));
-    cargo(&["build", "--release", "-p", "luna-app"])?;
+    cargo(&["build", "--release", "-p", "luna-app", "-p", "luna-cli"])?;
     step("Building the R3D add-on");
     run(Command::new("cargo")
         .args(["build", "--release"])
@@ -364,6 +364,11 @@ fn assemble_windows(
         &root.join("target/release/luna-app.exe"),
         &app.join("Luna.exe"),
     )?;
+    // Headless reports and the MCP server, for scripts and AI agents.
+    copy(
+        &root.join("target/release/luna-cli.exe"),
+        &app.join("luna-cli.exe"),
+    )?;
     // Blackmagic RAW SDK libraries (redistributable under the SDK licence, 1.1(d)).
     for dll in [
         "BlackmagicRawAPI.dll",
@@ -423,6 +428,10 @@ fn assemble_macos(
     copy(
         &root.join("target/release/luna-app"),
         &contents.join("MacOS/Luna"),
+    )?;
+    copy(
+        &root.join("target/release/luna-cli"),
+        &contents.join("MacOS/luna-cli"),
     )?;
     let public_key = read(&root.join("packaging/update-public-key.txt"))?;
     write(

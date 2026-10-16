@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use luna_app::backend::{RunBackend, RunEvent};
 use luna_app::core_backend::CoreBackend;
-use luna_core::run::WorkerSpec;
+use luna_core::run::{RunRequest, WorkerSpec};
 use luna_core::settings::Settings;
 
 fn backend() -> CoreBackend {
@@ -29,8 +29,7 @@ fn collect(
         ..Settings::default()
     };
     let _control = backend.start(
-        source.to_path_buf(),
-        settings,
+        RunRequest::folder(source.to_path_buf(), settings),
         Box::new(move |e| {
             let _ = tx.send(e);
         }),

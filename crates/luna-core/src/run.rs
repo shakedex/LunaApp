@@ -1,6 +1,6 @@
 //! One run from source folder to the three report files.
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
@@ -11,7 +11,8 @@ use luna_worker::{ClipJob, ClipResult};
 
 use crate::assemble::{OutputFiles, clip_fields, output_folder, thumbnails, write_outputs};
 use crate::identity::resolve_identity;
-use crate::scan::{Scan, scan};
+use crate::scan::{Scan, outermost, scan_roots};
+use crate::select::CameraFilter;
 use crate::settings::Settings;
 
 /// Thumbnails per clip: first, middle, last.
@@ -51,12 +52,45 @@ pub enum Progress {
         total: usize,
         problems: usize,
     },
+    /// Metadata read for a camera filter, before any clip is decoded.
+    Probed {
+        done: usize,
+        total: usize,
+    },
+}
+
+/// What to report on: the source folders, which cameras, and the details.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RunRequest {
+    pub sources: Vec<PathBuf>,
+    /// Camera selectors; empty means every camera.
+    pub cameras: Vec<String>,
+    /// Saved settings with this run's overrides already applied.
+    pub settings: Settings,
+    /// Report folder name; `None` names it from the production and run date.
+    pub name: Option<String>,
+}
+
+impl RunRequest {
+    /// One folder, every camera, the given settings: what the window starts.
+    pub fn folder(source: PathBuf, settings: Settings) -> Self {
+        Self {
+            sources: vec![source],
+            cameras: Vec::new(),
+            settings,
+            name: None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RunOutcome {
     pub files: OutputFiles,
     pub summary: String,
+    pub clips: usize,
+    pub clips_with_problems: usize,
+    pub not_included: usize,
+    pub unreadable: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -65,6 +99,11 @@ pub enum RunError {
     Workers(String),
     Report(String),
     Output(String),
+    /// The camera filter matched none of the cameras found.
+    NoSuchCamera {
+        asked: Vec<String>,
+        found: Vec<String>,
+    },
     Cancelled,
 }
 
@@ -75,6 +114,16 @@ impl std::fmt::Display for RunError {
             RunError::Workers(m) => write!(f, "Luna couldn't start reading clips: {m}"),
             RunError::Report(m) => write!(f, "The report couldn't be made: {m}"),
             RunError::Output(m) => write!(f, "The report couldn't be saved: {m}"),
+            RunError::NoSuchCamera { asked, found } => write!(
+                f,
+                "No camera matches {}. Cameras found: {}",
+                asked.join(", "),
+                if found.is_empty() {
+                    "none".to_owned()
+                } else {
+                    found.join(", ")
+                }
+            ),
             RunError::Cancelled => f.write_str("Cancelled"),
         }
     }
@@ -82,17 +131,37 @@ impl std::fmt::Display for RunError {
 
 impl std::error::Error for RunError {}
 
-/// Scans `source`, reads every clip in worker processes, and writes the PDF,
-/// HTML and CSV into a new folder under the settings' output location.
+/// The source folders as one set of roots: each made absolute and canonical
+/// (so `E:\footage`, `E:\Footage\` and `E:\Footage\A001\..` are one folder),
+/// then any root inside another dropped. Fails with the first source that
+/// can't be read.
+pub fn source_roots(sources: &[PathBuf]) -> Result<Vec<PathBuf>, RunError> {
+    if sources.is_empty() {
+        return Err(RunError::SourceUnreadable("no source folder given".into()));
+    }
+    let unreadable = |s: &PathBuf, e: std::io::Error| {
+        RunError::SourceUnreadable(format!("{}: {e}", s.display()))
+    };
+    let mut roots = Vec::with_capacity(sources.len());
+    for source in sources {
+        let root = dunce::canonicalize(source).map_err(|e| unreadable(source, e))?;
+        std::fs::read_dir(&root).map_err(|e| unreadable(source, e))?;
+        roots.push(root);
+    }
+    Ok(outermost(&roots))
+}
+
+/// Scans the request's sources, reads every clip in worker processes, and
+/// writes the PDF, HTML and CSV into a new folder under the output location.
 pub fn run(
-    source: &Path,
-    settings: &Settings,
+    req: &RunRequest,
     workers: &WorkerSpec,
     progress: &(dyn Fn(Progress) + Sync),
     cancel: &AtomicBool,
 ) -> Result<RunOutcome, RunError> {
-    std::fs::read_dir(source).map_err(|e| RunError::SourceUnreadable(e.to_string()))?;
-    let scanned = scan(source);
+    let settings = &req.settings;
+    let roots = source_roots(&req.sources)?;
+    let scanned = scan_roots(&roots);
     let files = scanned
         .clips
         .iter()
@@ -101,20 +170,25 @@ pub fn run(
         + scanned.not_included.len()
         + scanned.unreadable.len();
     progress(Progress::FilesFound(files));
+    let filter = CameraFilter::new(&req.cameras);
     let total = scanned.clips.len();
-    progress(Progress::ClipsTotal(total));
 
-    let jobs = scanned
-        .clips
-        .iter()
-        .enumerate()
-        .map(|(i, files)| ClipJob {
-            id: i as u64,
-            files: files.clone(),
-            strip: STRIP,
-            thumb_width: THUMB_WIDTH,
-        })
-        .collect();
+    // With a camera filter, probe every clip first: identity needs every
+    // clip's metadata (neighbours lend evidence), but only the selected
+    // cameras' clips are decoded.
+    let (probed, selected) = if filter.is_all() {
+        (
+            vec![JobOutcome::Crashed; total],
+            (0..total).collect::<Vec<_>>(),
+        )
+    } else {
+        let probed = probe_all(&scanned, workers, progress, cancel)?;
+        let selected = selected_clips(&roots, &scanned, &probed, &filter)?;
+        (probed, selected)
+    };
+
+    let selected_total = selected.len();
+    progress(Progress::ClipsTotal(selected_total));
     let counts = Mutex::new((0usize, 0usize));
     let on_done = |_: u64, outcome: &JobOutcome| {
         let mut c = counts.lock().unwrap_or_else(|e| e.into_inner());
@@ -122,39 +196,24 @@ pub fn run(
         c.1 += usize::from(outcome_has_problems(outcome));
         progress(Progress::ClipDone {
             done: c.0,
-            total,
+            total: selected_total,
             problems: c.1,
         });
     };
-    let config = PoolConfig {
-        exe: workers.exe.clone(),
-        args: workers.args.clone(),
-        env: vec![],
-        workers: workers.workers,
-        timeout: workers.timeout,
-    };
-    let done = match run_pool(&config, jobs, cancel, &on_done) {
-        Ok(d) => d,
-        Err(PoolError::Cancelled) => return Err(RunError::Cancelled),
-        Err(PoolError::Spawn(m)) => return Err(RunError::Workers(m)),
-    };
-    let mut outcomes = vec![JobOutcome::Crashed; total];
-    for (id, outcome) in done {
-        if let Some(slot) = outcomes.get_mut(id as usize) {
-            *slot = outcome;
-        }
-    }
+    let done = run_jobs(&scanned, &selected, STRIP, workers, cancel, &on_done)?;
+    let outcomes = merge_outcomes(probed, done, &selected);
     if cancel.load(Ordering::SeqCst) {
         return Err(RunError::Cancelled);
     }
 
     let now = jiff::Zoned::now();
     let report = build_report(
-        source,
+        &roots,
         settings,
         scanned,
         outcomes,
         &now.strftime("%Y-%m-%d %H:%M").to_string(),
+        (!filter.is_all()).then_some(selected.as_slice()),
     );
     let pdf = luna_report::write_pdf(&report).map_err(|e| RunError::Report(e.to_string()))?;
     let html = luna_report::write_html(&report).map_err(|e| RunError::Report(e.to_string()))?;
@@ -165,6 +224,7 @@ pub fn run(
     let target = output_folder(
         &settings.output_dir,
         &settings.production,
+        req.name.as_deref(),
         &now.strftime("%Y-%m-%d %H%M").to_string(),
     );
     let stem = target
@@ -173,10 +233,159 @@ pub fn run(
         .unwrap_or_else(|| "Luna Report".into());
     let files = write_outputs(&target, &stem, &pdf, &html, &csv)
         .map_err(|e| RunError::Output(e.to_string()))?;
+    let totals = report.totals();
     Ok(RunOutcome {
         summary: summary(&report),
         files,
+        clips: totals.clips,
+        clips_with_problems: totals.clips_with_problems,
+        not_included: report.not_included.len(),
+        unreadable: report.unreadable.len(),
     })
+}
+
+/// Runs the given clips (indices into the scan) through the worker pool.
+/// `strip: 0` reads metadata only.
+fn run_jobs(
+    scanned: &Scan,
+    indices: &[usize],
+    strip: u32,
+    workers: &WorkerSpec,
+    cancel: &AtomicBool,
+    on_done: &(dyn Fn(u64, &JobOutcome) + Sync),
+) -> Result<Vec<(u64, JobOutcome)>, RunError> {
+    let jobs = indices
+        .iter()
+        .map(|&i| ClipJob {
+            id: i as u64,
+            files: scanned.clips[i].clone(),
+            strip,
+            thumb_width: THUMB_WIDTH,
+        })
+        .collect();
+    let config = PoolConfig {
+        exe: workers.exe.clone(),
+        args: workers.args.clone(),
+        env: vec![],
+        workers: workers.workers,
+        timeout: workers.timeout,
+    };
+    match run_pool(&config, jobs, cancel, on_done) {
+        Ok(d) => Ok(d),
+        Err(PoolError::Cancelled) => Err(RunError::Cancelled),
+        Err(PoolError::Spawn(m)) => Err(RunError::Workers(m)),
+    }
+}
+
+/// Every clip's metadata, no frames: one outcome per scanned clip, in order.
+pub(crate) fn probe_all(
+    scanned: &Scan,
+    workers: &WorkerSpec,
+    progress: &(dyn Fn(Progress) + Sync),
+    cancel: &AtomicBool,
+) -> Result<Vec<JobOutcome>, RunError> {
+    let total = scanned.clips.len();
+    let done_count = Mutex::new(0usize);
+    let on_done = |_: u64, _: &JobOutcome| {
+        let mut d = done_count.lock().unwrap_or_else(|e| e.into_inner());
+        *d += 1;
+        progress(Progress::Probed { done: *d, total });
+    };
+    let all: Vec<usize> = (0..total).collect();
+    let done = run_jobs(scanned, &all, 0, workers, cancel, &on_done)?;
+    if cancel.load(Ordering::SeqCst) {
+        return Err(RunError::Cancelled);
+    }
+    let mut outcomes = vec![JobOutcome::Crashed; total];
+    for (id, outcome) in done {
+        if let Some(slot) = outcomes.get_mut(id as usize) {
+            *slot = outcome;
+        }
+    }
+    Ok(outcomes)
+}
+
+/// One outcome per scanned clip: the decode outcome for the `selected` clips
+/// (in `done`), the probe outcome for the rest. A selected clip whose decode
+/// crashed, timed out or lost its metadata keeps the probed metadata, so it
+/// stays in its camera and card with its row filled in.
+pub fn merge_outcomes(
+    probed: Vec<JobOutcome>,
+    done: Vec<(u64, JobOutcome)>,
+    selected: &[usize],
+) -> Vec<JobOutcome> {
+    let mut outcomes = probed.clone();
+    for &i in selected {
+        if let Some(slot) = outcomes.get_mut(i) {
+            *slot = JobOutcome::Crashed;
+        }
+    }
+    for (id, outcome) in done {
+        if let Some(slot) = outcomes.get_mut(id as usize) {
+            *slot = outcome;
+        }
+    }
+    for &i in selected {
+        let (Some(slot), Some(JobOutcome::Done(probe))) = (outcomes.get_mut(i), probed.get(i))
+        else {
+            continue;
+        };
+        let mut result = match std::mem::replace(slot, JobOutcome::Crashed) {
+            JobOutcome::Done(r) => *r,
+            JobOutcome::Crashed => failed(i, CRASHED, CRASHED),
+            JobOutcome::TimedOut => failed(i, TIMED_OUT, TIMED_OUT),
+        };
+        if result.meta.is_none() {
+            result.meta = probe.meta.clone();
+            result.codec = result.codec.or_else(|| probe.codec.clone());
+            if result.bytes == 0 {
+                result.bytes = probe.bytes;
+            }
+        }
+        *slot = JobOutcome::Done(Box::new(result));
+    }
+    outcomes
+}
+
+fn meta_of(outcome: &JobOutcome) -> Option<&luna_formats::ClipMeta> {
+    match outcome {
+        JobOutcome::Done(r) => r.meta.as_ref(),
+        _ => None,
+    }
+}
+
+/// The clips of the cameras the filter selects, by scan index. No match is
+/// an error that lists the cameras found.
+fn selected_clips(
+    roots: &[PathBuf],
+    scanned: &Scan,
+    probed: &[JobOutcome],
+    filter: &CameraFilter,
+) -> Result<Vec<usize>, RunError> {
+    let input: Vec<_> = scanned
+        .clips
+        .iter()
+        .zip(probed)
+        .map(|(files, o)| (files.clone(), meta_of(o)))
+        .collect();
+    let groups = resolve_identity(roots, &input);
+    let mut selected: Vec<usize> = groups
+        .iter()
+        .filter(|cam| filter.matches(&cam.name))
+        .flat_map(|cam| {
+            cam.cards
+                .iter()
+                .flat_map(|c| c.clips.iter().map(|id| id.index))
+        })
+        .collect();
+    if selected.is_empty() {
+        return Err(RunError::NoSuchCamera {
+            asked: filter.selectors().to_vec(),
+            found: groups.into_iter().map(|g| g.name).collect(),
+        });
+    }
+    selected.sort_unstable();
+    Ok(selected)
 }
 
 fn outcome_has_problems(outcome: &JobOutcome) -> bool {
@@ -189,13 +398,15 @@ fn outcome_has_problems(outcome: &JobOutcome) -> bool {
 }
 
 /// The report model from the scan, the worker outcomes (one per scanned clip,
-/// same order) and the settings.
+/// same order) and the settings. `selected` (sorted scan indices) keeps only
+/// those clips; `None` keeps every clip.
 pub fn build_report(
-    root: &Path,
+    roots: &[PathBuf],
     settings: &Settings,
     scanned: Scan,
     outcomes: Vec<JobOutcome>,
     generated_at: &str,
+    selected: Option<&[usize]>,
 ) -> Report {
     let results: Vec<ClipResult> = scanned
         .clips
@@ -221,10 +432,21 @@ pub fn build_report(
         .zip(&results)
         .map(|(files, r)| (files.clone(), r.meta.as_ref()))
         .collect();
-    let groups = resolve_identity(root, &identity_input);
+    let groups = resolve_identity(roots, &identity_input);
 
     let cameras = groups
         .into_iter()
+        .filter_map(|mut camera| {
+            // Keep only the selected clips; drop cards and cameras left empty.
+            if let Some(keep) = selected {
+                for card in &mut camera.cards {
+                    card.clips
+                        .retain(|id| keep.binary_search(&id.index).is_ok());
+                }
+                camera.cards.retain(|c| !c.clips.is_empty());
+            }
+            (!camera.cards.is_empty()).then_some(camera)
+        })
         .map(|camera| Camera {
             name: camera.name,
             cards: camera
@@ -269,7 +491,10 @@ pub fn build_report(
     Report {
         header: header(settings),
         theme: settings.report_theme,
-        source_root: root.to_string_lossy().into_owned(),
+        sources: roots
+            .iter()
+            .map(|r| r.to_string_lossy().into_owned())
+            .collect(),
         generated_at: generated_at.to_owned(),
         luna_version: env!("CARGO_PKG_VERSION").to_owned(),
         cameras,

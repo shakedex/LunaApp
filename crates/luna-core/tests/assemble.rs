@@ -136,12 +136,12 @@ fn thumbnails_keep_order_and_reasons() {
 #[test]
 fn output_folder_is_named_and_never_collides() {
     let dir = tempfile::tempdir().unwrap();
-    let a = output_folder(dir.path(), "Night: Shift?", "2026-10-10 1432");
+    let a = output_folder(dir.path(), "Night: Shift?", None, "2026-10-10 1432");
     assert_eq!(a.file_name().unwrap(), "Night_ Shift_ 2026-10-10 1432");
     std::fs::create_dir(&a).unwrap();
-    let b = output_folder(dir.path(), "Night: Shift?", "2026-10-10 1432");
+    let b = output_folder(dir.path(), "Night: Shift?", None, "2026-10-10 1432");
     assert_eq!(b.file_name().unwrap(), "Night_ Shift_ 2026-10-10 1432 (2)");
-    let c = output_folder(dir.path(), "", "2026-10-10 1432");
+    let c = output_folder(dir.path(), "", None, "2026-10-10 1432");
     assert_eq!(c.file_name().unwrap(), "Luna Report 2026-10-10 1432");
 }
 
@@ -162,4 +162,16 @@ fn outputs_appear_all_at_once() {
         vec![std::ffi::OsString::from("Report 1")],
         "no temp folder left behind"
     );
+}
+
+#[test]
+fn name_sets_the_folder() {
+    let dir = tempfile::tempdir().unwrap();
+    let a = output_folder(dir.path(), "Prod", Some("A Cam"), "2026-10-16 1200");
+    assert_eq!(a.file_name().unwrap(), "A Cam");
+    std::fs::create_dir(&a).unwrap();
+    let b = output_folder(dir.path(), "Prod", Some("A Cam"), "2026-10-16 1200");
+    assert_eq!(b.file_name().unwrap(), "A Cam (2)");
+    let c = output_folder(dir.path(), "Prod", Some("A/B"), "2026-10-16 1200");
+    assert_eq!(c.file_name().unwrap(), "A_B");
 }

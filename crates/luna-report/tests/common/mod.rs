@@ -63,7 +63,7 @@ pub fn empty_report() -> Report {
     Report {
         header: Header::default(),
         theme: ReportTheme::Light,
-        source_root: "D:\\Shoot".into(),
+        sources: vec!["D:\\Shoot".into()],
         generated_at: "2026-10-10 14:32".into(),
         luna_version: "0.0.0".into(),
         cameras: vec![],
