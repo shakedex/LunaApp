@@ -3779,6 +3779,7 @@ dependencies = [
  "luna-formats",
  "luna-h264",
  "luna-prores",
+ "proresraw-ffmpeg",
  "windows",
  "xocn",
 ]
@@ -4972,6 +4973,14 @@ name = "profiling"
 version = "1.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3d595e54a326bc53c1c197b32d295e14b169e3cfeaa8dc82b529f947fba6bcf5"
+
+[[package]]
+name = "proresraw-ffmpeg"
+version = "0.1.0"
+source = "git+file:///E:/Coding/decoders/proresraw-ffmpeg?rev=1cb54c4218e113d51f7e16e4e94f6784ddf6ff96#1cb54c4218e113d51f7e16e4e94f6784ddf6ff96"
+dependencies = [
+ "libloading 0.9.0",
+]
 
 [[package]]
 name = "psm"

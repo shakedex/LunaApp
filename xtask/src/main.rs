@@ -119,7 +119,8 @@ fn package() -> Result<PathBuf> {
     let app = if cfg!(target_os = "macos") {
         assemble_macos(&root, &dist, &version, &braw, &r3d, &r3d_sdk, &licences)?
     } else {
-        assemble_windows(&root, &dist, &braw, &r3d, &r3d_sdk, &licences)?
+        let ffmpeg = ffmpeg_libraries()?;
+        assemble_windows(&root, &dist, &braw, &r3d, &r3d_sdk, &ffmpeg, &licences)?
     };
     println!("Packaged: {}", app.display());
     Ok(app)
@@ -354,6 +355,7 @@ fn assemble_windows(
     braw: &Path,
     r3d: &Path,
     r3d_sdk: &Path,
+    ffmpeg: &Path,
     licences: &str,
 ) -> Result<PathBuf> {
     let app = dist.join("Luna");
@@ -400,8 +402,33 @@ fn assemble_windows(
         &winsparkle.join("COPYING"),
         &lib.join("WinSparkle-COPYING.txt"),
     )?;
+    // FFmpeg (LGPL) for ProRes RAW: loaded at run time from lib\, so the DLLs
+    // stay replaceable; its licence travels with them.
+    for dll in FFMPEG_DLLS {
+        copy(&ffmpeg.join(dll), &lib.join(dll))?;
+    }
+    copy(
+        &ffmpeg.parent().unwrap_or(ffmpeg).join("LICENSE.txt"),
+        &lib.join("FFmpeg-LICENSE.txt"),
+    )?;
     write(&app.join("LICENSES.txt"), licences)?;
     Ok(app)
+}
+
+/// FFmpeg's libraries for ProRes RAW (avcodec 62 / avutil 60, the ABI the
+/// `proresraw-ffmpeg` crate checks for).
+const FFMPEG_DLLS: [&str; 3] = ["avcodec-62.dll", "avutil-60.dll", "swresample-6.dll"];
+
+/// The `bin` folder of an FFmpeg LGPL shared build, named by `LUNA_FFMPEG_DIR`
+/// (`.cargo/config.toml` sets it for this machine).
+fn ffmpeg_libraries() -> Result<PathBuf> {
+    let dir = env::var_os("LUNA_FFMPEG_DIR")
+        .map(PathBuf::from)
+        .ok_or("LUNA_FFMPEG_DIR isn't set (the bin folder of FFmpeg's LGPL shared build)")?;
+    for dll in FFMPEG_DLLS {
+        require(dir.join(dll))?;
+    }
+    Ok(dir)
 }
 
 fn assemble_macos(

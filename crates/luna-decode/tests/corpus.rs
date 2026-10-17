@@ -1,6 +1,7 @@
 //! Decodes the real camera corpus. Skipped unless `LUNA_CORPUS` points at the
 //! corpus root (`...\TEST_PROJECT_LUNA\CAMERA`). R3D also needs the add-on
-//! (`LUNA_R3D_ADDON` and `LUNA_R3D_SDK_DIR`). `.cargo/config.toml` sets all three.
+//! (`LUNA_R3D_ADDON` and `LUNA_R3D_SDK_DIR`); ProRes RAW needs FFmpeg's DLLs
+//! (`LUNA_FFMPEG_DIR`, Windows). `.cargo/config.toml` sets them all.
 
 mod common;
 
@@ -431,5 +432,43 @@ fn prores_frames_reach_the_decoder() {
             Err(DecodeError::Unsupported(m)) => eprintln!("ProRes: {m}"),
             Err(e) => panic!("{e}"),
         }
+    }
+}
+
+#[cfg(windows)]
+#[test]
+fn proresraw_ronin4d_through_ffmpeg() {
+    let Some(path) = corpus("S_cam/S006/A003C0011_210922_0000_ronin4d_proresraw.mov") else {
+        return;
+    };
+    let ranges = common::mov_video_ranges(&path).unwrap();
+    assert_eq!(ranges.len(), 705);
+    let n = ranges.len() as u64;
+    let p = probe(
+        Codec::ProResRaw,
+        FrameIndex::Ranges(ranges),
+        Default::default(),
+    );
+    let clip = files(Container::QuickTime, &path);
+    // Frame 302 is the only one whose sample has no padding past the frame;
+    // the others need trimming before FFmpeg takes them.
+    for r in decode_frames(&clip, &p, &[0, 302, n - 1], 640) {
+        let f = r.unwrap();
+        // 8192 photosites binned by 4: two picture pixels per 2x2 cell
+        assert_eq!(mosaic_size(&f), (2048, 1080));
+        assert_eq!(f.hint.transfer, Some(Transfer::Linear));
+        let Decoded::Mosaic {
+            wb, camera_to_xyz, ..
+        } = &f.image
+        else {
+            unreachable!()
+        };
+        let m = camera_to_xyz.expect("matrix from the frame header");
+        // rows sum to the D65 white point
+        for (row, white) in m.chunks(3).zip([0.9505, 1.0, 1.0888]) {
+            assert!((row.iter().sum::<f32>() - white).abs() < 0.002, "{m:?}");
+        }
+        assert!(wb.unwrap()[0] > 1.0 && wb.unwrap()[2] > 1.0);
+        assert!(mosaic_mean(&f) > 1000.0, "picture is black");
     }
 }

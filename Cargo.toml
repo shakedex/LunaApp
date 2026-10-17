@@ -15,3 +15,5 @@ crm = { git = "file:///E:/Coding/decoders/crm-decoder", rev = "d4725b19b4af7bde2
 # turn ARRICORE thumbnails off.
 arri = { git = "file:///E:/Coding/decoders/arri-decoder", rev = "5ad6add7dcaa9bc9af52ee41d0eee9f9e83973e2", features = ["arricore"] }
 braw = { git = "file:///E:/Coding/decoders/braw-sdk", rev = "1fd58351bdc92dda7a239265172d81465ff35e19" }
+# FFmpeg's LGPL prores_raw decoder, loaded at run time from bundled DLLs (Windows).
+proresraw-ffmpeg = { git = "file:///E:/Coding/decoders/proresraw-ffmpeg", rev = "1cb54c4218e113d51f7e16e4e94f6784ddf6ff96" }

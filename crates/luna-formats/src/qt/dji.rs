@@ -113,9 +113,12 @@ fn uint(msg: &[u8], path: &[u64]) -> Option<u64> {
 /// - 2.2.1.4 camera model ("DJI …"), make taken from its first word
 /// - 2.2.2.1.4 lens name
 /// - 2.2.11.1 log curve name ("D-Log")
+/// - 2.2.3.1 camera serial (DJI's 14-character format, beside the model)
 /// - 3.2.3.1 ISO (float), 3.2.13.1 white balance in kelvin
+/// - 3.2.10.1 iris as an f-number (float; 4.4 on the F2.8 prime)
+/// - focal length from a prime lens's name ("DJI_DL_35mm_…")
 ///
-/// Shutter, iris, ND, serials and clip identity are present but their meaning
+/// Shutter (3.2.8.1 holds 180.0: angle or 1/180?) and ND are present but
 /// can't be pinned without DJI's schema, so they are left out.
 pub(crate) fn read(sample: &[u8]) -> Option<ClipMeta> {
     let model = text(sample, &[2, 2, 1, 4]).filter(|m| m.starts_with("DJI"));
@@ -123,15 +126,24 @@ pub(crate) fn read(sample: &[u8]) -> Option<ClipMeta> {
     let mut m = ClipMeta {
         camera_make: model.split_whitespace().next().map(str::to_string),
         camera_model: Some(model),
+        camera_serial: text(sample, &[2, 2, 3, 1]).filter(|s| {
+            s.len() == 14
+                && s.bytes()
+                    .all(|b| b.is_ascii_uppercase() || b.is_ascii_digit())
+        }),
         lens: text(sample, &[2, 2, 2, 1, 4]),
         iso: float(sample, &[3, 2, 3, 1])
             .filter(|&v| v >= 1.0 && v.fract() == 0.0)
             .map(|v| (v as u32).to_string()),
+        stop: float(sample, &[3, 2, 10, 1])
+            .filter(|&v| (0.7..=64.0).contains(&v))
+            .and_then(|v| display::f_number(v as f64)),
         white_balance: uint(sample, &[3, 2, 13, 1])
             .filter(|&k| (1000..=20000).contains(&k))
             .and_then(|k| display::kelvin(k as i64)),
         ..ClipMeta::default()
     };
+    m.focal_length = m.lens.as_deref().and_then(prime_focal_length);
     if let Some(curve) = text(sample, &[2, 2, 11, 1]) {
         let c = curve.to_ascii_uppercase().replace(['-', ' ', '_'], "");
         if c == "DLOG" {
@@ -139,6 +151,20 @@ pub(crate) fn read(sample: &[u8]) -> Option<ClipMeta> {
         }
     }
     Some(m)
+}
+
+/// "DJI_DL_35mm_F2.8_ND_ASPH" → "35 mm": the one `<n>mm` token of a prime's
+/// name (zooms name two focal lengths, so they get none).
+fn prime_focal_length(lens: &str) -> Option<String> {
+    let mut found = lens.split(['_', ' ']).filter_map(|t| {
+        let n = t.strip_suffix("mm").or_else(|| t.strip_suffix("MM"))?;
+        n.parse::<f64>().ok().filter(|&v| v > 0.0)
+    });
+    let mm = found.next()?;
+    if found.next().is_some() {
+        return None;
+    }
+    display::focal_length(mm)
 }
 
 #[cfg(test)]
@@ -161,12 +187,15 @@ mod tests {
         let model = len_field(1, &len_field(4, b"DJI HG4180"));
         let lens = len_field(2, &len_field(1, &len_field(4, b"DJI_DL_35mm_F2.8_ND_ASPH")));
         let curve = len_field(11, &len_field(1, b"D-Log"));
+        let serial = len_field(3, &len_field(1, b"4CVLJ62008001A"));
         let mut static_ = model;
         static_.extend(lens);
         static_.extend(curve);
+        static_.extend(serial);
         let video = len_field(2, &len_field(2, &static_));
         let mut cam = len_field(3, &f32_field(1, 800.0));
         cam.extend(len_field(13, &[0x08, 0xE0, 0x2B]));
+        cam.extend(len_field(10, &f32_field(1, 4.399_991_5)));
         let frame = len_field(3, &len_field(2, &cam));
         let mut s = len_field(1, &len_field(1, b"dvtm_HG4181.proto"));
         s.extend(video);
@@ -180,10 +209,24 @@ mod tests {
         assert_eq!(m.camera_make.as_deref(), Some("DJI"));
         assert_eq!(m.camera_model.as_deref(), Some("DJI HG4180"));
         assert_eq!(m.lens.as_deref(), Some("DJI_DL_35mm_F2.8_ND_ASPH"));
+        assert_eq!(m.camera_serial.as_deref(), Some("4CVLJ62008001A"));
+        assert_eq!(m.focal_length.as_deref(), Some("35 mm"));
+        assert_eq!(m.stop.as_deref(), Some("f/4.4"));
         assert_eq!(m.iso.as_deref(), Some("800"));
         assert_eq!(m.white_balance.as_deref(), Some("5600 K"));
         assert_eq!(m.colour.transfer, Some(Transfer::DLog));
         assert_eq!(m.colour.gamut, None);
+    }
+
+    #[test]
+    fn focal_length_only_for_primes() {
+        assert_eq!(
+            prime_focal_length("DJI_DL_35mm_F2.8_ND_ASPH").as_deref(),
+            Some("35 mm")
+        );
+        assert_eq!(prime_focal_length("DJI_DL_18-55mm_zoom"), None);
+        assert_eq!(prime_focal_length("24mm_70mm"), None);
+        assert_eq!(prime_focal_length("Unknown lens"), None);
     }
 
     #[test]

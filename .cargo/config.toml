@@ -9,6 +9,9 @@ BRAW_SDK_DIR = { value = 'C:\Program Files (x86)\Blackmagic Design\Blackmagic RA
 # (`cargo xtask package` builds it), and RED's library beside it.
 LUNA_R3D_ADDON = { value = '../decoders/r3d-sdk/target/release/r3d.dll', relative = true, force = false }
 LUNA_R3D_SDK_DIR = { value = '../decoders/r3d-sdk/reference/Redistributable/win', relative = true, force = false }
+# FFmpeg's LGPL shared build (ProRes RAW on Windows); `cargo xtask package`
+# bundles the same DLLs.
+LUNA_FFMPEG_DIR = { value = '../decoders/tools/ffmpeg-8.1-lgpl-shared/ffmpeg-n8.1-latest-win64-lgpl-shared-8.1/bin', relative = true, force = false }
 # The camera corpus the corpus tests read; they skip when it isn't there.
 LUNA_CORPUS = { value = 'D:\LUNA_TEST\TEST_PROJECT_LUNA\CAMERA', force = false }
 

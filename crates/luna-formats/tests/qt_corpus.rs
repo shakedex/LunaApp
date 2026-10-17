@@ -213,7 +213,10 @@ fn ronin_4d_prores_raw() {
             height: Some(4320),
             camera_make: s("DJI"),
             camera_model: s("DJI HG4180"),
+            camera_serial: s("4CVLJ62008001A"),
             lens: s("DJI_DL_35mm_F2.8_ND_ASPH"),
+            focal_length: s("35 mm"),
+            stop: s("f/4.4"),
             iso: s("800"),
             white_balance: s("5600 K"),
             colour: ColourHint {

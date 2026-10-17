@@ -2,7 +2,8 @@
 //!
 //! One entry point, [`decode_frames`], picks a backend from the probed codec:
 //! our own decoders (ProRes, intra H.264, ARRIRAW/ARRICORE, X-OCN, CRM), bundled vendor SDKs (BRAW;
-//! R3D through the closed add-on loaded at runtime), or the platform decoder
+//! R3D through the closed add-on loaded at runtime; ProRes RAW through FFmpeg's
+//! LGPL DLLs on Windows), or the platform decoder
 //! (Media Foundation on Windows, AVFoundation on macOS). Platform APIs live only
 //! in this crate, behind `cfg(target_os)`.
 
@@ -18,6 +19,8 @@ mod mosaic;
 #[cfg(target_os = "macos")]
 mod platform_macos;
 mod prores;
+#[cfg(windows)]
+mod proresraw;
 mod r3d;
 mod util;
 mod vendor;
@@ -145,6 +148,7 @@ pub fn decode_frames(
             Backend::R3d => r3d::decode(clip, probe, positions, min_width),
             Backend::Arri => arri_decoder::decode(clip, probe, positions, min_width),
             Backend::ProRes => prores::decode(clip, probe, positions, min_width),
+            Backend::ProResRaw => proresraw_decode(clip, probe, positions, min_width),
             Backend::H264 => h264::decode(clip, probe, positions, min_width),
             Backend::Platform => with_h264_fallback(
                 clip,
@@ -182,6 +186,7 @@ enum Backend {
     R3d,
     Arri,
     ProRes,
+    ProResRaw,
     H264,
     Platform,
     None,
@@ -196,6 +201,7 @@ impl Backend {
             Backend::R3d => "R3D",
             Backend::Arri => "ARRI",
             Backend::ProRes => "ProRes",
+            Backend::ProResRaw => "ProRes RAW",
             Backend::H264 => "H.264",
             Backend::Platform => "platform video",
             Backend::None => "no",
@@ -213,6 +219,7 @@ fn backend_for(clip: &ClipFiles, probe: &Probe) -> Backend {
         }
         (Codec::ArriRaw | Codec::ArriCore, _) => Backend::Arri,
         (Codec::ProRes(_), Container::Mxf | Container::QuickTime) => Backend::ProRes,
+        (Codec::ProResRaw, Container::QuickTime) => Backend::ProResRaw,
         (Codec::H264, Container::Mxf) => Backend::H264,
         (Codec::H264 | Codec::Hevc, Container::QuickTime) => Backend::Platform,
         _ => Backend::None,
@@ -245,6 +252,29 @@ fn with_h264_fallback(
         out[k] = r;
     }
     out
+}
+
+#[cfg(windows)]
+fn proresraw_decode(
+    clip: &ClipFiles,
+    probe: &Probe,
+    positions: &[u64],
+    min_width: u32,
+) -> Vec<Result<Frame, DecodeError>> {
+    proresraw::decode(clip, probe, positions, min_width)
+}
+
+#[cfg(not(windows))]
+fn proresraw_decode(
+    _clip: &ClipFiles,
+    _probe: &Probe,
+    positions: &[u64],
+    _min_width: u32,
+) -> Vec<Result<Frame, DecodeError>> {
+    util::all_err(
+        positions.len(),
+        DecodeError::Unsupported("ProRes RAW isn't supported on this platform yet".into()),
+    )
 }
 
 #[cfg(windows)]
@@ -327,7 +357,10 @@ mod tests {
         assert_eq!(backend_for(&mov, &probe(Codec::H264)), Backend::Platform);
         assert_eq!(backend_for(&mov, &probe(Codec::Hevc)), Backend::Platform);
         assert_eq!(backend_for(&mxf, &probe(Codec::H264)), Backend::H264);
-        assert_eq!(backend_for(&mov, &probe(Codec::ProResRaw)), Backend::None);
+        assert_eq!(
+            backend_for(&mov, &probe(Codec::ProResRaw)),
+            Backend::ProResRaw
+        );
         let crm = clip(Container::Crm, "a.crm");
         assert_eq!(
             backend_for(&crm, &probe(Codec::CinemaRawLight)),
