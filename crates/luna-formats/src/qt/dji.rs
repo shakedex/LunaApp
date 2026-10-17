@@ -115,11 +115,11 @@ fn uint(msg: &[u8], path: &[u64]) -> Option<u64> {
 /// - 2.2.11.1 log curve name ("D-Log")
 /// - 2.2.3.1 camera serial (DJI's 14-character format, beside the model)
 /// - 3.2.3.1 ISO (float), 3.2.13.1 white balance in kelvin
+/// - 3.2.8.1 shutter angle in degrees (float; 180.0, confirmed as an angle)
+/// - 3.2.9 ND: 9.1 = 1 when in use, 9.2 the filter factor (256.0 = 8 stops),
+///   shown as optical density
 /// - 3.2.10.1 iris as an f-number (float; 4.4 on the F2.8 prime)
 /// - focal length from a prime lens's name ("DJI_DL_35mm_…")
-///
-/// Shutter (3.2.8.1 holds 180.0: angle or 1/180?) and ND are present but
-/// can't be pinned without DJI's schema, so they are left out.
 pub(crate) fn read(sample: &[u8]) -> Option<ClipMeta> {
     let model = text(sample, &[2, 2, 1, 4]).filter(|m| m.starts_with("DJI"));
     let model = model?;
@@ -138,6 +138,10 @@ pub(crate) fn read(sample: &[u8]) -> Option<ClipMeta> {
         stop: float(sample, &[3, 2, 10, 1])
             .filter(|&v| (0.7..=64.0).contains(&v))
             .and_then(|v| display::f_number(v as f64)),
+        shutter: float(sample, &[3, 2, 8, 1])
+            .filter(|&v| v > 0.0 && v <= 360.0)
+            .and_then(|v| display::shutter_angle(v as f64)),
+        nd: nd_density(uint(sample, &[3, 2, 9, 1]), float(sample, &[3, 2, 9, 2])),
         white_balance: uint(sample, &[3, 2, 13, 1])
             .filter(|&k| (1000..=20000).contains(&k))
             .and_then(|k| display::kelvin(k as i64)),
@@ -151,6 +155,16 @@ pub(crate) fn read(sample: &[u8]) -> Option<ClipMeta> {
         }
     }
     Some(m)
+}
+
+/// The ND filter factor as optical density ("2.4" for 256); none when the
+/// filter is out or the factor is implausible.
+fn nd_density(on: Option<u64>, factor: Option<f32>) -> Option<String> {
+    let f = factor.filter(|&f| f > 1.0 && f <= 4096.0)?;
+    if on != Some(1) {
+        return None;
+    }
+    Some(display::decimal((f as f64).log10(), 1))
 }
 
 /// "DJI_DL_35mm_F2.8_ND_ASPH" → "35 mm": the one `<n>mm` token of a prime's
@@ -196,6 +210,10 @@ mod tests {
         let mut cam = len_field(3, &f32_field(1, 800.0));
         cam.extend(len_field(13, &[0x08, 0xE0, 0x2B]));
         cam.extend(len_field(10, &f32_field(1, 4.399_991_5)));
+        cam.extend(len_field(8, &f32_field(1, 180.0)));
+        let mut nd = vec![0x08, 0x01];
+        nd.extend(f32_field(2, 256.0));
+        cam.extend(len_field(9, &nd));
         let frame = len_field(3, &len_field(2, &cam));
         let mut s = len_field(1, &len_field(1, b"dvtm_HG4181.proto"));
         s.extend(video);
@@ -212,10 +230,20 @@ mod tests {
         assert_eq!(m.camera_serial.as_deref(), Some("4CVLJ62008001A"));
         assert_eq!(m.focal_length.as_deref(), Some("35 mm"));
         assert_eq!(m.stop.as_deref(), Some("f/4.4"));
+        assert_eq!(m.shutter.as_deref(), Some("180°"));
+        assert_eq!(m.nd.as_deref(), Some("2.4"));
         assert_eq!(m.iso.as_deref(), Some("800"));
         assert_eq!(m.white_balance.as_deref(), Some("5600 K"));
         assert_eq!(m.colour.transfer, Some(Transfer::DLog));
         assert_eq!(m.colour.gamut, None);
+    }
+
+    #[test]
+    fn nd_only_when_in_use() {
+        assert_eq!(nd_density(Some(1), Some(4.0)).as_deref(), Some("0.6"));
+        assert_eq!(nd_density(Some(0), Some(256.0)), None);
+        assert_eq!(nd_density(Some(1), Some(1.0)), None);
+        assert_eq!(nd_density(Some(1), None), None);
     }
 
     #[test]

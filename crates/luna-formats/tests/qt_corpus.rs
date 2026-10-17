@@ -218,7 +218,9 @@ fn ronin_4d_prores_raw() {
             focal_length: s("35 mm"),
             stop: s("f/4.4"),
             iso: s("800"),
+            shutter: s("180°"),
             white_balance: s("5600 K"),
+            nd: s("2.4"),
             colour: ColourHint {
                 transfer: Some(Transfer::DLog),
                 gamut: None,
