@@ -202,9 +202,13 @@ destination (`~/Documents/Luna Reports`), in an 880×640 window.
 
 Found so far:
 
-- **Window controls:** the title bar is Luna's own, with Windows-style minimize, maximize and
-  close icons on the right. On macOS, use the native red/yellow/green buttons on the left
-  instead (or Slint's macOS-style frame), and keep the title bar draggable.
+- **Window controls: fixed** (branch `mac/window-controls`). On macOS the window keeps its
+  system frame: a transparent, full-size title bar with no title text, so the traffic lights
+  sit on Luna's own bar.
+  - Luna's own minimize/maximize/close and resize edges are hidden there.
+  - The bar is 32 px tall, the system's height, so the lights line up with the logo.
+  - The setting is `native-frame` in `main.slint`, set in `ui.rs`. Windows is unchanged.
+  - Checked by screencapture. Dragging and double-clicking the bar haven't been tried.
 
 Not yet tried, because it needs clicks in the window: choosing or dropping a folder, the
 report header, making a report, Settings, and the update check.

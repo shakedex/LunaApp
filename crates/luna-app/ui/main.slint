@@ -355,7 +355,10 @@ component HeaderPanel inherits Rectangle {
 export component MainWindow inherits Window {
     title: "Luna";
     icon: @image-url("assets/luna-icon.png");
-    no-frame: true;
+    // Windows: Luna draws the whole frame. macOS: the system frame, with Luna's
+    // title bar under a transparent one, so the traffic lights sit on it.
+    in property <bool> native-frame;
+    no-frame: !root.native-frame;
     min-width: 720px;
     min-height: 560px;
     preferred-width: 880px;
@@ -448,9 +451,10 @@ export component MainWindow inherits Window {
     }
 
     VerticalLayout {
-        // Title bar: drag to move, double-click to maximise.
+        // Title bar: drag to move, double-click to maximise. On macOS it matches
+        // the system title bar's height, so the traffic lights line up with it.
         Rectangle {
-            height: 44px;
+            height: root.native-frame ? 32px : 44px;
             title-ta := TouchArea {
                 pointer-event(event) => {
                     if (event.kind == PointerEventKind.down && event.button == PointerEventButton.left) {
@@ -463,7 +467,9 @@ export component MainWindow inherits Window {
             }
 
             HorizontalLayout {
-                padding-left: 16px;
+                // macOS draws its window buttons in the top-left corner.
+                padding-left: root.native-frame ? 80px : 16px;
+                padding-right: root.native-frame ? 10px : 0px;
                 spacing: 10px;
 
                 // The logo, glowing softly in its own blue.
@@ -520,7 +526,7 @@ export component MainWindow inherits Window {
                     }
                 }
 
-                WindowButton {
+                if !root.native-frame: WindowButton {
                     icon: @image-url("icons/minus.svg");
                     label: "Minimise";
                     clicked => {
@@ -528,7 +534,7 @@ export component MainWindow inherits Window {
                     }
                 }
 
-                WindowButton {
+                if !root.native-frame: WindowButton {
                     icon: root.is-maximized ? @image-url("icons/copy.svg") : @image-url("icons/square.svg");
                     label: root.is-maximized ? "Restore" : "Maximise";
                     clicked => {
@@ -536,7 +542,7 @@ export component MainWindow inherits Window {
                     }
                 }
 
-                WindowButton {
+                if !root.native-frame: WindowButton {
                     icon: @image-url("icons/x.svg");
                     label: "Close";
                     close: true;
@@ -785,8 +791,8 @@ export component MainWindow inherits Window {
         }
     }
 
-    // Edges and corners for resizing, since the window has no system frame.
-    if !root.is-maximized: Rectangle {
+    // Edges and corners for resizing, when the window has no system frame.
+    if !root.is-maximized && !root.native-frame: Rectangle {
         property <length> edge: 5px;
         TouchArea {
             y: 0;

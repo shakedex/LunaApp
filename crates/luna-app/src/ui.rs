@@ -57,6 +57,8 @@ pub fn run(
     selector.select()?;
 
     let main = MainWindow::new()?;
+    // Read when the window is created, at `show`.
+    main.set_native_frame(cfg!(target_os = "macos"));
     let settings = store.load();
     let app = Rc::new(App {
         flow: Arc::new(Mutex::new(Flow::new())),
@@ -106,9 +108,14 @@ pub fn run(
     Ok(())
 }
 
-/// Luna draws its own title bar; the system still draws the shadow, the
-/// rounded corners and the edge around the frameless window. Set as the
-/// window is created: it doesn't exist yet when `show` returns.
+/// Luna draws its own title bar.
+///
+/// - Windows: the system still draws the shadow, the rounded corners and the
+///   edge around the frameless window.
+/// - macOS: the window keeps its system frame, with a transparent title bar
+///   over Luna's own and no title text, so the traffic lights sit on Luna's bar.
+///
+/// Set as the window is created: it doesn't exist yet when `show` returns.
 fn frame(
     attributes: slint::winit_030::winit::window::WindowAttributes,
 ) -> slint::winit_030::winit::window::WindowAttributes {
@@ -122,7 +129,15 @@ fn frame(
             .with_corner_preference(CornerPreference::Round)
             .with_border_color(Some(edge_colour(true)))
     }
-    #[cfg(not(windows))]
+    #[cfg(target_os = "macos")]
+    {
+        use slint::winit_030::winit::platform::macos::WindowAttributesExtMacOS;
+        attributes
+            .with_titlebar_transparent(true)
+            .with_fullsize_content_view(true)
+            .with_title_hidden(true)
+    }
+    #[cfg(not(any(windows, target_os = "macos")))]
     attributes
 }
 
