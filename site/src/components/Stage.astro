@@ -61,8 +61,8 @@ const phases = ["idle", "running", "done"] as const;
         ))
       }
       <canvas class="moon" id="stage-moon" width="600" height="600" hidden></canvas>
-      <div class="line title" id="stage-line-1" aria-hidden="true" hidden></div>
-      <div class="line sub" id="stage-line-2" aria-hidden="true" hidden></div>
+      <div class="line l1" id="stage-line-1" aria-hidden="true" hidden></div>
+      <div class="line l2" id="stage-line-2" aria-hidden="true" hidden></div>
       <!-- The folder being dragged in, and the pointer doing it. -->
       <div class="folder" id="stage-folder" aria-hidden="true" hidden>
         <span class="glyph" set:html={folder} />
@@ -261,12 +261,12 @@ const phases = ["idle", "running", "done"] as const;
     white-space: nowrap;
     font-variant-numeric: tabular-nums;
   }
-  .title {
+  .l1 {
     font-size: 2.2727cqw;
     font-weight: 600;
     color: var(--text);
   }
-  .sub {
+  .l2 {
     font-size: 1.3636cqw;
     color: var(--faint);
   }

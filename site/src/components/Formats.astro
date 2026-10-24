@@ -21,8 +21,14 @@ const logos: Record<string, string> = { sony, red, blackmagicdesign, nikon, appl
         copy.formats.rows.map((row) => (
           <li>
             <div class="maker">
-              {row.logo && <span class={`logo ${row.logo === "sony" || row.logo === "nikon" ? "wide" : ""}`} set:html={logos[row.logo]} />}
-              <span class="wordmark">{row.maker}</span>
+              {row.logo ? (
+                <>
+                  <span class={`logo ${row.logo === "sony" || row.logo === "nikon" ? "wide" : ""}`} set:html={logos[row.logo]} />
+                  <span class="sr-only">{row.maker}</span>
+                </>
+              ) : (
+                <span class="wordmark">{row.maker}</span>
+              )}
             </div>
             <p class="list">{row.formats.join(", ")}</p>
             <p class="ext data">{row.ext.join("  ")}</p>
@@ -74,16 +80,16 @@ const logos: Record<string, string> = { sony, red, blackmagicdesign, nikon, appl
     color: var(--text);
   }
   .logo :global(svg) {
-    height: 22px;
-    width: 22px;
+    height: 26px;
+    width: 26px;
     fill: currentColor;
     display: block;
   }
   /* Wordmark logos sit small in their square; give them room. */
   .logo.wide :global(svg) {
-    height: 44px;
-    width: 44px;
-    margin: -11px -6px;
+    height: 72px;
+    width: 72px;
+    margin: -22px -8px;
   }
   .wordmark {
     font-size: 16px;
