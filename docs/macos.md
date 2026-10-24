@@ -18,7 +18,7 @@ Windows is the reference: every item there is built and verified.
 - **Never commit** vendor SDKs, camera files, or the update signing key.
 - **Don't push to `master`** of either repo without Shaked's go-ahead. Push
   your work as `mac/<topic>` branches.
-- **Headless first.** Don't launch GUI apps unless Shaked says the Mac is free.
+- **GUI apps are fine.** Shaked cleared Luna's window for work on this Mac (2026-10-24).
 
 ## Set up
 
@@ -180,7 +180,8 @@ same ed25519 key as Windows (`~/.luna/update-key`); never generate a new one.
 
 **Done when:** `cargo xtask package` builds `dist/Luna.app` and it runs a
 report headlessly with `Contents/MacOS/luna-cli report ...`.
-`installer` and `publish` wait until Shaked asks for a release.
+`installer` and `publish` wait until Luna is a working product; there are no releases
+on either platform yet.
 
 **Status 2026-10-24: done** (ad-hoc signed).
 - **What it built:** `cargo xtask package` builds `dist/Luna.app` (174 MB), using the

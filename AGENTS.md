@@ -15,4 +15,4 @@ Native Rust app (Windows + macOS) that turns camera originals into a camera repo
 - Camera files never enter the repository.
 - Private decoders live in the private `shakedex/luna-decoders` repo, pinned by
   `rev` in `Cargo.toml`: push a decoder change there first, then move the pin.
-- Open Mac work is listed in `docs/macos.md`.
+- Open Mac work is listed in `docs/macos.md`, open Windows work in `docs/windows.md`.
