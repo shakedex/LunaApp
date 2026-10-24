@@ -109,8 +109,16 @@ const wide = new Set(["sony", "nikon", "arri", "canon"]);
     }
   }
   @media (max-width: 600px) {
-    .grid {
-      grid-template-columns: 1fr;
+    .grid li {
+      padding: 16px 14px 14px;
+      gap: 8px;
+    }
+    .list {
+      font-size: 14px;
+    }
+    .ext {
+      font-size: 11px;
+      white-space: pre-wrap;
     }
   }
 </style>

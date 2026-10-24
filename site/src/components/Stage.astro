@@ -2,9 +2,9 @@
 // The top of the page: the hero, and the one scroll sequence. The app's
 // window stays pinned while the visitor scrolls: a pointer drags a folder
 // onto it, the Moon fills as the clips are read, the report is ready, the
-// pointer opens the PDF and the first page rises out of the window. Without
-// motion (narrow screens, reduced motion, no WebGL, no JS) the same content
-// is a plain column.
+// pointer opens the PDF and the first page rises out of the window. Narrow
+// screens run the same sequence on a close-up of the window's centre. Without
+// motion (reduced motion, no WebGL, no JS) the same content is a plain column.
 import { copy } from "../copy";
 import { installerUrl } from "../lib/downloads";
 import layout from "../data/layout.json";
@@ -46,31 +46,45 @@ const phases = ["idle", "running", "done"] as const;
     </div>
 
     <figure class="window" id="stage-window" role="img" aria-label={copy.hero.windowAlt}>
+      <div class="screen">
+        {
+          phases.map((p, i) => (
+            <img
+              class={`layer ${p}`}
+              data-phase={p}
+              src={`/img/app-${p}@2x.webp`}
+              data-live={`/img/app-hero-${p}@2x.webp`}
+              alt=""
+              width={width}
+              height={height}
+              fetchpriority={i === 0 ? "high" : undefined}
+              decoding="async"
+            />
+          ))
+        }
+        <canvas class="moon" id="stage-moon" width="600" height="600" hidden></canvas>
+        <div class="line l1" id="stage-line-1" aria-hidden="true" hidden></div>
+        <div class="line l2" id="stage-line-2" aria-hidden="true" hidden></div>
+        <!-- The folder being dragged in, and the pointer doing it. -->
+        <div class="folder" id="stage-folder" aria-hidden="true" hidden>
+          <span class="glyph" set:html={folder} />
+          <span class="name">{copy.stage.folder}</span>
+        </div>
+        <div class="pointer" id="stage-pointer" aria-hidden="true" hidden set:html={cursor} />
+      </div>
+    </figure>
+
+    <!-- Narrow screens: the steps under the close-up. -->
+    <ol class="stepbar" aria-hidden="true">
       {
-        phases.map((p, i) => (
-          <img
-            class={`layer ${p}`}
-            data-phase={p}
-            src={`/img/app-${p}@2x.webp`}
-            data-live={`/img/app-hero-${p}@2x.webp`}
-            alt=""
-            width={width}
-            height={height}
-            fetchpriority={i === 0 ? "high" : undefined}
-            decoding="async"
-          />
+        copy.stage.steps.map((step, i) => (
+          <li data-step={i} class={i === 0 ? "is-on" : ""}>
+            <span class="n">{i + 1}</span>
+            <span class="t">{step}</span>
+          </li>
         ))
       }
-      <canvas class="moon" id="stage-moon" width="600" height="600" hidden></canvas>
-      <div class="line l1" id="stage-line-1" aria-hidden="true" hidden></div>
-      <div class="line l2" id="stage-line-2" aria-hidden="true" hidden></div>
-      <!-- The folder being dragged in, and the pointer doing it. -->
-      <div class="folder" id="stage-folder" aria-hidden="true" hidden>
-        <span class="glyph" set:html={folder} />
-        <span class="name">{copy.stage.folder}</span>
-      </div>
-      <div class="pointer" id="stage-pointer" aria-hidden="true" hidden set:html={cursor} />
-    </figure>
+    </ol>
 
     <figure class="page" id="stage-page" data-report>
       <img class="light" src="/img/report/light-p1.webp" alt={copy.report.pageAlt} width="2105" height="1489" decoding="async" />
@@ -87,7 +101,9 @@ const phases = ["idle", "running", "done"] as const;
             <span class="n">{i + 1}</span>
             {step}
           </h2>
-          <img src={`/img/app-${phases[i]}@2x.webp`} alt={copy.stage.stepAlts[i]} width={width} height={height} loading="lazy" decoding="async" />
+          <span class="crop">
+            <img src={`/img/app-${phases[i]}@2x.webp`} alt={copy.stage.stepAlts[i]} width={width} height={height} loading="lazy" decoding="async" />
+          </span>
         </li>
       ))
     }
@@ -216,7 +232,6 @@ const phases = ["idle", "running", "done"] as const;
      two lines under it are drawn live over a screenshot without them. */
   .window {
     position: relative;
-    container-type: inline-size;
     aspect-ratio: 11 / 8;
     border-radius: var(--radius-window);
     overflow: hidden;
@@ -227,6 +242,15 @@ const phases = ["idle", "running", "done"] as const;
       0 24px 48px -24px rgb(0 0 0 / 0.6);
     isolation: isolate;
     transform-origin: 50% 50%;
+  }
+  /* The whole window. On narrow screens the figure shows only its centre. */
+  .screen {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    aspect-ratio: 11 / 8;
+    container-type: inline-size;
   }
   .layer {
     position: absolute;
@@ -344,6 +368,10 @@ const phases = ["idle", "running", "done"] as const;
     opacity: 1;
   }
 
+  .stepbar {
+    display: none;
+  }
+
   .static {
     display: grid;
     gap: 64px;
@@ -371,10 +399,20 @@ const phases = ["idle", "running", "done"] as const;
     border: 1px solid var(--line-strong);
     color: var(--muted);
   }
-  .static img {
+  .static .crop {
+    display: block;
+    position: relative;
     width: min(100%, 980px);
+    aspect-ratio: 11 / 8;
+    overflow: hidden;
     border-radius: var(--radius-window);
     box-shadow: 0 0 0 1px rgb(255 255 255 / 0.07);
+  }
+  .static img {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
   }
 
   @media (max-width: 1000px) {
@@ -386,6 +424,65 @@ const phases = ["idle", "running", "done"] as const;
     }
     h1 {
       max-width: 16ch;
+    }
+
+    /* The close-up: the Moon, its two lines and the button, from x 440 to
+       1320 and y 196 to 1140 of the 1760 x 1280 window. */
+    .window,
+    .static .crop {
+      aspect-ratio: 880 / 944;
+      width: min(100%, 560px);
+      margin-inline: auto;
+    }
+    .screen,
+    .static img {
+      width: 200%;
+      transform: translate(-25%, -15.3125%);
+    }
+    .page {
+      width: min(100%, 720px);
+    }
+    :global(html.motion) .steps {
+      display: none;
+    }
+    :global(html.motion) .stepbar {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-top: -16px;
+    }
+    .stepbar li {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 17px;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+    }
+    .stepbar .t {
+      display: none;
+    }
+    .stepbar li.is-on .t {
+      display: inline;
+    }
+    .stepbar .n {
+      font-size: 13px;
+      width: 26px;
+      height: 26px;
+      display: inline-grid;
+      place-items: center;
+      border-radius: 50%;
+      border: 1px solid var(--line-strong);
+      color: var(--muted);
+      transition:
+        border-color 0.35s var(--ease-out),
+        color 0.35s var(--ease-out),
+        background-color 0.35s var(--ease-out);
+    }
+    .stepbar li.is-on .n {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: var(--on-accent);
     }
   }
 </style>

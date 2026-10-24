@@ -2,7 +2,8 @@
 // the intro gives way to the three steps; a pointer drags a folder onto the
 // window; the window reads, the live Moon filling in step; the report is
 // ready; the pointer clicks Open PDF and the first page rises out of the
-// window. The Moon turns slowly on its own the whole time.
+// window. The Moon turns slowly on its own the whole time. Narrow screens
+// run it on a close-up of the window, pinned under the nav.
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { copy } from "../copy";
@@ -25,6 +26,8 @@ interface Layout {
 
 const TOTAL = 25;
 const TRAVEL = 4600; // px of scroll for the whole sequence
+const TRAVEL_NARROW = 3200;
+const NAV = 68; // the floating nav's bottom edge
 const SPIN_PERIOD = 90; // seconds per turn, the app's idle speed
 
 // The beats, as shares of the scroll.
@@ -59,9 +62,9 @@ export function runStage() {
   >;
   if (Object.values(el).some((e) => !e)) return;
 
-  const wide = matchMedia("(min-width: 1000px)").matches;
+  const narrow = !matchMedia("(min-width: 1000px)").matches;
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
-  if (!wide || reduce) return;
+  if (reduce) return;
 
   const stage = el.how!;
   const win = el["stage-window"]!;
@@ -84,6 +87,7 @@ export function runStage() {
       }
       document.documentElement.classList.add("motion");
       build({
+        narrow,
         layout,
         layers,
         moon,
@@ -104,6 +108,7 @@ export function runStage() {
 }
 
 interface Parts {
+  narrow: boolean;
   layout: Layout;
   layers: Record<"idle" | "running" | "done", HTMLImageElement>;
   moon: Moon;
@@ -176,7 +181,9 @@ function build(p: Parts) {
     if (state.phase === phase) return;
     state.phase = phase;
     const step = phase === "idle" ? 0 : phase === "running" ? 1 : 2;
-    p.steps.querySelectorAll("li").forEach((li, i) => li.classList.toggle("is-on", i === step));
+    p.pin
+      .querySelectorAll<HTMLElement>("li[data-step]")
+      .forEach((li) => li.classList.toggle("is-on", Number(li.dataset.step) === step));
   };
 
   // The Moon, drawn every frame while the stage is on screen so it turns.
@@ -208,12 +215,20 @@ function build(p: Parts) {
   gsap.set(p.folder, { xPercent: -50, yPercent: -50, ...at(-12, 78), opacity: 1 });
   gsap.set(p.pointer, { ...at(-10, 82), opacity: 0 });
 
+  // Narrow: the close-up and the steps under it sit centred below the nav
+  // while the hero text above scrolls away.
+  const closeUp = () => {
+    const below = p.win.nextElementSibling as HTMLElement | null; // the step bar
+    const height = (below ? below.offsetTop + below.offsetHeight : p.win.offsetTop + p.win.offsetHeight) - p.win.offsetTop;
+    return NAV + Math.max(12, (innerHeight - NAV - height) / 2);
+  };
+
   const tl = gsap.timeline({
     defaults: { ease: "none" },
     scrollTrigger: {
-      trigger: p.stage,
-      start: "top top",
-      end: `+=${TRAVEL}`,
+      trigger: p.narrow ? p.win : p.stage,
+      start: p.narrow ? () => `top ${closeUp()}px` : "top top",
+      end: `+=${p.narrow ? TRAVEL_NARROW : TRAVEL}`,
       pin: p.pin,
       scrub: 0.6,
       anticipatePin: 1,
@@ -226,6 +241,9 @@ function build(p: Parts) {
       },
     },
   });
+
+  // Narrow: the page rises over the close-up, not the middle of the pin.
+  if (p.narrow) tl.set(p.page, { top: () => p.win.offsetTop + p.win.offsetHeight / 2 }, 0);
 
   tl
     // The intro gives way to the steps.
@@ -257,7 +275,7 @@ function build(p: Parts) {
     .to(p.page, { y: 0, duration: 1 - T.pageUp, ease: "power2.out" }, T.pageUp)
     .to(p.win, { opacity: 0.12, scale: 0.94, duration: 0.08 }, T.pageUp + 0.01)
     .to(p.pointer, { opacity: 0, duration: 0.02 }, T.pageUp + 0.01)
-    .to(p.steps, { autoAlpha: 0, duration: 0.06 }, T.pageUp + 0.03);
+    .to([p.steps, p.win.nextElementSibling], { autoAlpha: 0, duration: 0.06 }, T.pageUp + 0.03);
 
   // Fonts and images change the layout as they arrive.
   document.fonts?.ready.then(() => ScrollTrigger.refresh());
