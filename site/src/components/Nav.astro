@@ -11,6 +11,7 @@ import { installerUrl } from "../lib/downloads";
     </a>
     <a href="#report">{copy.nav.report}</a>
     <a href="#formats">{copy.nav.formats}</a>
+    <a href="#features">{copy.nav.features}</a>
     <a class="btn btn-primary small" href={installerUrl("windows")} data-dl="primary">{copy.nav.download}</a>
   </nav>
 </header>
@@ -71,7 +72,11 @@ import { installerUrl } from "../lib/downloads";
   }
   @media (max-width: 600px) {
     .pill {
-      gap: 18px;
+      gap: 16px;
+    }
+    /* Phones keep the name, two sections and the button. */
+    .pill > a[href="#report"] {
+      display: none;
     }
   }
 </style>

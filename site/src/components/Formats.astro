@@ -1,14 +1,27 @@
 ---
 import { copy } from "../copy";
-import sony from "simple-icons/icons/sony.svg?raw";
-import blackmagicdesign from "simple-icons/icons/blackmagicdesign.svg?raw";
-import nikon from "simple-icons/icons/nikon.svg?raw";
-import apple from "simple-icons/icons/apple.svg?raw";
+import sonySvg from "simple-icons/icons/sony.svg?raw";
+import blackmagicSvg from "simple-icons/icons/blackmagicdesign.svg?raw";
+import nikonSvg from "simple-icons/icons/nikon.svg?raw";
+import appleSvg from "simple-icons/icons/apple.svg?raw";
 import arri from "../assets/logos/arri.svg?raw";
 import canon from "../assets/logos/canon.svg?raw";
+import camera from "@phosphor-icons/core/assets/regular/video-camera.svg?raw";
 
-const logos: Record<string, string> = { sony, blackmagicdesign, nikon, apple, arri, canon };
-const wide = new Set(["sony", "nikon", "arri", "canon"]);
+// Simple Icons draw every mark in a 24 x 24 square; crop each to its ink so
+// all the logos can be sized by height alone.
+const crop = (svg: string, box: string) => svg.replace(/viewBox="[^"]*"/, `viewBox="${box}"`).replace(/<title>.*?<\/title>/, "");
+const logos: Record<string, string> = {
+  arri,
+  canon,
+  sony: crop(sonySvg, "0 9.888 24 4.224"),
+  nikon: crop(nikonSvg, "0 8.681 24 6.638"),
+  blackmagicdesign: crop(blackmagicSvg, "8.309 0 7.382 24"),
+  apple: crop(appleSvg, "2.225 0 19.55 24"),
+};
+
+// The raw formats get the accent; everything else is plain.
+const raw = new Set(["ARRIRAW", "ARRICORE", "X-OCN", "R3D", "Blackmagic RAW", "Cinema RAW Light", "N-RAW", "R3D NE", "ProRes RAW"]);
 ---
 
 <section class="section formats" id="formats" aria-labelledby="formats-title">
@@ -19,25 +32,34 @@ const wide = new Set(["sony", "nikon", "arri", "canon"]);
       {
         copy.formats.rows.map((row) => (
           <li>
-            <div class="maker">
+            <div class={`maker ${row.logo ?? "other"}`}>
               {row.logo === "red" ? (
-                <img class="logo-img" src="/img/logos/red.png" alt={row.maker} width="218" height="54" />
+                <img src="/img/logos/red.png" alt={row.maker} width="218" height="54" />
               ) : row.logo ? (
                 <>
-                  <span class={`logo ${wide.has(row.logo) ? "wide" : ""} ${row.logo}`} set:html={logos[row.logo]} />
-                  <span class="sr-only">{row.maker}</span>
+                  <span class="mark" set:html={logos[row.logo]} />
+                  {row.logo === "blackmagicdesign" ? (
+                    <span class="name">{row.maker}</span>
+                  ) : (
+                    <span class="sr-only">{row.maker}</span>
+                  )}
                 </>
               ) : (
-                <span class="wordmark">{row.maker}</span>
+                <>
+                  <span class="mark" set:html={camera} />
+                  <span class="name">{row.maker}</span>
+                </>
               )}
             </div>
-            {row.formats.length > 0 && <p class="list">{row.formats.join(", ")}</p>}
-            <p class="ext data">{row.ext.join("  ")}</p>
+            <ul class="chips" aria-label={`${row.maker} formats`}>
+              {row.formats.map((f) => (
+                <li class={raw.has(f) ? "raw" : undefined}>{f}</li>
+              ))}
+            </ul>
           </li>
         ))
       }
     </ul>
-
   </div>
 </section>
 
@@ -45,80 +67,101 @@ const wide = new Set(["sony", "nikon", "arri", "canon"]);
   .grid {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 1px;
+    gap: 12px;
     margin-top: 32px;
-    background: var(--line);
-    border: 1px solid var(--line);
-    border-radius: var(--radius-window);
-    overflow: hidden;
   }
-  .grid li {
-    background: var(--canvas);
-    padding: 22px 22px 20px;
+  /* Each tile takes two rows of the grid so logos and chips line up across
+     a row of tiles. */
+  .grid > li {
     display: grid;
-    gap: 10px;
-    align-content: start;
+    grid-row: span 2;
+    grid-template-rows: subgrid;
+    gap: 18px;
+    padding: 26px 24px 22px;
+    border-radius: var(--radius-window);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    transition: border-color 0.2s var(--ease-out);
   }
+  .grid > li:hover {
+    border-color: var(--line-strong);
+  }
+
+  /* Logos sized by eye: each mark gets the height that makes it weigh about
+     the same as the others. */
   .maker {
-    height: 28px;
+    height: 40px;
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
     color: var(--text);
   }
-  .logo :global(svg) {
-    height: 26px;
-    width: 26px;
-    fill: currentColor;
+  .mark :global(svg) {
     display: block;
+    height: var(--h, 24px);
+    width: auto;
+    fill: currentColor;
   }
-  /* Wordmark logos sit small in their square; give them room. */
-  .logo.wide :global(svg) {
-    height: 72px;
-    width: 72px;
-    margin: -22px -8px;
-  }
-  .logo-img {
-    height: 17px;
+  .maker img {
+    display: block;
+    height: 21px;
     width: auto;
   }
-  /* The ARRI and Canon marks come as wordmarks already. */
-  .logo.arri :global(svg),
-  .logo.canon :global(svg) {
-    height: 18px;
-    width: auto;
-    margin: 0;
+  .arri { --h: 27px; }
+  .sony { --h: 18px; }
+  .canon { --h: 22px; }
+  .nikon { --h: 25px; }
+  .apple { --h: 30px; }
+  .blackmagicdesign { --h: 32px; }
+  .other { --h: 30px; }
+  .other .mark {
+    color: var(--muted);
   }
-  .wordmark {
+  .name {
     font-size: 16px;
     font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.15;
   }
-  .list {
-    font-size: 15px;
+
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    align-content: start;
+    gap: 6px;
+  }
+  .chips li {
+    font-size: 13.5px;
+    font-weight: 500;
+    line-height: 1;
+    padding: 7px 10px;
+    border-radius: var(--radius);
+    background: var(--raised);
     color: var(--text);
-    line-height: 1.4;
+    white-space: nowrap;
   }
-  .ext {
-    font-size: 12px;
-    color: var(--quiet);
-    white-space: pre;
+  .chips li.raw {
+    background: var(--accent-soft);
+    color: var(--accent);
   }
+
+
   @media (max-width: 1000px) {
     .grid {
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
   }
   @media (max-width: 600px) {
-    .grid li {
-      padding: 16px 14px 14px;
+    .grid {
       gap: 8px;
     }
-    .list {
-      font-size: 14px;
+    .grid > li {
+      padding: 18px 16px 16px;
+      gap: 14px;
     }
-    .ext {
-      font-size: 11px;
-      white-space: pre-wrap;
+    .chips li {
+      font-size: 12.5px;
+      padding: 6px 8px;
     }
   }
 </style>

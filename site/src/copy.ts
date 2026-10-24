@@ -11,7 +11,7 @@ export const KNOWN_VERSION = "2026.10.0";
 
 export const copy = {
   meta: {
-    title: "Luna: camera reports from camera originals",
+    title: "Luna: beautiful reports for every camera",
     description:
       "Camera reports from ARRIRAW, X-OCN, R3D, Blackmagic RAW, Cinema RAW Light, N-RAW and ProRes RAW originals, as PDF, HTML and CSV. Free for Windows and macOS.",
     ogImageAlt: "Luna's window with the full Moon: Report ready, 25 clips, no problems.",
@@ -22,13 +22,12 @@ export const copy = {
   nav: {
     report: "Report",
     formats: "Formats",
+    features: "Features",
     download: "Download",
   },
 
   hero: {
-    title: "Camera reports from camera originals.",
-    lede: "Reads a card or a whole shoot drive and writes the camera report as PDF, HTML and CSV.",
-    alsoFor: "Also for",
+    title: "Beautiful reports for every camera. Free.",
     windowAlt: "Luna's window: the engraved Moon fills as the clips are read.",
   },
 
@@ -64,14 +63,36 @@ export const copy = {
   formats: {
     title: "Formats",
     rows: [
-      { maker: "ARRI", logo: "arri", formats: ["ARRIRAW", "ARRICORE", "ProRes"], ext: [".ari", ".arx", ".mxf", ".mov"] },
-      { maker: "Sony", logo: "sony", formats: ["X-OCN", "XAVC"], ext: [".mxf"] },
-      { maker: "RED", logo: "red", formats: ["R3D"], ext: [".r3d"] },
-      { maker: "Blackmagic Design", logo: "blackmagicdesign", formats: ["Blackmagic RAW"], ext: [".braw"] },
-      { maker: "Canon", logo: "canon", formats: ["Cinema RAW Light", "XF-AVC", "XF-HEVC"], ext: [".crm", ".mxf", ".mp4"] },
-      { maker: "Nikon", logo: "nikon", formats: ["N-RAW", "R3D NE"], ext: [".nev", ".r3d"] },
-      { maker: "Apple", logo: "apple", formats: ["ProRes", "ProRes RAW"], ext: [".mov"] },
-      { maker: "H.264, HEVC", logo: null, formats: [], ext: [".mov", ".mp4"] },
+      { maker: "ARRI", logo: "arri", formats: ["ARRIRAW", "ARRICORE", "ProRes"] },
+      { maker: "Sony", logo: "sony", formats: ["X-OCN", "XAVC"] },
+      { maker: "RED", logo: "red", formats: ["R3D"] },
+      { maker: "Blackmagic Design", logo: "blackmagicdesign", formats: ["Blackmagic RAW"] },
+      { maker: "Canon", logo: "canon", formats: ["Cinema RAW Light", "XF-AVC", "XF-HEVC"] },
+      { maker: "Nikon", logo: "nikon", formats: ["N-RAW", "R3D NE"] },
+      { maker: "Apple", logo: "apple", formats: ["ProRes", "ProRes RAW"] },
+      { maker: "Other cameras", logo: null, formats: ["H.264", "HEVC"] },
+    ],
+  },
+
+  features: {
+    title: "Features",
+    note: { text: "* New formats and codecs arrive with updates. Missing one?", link: "Ask on GitHub" },
+    script: {
+      title: "Script it",
+      text: "Make reports from a terminal or a script, or let AI agents make them over MCP.",
+      commands: ["luna-cli report D:\\DAY12", "luna-cli inspect D:\\DAY12", "luna-cli mcp"],
+    },
+    items: [
+      {
+        icon: "aperture",
+        title: "Every raw, read natively",
+        text: "ARRIRAW, ARRICORE, X-OCN, R3D, BRAW, Cinema RAW Light, N-RAW, ProRes RAW and more*",
+      },
+      { icon: "file", title: "Paper or dark", text: "PDF, HTML and CSV, in the Paper or Dark theme." },
+      { icon: "drives", title: "Drop the whole drive", text: "A day's worth of cards in one go, sorted by camera and reel." },
+      { icon: "card", title: "Your logo, your fields", text: "Company logo and your own production fields on every page." },
+      { icon: "image", title: "Stills that look right", text: "Raw and log frames are converted to Rec.709 for the thumbnails." },
+      { icon: "desktop", title: "Windows and macOS, free", text: "Every format reads on both. MIT licence." },
     ],
   },
 
@@ -88,7 +109,7 @@ export const copy = {
       requires: "macOS 26 or later, Apple Silicon",
     },
     version: (v: string) => `Version ${v}`,
-    free: "Free. MIT licence.",
+    free: "Free, MIT licence",
     allReleases: "All releases",
     source: "Source on GitHub",
   },

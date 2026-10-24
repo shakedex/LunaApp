@@ -8,7 +8,6 @@
 import { copy } from "../copy";
 import { installerUrl } from "../lib/downloads";
 import layout from "../data/layout.json";
-import download from "@phosphor-icons/core/assets/regular/download-simple.svg?raw";
 import windowsLogo from "@phosphor-icons/core/assets/fill/windows-logo-fill.svg?raw";
 import appleLogo from "@phosphor-icons/core/assets/fill/apple-logo-fill.svg?raw";
 import cursor from "@phosphor-icons/core/assets/fill/cursor-fill.svg?raw";
@@ -22,15 +21,17 @@ const phases = ["idle", "running", "done"] as const;
   <div class="pin" id="stage-pin">
     <div class="copy">
       <div class="intro" id="stage-intro">
-        <h1>{copy.hero.title}</h1>
-        <p class="lede">{copy.hero.lede}</p>
+        <h1 class="name">Luna</h1>
+        <p class="tagline">{copy.hero.title}</p>
         <div class="cta">
-          <a class="btn btn-primary" href={installerUrl("windows")} data-dl="primary">
-            <span class="icon os windows" data-os-icon="windows" set:html={windowsLogo} />
-            <span class="icon os macos" data-os-icon="macos" set:html={appleLogo} />
-            <span data-download-label>Download for Windows</span>
+          <a class="btn btn-primary" href={installerUrl("windows")} data-dl="windows">
+            <span class="icon" set:html={windowsLogo} />
+            {copy.download.windows.button}
           </a>
-          <span class="alt">{copy.hero.alsoFor} <a href={installerUrl("macos")} data-dl="other" data-download-other>macOS</a></span>
+          <a class="btn btn-primary" href={installerUrl("macos")} data-dl="macos">
+            <span class="icon" set:html={appleLogo} />
+            {copy.download.macos.button}
+          </a>
         </div>
       </div>
       <ol class="steps" id="stage-steps" aria-label="Steps">
@@ -133,11 +134,19 @@ const phases = ["idle", "running", "done"] as const;
   .copy {
     position: relative;
   }
-  h1 {
-    font-size: clamp(38px, 3.4vw, 50px);
-    line-height: 1.06;
-    letter-spacing: -0.03em;
+  .name {
+    font-size: clamp(56px, 5.4vw, 80px);
+    line-height: 1;
+    letter-spacing: -0.04em;
+    font-weight: 600;
+  }
+  .tagline {
+    margin-top: 22px;
+    font-size: clamp(28px, 2.5vw, 38px);
+    line-height: 1.12;
+    letter-spacing: -0.025em;
     font-weight: 500;
+    color: var(--muted);
     max-width: 19ch;
   }
   .intro .lede {
@@ -147,8 +156,8 @@ const phases = ["idle", "running", "done"] as const;
   .cta {
     display: flex;
     align-items: center;
-    gap: 22px;
-    margin-top: 36px;
+    gap: 12px;
+    margin-top: 40px;
     flex-wrap: wrap;
   }
   .icon :global(svg) {
@@ -157,25 +166,9 @@ const phases = ["idle", "running", "done"] as const;
     fill: currentColor;
     display: block;
   }
-  .os {
-    display: none;
-  }
-  :global([data-os="windows"]) .os.windows,
-  :global([data-os="macos"]) .os.macos {
-    display: block;
-  }
-  .alt {
-    color: var(--muted);
-    font-size: 15px;
-  }
-  .alt a {
-    color: var(--text);
-    text-decoration: underline;
-    text-decoration-color: var(--line-strong);
-    text-underline-offset: 4px;
-  }
-  .alt a:hover {
-    text-decoration-color: var(--text);
+  /* The visitor's platform first; both buttons are the same. */
+  :global([data-os="macos"]) .cta [data-dl="macos"] {
+    order: -1;
   }
 
   /* The three steps take the intro's place once the sequence starts. */
@@ -423,7 +416,7 @@ const phases = ["idle", "running", "done"] as const;
       padding-top: 112px; /* clear of the floating nav */
       padding-bottom: 0;
     }
-    h1 {
+    .tagline {
       max-width: 16ch;
     }
 

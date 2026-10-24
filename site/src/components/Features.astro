@@ -1,0 +1,267 @@
+---
+import { copy, REPO_URL } from "../copy";
+import terminal from "@phosphor-icons/core/assets/regular/terminal-window.svg?raw";
+import aperture from "@phosphor-icons/core/assets/regular/aperture.svg?raw";
+import file from "@phosphor-icons/core/assets/regular/file-text.svg?raw";
+import drives from "@phosphor-icons/core/assets/regular/hard-drives.svg?raw";
+import card from "@phosphor-icons/core/assets/regular/identification-card.svg?raw";
+import image from "@phosphor-icons/core/assets/regular/image.svg?raw";
+import desktop from "@phosphor-icons/core/assets/regular/desktop.svg?raw";
+import caret from "@phosphor-icons/core/assets/regular/caret-down.svg?raw";
+
+const icons: Record<string, string> = { aperture, file, drives, card, image, desktop };
+const f = copy.features;
+---
+
+<section class="section features" id="features" aria-labelledby="features-title">
+  <div class="wrap">
+    <h2 class="title" id="features-title">{f.title}</h2>
+
+    <!-- Every cell's heading is a button: inert on wide screens, where all
+         cells are open, and a fold toggle on phones. -->
+    <ul class="grid">
+      <li class="script">
+        <h3>
+          <button class="head" type="button" aria-expanded="true" aria-controls="feature-script">
+            <span class="icon" set:html={terminal} />
+            <span class="name">{f.script.title}</span>
+            <span class="caret" set:html={caret} />
+          </button>
+        </h3>
+        <div class="body" id="feature-script">
+          <div class="inner">
+            <p>{f.script.text}</p>
+            <pre class="term data" aria-label="luna-cli commands">{f.script.commands.map((c) => <span><i aria-hidden="true">&gt;</i> {c}</span>)}</pre>
+          </div>
+        </div>
+      </li>
+      {
+        f.items.map((item, i) => (
+          <li>
+            <h3>
+              <button class="head" type="button" aria-expanded="true" aria-controls={`feature-${i}`}>
+                <span class="icon" set:html={icons[item.icon]} />
+                <span class="name">{item.title}</span>
+                <span class="caret" set:html={caret} />
+              </button>
+            </h3>
+            <div class="body" id={`feature-${i}`}>
+              <div class="inner">
+                <p>{item.text}</p>
+              </div>
+            </div>
+          </li>
+        ))
+      }
+    </ul>
+    <p class="note">{f.note.text} <a href={`${REPO_URL}/issues`}>{f.note.link}</a></p>
+  </div>
+</section>
+
+<script>
+  // Phones get the cells folded to their headings; wider screens keep them
+  // open with the headings out of the tab order. The fold itself is a CSS
+  // transition on the body's grid row.
+  const narrow = window.matchMedia("(max-width: 600px)");
+  const heads = document.querySelectorAll<HTMLButtonElement>(".features .head");
+  const fold = () =>
+    heads.forEach((b) => {
+      b.setAttribute("aria-expanded", String(!narrow.matches));
+      b.tabIndex = narrow.matches ? 0 : -1;
+    });
+  fold();
+  narrow.addEventListener("change", fold);
+  heads.forEach((b) =>
+    b.addEventListener("click", () => {
+      if (narrow.matches) b.setAttribute("aria-expanded", String(b.getAttribute("aria-expanded") !== "true"));
+    }),
+  );
+</script>
+
+<style>
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1px;
+    margin-top: 32px;
+    background: var(--line);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-window);
+    overflow: hidden;
+  }
+  .grid li {
+    background: var(--canvas);
+    padding: 28px 28px 30px;
+  }
+  .head {
+    display: grid;
+    justify-items: start;
+    gap: 10px;
+    width: 100%;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    pointer-events: none;
+  }
+  .caret {
+    display: none;
+  }
+  .body {
+    margin-top: 10px;
+  }
+  .icon :global(svg) {
+    width: 26px;
+    height: 26px;
+    fill: var(--accent);
+    display: block;
+    margin-bottom: 8px;
+  }
+  h3 {
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  p {
+    font-size: 15px;
+    line-height: 1.5;
+    color: var(--muted);
+    max-width: 44ch;
+  }
+
+  .note {
+    margin-top: 16px;
+    font-size: 13.5px;
+    color: var(--quiet);
+    max-width: none;
+  }
+  .note a {
+    color: var(--text);
+    text-decoration: underline;
+    text-decoration-color: var(--line-strong);
+    text-underline-offset: 4px;
+  }
+  .note a:hover {
+    text-decoration-color: var(--text);
+  }
+
+  /* The wide cell: the commands themselves, as typed. */
+  .grid li.script {
+    grid-column: 1 / -1;
+    background: var(--surface);
+  }
+  .script h3 {
+    font-size: 24px;
+    letter-spacing: -0.015em;
+  }
+  .script .inner {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+    align-items: start;
+    gap: 40px;
+  }
+  .term {
+    display: grid;
+    gap: 10px;
+    margin: 0;
+    padding: 24px 26px;
+    border-radius: var(--radius);
+    background: var(--chrome);
+    border: 1px solid var(--line);
+    font-size: 15px;
+    color: var(--text);
+    overflow-x: auto;
+  }
+  .term i {
+    font-style: normal;
+    color: var(--accent);
+  }
+
+  @media (max-width: 1000px) {
+    .grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .script .inner {
+      grid-template-columns: 1fr;
+      gap: 20px;
+    }
+  }
+  @media (max-width: 600px) {
+    .grid {
+      grid-template-columns: 1fr;
+    }
+    .grid li {
+      padding: 0;
+    }
+    .head {
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 14px;
+      padding: 18px;
+      pointer-events: auto;
+      cursor: pointer;
+    }
+    .head .icon :global(svg) {
+      width: 22px;
+      height: 22px;
+      margin: 0;
+    }
+    h3,
+    .script h3 {
+      font-size: 16px;
+    }
+    .caret {
+      display: block;
+      color: var(--quiet);
+      transition: transform 0.3s var(--ease-out);
+    }
+    .caret :global(svg) {
+      width: 16px;
+      height: 16px;
+      fill: currentColor;
+      display: block;
+    }
+    .head[aria-expanded="true"] .caret {
+      transform: rotate(180deg);
+    }
+
+    /* The fold: the body's one grid row goes from its content's height to
+       zero, and the text fades with it. */
+    .body {
+      display: grid;
+      grid-template-rows: 1fr;
+      margin: 0;
+      transition:
+        grid-template-rows 0.3s var(--ease-out),
+        opacity 0.3s var(--ease-out),
+        visibility 0.3s;
+    }
+    .inner {
+      min-height: 0;
+      overflow: hidden;
+      padding: 0 18px 0 54px;
+    }
+    .inner::after {
+      content: "";
+      display: block;
+      height: 20px;
+    }
+    li:has(.head[aria-expanded="false"]) .body {
+      grid-template-rows: 0fr;
+      opacity: 0;
+      visibility: hidden;
+    }
+    .term {
+      font-size: 12.5px;
+      padding: 16px;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .body,
+    .caret {
+      transition: none;
+    }
+  }
+</style>
