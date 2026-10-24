@@ -162,6 +162,15 @@ answered.
   linear, and Luna takes black as 0.
 - **Separate damage:** FFmpeg's decode also has block artifacts that Apple's doesn't.
 
+**Wired into Luna 2026-10-24** (LunaApp branch `mac/proresraw`):
+- **How it works:** `proresraw_decode` on macOS reads the `bp16` mosaic through the AVFoundation
+  shim and bins it. It maps Apple's metadata onto the mosaic: black/white levels, WB factors,
+  the colour matrix as `camera_to_xyz`, and `GainFactor / (white − black)` as `scene_scale`.
+- **Result:** the Ronin 4D thumbnails match Apple's own rendering, neutral and with no block
+  artifacts.
+- **Test:** `proresraw_ronin4d_through_videotoolbox` covers it. The Windows FFmpeg path is
+  unchanged.
+
 ## 6. Package, sign and update
 
 `cargo xtask package` / `installer` / `publish` have macOS branches in

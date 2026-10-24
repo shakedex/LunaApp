@@ -4,7 +4,8 @@
 //! our own decoders (ProRes, intra H.264, ARRIRAW/ARRICORE, X-OCN, CRM), bundled vendor SDKs (BRAW;
 //! R3D through the closed add-on loaded at runtime; ProRes RAW through FFmpeg's
 //! LGPL DLLs on Windows), or the platform decoder
-//! (Media Foundation on Windows, AVFoundation on macOS). Platform APIs live only
+//! (Media Foundation on Windows, AVFoundation on macOS, which also takes
+//! ProRes RAW). Platform APIs live only
 //! in this crate, behind `cfg(target_os)`.
 
 use luna_formats::{ClipFiles, Codec, ColourHint, Container, Gamut, Probe, Transfer};
@@ -264,7 +265,17 @@ fn proresraw_decode(
     proresraw::decode(clip, probe, positions, min_width)
 }
 
-#[cfg(not(windows))]
+#[cfg(target_os = "macos")]
+fn proresraw_decode(
+    clip: &ClipFiles,
+    probe: &Probe,
+    positions: &[u64],
+    min_width: u32,
+) -> Vec<Result<Frame, DecodeError>> {
+    platform_macos::decode_raw(clip, probe, positions, min_width)
+}
+
+#[cfg(not(any(windows, target_os = "macos")))]
 fn proresraw_decode(
     _clip: &ClipFiles,
     _probe: &Probe,
