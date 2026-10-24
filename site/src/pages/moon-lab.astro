@@ -1,0 +1,17 @@
+---
+// Temporary: compare the shader Moon with the app's frames. Delete before shipping.
+import Base from "../layouts/Base.astro";
+---
+<Base title="moon lab" description="">
+  <canvas id="c" style="position:fixed;inset:0;width:100vw;height:100vh"></canvas>
+  <script>
+    import { createMoon } from "../moon/scene";
+    const q = new URLSearchParams(location.search);
+    const moon = await createMoon(document.getElementById("c") as HTMLCanvasElement, () => {});
+    const size = Number(q.get("size") ?? 600);
+    moon?.setRect((innerWidth - size) / 2, (innerHeight - size) / 2, size);
+    moon?.setPhase(Number(q.get("lit") ?? 0.65));
+    moon?.setProgress(Number(q.get("p") ?? 0.62));
+    (window as any).ready = true;
+  </script>
+</Base>

@@ -44,4 +44,7 @@ for clip in P1066462 P1066468 P1066471; do
     webp "$frames/${clip}_$i.jpg" "$img/strips/${clip}_$i.webp" 82
   done
 done
+# The app's lunar albedo, for the site's moon shader.
+ffmpeg -v error -y -f rawvideo -pix_fmt gray16le -s 1024x512 -i "$repo/crates/luna-app/assets/moon-albedo-1024x512.u16" -pix_fmt gray "$tmp/albedo.png"
+webp "$tmp/albedo.png" "$img/moon-albedo.webp" 92
 echo "assets in $img"
