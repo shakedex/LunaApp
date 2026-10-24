@@ -230,16 +230,51 @@ settings and log locations, and worker processes go through cross-platform crate
 | `luna-cli` | `report`, `inspect` (21 cards) and `mcp` (4 tools) work from inside the bundle. |
 | `cargo xtask check` | Passes. |
 
-**Still to try by clicking** (a session with computer use on):
-- Clicking the window to choose a folder, and dragging a folder onto it.
-- The report header: production, company, custom fields and logo.
-- Settings: every field, and whether it's still set after a restart.
-- Changing the destination.
-- After a report: Open PDF / HTML / CSV, Show in folder, New report.
-- Cancelling a running report.
-- The window itself: dragging and double-clicking the title bar, the traffic lights,
-  resizing, and full screen.
-- *Check for updates* with no release published: what does the user see?
+**Click tests, 2026-10-24.** Run with computer use in background mode, so Shaked could keep
+working: clicks go through accessibility or as background mouse events, and nothing takes
+over the screen. Reports went to a scratch folder and `settings.toml` was put back afterwards.
+
+| Test | Result |
+|---|---|
+| Click the window to choose a folder | **Pass.** A click on the home screen opens the native folder sheet (Recents, Documents, the drive) with *New Folder* and *Open*. *Cancel* returns to the home screen with nothing changed. Picking a folder in the sheet: **not run** (see below). |
+| Drag a folder onto the window | **Not run** (see below). |
+| Settings: every field | **Pass.** Production, Company, Report by, Light/Dark, *Add field* (two rows), label and value, moving a row up, *Choose logo* and its *Cancel*. *Unsaved changes* shows with *Discard* and *Save*; *Save* writes everything to `settings.toml`, custom fields in their new order. |
+| Settings after a restart | **Pass.** After Quit and a relaunch the header bar reads "Click Test Prod · Unit Main · Shoot day 7" and Settings shows the same values. |
+| Report header in the report | **Pass.** Production, company, author and both custom fields (in order) are in the HTML report. |
+| Report header card (expand to edit in place) | **Not run.** Its `TouchArea` has no accessible action, so a background click only selects the group. See below. |
+| Logo | **Not run** past opening the chooser (see below). |
+| Changing the destination | **Not run** (see below). |
+| Report → done screen | **Pass.** "Report ready · 3 clips, no problems" with *Open PDF*, *New report*, *Open HTML*, *Open CSV*, *Show in folder*. PDF, HTML and CSV written. |
+| New report | **Pass.** Back to the home screen. |
+| Open PDF / HTML / CSV, Show in folder | **Not run:** each opens another app on Shaked's screen (see below). |
+| Cancel a running report | **Pass.** At 10 of 27 clips, *Cancel* shows "Cancelled · Nothing was written". No output folder exists and the workers are gone. *Back* returns to the picked folder with *Create report* and *Change folder*. The whole corpus takes about 3 s, so Cancel has to be quick. |
+| Traffic lights | **Pass.** Minimize goes to the Dock and the window comes back drawn correctly. Close quits Luna (one-window app); that's fine but is a choice. Full screen: **not run** (see below). |
+| Title bar drag and double-click, resizing | **Not run** (see below). |
+| *Check for updates*, no release | Sparkle shows its own "Update Error! An error occurred in retrieving update information. Please try again later." with *Cancel Update*. The feed `…/releases/latest/download/appcast-macos.xml` returns 404. It goes away once a release with an appcast exists. Shaked to decide whether that's acceptable before the first release. |
+
+**Found on the way** (for Shaked to decide, nothing changed):
+
+- **The menu bar has only the app menu.** It lists About, Services, Hide, Quit and
+  "Quit and Keep Windows". There's no *Settings…* (⌘,), no *Edit* menu (Undo, Cut, Copy,
+  Paste, Select All) and no *Window* menu. Mac users expect all three. Slint has a
+  `MenuBar` element set on the `Window`. Check whether it gives the native menu bar on macOS:
+  if it does, the fix stays in `luna-app`.
+- **The report header card can't be opened from the keyboard or VoiceOver.** The bar is a
+  bare `TouchArea` inside a `groupbox` (`main.slint`, `ReportHeader`). It needs an
+  accessible action, or a button. This isn't Mac-specific.
+- **The destination box doesn't show `--output`.** When Luna is launched with
+  `report <folder> --output <dir>`, the report goes to `<dir>` but the box still shows the
+  saved destination. Small, and only for that launch path. Not Mac-specific.
+
+**Still to check by hand** (they need the real mouse or open other apps; a few minutes):
+
+1. Click the window and pick a camera folder in the sheet. Then drag a folder from Finder onto the window.
+2. Click the *Report header* bar: it should open upwards. Edit a value in place.
+3. Settings → *Choose logo*: pick a PNG and it should show in the box. Then make a report and check the logo is in the PDF.
+4. *Change* the destination, make a report, and check it lands there.
+5. On the done screen: *Open PDF*, *Open HTML*, *Open CSV* and *Show in folder* (Finder should select the report).
+6. Drag the window by its bar, double-click the bar (zoom), resize from each edge and corner, and use the green button for full screen and back.
+7. In a text field, ⌘C, ⌘V and ⌘A (there's no Edit menu, so check these work).
 
 **Done when** the whole flow (folder → report → open it) works through the window on the
 Mac, and the window looks and behaves like a Mac app.
