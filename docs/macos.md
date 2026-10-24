@@ -330,6 +330,35 @@ likely an entitlement the hardened runtime needs) in `sign_app`.
 **Done when** the DMG passes those checks, opens cleanly from quarantine, and
 `publish` then works for the first release.
 
+**Status 2026-10-24: done.** `v2026.10.0` is published and is the latest release.
+- **Signing:** with the keychain's "Developer ID Application: Shaked Lipszyc (N67345KMS8)".
+  `sign_app` needed no changes and the hardened runtime needed no entitlements.
+- **Notarizing:** the `luna-notary` profile holds the team's App Store Connect API key
+  (`~/.appstoreconnect/private_keys/AuthKey_*.p8`, the one VideoBridge uses), not an Apple
+  ID, so a locked Apple ID doesn't block it.
+  - Apple accepted every submission with no issues ("Ready for distribution").
+  - The first ones took 30–50 minutes each in Apple's queue, so a whole `installer` run
+    took about 2 hours.
+- **What `cargo xtask installer` (`v2026.10.0`) built:** `Luna-2026.10.0-macos.dmg`
+  (75 MB, with an Applications link), `Luna-2026.10.0-macos.zip` (68 MB) and
+  `appcast-macos.xml`.
+- **Checks:**
+  - `spctl` accepts the app and the DMG as "Notarized Developer ID".
+  - `stapler validate` passes.
+  - `syspolicy_check distribution` says "ready for distribution".
+- **From quarantine:** a copy of the DMG got a Safari quarantine flag, and the app was
+  copied out of it.
+  - Gatekeeper accepts it. Opening it shows only macOS's usual first-open prompt: "Apple
+    checked it for malicious software and none was detected."
+- **Before this:** a dry run with the Development identity gave 81 thumbnails for 27 clips
+  under the hardened runtime, so library validation lets RED, BRAW, N-RAW and ProRes RAW
+  load.
+
+**Published:** `cargo xtask publish` from the `v2026.10.0` checkout uploaded the DMG, zip
+and `appcast-macos.xml`.
+- With the Windows installer already there, the release left draft and became the latest.
+- Both `releases/latest/download/appcast-*.xml` feeds and the DMG return 200.
+
 ## Reporting back
 
 Both machines push to GitHub, so report through it:
