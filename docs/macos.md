@@ -270,7 +270,7 @@ test: there are samples in `target/sample-logos/` (PNG, JPEG, SVG). They're not 
   - There's no Edit menu: ⌘C / ⌘V / ⌘A already work in the fields.
 - **Full screen.** macOS hides the traffic lights there, but Luna's bar kept their 80 px
   gap, so the logo sat away from the edge. In full screen the bar now starts 16 px in.
-  Zoom (double-click, Window → Zoom) was already fine.
+  Zoom (double-click, Window → Zoom) was already fine. Shaked confirmed this was the glitch.
 - **`--output` shown as the destination.** After `report <folder> --output <dir>`, the
   box shows `<dir>` while that run is on screen, and goes back to the saved destination
   after *New report*. *Change* during that run moves the run too. This one isn't
