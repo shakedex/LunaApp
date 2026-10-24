@@ -3715,9 +3715,11 @@ version = "0.0.0"
 dependencies = [
  "clap",
  "dirs",
+ "i-slint-backend-winit",
  "luna-core",
  "luna-update",
  "luna-worker",
+ "muda",
  "open",
  "rfd",
  "slint",

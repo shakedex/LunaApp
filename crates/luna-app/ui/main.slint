@@ -395,6 +395,7 @@ export component MainWindow inherits Window {
     in-out property <bool> header-open;
     in-out property <bool> settings-open;
     in property <bool> is-maximized;
+    in property <bool> is-fullscreen;
     in property <bool> update-pending;
 
     callback pick-folder();
@@ -467,8 +468,9 @@ export component MainWindow inherits Window {
             }
 
             HorizontalLayout {
-                // macOS draws its window buttons in the top-left corner.
-                padding-left: root.native-frame ? 80px : 16px;
+                // macOS draws its window buttons in the top-left corner,
+                // except in full screen, where it hides them.
+                padding-left: root.native-frame && !root.is-fullscreen ? 80px : 16px;
                 padding-right: root.native-frame ? 10px : 0px;
                 spacing: 10px;
 

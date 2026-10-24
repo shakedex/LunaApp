@@ -43,18 +43,7 @@ pub fn run(
     check_updates: bool,
     preset: Option<Result<RunRequest, String>>,
 ) -> Result<(), slint::PlatformError> {
-    // winit is required for folder drops. The software renderer is the
-    // default because the OpenGL (femtovg) one painted a blank white window on
-    // the Windows test machine; `SLINT_BACKEND` still overrides both.
-    let selector = slint::BackendSelector::new()
-        .backend_name("winit".into())
-        .with_winit_window_attributes_hook(frame);
-    let selector = if std::env::var_os("SLINT_BACKEND").is_none() {
-        selector.renderer_name("software".into())
-    } else {
-        selector
-    };
-    selector.select()?;
+    select_backend()?;
 
     let main = MainWindow::new()?;
     // Read when the window is created, at `show`.
@@ -90,6 +79,15 @@ pub fn run(
             }
         },
     );
+    #[cfg(target_os = "macos")]
+    let _menu = crate::mac_menu::install({
+        let weak = Rc::downgrade(&app);
+        move || {
+            if let Some(app) = weak.upgrade() {
+                app.open_settings();
+            }
+        }
+    });
     app.main.show()?;
     match preset {
         Some(Ok(request)) => app.start_preset(request),
@@ -106,6 +104,34 @@ pub fn run(
     // Stop the update library before the window goes away.
     app.updater.borrow_mut().take();
     Ok(())
+}
+
+/// winit is required for folder drops. The software renderer is the default
+/// because the OpenGL (femtovg) one painted a blank white window on the
+/// Windows test machine; `SLINT_BACKEND` still overrides both.
+fn select_backend() -> Result<(), slint::PlatformError> {
+    let env_backend = std::env::var_os("SLINT_BACKEND").is_some();
+    // macOS: Luna's own menu bar (`mac_menu`) replaces Slint's default one,
+    // which can only be turned off on the backend itself.
+    #[cfg(target_os = "macos")]
+    if !env_backend {
+        let backend = i_slint_backend_winit::Backend::builder()
+            .with_renderer_name("software")
+            .with_window_attributes_hook(frame)
+            .with_default_menu_bar(false)
+            .build()?;
+        return slint::platform::set_platform(Box::new(backend))
+            .map_err(|e| slint::PlatformError::Other(e.to_string()));
+    }
+    let selector = slint::BackendSelector::new()
+        .backend_name("winit".into())
+        .with_winit_window_attributes_hook(frame);
+    let selector = if env_backend {
+        selector
+    } else {
+        selector.renderer_name("software".into())
+    };
+    selector.select()
 }
 
 /// Luna draws its own title bar.
@@ -333,6 +359,10 @@ impl App {
         if self.main.get_is_maximized() != window.is_maximized() {
             self.main.set_is_maximized(window.is_maximized());
         }
+        // macOS: full screen from the green button or the Window menu.
+        if self.main.get_is_fullscreen() != window.is_fullscreen() {
+            self.main.set_is_fullscreen(window.is_fullscreen());
+        }
         if !window.is_visible() || window.is_minimized() {
             return;
         }
@@ -378,9 +408,9 @@ impl App {
     fn render(&self) {
         let view = main_view(&self.flow.lock().expect("flow lock"));
         apply_view(&self.main, &view);
-        let settings = self.settings.borrow();
         self.main
-            .set_output_dir(settings.output_dir.display().to_string().into());
+            .set_output_dir(self.destination().display().to_string().into());
+        let settings = self.settings.borrow();
         self.main
             .set_header_production(settings.production.as_str().into());
         self.main
@@ -444,6 +474,30 @@ impl App {
                 .pick_source(validate_source(&path));
             app.render();
         });
+    }
+
+    /// The launch preset, while it is still the run on screen: its folder is
+    /// the one picked, or it is the run that just finished.
+    fn active_preset(&self) -> Option<RunRequest> {
+        let preset = self.preset.borrow().clone()?;
+        let flow = self.flow.lock().expect("flow lock");
+        let source = match flow.state() {
+            FlowState::Idle { .. } => return None,
+            FlowState::Done { .. } => return Some(preset),
+            FlowState::SourcePicked { source }
+            | FlowState::Running { source, .. }
+            | FlowState::Failed { source, .. }
+            | FlowState::Cancelled { source } => source,
+        };
+        (preset.sources.first() == Some(source)).then_some(preset)
+    }
+
+    /// Where the report goes: the preset's `--output`, else the saved destination.
+    fn destination(&self) -> PathBuf {
+        match self.active_preset() {
+            Some(preset) => preset.settings.output_dir,
+            None => self.settings.borrow().output_dir.clone(),
+        }
     }
 
     fn start(self: &Rc<Self>) {
@@ -830,8 +884,12 @@ impl App {
 
     /// The bottom bar's destination: choosing a folder saves it at once.
     fn change_output(self: &Rc<Self>) {
-        let start = Some(self.settings.borrow().output_dir.clone());
+        let start = Some(self.destination());
         self.pick_folder(self.main.window(), start, |app, path| {
+            // A launch preset keeps its other overrides but goes where chosen.
+            if let Some(preset) = app.preset.borrow_mut().as_mut() {
+                preset.settings.output_dir = path.clone();
+            }
             let mut settings = app.settings.borrow().clone();
             settings.output_dir = path;
             match app.store.save(&settings) {
