@@ -21,7 +21,7 @@ through its Slint UI and `luna-app` renderers, the sample report through
 `public/img` and `src/data` are generated. To rebuild them:
 
 ```bash
-tools/frames.sh <dir with the GH5 clips> <frames dir>   # needs ffmpeg
+tools/frames.sh <clips dir> <frames dir>               # needs ffmpeg
 tools/build-assets.sh <frames dir>                      # needs cargo, ffmpeg, python + pymupdf
 ```
 
@@ -32,8 +32,7 @@ where the Moon and the text lines are), the star chart (`sky.webp`), the
 lunar albedo for the shader (`moon-albedo.webp`) and the sample report (PDF,
 HTML, CSV; the pages become `report/*.webp`).
 
-The sample report uses frames from Shaked's GH5 clips of Luna the cat with
-made-up production metadata. Camera files never enter the repository.
+Camera files never enter the repository.
 
 ## Copy
 

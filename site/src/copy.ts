@@ -1,6 +1,4 @@
-// Every visible string on the site, in one place. All of it is a draft for
-// Shaked to rewrite. Rules: labels and facts only; no explanations, no
-// taglines, no "No X, no Y", no "X. Y." pairs, no dashes as punctuation.
+// Every visible string on the site, in one place.
 
 export const REPO_URL = "https://github.com/shakedex/LunaApp";
 export const RELEASES_URL = `${REPO_URL}/releases`;
