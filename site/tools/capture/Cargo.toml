@@ -1,0 +1,13 @@
+[package]
+name = "luna-site-capture"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+# Not part of Luna's workspace: a site-only tool with its own lock and target.
+[workspace]
+
+[dependencies]
+luna-app = { path = "../../../crates/luna-app" }
+luna-report = { path = "../../../crates/luna-report" }
+slint = "=1.18.1"
