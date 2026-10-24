@@ -9,6 +9,8 @@
   --text: #e4e8ef;
   --muted: #99a2b2;
   --faint: #5d6676;
+  /* Small secondary text: AA on --canvas. */
+  --quiet: #808a9a;
   --accent: #79caea;
   --accent-hover: #95d7f1;
   --on-accent: #04141c;

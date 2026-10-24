@@ -31,7 +31,7 @@ const strips = ["P1066462", "P1066468", "P1066471"];
   </ol>
 
   <!-- With motion: one pinned window that scroll walks through (scripts/scroll.ts). -->
-  <div class="pinned" aria-hidden="true">
+  <div class="pinned">
     <div class="stage wrap">
       <div class="captions">
         {
@@ -44,13 +44,13 @@ const strips = ["P1066462", "P1066468", "P1066471"];
         }
       </div>
       <div class="win-wrap">
-        <div class="window" id="app-window">
+        <div class="window" id="app-window" aria-hidden="true">
           {shots.map((s) => <img class={`layer layer-${s}`} src={`/img/app-${s}-nomoon@2x.webp`} alt="" width="1760" height="1280" />)}
         </div>
-        <div class="cards">
+        <div class="cards" aria-hidden="true">
           {[0, 1, 2].map(() => <span class="card" />)}
         </div>
-        <div class="strips">
+        <div class="strips" aria-hidden="true">
           {
             strips.map((clip) => (
               <div class="strip">
@@ -59,7 +59,7 @@ const strips = ["P1066462", "P1066468", "P1066471"];
             ))
           }
         </div>
-        <img class="page" src="/img/report-light-p1.webp" alt="" width="2339" height="1654" />
+        <img class="page" aria-hidden="true" src="/img/report-light-p1.webp" alt="" width="2339" height="1654" />
       </div>
     </div>
   </div>

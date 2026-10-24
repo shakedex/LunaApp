@@ -47,4 +47,8 @@ done
 # The app's lunar albedo, for the site's moon shader.
 ffmpeg -v error -y -f rawvideo -pix_fmt gray16le -s 1024x512 -i "$repo/crates/luna-app/assets/moon-albedo-1024x512.u16" -pix_fmt gray "$tmp/albedo.png"
 webp "$tmp/albedo.png" "$img/moon-albedo.webp" 92
+
+# Sharing card: the full Moon on Luna's canvas colour, with the logo.
+ffmpeg -v error -y -f lavfi -i color=c=0x0c0f14:s=1200x630 -i "$img/moon-still.webp" -i "$repo/crates/luna-app/ui/assets/luna-icon.png" \
+  -filter_complex "[1]scale=760:760[m];[2]scale=150:150[l];[0][m]overlay=560:-65[a];[a][l]overlay=96:240" -frames:v 1 "$img/og.png"
 echo "assets in $img"
