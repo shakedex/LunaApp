@@ -51,8 +51,8 @@ for f in "$img"/report/*.png; do
   rm "$f"
 done
 
-# Sharing card: the done window on the canvas colour.
+# Sharing card: the whole done window on the canvas colour.
 ffmpeg -v error -y -f lavfi -i "color=c=0x0c0f14:s=1200x630" -i "$img/app-done@2x.webp" \
-  -filter_complex "[1]scale=1000:-1[w];[0][w]overlay=100:70" -frames:v 1 "$img/og.png"
+  -filter_complex "[1]scale=-1:560[w];[0][w]overlay=(W-w)/2:35" -frames:v 1 "$img/og.png"
 
 echo "assets in $img"

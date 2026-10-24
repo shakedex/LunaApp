@@ -5,7 +5,7 @@ import Footer from "../components/Footer.astro";
 import { copy } from "../copy";
 ---
 
-<Base title={`${copy.notFound.title}, Luna`} description={copy.notFound.title}>
+<Base title={`${copy.notFound.title}, Luna`} description={copy.notFound.title} noindex>
   <Nav />
   <main class="wrap">
     <h1 class="title">{copy.notFound.title}</h1>

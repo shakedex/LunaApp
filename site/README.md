@@ -1,7 +1,7 @@
 # Luna's website
 
-A static Astro site, served from Cloudflare Workers (static assets). Every
-picture on it is rendered by Luna's own code: the app's window and star chart
+A static Astro site at https://luna.shaked.co, served from Cloudflare Workers
+(static assets). Every picture on it is rendered by Luna's own code: the app's window and star chart
 through its Slint UI and `luna-app` renderers, the sample report through
 `luna-report`, and the Moon live in the browser through a GLSL port of
 `crates/luna-app/src/moon.rs`.

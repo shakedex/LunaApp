@@ -11,8 +11,12 @@ export const KNOWN_VERSION = "2026.10.0";
 
 export const copy = {
   meta: {
-    title: "Luna",
-    description: "Camera reports from camera originals. PDF, HTML and CSV. Free, for Windows and macOS.",
+    title: "Luna: camera reports from camera originals",
+    description:
+      "Camera reports from ARRIRAW, X-OCN, R3D, Blackmagic RAW, Cinema RAW Light, N-RAW and ProRes RAW originals, as PDF, HTML and CSV. Free for Windows and macOS.",
+    ogImageAlt: "Luna's window with the full Moon: Report ready, 25 clips, no problems.",
+    category: "MultimediaApplication",
+    os: "Windows 10, Windows 11, macOS 26",
   },
 
   nav: {
