@@ -87,12 +87,14 @@ installer needs [Inno Setup](https://jrsoftware.org/isdl.php).
 
 ### Releasing
 
-1. On Windows, from a clean `master`: `cargo xtask release`. This leaves
+1. Write the release's description in `packaging/release-notes/<version>.md`
+   and commit it.
+2. On Windows, from a clean `master`: `cargo xtask release`. This leaves
    a release commit, a `v<version>` tag and the Windows installer in `dist/`.
    Nothing is pushed.
-2. `cargo xtask publish` pushes `master` and the tag, and creates the GitHub
-   release as a draft with the Windows installer.
-3. On the Mac: `git fetch --tags && git checkout v<version>`, then
+3. `cargo xtask publish` pushes `master` and the tag, and creates the GitHub
+   release as a draft with the Windows installer and that description.
+4. On the Mac: `git fetch --tags && git checkout v<version>`, then
    `cargo xtask installer && cargo xtask publish`. The installer is signed with
    the keychain's Developer ID Application identity and notarized (app, then
    DMG, both stapled). `publish` adds the DMG and the update zip, and once both

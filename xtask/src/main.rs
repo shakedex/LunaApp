@@ -21,7 +21,8 @@ Luna build tasks
   cargo xtask release           check, set the next version, build the
                                 installer, commit and tag. Versions are
                                 YEAR.MONTH.N (2026.10.0, then 2026.10.1);
-                                `release 2026.11.0` sets one exactly
+                                `release 2026.11.0` sets one exactly. Needs
+                                packaging/release-notes/<version>.md
   cargo xtask update-key        create the update signing key (once, then copy
                                 ~/.luna/update-key to the other build machine)
   cargo xtask publish           push the release tag and upload this machine's
@@ -230,6 +231,7 @@ fn release(exact: Option<&str>) -> Result {
     let old = version()?;
     let new = next_version(&old, today(), exact)?;
     let tag = format!("v{new}");
+    release_notes(&new)?;
     if !output(Command::new("git").args(["tag", "--list", &tag]))?
         .trim()
         .is_empty()
@@ -292,6 +294,7 @@ fn publish() -> Result {
         return Err(format!("HEAD isn't {tag}; check it out first"));
     }
     let files = release_files(&version)?;
+    let notes = release_notes(&version)?;
 
     step(&format!("Publishing {tag}"));
     let branch = output(Command::new("git").args(["branch", "--show-current"]))?;
@@ -315,15 +318,10 @@ fn publish() -> Result {
         // A draft: `releases/latest` (where both update feeds live) moves to
         // this release only once both platforms are on it.
         run(Command::new("gh")
-            .args([
-                "release",
-                "create",
-                &tag,
-                "--draft",
-                "--verify-tag",
-                "--generate-notes",
-            ])
+            .args(["release", "create", &tag, "--draft", "--verify-tag"])
             .args(["--title", &format!("Luna {version}")])
+            .arg("--notes-file")
+            .arg(&notes)
             .args(&files)
             .current_dir(root()))?;
     }
@@ -351,6 +349,22 @@ fn publish() -> Result {
         );
     }
     Ok(())
+}
+
+/// The release's description, written by hand for each version.
+fn release_notes(version: &str) -> Result<PathBuf> {
+    let notes = root()
+        .join("packaging")
+        .join("release-notes")
+        .join(format!("{version}.md"));
+    if read(&notes).is_ok_and(|t| !t.trim().is_empty()) {
+        Ok(notes)
+    } else {
+        Err(format!(
+            "write the release notes first: {}",
+            notes.display()
+        ))
+    }
 }
 
 /// The release files not yet on the GitHub release, given its asset names
