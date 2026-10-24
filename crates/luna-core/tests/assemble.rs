@@ -209,6 +209,34 @@ fn drive_root_is_the_volume_or_the_startup_disk() {
     );
 }
 
+#[cfg(unix)]
+#[test]
+fn copies_go_to_other_volumes_never_the_startup_disk() {
+    use luna_core::assemble::copy_drives;
+    let roots = [
+        PathBuf::from("/Volumes/CARD_A/A001"),
+        PathBuf::from("/Volumes/CARD_A/A002"),
+        PathBuf::from("/Volumes/CARD_B/B001"),
+        PathBuf::from("/Users/dana/Footage/C001"),
+    ];
+    // Report on the Mac: each card once; the Mac's own footage gets none.
+    assert_eq!(
+        copy_drives(
+            Path::new("/Users/dana/Documents/Luna Reports/Day 1"),
+            &roots
+        ),
+        [
+            PathBuf::from("/Volumes/CARD_A"),
+            PathBuf::from("/Volumes/CARD_B")
+        ]
+    );
+    // Report on CARD_B: CARD_A only; still nothing on the startup disk.
+    assert_eq!(
+        copy_drives(Path::new("/Volumes/CARD_B/Luna/Day 1"), &roots),
+        [PathBuf::from("/Volumes/CARD_A")]
+    );
+}
+
 #[cfg(windows)]
 #[test]
 fn same_drive_ignores_case_and_the_verbatim_prefix() {

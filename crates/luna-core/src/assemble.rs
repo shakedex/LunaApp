@@ -128,6 +128,22 @@ pub fn drive_root(path: &Path) -> PathBuf {
     root.to_path_buf()
 }
 
+/// The drives that get a copy of a report saved in `report`: the drive of each
+/// source root, once each, except the report's own drive. The macOS startup
+/// disk (`/`) is left out: its system volume is read-only, and footage on the
+/// Mac's own disk has no card to carry a copy.
+pub fn copy_drives(report: &Path, roots: &[PathBuf]) -> Vec<PathBuf> {
+    let mut drives: Vec<PathBuf> = Vec::new();
+    for root in roots {
+        let drive = drive_root(dunce::simplified(root));
+        let startup = cfg!(unix) && drive == Path::new("/");
+        if !startup && !same_drive(root, report) && !drives.iter().any(|d| same_drive(d, root)) {
+            drives.push(drive);
+        }
+    }
+    drives
+}
+
 /// Whether two paths are on the same drive. Drive letters and share names
 /// compare without case.
 pub fn same_drive(a: &Path, b: &Path) -> bool {
