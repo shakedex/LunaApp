@@ -2,8 +2,7 @@
 # Three graded frames from each sample clip, at 17, 50 and 83 % in.
 # usage: frames.sh <clips dir> <out dir>
 #
-# The clips are Shaked's GH5 takes of Luna the cat (P1066462..P1066473, V-Log L).
-# P1066472 is left out. The grade is a quick lift to Rec.709-ish for the
+# The grade is a quick lift to Rec.709-ish for the
 # thumbnails, not a proper transform.
 set -euo pipefail
 src=$1
