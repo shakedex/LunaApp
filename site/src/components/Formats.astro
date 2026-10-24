@@ -1,14 +1,13 @@
 ---
 import { copy } from "../copy";
 import sony from "simple-icons/icons/sony.svg?raw";
-import red from "simple-icons/icons/red.svg?raw";
 import blackmagicdesign from "simple-icons/icons/blackmagicdesign.svg?raw";
 import nikon from "simple-icons/icons/nikon.svg?raw";
 import apple from "simple-icons/icons/apple.svg?raw";
 import arri from "../assets/logos/arri.svg?raw";
 import canon from "../assets/logos/canon.svg?raw";
 
-const logos: Record<string, string> = { sony, red, blackmagicdesign, nikon, apple, arri, canon };
+const logos: Record<string, string> = { sony, blackmagicdesign, nikon, apple, arri, canon };
 const wide = new Set(["sony", "nikon", "arri", "canon"]);
 ---
 
@@ -21,7 +20,9 @@ const wide = new Set(["sony", "nikon", "arri", "canon"]);
         copy.formats.rows.map((row) => (
           <li>
             <div class="maker">
-              {row.logo ? (
+              {row.logo === "red" ? (
+                <img class="logo-img" src="/img/logos/red.png" alt={row.maker} width="218" height="54" />
+              ) : row.logo ? (
                 <>
                   <span class={`logo ${wide.has(row.logo) ? "wide" : ""} ${row.logo}`} set:html={logos[row.logo]} />
                   <span class="sr-only">{row.maker}</span>
@@ -76,6 +77,10 @@ const wide = new Set(["sony", "nikon", "arri", "canon"]);
     height: 72px;
     width: 72px;
     margin: -22px -8px;
+  }
+  .logo-img {
+    height: 17px;
+    width: auto;
   }
   /* The ARRI and Canon marks come as wordmarks already. */
   .logo.arri :global(svg),
