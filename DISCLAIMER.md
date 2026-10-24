@@ -37,8 +37,7 @@ All other product names, logos, and brands are property of their respective owne
 
 ## Earlier Versions
 
-The browser app (tag `luna-web-final`) and the .NET/Avalonia desktop app
-(branch `archive/dotnet`, tag `dotnet-final`) are no longer maintained. Their
+The browser app (tag `luna-web-final`) is no longer maintained. Its
 installers are unsigned; install them at your own risk.
 
 ## Reporting Issues

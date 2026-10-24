@@ -136,5 +136,4 @@ decoders, the R3D add-on under its own [EULA](packaging/R3D-EULA.txt), the
 Blackmagic RAW SDK libraries, and FFmpeg under the LGPL. [NOTICE](NOTICE)
 lists each one with its licence.
 
-Earlier versions: the browser app is at tag `luna-web-final` and the .NET app
-at branch `archive/dotnet` (tag `dotnet-final`). Neither is maintained.
+The earlier browser app is at tag `luna-web-final`. It isn't maintained.
