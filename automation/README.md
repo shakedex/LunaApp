@@ -28,7 +28,7 @@ luna-cli report <SOURCE>... [options]
 | `--company <TEXT>` | |
 | `--author <TEXT>` | |
 | `--logo <PATH>` | PNG, JPEG or SVG |
-| `--field <LABEL=VALUE>` | Header field (repeatable), printed after the saved fields |
+| `--field <LABEL=VALUE>` | Header field (repeatable), printed after the saved fields; a saved field with the same label takes this value |
 | `--no-saved-fields` | Leave out the saved header fields |
 | `--output <DIR>` | Folder the report folder is written into |
 | `--name <TEXT>` | Report folder name (default: production name and run date) |
@@ -80,18 +80,24 @@ Reads metadata only, no frames, and prints one line per card. With `--json`:
 
 ## OffShoot
 
-[`offshoot_luna.py`](offshoot_luna.py) runs Luna when a transfer finishes.
+[`offshoot_luna.py`](offshoot_luna.py) makes a report each time OffShoot finishes
+copying a card. Every destination gets its own report, and each opens its own
+Luna window.
 
-1. Copy `offshoot_luna.py` somewhere permanent and set the constants at its top:
-   - `MODE`: `headless` or `visible`
-   - `DESTINATION_MATCH`: the destination to report on (the event fires once per destination)
-   - `OUTPUT`: where reports go, or empty for Luna's saved location
-2. OffShoot: **Settings → Scripting → File Copy Completed**, add the script. Needs OffShoot Pro.
-3. Run one test offload. To see exactly what OffShoot sends, call the script with
-   `--dump` once; it writes `offshoot_payload.json` next to itself.
+1. Copy `offshoot_luna.py` somewhere permanent. The constants at its top have
+   defaults that work as installed:
+   - `MODE`: `visible` (a Luna window) or `headless` (`luna-cli`, no window)
+   - `DESTINATION_MATCH`: report only on destinations under this path (empty: every destination)
+   - `OUTPUT`: where reports go (empty: Luna's saved location)
+2. OffShoot: **Settings → Scripting → File Copy Completed**, add the script. Needs
+   OffShoot Pro and Python 3.
+3. Run one test offload. Each run saves what OffShoot sent to
+   `offshoot_payload.json` next to the script.
 
-The script passes the preset name as the production and adds `Shoot Day`,
-`Source Name` and `Date` from OffShoot's source info as header fields.
+Only copies that end in Success get a report. The card's source info from
+OffShoot (Shoot Day, Date, Source Name, Location and any others) goes into the
+report header under OffShoot's names; a saved field with the same name takes
+OffShoot's value. Production, company and the logo come from Luna's Settings.
 
 ## Claude Desktop
 

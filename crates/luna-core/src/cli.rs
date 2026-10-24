@@ -51,7 +51,8 @@ pub struct ReportArgs {
     /// PNG, JPEG or SVG.
     #[arg(long)]
     pub logo: Option<PathBuf>,
-    /// A header field as LABEL=VALUE (repeatable), after the saved fields.
+    /// A header field as LABEL=VALUE (repeatable), after the saved fields. A
+    /// saved field with the same label (any case) takes this value instead.
     #[arg(long = "field", value_name = "LABEL=VALUE", value_parser = parse_field)]
     pub fields: Vec<(String, String)>,
     /// Leave out the saved header fields.
@@ -113,7 +114,13 @@ impl ReportArgs {
         if self.no_saved_fields {
             settings.custom.clear();
         }
-        settings.custom.extend(self.fields);
+        for (label, value) in self.fields {
+            let same = |(l, _): &&mut (String, String)| l.trim().eq_ignore_ascii_case(&label);
+            match settings.custom.iter_mut().find(same) {
+                Some(saved) => saved.1 = value,
+                None => settings.custom.push((label, value)),
+            }
+        }
         if let Some(out) = self.output {
             settings.output_dir = out;
         }
@@ -188,6 +195,20 @@ mod tests {
         .into_request(&saved())
         .unwrap();
         assert_eq!(pairs(&req), ["Unit=2nd", "Cam=A"]);
+    }
+
+    #[test]
+    fn a_field_replaces_the_saved_field_of_the_same_label() {
+        let req = args(&["--field", "DAY=01", "--field", "Unit=2nd"])
+            .into_request(&saved())
+            .unwrap();
+        assert_eq!(
+            req.settings.custom,
+            [
+                ("Day".to_owned(), "01".to_owned()),
+                ("Unit".to_owned(), "2nd".to_owned())
+            ]
+        );
     }
 
     #[test]
