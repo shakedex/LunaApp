@@ -25,13 +25,16 @@ Luna build tasks
   cargo xtask update-key        create the update signing key (once, then copy
                                 ~/.luna/update-key to the other build machine)
   cargo xtask publish           push the release tag and upload this machine's
-                                installer to its GitHub release
+                                installer to its GitHub release; the release
+                                stays a draft until both platforms are on it
 
 Inputs (environment variables, each with a default):
   BRAW_SDK_DIR         Blackmagic RAW SDK install
   LUNA_R3D_REPO        r3d-sdk checkout (default: ../decoders/r3d-sdk)
   ISCC                 Inno Setup compiler, Windows (default: Program Files)
-  LUNA_SIGN_IDENTITY   macOS codesign identity (default: ad-hoc)
+  LUNA_SIGN_IDENTITY   macOS codesign identity (package: ad-hoc; installer:
+                       the keychain's one Developer ID Application identity)
+  LUNA_NOTARY_PROFILE  macOS notarytool keychain profile (default: luna-notary)
 ";
 
 type Result<T = ()> = std::result::Result<T, String>;
@@ -52,6 +55,21 @@ const SPARKLE_SHA256: &str = "c2bf58aa8387266ac179357b1415d6f2635f044da8be41042a
 /// The macOS feed Sparkle reads (Info.plist `SUFeedURL`).
 const MACOS_FEED_URL: &str =
     "https://github.com/shakedex/LunaApp/releases/latest/download/appcast-macos.xml";
+
+/// The notarytool keychain profile when `LUNA_NOTARY_PROFILE` isn't set.
+const NOTARY_PROFILE: &str = "luna-notary";
+
+/// Every file a release carries, both platforms; the GitHub release is a
+/// draft until all of them are on it.
+fn release_assets(version: &str) -> [String; 5] {
+    [
+        format!("Luna-{version}-windows-x64-setup.exe"),
+        "appcast-windows.xml".into(),
+        format!("Luna-{version}-macos.dmg"),
+        format!("Luna-{version}-macos.zip"),
+        "appcast-macos.xml".into(),
+    ]
+}
 
 /// How WinSparkle runs the Inno Setup installer for an update.
 const WINDOWS_UPDATE_ARGS: &str = "/SILENT /SP- /NOCANCEL /NORESTART";
@@ -98,6 +116,12 @@ fn check() -> Result {
 /// Builds Luna and the R3D add-on and assembles the app in `dist/`. Returns
 /// the app's path (`dist/Luna` folder or `dist/Luna.app`).
 fn package() -> Result<PathBuf> {
+    let identity = env::var("LUNA_SIGN_IDENTITY").unwrap_or_else(|_| "-".into());
+    package_signed(&identity)
+}
+
+/// [`package`], signing a Mac build with `identity` (`-` for ad-hoc).
+fn package_signed(identity: &str) -> Result<PathBuf> {
     let root = root();
     let version = version()?;
     let braw = braw_libraries()?;
@@ -117,7 +141,10 @@ fn package() -> Result<PathBuf> {
     let licences = licences_text(&root)?;
     step("Assembling");
     let app = if cfg!(target_os = "macos") {
-        assemble_macos(&root, &dist, &version, &braw, &r3d, &r3d_sdk, &licences)?
+        let app = assemble_macos(&root, &dist, &version, &braw, &r3d, &r3d_sdk, &licences)?;
+        step("Signing");
+        sign_app(&app, identity)?;
+        app
     } else {
         let ffmpeg = ffmpeg_libraries()?;
         assemble_windows(&root, &dist, &braw, &r3d, &r3d_sdk, &ffmpeg, &licences)?
@@ -134,20 +161,38 @@ fn installer() -> Result<PathBuf> {
         &key,
         &read(&root().join("packaging/update-public-key.txt"))?,
     )?;
-    let app = package()?;
+    // A Mac installer is for other people's Macs: Developer ID and notarized.
+    let mac = if cfg!(target_os = "macos") {
+        Some((developer_id()?, notary_profile()))
+    } else {
+        None
+    };
+    let app = match &mac {
+        Some((identity, _)) => package_signed(identity)?,
+        None => package()?,
+    };
     let root = root();
     let version = version()?;
     let dist = root.join("dist");
     step("Building the installer");
-    let out = if cfg!(target_os = "macos") {
+    let out = if let Some((identity, profile)) = &mac {
+        step("Notarizing the app");
+        let submit = dist.join("Luna-notarize.zip");
+        zip_app(&app, &submit)?;
+        let notarized = notarize(&submit, profile);
+        remove(&submit)?;
+        notarized?;
+        staple(&app)?;
         let dmg = dmg(&app, &dist, &version)?;
+        run(Command::new("codesign")
+            .args(["--force", "--timestamp", "--sign", identity])
+            .arg(&dmg))?;
+        step("Notarizing the disk image");
+        notarize(&dmg, profile)?;
+        staple(&dmg)?;
         // Sparkle updates from a zip of the app; the DMG is the first install.
         let zip = dist.join(format!("Luna-{version}-macos.zip"));
-        remove(&zip)?;
-        run(Command::new("ditto")
-            .args(["-c", "-k", "--keepParent"])
-            .arg(&app)
-            .arg(&zip))?;
+        zip_app(&app, &zip)?;
         write_appcast(&dist.join("appcast-macos.xml"), &version, &zip, None, &key)?;
         dmg
     } else {
@@ -267,11 +312,14 @@ fn publish() -> Result {
             .args(&files)
             .current_dir(root()))?;
     } else {
+        // A draft: `releases/latest` (where both update feeds live) moves to
+        // this release only once both platforms are on it.
         run(Command::new("gh")
             .args([
                 "release",
                 "create",
                 &tag,
+                "--draft",
                 "--verify-tag",
                 "--generate-notes",
             ])
@@ -279,8 +327,40 @@ fn publish() -> Result {
             .args(&files)
             .current_dir(root()))?;
     }
-    println!("Published {} files to {tag}", files.len());
+    println!("Uploaded {} files to {tag}", files.len());
+
+    let uploaded = output(Command::new("gh").args([
+        "release",
+        "view",
+        &tag,
+        "--json",
+        "assets",
+        "--jq",
+        ".assets[].name",
+    ]))?;
+    let missing = missing_assets(&version, &uploaded);
+    if missing.is_empty() {
+        run(Command::new("gh")
+            .args(["release", "edit", &tag, "--draft=false", "--latest"])
+            .current_dir(root()))?;
+        println!("Published {tag}: {RELEASES}/tag/{tag}");
+    } else {
+        println!(
+            "{tag} stays a draft until the other platform publishes; missing: {}",
+            missing.join(", ")
+        );
+    }
     Ok(())
+}
+
+/// The release files not yet on the GitHub release, given its asset names
+/// one per line.
+fn missing_assets(version: &str, uploaded: &str) -> Vec<String> {
+    let have: Vec<&str> = uploaded.lines().map(str::trim).collect();
+    release_assets(version)
+        .into_iter()
+        .filter(|a| !have.contains(&a.as_str()))
+        .collect()
 }
 
 /// This platform's release files: the installer and its signed update feed.
@@ -300,6 +380,12 @@ fn release_files(version: &str) -> Result<Vec<PathBuf>> {
     };
     let installer = require(installer).map_err(again)?;
     feed_is_fresh(&installer, &feed).map_err(again)?;
+    if cfg!(target_os = "macos") {
+        run(Command::new("xcrun")
+            .args(["stapler", "validate"])
+            .arg(&installer))
+        .map_err(|e| format!("{e}\nthe disk image isn't notarized"))?;
+    }
     let mut files = vec![installer, feed];
     if cfg!(target_os = "macos") {
         files.push(require(dist.join(format!("Luna-{version}-macos.zip"))).map_err(again)?);
@@ -501,14 +587,176 @@ fn assemble_macos(
         &resources.join("Sparkle-LICENSE.txt"),
     )?;
 
-    let identity = env::var("LUNA_SIGN_IDENTITY").unwrap_or_else(|_| "-".into());
-    let mut sign = Command::new("codesign");
-    sign.args(["--force", "--deep", "--sign", &identity]);
-    if identity != "-" {
-        sign.args(["--options", "runtime", "--timestamp"]);
-    }
-    run(sign.arg(&app))?;
     Ok(app)
+}
+
+// ---- signing (macOS) ----
+
+/// Signs the app inside out, never with `--deep` (it would drop the
+/// entitlements of Sparkle's Downloader service): every Mach-O file, then
+/// every nested bundle, deepest first, then the app. A real identity adds the
+/// hardened runtime and a secure timestamp, which notarization requires.
+fn sign_app(app: &Path, identity: &str) -> Result {
+    let mut files = Vec::new();
+    let mut bundles = Vec::new();
+    collect_signables(&app.join("Contents"), &mut files, &mut bundles)?;
+    let depth = |p: &PathBuf| p.components().count();
+    files.sort_by_key(|p| std::cmp::Reverse(depth(p)));
+    bundles.sort_by_key(|p| std::cmp::Reverse(depth(p)));
+    let sign = |path: &Path| {
+        let mut cmd = Command::new("codesign");
+        cmd.args(["--force", "--sign", identity]);
+        if identity != "-" {
+            cmd.args(["--options", "runtime", "--timestamp"]);
+        }
+        if path.file_name().is_some_and(|n| n == "Downloader.xpc") {
+            cmd.arg("--preserve-metadata=entitlements");
+        }
+        run(cmd.arg(path))
+    };
+    for path in files.iter().chain(&bundles) {
+        sign(path)?;
+    }
+    sign(app)?;
+    run(Command::new("codesign")
+        .args(["--verify", "--strict", "--deep"])
+        .arg(app))
+}
+
+/// Mach-O files and nested bundles (`.app`, `.framework`, `.xpc`) under
+/// `dir`. Symlinks are skipped: they point at what is already listed.
+fn collect_signables(dir: &Path, files: &mut Vec<PathBuf>, bundles: &mut Vec<PathBuf>) -> Result {
+    let entries = fs::read_dir(dir).map_err(|e| format!("read {}: {e}", dir.display()))?;
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let kind = entry
+            .file_type()
+            .map_err(|e| format!("{}: {e}", path.display()))?;
+        if kind.is_symlink() {
+            continue;
+        }
+        if kind.is_dir() {
+            match path.extension().and_then(|e| e.to_str()).unwrap_or("") {
+                // Signed whole, so their own signatures (and the Downloader's
+                // entitlements) aren't replaced file by file first.
+                "app" | "xpc" => bundles.push(path),
+                "framework" => {
+                    collect_signables(&path, files, bundles)?;
+                    bundles.push(path);
+                }
+                _ => collect_signables(&path, files, bundles)?,
+            }
+        } else if is_mach_o(&path) {
+            files.push(path);
+        }
+    }
+    Ok(())
+}
+
+fn is_mach_o(path: &Path) -> bool {
+    use std::io::Read;
+    let mut magic = [0u8; 4];
+    fs::File::open(path)
+        .and_then(|mut f| f.read_exact(&mut magic))
+        .is_ok()
+        && matches!(
+            u32::from_be_bytes(magic),
+            0xfeed_facf | 0xcffa_edfe | 0xfeed_face | 0xcefa_edfe | 0xcafe_babe
+        )
+}
+
+/// `LUNA_SIGN_IDENTITY`, or the keychain's only Developer ID Application
+/// identity.
+fn developer_id() -> Result<String> {
+    if let Ok(id) = env::var("LUNA_SIGN_IDENTITY") {
+        if id == "-" {
+            return Err("an installer can't be ad-hoc signed; set LUNA_SIGN_IDENTITY to a Developer ID Application identity".into());
+        }
+        return Ok(id);
+    }
+    let found =
+        output(Command::new("security").args(["find-identity", "-v", "-p", "codesigning"]))?;
+    let ids = developer_ids(&found);
+    match ids.as_slice() {
+        [one] => Ok(one.clone()),
+        [] => Err("no Developer ID Application identity in the keychain".into()),
+        _ => Err(format!(
+            "several Developer ID Application identities; pick one with LUNA_SIGN_IDENTITY:\n  {}",
+            ids.join("\n  ")
+        )),
+    }
+}
+
+/// The quoted Developer ID Application names in `security find-identity`
+/// output.
+fn developer_ids(listing: &str) -> Vec<String> {
+    listing
+        .lines()
+        .filter_map(|l| l.split('"').nth(1))
+        .filter(|name| name.starts_with("Developer ID Application:"))
+        .map(str::to_owned)
+        .collect()
+}
+
+fn notary_profile() -> String {
+    env::var("LUNA_NOTARY_PROFILE").unwrap_or_else(|_| NOTARY_PROFILE.into())
+}
+
+/// The app as one zip, as Sparkle and notarytool take it.
+fn zip_app(app: &Path, zip: &Path) -> Result {
+    remove(zip)?;
+    run(Command::new("ditto")
+        .args(["-c", "-k", "--keepParent"])
+        .arg(app)
+        .arg(zip))
+}
+
+/// Submits `file` to Apple's notary service and waits for the verdict. On a
+/// rejection the notary log, which names each problem, is printed.
+fn notarize(file: &Path, profile: &str) -> Result {
+    let out = Command::new("xcrun")
+        .args(["notarytool", "submit"])
+        .arg(file)
+        .args([
+            "--keychain-profile",
+            profile,
+            "--wait",
+            "--output-format",
+            "json",
+        ])
+        .output()
+        .map_err(|e| format!("xcrun notarytool: {e}"))?;
+    let text = String::from_utf8_lossy(&out.stdout);
+    let field = |name: &str| {
+        let key = format!("\"{name}\":\"");
+        text.split(&key)
+            .nth(1)
+            .and_then(|r| r.split('"').next())
+            .map(str::to_owned)
+    };
+    if field("status").as_deref() == Some("Accepted") {
+        println!("Notarized: {}", file.display());
+        return Ok(());
+    }
+    if let Some(id) = field("id") {
+        let _ = run(Command::new("xcrun").args([
+            "notarytool",
+            "log",
+            &id,
+            "--keychain-profile",
+            profile,
+        ]));
+    }
+    Err(format!(
+        "notarization of {} failed: {} {}",
+        file.display(),
+        text.trim(),
+        String::from_utf8_lossy(&out.stderr).trim()
+    ))
+}
+
+fn staple(path: &Path) -> Result {
+    run(Command::new("xcrun").args(["stapler", "staple"]).arg(path))
 }
 
 fn info_plist(version: &str, public_key: &str) -> String {
@@ -893,6 +1141,47 @@ mod tests {
             feed_is_fresh(&setup, &feed).is_err(),
             "installer newer than feed"
         );
+    }
+
+    #[test]
+    fn a_release_is_complete_with_both_platforms() {
+        let windows = "Luna-2026.10.0-windows-x64-setup.exe\nappcast-windows.xml\n";
+        assert_eq!(
+            missing_assets("2026.10.0", windows),
+            [
+                "Luna-2026.10.0-macos.dmg",
+                "Luna-2026.10.0-macos.zip",
+                "appcast-macos.xml"
+            ]
+        );
+        let both = format!(
+            "{windows}Luna-2026.10.0-macos.dmg\nLuna-2026.10.0-macos.zip\nappcast-macos.xml\n"
+        );
+        assert!(missing_assets("2026.10.0", &both).is_empty());
+    }
+
+    #[test]
+    fn finds_developer_id_identities() {
+        let listing = r#"  1) 0A1B "Apple Development: Shaked (TEAM1)"
+  2) 2C3D "Developer ID Application: Shaked Lipszyc (TEAM1)"
+     2 valid identities found"#;
+        assert_eq!(
+            developer_ids(listing),
+            ["Developer ID Application: Shaked Lipszyc (TEAM1)"]
+        );
+    }
+
+    #[test]
+    fn mach_o_by_magic() {
+        let dir = std::env::temp_dir().join(format!("luna-macho-{}", std::process::id()));
+        fs::create_dir_all(&dir).unwrap();
+        let bin = dir.join("bin");
+        fs::write(&bin, [0xcf, 0xfa, 0xed, 0xfe, 0, 0]).unwrap();
+        let text = dir.join("text");
+        fs::write(&text, "hello").unwrap();
+        assert!(is_mach_o(&bin));
+        assert!(!is_mach_o(&text));
+        fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]

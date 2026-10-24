@@ -286,6 +286,37 @@ needed).
 **Done when** the whole flow (folder → report → open it) works through the window on the
 Mac, and the window looks and behaves like a Mac app.
 
+## 8. Signed and notarized installer
+
+`cargo xtask installer` on the Mac now signs with a Developer ID and notarizes. This
+has never run. The steps are in the README ("Releasing").
+- **Signing:** `sign_app` in `xtask/src/main.rs` signs inside out, without `--deep`: every
+  Mach-O file, then each framework, `.xpc` and nested `.app` (Sparkle's Downloader keeps its
+  entitlements), then `Luna.app`. It uses the hardened runtime and a timestamp.
+- **Identity:** the keychain's one "Developer ID Application" identity, unless
+  `LUNA_SIGN_IDENTITY` names one.
+- **Notarizing:** keychain profile `luna-notary`, unless `LUNA_NOTARY_PROFILE` names
+  another. If that profile doesn't exist yet, ask Shaked which one holds his Apple
+  credentials. Never put them in a file.
+- **Order:** the app is notarized and stapled, then the DMG is built, signed, notarized and
+  stapled, then the Sparkle zip is made from the stapled app.
+
+Try it without publishing: `cargo xtask installer`, then:
+
+```bash
+spctl -a -vvv -t exec dist/Luna.app
+spctl -a -vvv -t open --context context:primary-signature dist/Luna-*-macos.dmg
+xcrun stapler validate dist/Luna-*-macos.dmg
+```
+
+Then copy the DMG somewhere it gets the quarantine flag (AirDrop it to yourself, or
+download it), open it and run Luna. It must open without a Gatekeeper warning and make
+a report. If notarization rejects it, the notary log is printed; fix what it names (most
+likely an entitlement the hardened runtime needs) in `sign_app`.
+
+**Done when** the DMG passes those checks, opens cleanly from quarantine, and
+`publish` then works for the first release.
+
 ## Reporting back
 
 Both machines push to GitHub, so report through it:
