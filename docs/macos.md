@@ -254,8 +254,8 @@ over the screen. Reports went to a scratch folder and `settings.toml` was put ba
 
 **Checked by hand by Shaked, 2026-10-24:** picking and dropping a folder, the report header
 card, changing the destination, Open PDF / HTML / CSV and Show in folder, and ⌘C / ⌘V / ⌘A
-all work. Moving, double-clicking and resizing the window work too. The logo still needs a
-test: there are samples in `target/sample-logos/` (PNG, JPEG, SVG). They're not in git.
+all work. Moving, double-clicking and resizing the window work too, and so does the logo
+(PNG, JPEG and SVG samples).
 
 **Fixed on `mac/window-polish`:**
 
