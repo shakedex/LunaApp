@@ -252,29 +252,36 @@ over the screen. Reports went to a scratch folder and `settings.toml` was put ba
 | Title bar drag and double-click, resizing | **Not run** (see below). |
 | *Check for updates*, no release | Sparkle shows its own "Update Error! An error occurred in retrieving update information. Please try again later." with *Cancel Update*. The feed `…/releases/latest/download/appcast-macos.xml` returns 404. It goes away once a release with an appcast exists. Shaked to decide whether that's acceptable before the first release. |
 
-**Found on the way** (for Shaked to decide, nothing changed):
+**Checked by hand by Shaked, 2026-10-24:** picking and dropping a folder, the report header
+card, changing the destination, Open PDF / HTML / CSV and Show in folder, and ⌘C / ⌘V / ⌘A
+all work. Moving, double-clicking and resizing the window work too. The logo still needs a
+test: there are samples in `target/sample-logos/` (PNG, JPEG, SVG). They're not in git.
 
-- **The menu bar has only the app menu.** It lists About, Services, Hide, Quit and
-  "Quit and Keep Windows". There's no *Settings…* (⌘,), no *Edit* menu (Undo, Cut, Copy,
-  Paste, Select All) and no *Window* menu. Mac users expect all three. Slint has a
-  `MenuBar` element set on the `Window`. Check whether it gives the native menu bar on macOS:
-  if it does, the fix stays in `luna-app`.
-- **The report header card can't be opened from the keyboard or VoiceOver.** The bar is a
-  bare `TouchArea` inside a `groupbox` (`main.slint`, `ReportHeader`). It needs an
-  accessible action, or a button. This isn't Mac-specific.
-- **The destination box doesn't show `--output`.** When Luna is launched with
-  `report <folder> --output <dir>`, the report goes to `<dir>` but the box still shows the
-  saved destination. Small, and only for that launch path. Not Mac-specific.
+**Fixed on `mac/window-polish`:**
 
-**Still to check by hand** (they need the real mouse or open other apps; a few minutes):
+- **Native menu bar.** The app menu has About, *Settings…* (⌘,), Services, Hide and Quit,
+  and there's a Window menu (Minimize, Zoom, Full Screen, plus what macOS adds there).
+  - It's built with `muda`, the crate Slint uses for menus, in `mac_menu.rs`.
+  - Slint's own default menu is turned off on the winit backend
+    (`i-slint-backend-winit`, pinned to Slint's version). Slint's `MenuBar` can't put
+    items in the app menu.
+  - With `SLINT_BACKEND` set, Luna uses Slint's backend selector as before, with
+    Slint's menu.
+  - There's no Edit menu: ⌘C / ⌘V / ⌘A already work in the fields.
+- **Full screen.** macOS hides the traffic lights there, but Luna's bar kept their 80 px
+  gap, so the logo sat away from the edge. In full screen the bar now starts 16 px in.
+  Zoom (double-click, Window → Zoom) was already fine.
+- **`--output` shown as the destination.** After `report <folder> --output <dir>`, the
+  box shows `<dir>` while that run is on screen, and goes back to the saved destination
+  after *New report*. *Change* during that run moves the run too. This one isn't
+  Mac-specific.
 
-1. Click the window and pick a camera folder in the sheet. Then drag a folder from Finder onto the window.
-2. Click the *Report header* bar: it should open upwards. Edit a value in place.
-3. Settings → *Choose logo*: pick a PNG and it should show in the box. Then make a report and check the logo is in the PDF.
-4. *Change* the destination, make a report, and check it lands there.
-5. On the done screen: *Open PDF*, *Open HTML*, *Open CSV* and *Show in folder* (Finder should select the report).
-6. Drag the window by its bar, double-click the bar (zoom), resize from each edge and corner, and use the green button for full screen and back.
-7. In a text field, ⌘C, ⌘V and ⌘A (there's no Edit menu, so check these work).
+Checked through the window: *Settings…* opens Settings, Zoom and Full Screen in and out,
+and the destination with `--output`. `cargo xtask check` passes.
+
+**Left as found:** with no release, *Check for updates* shows Sparkle's "Update Error!".
+The report header card can't be opened from the keyboard or with VoiceOver (Shaked: not
+needed).
 
 **Done when** the whole flow (folder → report → open it) works through the window on the
 Mac, and the window looks and behaves like a Mac app.
