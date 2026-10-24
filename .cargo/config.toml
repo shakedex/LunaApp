@@ -15,6 +15,11 @@ LUNA_FFMPEG_DIR = { value = '../decoders/tools/ffmpeg-8.1-lgpl-shared/ffmpeg-n8.
 # The camera corpus the corpus tests read; they skip when it isn't there.
 LUNA_CORPUS = { value = 'D:\LUNA_TEST\TEST_PROJECT_LUNA\CAMERA', force = false }
 
+# The decoders live in a private GitHub repo: fetch it with git's own
+# credentials (`gh auth setup-git`).
+[net]
+git-fetch-with-cli = true
+
 # `cargo xtask` runs Luna's build tasks (xtask/src/main.rs); `cargo xtask` lists them.
 [alias]
 xtask = "run --quiet --package xtask --"

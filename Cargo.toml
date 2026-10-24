@@ -8,12 +8,13 @@ edition = "2024"
 license = "MIT"
 
 [workspace.dependencies]
-# Private decoders (not published), pinned to the commits Luna was verified against.
-xocn = { git = "file:///E:/Coding/decoders/xocn-decoder", rev = "2b183188fbc5a97544e6844333ab3bc07744e169" }
-crm = { git = "file:///E:/Coding/decoders/crm-decoder", rev = "d4725b19b4af7bde2f1699b19bfa163ed4fbc89f" }
+# Private decoders, all in the private shakedex/luna-decoders repo, pinned to
+# the commit Luna was verified against. Cargo finds each crate by name.
+xocn = { git = "https://github.com/shakedex/luna-decoders", rev = "0a0407a6643e43f0a3c6241eb630719e01fd592c" }
+crm = { git = "https://github.com/shakedex/luna-decoders", rev = "0a0407a6643e43f0a3c6241eb630719e01fd592c" }
 # `arricore` ships a JPEG XS decoder (patent-pooled codec): drop the feature to
 # turn ARRICORE thumbnails off.
-arri = { git = "file:///E:/Coding/decoders/arri-decoder", rev = "5ad6add7dcaa9bc9af52ee41d0eee9f9e83973e2", features = ["arricore"] }
-braw = { git = "file:///E:/Coding/decoders/braw-sdk", rev = "1fd58351bdc92dda7a239265172d81465ff35e19" }
+arri = { git = "https://github.com/shakedex/luna-decoders", rev = "0a0407a6643e43f0a3c6241eb630719e01fd592c", features = ["arricore"] }
+braw = { git = "https://github.com/shakedex/luna-decoders", rev = "0a0407a6643e43f0a3c6241eb630719e01fd592c" }
 # FFmpeg's LGPL prores_raw decoder, loaded at run time from bundled DLLs (Windows).
-proresraw-ffmpeg = { git = "file:///E:/Coding/decoders/proresraw-ffmpeg", rev = "1cb54c4218e113d51f7e16e4e94f6784ddf6ff96" }
+proresraw-ffmpeg = { git = "https://github.com/shakedex/luna-decoders", rev = "0a0407a6643e43f0a3c6241eb630719e01fd592c" }
