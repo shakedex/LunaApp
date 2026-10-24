@@ -35,11 +35,6 @@ Luna is an independent project. It is **not affiliated with, endorsed by, sponso
 
 All other product names, logos, and brands are property of their respective owners. Use of these names, logos, and brands does not imply endorsement.
 
-## Earlier Versions
-
-The browser app (tag `luna-web-final`) is no longer maintained. Its
-installers are unsigned; install them at your own risk.
-
 ## Reporting Issues
 
 For bugs or security concerns, please open an issue on the [GitHub repository](https://github.com/shakedex/LunaApp/issues).
