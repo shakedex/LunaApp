@@ -358,3 +358,52 @@ export component ErrorLine {
         }
     }
 }
+
+// A box to tick, with its label beside it; the label toggles it too.
+export component Checkbox {
+    in property <string> text;
+    in property <bool> checked;
+    callback toggled(bool);
+
+    accessible-role: checkbox;
+    accessible-label: root.text;
+    accessible-checked: root.checked;
+    accessible-action-default => {
+        root.toggled(!root.checked);
+    }
+    min-height: 24px;
+
+    HorizontalLayout {
+        spacing: 10px;
+        VerticalLayout {
+            alignment: center;
+            Rectangle {
+                width: 16px;
+                height: 16px;
+                border-radius: 3px;
+                background: root.checked ? (ta.has-hover ? Theme.accent-hover : Theme.accent) : Theme.field;
+                border-width: root.checked ? 0px : 1px;
+                border-color: ta.has-hover ? Theme.text-faint : Theme.line-strong;
+                if root.checked: Icon {
+                    source: @image-url("icons/check.svg");
+                    width: 12px;
+                    height: 12px;
+                    tint: Theme.on-accent;
+                }
+            }
+        }
+
+        Text {
+            text: root.text;
+            color: Theme.text;
+            vertical-alignment: center;
+        }
+    }
+
+    ta := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            root.toggled(!root.checked);
+        }
+    }
+}

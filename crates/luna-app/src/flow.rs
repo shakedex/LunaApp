@@ -217,6 +217,7 @@ mod tests {
             html: "r/a.html".into(),
             csv: "r/a.csv".into(),
             folder: "r".into(),
+            copy_error: String::new(),
             summary: String::new(),
         }
     }

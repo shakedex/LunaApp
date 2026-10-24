@@ -65,6 +65,7 @@ impl RunBackend for CoreBackend {
                     html: outcome.files.html,
                     csv: outcome.files.csv,
                     folder: outcome.files.folder,
+                    copy_error: outcome.copy_errors.join("\n"),
                     summary: outcome.summary,
                 }),
                 Err(RunError::Cancelled) => RunEvent::Cancelled,

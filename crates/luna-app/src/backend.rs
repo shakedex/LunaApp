@@ -58,6 +58,8 @@ pub struct RunOutcome {
     pub csv: PathBuf,
     /// The run's report folder (contains the three files).
     pub folder: PathBuf,
+    /// Why a copy on the source drive couldn't be saved; empty when it was.
+    pub copy_error: String,
     /// One line about problems, e.g. "2 clips couldn't be decoded". Empty when
     /// there were none.
     pub summary: String,
@@ -184,6 +186,7 @@ impl FakeBackend {
             html: folder.join("camera-report.html"),
             csv: folder.join("camera-report.csv"),
             folder,
+            copy_error: String::new(),
             summary: match problems {
                 0 => String::new(),
                 1 => "1 clip couldn't be decoded".into(),

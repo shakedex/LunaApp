@@ -408,19 +408,13 @@ impl App {
     fn render(&self) {
         let view = main_view(&self.flow.lock().expect("flow lock"));
         apply_view(&self.main, &view);
-        self.main
-            .set_output_dir(self.destination().display().to_string().into());
         let settings = self.settings.borrow();
         self.main
             .set_header_production(settings.production.as_str().into());
-        self.main
-            .set_header_company(settings.company.as_str().into());
         sync_fields(&self.header_fields, &settings.custom);
-        self.main
-            .set_header_summary(header_summary(&settings).into());
     }
 
-    /// A value typed in the header panel is saved as it's typed.
+    /// A value typed on the folder screen is saved as it's typed.
     fn edit_header(&self, edit: impl FnOnce(&mut Settings)) {
         let mut settings = self.settings.borrow().clone();
         edit(&mut settings);
@@ -445,6 +439,18 @@ impl App {
         }
         self.settings_state()
             .set_report_dark(self.settings.borrow().report_theme == ReportTheme::Dark);
+    }
+
+    /// The source-drive copy saves at once, like the report theme.
+    fn set_copy_to_source(&self, on: bool) {
+        let mut settings = self.settings.borrow().clone();
+        settings.copy_to_source = on;
+        match self.store.save(&settings) {
+            Ok(()) => *self.settings.borrow_mut() = settings,
+            Err(e) => crate::log::error(&format!("Couldn't save the source-drive copy: {e}")),
+        }
+        self.settings_state()
+            .set_copy_to_source(self.settings.borrow().copy_to_source);
     }
 
     fn window_event(&self, event: &WindowEvent) {
@@ -474,30 +480,6 @@ impl App {
                 .pick_source(validate_source(&path));
             app.render();
         });
-    }
-
-    /// The launch preset, while it is still the run on screen: its folder is
-    /// the one picked, or it is the run that just finished.
-    fn active_preset(&self) -> Option<RunRequest> {
-        let preset = self.preset.borrow().clone()?;
-        let flow = self.flow.lock().expect("flow lock");
-        let source = match flow.state() {
-            FlowState::Idle { .. } => return None,
-            FlowState::Done { .. } => return Some(preset),
-            FlowState::SourcePicked { source }
-            | FlowState::Running { source, .. }
-            | FlowState::Failed { source, .. }
-            | FlowState::Cancelled { source } => source,
-        };
-        (preset.sources.first() == Some(source)).then_some(preset)
-    }
-
-    /// Where the report goes: the preset's `--output`, else the saved destination.
-    fn destination(&self) -> PathBuf {
-        match self.active_preset() {
-            Some(preset) => preset.settings.output_dir,
-            None => self.settings.borrow().output_dir.clone(),
-        }
     }
 
     fn start(self: &Rc<Self>) {
@@ -711,6 +693,10 @@ impl App {
             let f = with_app(self, |app, dark: bool| app.set_report_dark(dark));
             move |dark| f(dark)
         });
+        s.on_set_copy_to_source({
+            let f = with_app(self, |app, on: bool| app.set_copy_to_source(on));
+            move |on| f(on)
+        });
         s.on_label_edited({
             let f = with_app(self, |app, (i, t): (i32, SharedString)| {
                 app.editor.borrow_mut().set_label(i as usize, &t);
@@ -787,6 +773,7 @@ impl App {
             s.set_output_dir(output_text(d).into());
         }
         s.set_report_dark(self.settings.borrow().report_theme == ReportTheme::Dark);
+        s.set_copy_to_source(self.settings.borrow().copy_to_source);
         self.fill_logo();
         self.fill_fields();
         self.refresh_dirty();
@@ -882,24 +869,6 @@ impl App {
         }
     }
 
-    /// The bottom bar's destination: choosing a folder saves it at once.
-    fn change_output(self: &Rc<Self>) {
-        let start = Some(self.destination());
-        self.pick_folder(self.main.window(), start, |app, path| {
-            // A launch preset keeps its other overrides but goes where chosen.
-            if let Some(preset) = app.preset.borrow_mut().as_mut() {
-                preset.settings.output_dir = path.clone();
-            }
-            let mut settings = app.settings.borrow().clone();
-            settings.output_dir = path;
-            match app.store.save(&settings) {
-                Ok(()) => *app.settings.borrow_mut() = settings,
-                Err(e) => crate::log::error(&format!("Couldn't save the destination: {e}")),
-            }
-            app.render();
-        });
-    }
-
     // ----- Window -----
 
     fn wire_window(self: &Rc<Self>) {
@@ -951,10 +920,6 @@ impl App {
             });
             move |dir| f(dir)
         });
-        m.on_change_output({
-            let f = unit(App::change_output);
-            move || f(())
-        });
         m.set_header_fields(ModelRc::from(self.header_fields.clone()));
         m.on_header_production_edited({
             let f = with_app(self, |app, t: SharedString| {
@@ -975,21 +940,6 @@ impl App {
         self.settings_state()
             .set_credits(ModelRc::new(VecModel::from(credits())));
     }
-}
-
-/// "Night Shift · Shoot day 12 · Unit Main": the filled-in header values.
-fn header_summary(settings: &Settings) -> String {
-    let production = settings.production.trim();
-    let fields = settings.custom.iter().filter_map(|(label, value)| {
-        let value = value.trim();
-        (!value.is_empty()).then(|| format!("{} {value}", label.trim()))
-    });
-    (!production.is_empty())
-        .then(|| production.to_string())
-        .into_iter()
-        .chain(fields)
-        .collect::<Vec<_>>()
-        .join(" · ")
 }
 
 /// Brings `model` in line with `custom`, touching only the rows that differ.
@@ -1079,6 +1029,7 @@ fn apply_view(main: &MainWindow, v: &MainView) {
     main.set_csv_name(v.csv_name.as_str().into());
     main.set_folder(v.folder.as_str().into());
     main.set_failure(v.failure.as_str().into());
+    main.set_copy_error(v.copy_error.as_str().into());
 }
 
 fn output_text(s: &Settings) -> String {
@@ -1089,27 +1040,4 @@ fn file_name(p: &Path) -> String {
     p.file_name()
         .map(|n| n.to_string_lossy().into_owned())
         .unwrap_or_else(|| p.display().to_string())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn header_summary_joins_filled_values() {
-        let settings = Settings {
-            production: " Night Shift ".into(),
-            custom: vec![
-                ("Shoot day".into(), "12".into()),
-                ("Episode".into(), " ".into()),
-                ("Unit".into(), "Main".into()),
-            ],
-            ..Settings::default()
-        };
-        assert_eq!(
-            header_summary(&settings),
-            "Night Shift · Shoot day 12 · Unit Main"
-        );
-        assert_eq!(header_summary(&Settings::default()), "");
-    }
 }

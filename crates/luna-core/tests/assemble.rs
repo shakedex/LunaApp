@@ -1,6 +1,7 @@
 use luna_core::assemble::{clip_fields, output_folder, thumbnails, write_outputs};
 use luna_formats::{ClipMeta, Codec, ProResProfile, Rational, Timecode};
 use luna_report::Thumbnail;
+use std::path::{Path, PathBuf};
 
 fn meta() -> ClipMeta {
     ClipMeta {
@@ -174,4 +175,64 @@ fn name_sets_the_folder() {
     assert_eq!(b.file_name().unwrap(), "A Cam (2)");
     let c = output_folder(dir.path(), "Prod", Some("A/B"), "2026-10-16 1200");
     assert_eq!(c.file_name().unwrap(), "A_B");
+}
+
+#[cfg(windows)]
+#[test]
+fn drive_root_is_the_letter_or_the_share() {
+    use luna_core::assemble::drive_root;
+    assert_eq!(
+        drive_root(Path::new(r"E:\SHOOT\A001")),
+        PathBuf::from(r"E:\")
+    );
+    assert_eq!(
+        drive_root(Path::new(r"\\?\E:\SHOOT")),
+        PathBuf::from(r"\\?\E:\")
+    );
+    assert_eq!(
+        drive_root(Path::new(r"\\nas\media\SHOOT")),
+        PathBuf::from(r"\\nas\media\")
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn drive_root_is_the_volume_or_the_startup_disk() {
+    use luna_core::assemble::drive_root;
+    assert_eq!(
+        drive_root(Path::new("/Volumes/MASTER_01/SHOOT/A001")),
+        PathBuf::from("/Volumes/MASTER_01")
+    );
+    assert_eq!(
+        drive_root(Path::new("/Users/dana/Footage")),
+        PathBuf::from("/")
+    );
+}
+
+#[cfg(windows)]
+#[test]
+fn same_drive_ignores_case_and_the_verbatim_prefix() {
+    use luna_core::assemble::same_drive;
+    assert!(same_drive(
+        Path::new(r"\\?\e:\SHOOT"),
+        Path::new(r"E:\Reports")
+    ));
+    assert!(!same_drive(
+        Path::new(r"D:\SHOOT"),
+        Path::new(r"C:\Reports")
+    ));
+}
+
+#[cfg(unix)]
+#[test]
+fn same_drive_tells_volumes_apart() {
+    use luna_core::assemble::same_drive;
+    assert!(same_drive(
+        Path::new("/Users/dana/Footage"),
+        Path::new("/Users/dana/Documents")
+    ));
+    assert!(!same_drive(
+        Path::new("/Volumes/CARD/A001"),
+        Path::new("/Users/dana/Documents")
+    ));
 }

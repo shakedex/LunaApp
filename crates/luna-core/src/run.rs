@@ -1,6 +1,6 @@
 //! One run from source folder to the three report files.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
@@ -9,7 +9,9 @@ use luna_report::{Camera, Card, Clip, CustomField, Header, Logo, Report, Thumbna
 use luna_worker::pool::{JobOutcome, PoolConfig, PoolError, run_pool};
 use luna_worker::{ClipJob, ClipResult};
 
-use crate::assemble::{OutputFiles, clip_fields, output_folder, thumbnails, write_outputs};
+use crate::assemble::{
+    OutputFiles, clip_fields, drive_root, output_folder, same_drive, thumbnails, write_outputs,
+};
 use crate::identity::resolve_identity;
 use crate::scan::{Scan, outermost, scan_roots};
 use crate::select::CameraFilter;
@@ -86,6 +88,10 @@ impl RunRequest {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RunOutcome {
     pub files: OutputFiles,
+    /// The copies on the source drives (`copy_to_source`).
+    pub copies: Vec<PathBuf>,
+    /// Copies that couldn't be written; the report itself was.
+    pub copy_errors: Vec<String>,
     pub summary: String,
     pub clips: usize,
     pub clips_with_problems: usize,
@@ -233,15 +239,53 @@ pub fn run(
         .unwrap_or_else(|| "Luna Report".into());
     let files = write_outputs(&target, &stem, &pdf, &html, &csv)
         .map_err(|e| RunError::Output(e.to_string()))?;
+    let (copies, copy_errors) = if settings.copy_to_source {
+        copy_to_drives(&files.folder, &roots, &stem, &pdf, &html, &csv)
+    } else {
+        Default::default()
+    };
     let totals = report.totals();
     Ok(RunOutcome {
         summary: summary(&report),
         files,
+        copies,
+        copy_errors,
         clips: totals.clips,
         clips_with_problems: totals.clips_with_problems,
         not_included: report.not_included.len(),
         unreadable: report.unreadable.len(),
     })
+}
+
+/// Writes the report again into `Luna` at the root of each source drive, once
+/// per drive, skipping the drive the report is already on.
+fn copy_to_drives(
+    report: &Path,
+    roots: &[PathBuf],
+    stem: &str,
+    pdf: &[u8],
+    html: &[u8],
+    csv: &[u8],
+) -> (Vec<PathBuf>, Vec<String>) {
+    let report = dunce::canonicalize(report).unwrap_or_else(|_| report.to_path_buf());
+    let mut drives: Vec<PathBuf> = Vec::new();
+    for root in roots {
+        if !same_drive(root, &report) && !drives.iter().any(|d| same_drive(d, root)) {
+            drives.push(drive_root(root));
+        }
+    }
+    let (mut copies, mut errors) = (Vec::new(), Vec::new());
+    for drive in drives {
+        let target = output_folder(&drive.join("Luna"), "", Some(stem), "");
+        match write_outputs(&target, stem, pdf, html, csv) {
+            Ok(files) => copies.push(files.folder),
+            Err(e) => errors.push(format!(
+                "The copy on {} couldn't be saved: {e}",
+                drive.display()
+            )),
+        }
+    }
+    (copies, errors)
 }
 
 /// Runs the given clips (indices into the scan) through the worker pool.

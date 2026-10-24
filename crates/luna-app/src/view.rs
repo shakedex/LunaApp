@@ -41,6 +41,8 @@ pub struct MainView {
     pub html_name: String,
     pub csv_name: String,
     pub folder: String,
+    /// A source-drive copy that couldn't be saved (Done only).
+    pub copy_error: String,
     /// The run-level error (Failed only).
     pub failure: String,
 }
@@ -83,6 +85,7 @@ pub fn main_view(flow: &Flow) -> MainView {
             v.html_name = file_name(&outcome.html);
             v.csv_name = file_name(&outcome.csv);
             v.folder = outcome.folder.display().to_string();
+            v.copy_error = outcome.copy_error.clone();
         }
         FlowState::Failed { source, message } => {
             v.phase = ViewPhase::Failed;
@@ -147,6 +150,7 @@ mod tests {
             html: "out/A001 report/camera-report.html".into(),
             csv: "out/A001 report/camera-report.csv".into(),
             folder: "out/A001 report".into(),
+            copy_error: String::new(),
             summary: summary.into(),
         }
     }

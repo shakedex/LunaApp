@@ -1,7 +1,7 @@
 //! Turning worker results into report rows, and writing the three report files.
 
 use std::io;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
 use luna_formats::{ClipMeta, Codec, Timecode};
 use luna_report::{ClipFields, Thumbnail};
@@ -113,6 +113,33 @@ pub fn output_folder(
         n += 1;
     }
     candidate
+}
+
+/// The root of the drive `path` is on: `D:\`, `\\server\share\`,
+/// `/Volumes/CARD`, or `/` for the startup disk.
+pub fn drive_root(path: &Path) -> PathBuf {
+    let root = path.ancestors().last().unwrap_or(path);
+    if root == Path::new("/")
+        && let Ok(rest) = path.strip_prefix("/Volumes")
+        && let Some(Component::Normal(name)) = rest.components().next()
+    {
+        return Path::new("/Volumes").join(name);
+    }
+    root.to_path_buf()
+}
+
+/// Whether two paths are on the same drive. Drive letters and share names
+/// compare without case.
+pub fn same_drive(a: &Path, b: &Path) -> bool {
+    let key = |p: &Path| {
+        let root = drive_root(dunce::simplified(p));
+        if cfg!(windows) {
+            root.to_string_lossy().to_lowercase()
+        } else {
+            root.to_string_lossy().into_owned()
+        }
+    };
+    key(a) == key(b)
 }
 
 fn sanitize(name: &str) -> String {

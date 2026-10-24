@@ -24,6 +24,8 @@ pub struct Settings {
     /// Where per-run report folders are written. Default `Documents/Luna Reports`.
     pub output_dir: PathBuf,
     pub report_theme: ReportTheme,
+    /// Also writes each report to `Luna` at the root of the source drive.
+    pub copy_to_source: bool,
 }
 
 impl Default for Settings {
@@ -36,6 +38,7 @@ impl Default for Settings {
             custom: Vec::new(),
             output_dir: default_output_dir(),
             report_theme: ReportTheme::Light,
+            copy_to_source: false,
         }
     }
 }
@@ -104,6 +107,7 @@ struct SettingsFile {
     output_dir: Option<PathBuf>,
     custom: Vec<CustomEntry>,
     report_theme: ReportTheme,
+    copy_to_source: bool,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]
@@ -161,6 +165,7 @@ impl SettingsStore {
                 .filter(|d| !d.as_os_str().is_empty())
                 .unwrap_or_else(default_output_dir),
             report_theme: file.report_theme,
+            copy_to_source: file.copy_to_source,
         }
     }
 
@@ -189,6 +194,7 @@ impl SettingsStore {
                 })
                 .collect(),
             report_theme: settings.report_theme,
+            copy_to_source: settings.copy_to_source,
         };
         let text = toml::to_string(&file).map_err(io::Error::other)?;
         let tmp = self.dir.join(format!("{FILE}.tmp"));
@@ -255,6 +261,7 @@ mod tests {
             ],
             output_dir: PathBuf::from("/reports/here"),
             report_theme: ReportTheme::Dark,
+            copy_to_source: true,
         }
     }
 

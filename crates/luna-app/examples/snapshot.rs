@@ -66,12 +66,9 @@ fn main() {
     let size = (880, 640);
     let mut moon = MoonRenderer::new();
     let mut sky = BackdropRenderer::new();
-    let screens: [(&str, Screen); 9] = [
+    let screens: [(&str, Screen); 8] = [
         ("1-idle", |_| {}),
         ("1d-update-pending", |m| m.set_update_pending(true)),
-        ("1c-header-open", |m| {
-            m.set_header_open(true);
-        }),
         ("1b-drop-hover", |m| {
             m.set_drag_hover(true);
         }),
@@ -105,7 +102,6 @@ fn main() {
     ];
     for (name, setup) in screens {
         let m = MainWindow::new().unwrap();
-        m.set_output_dir("C:\\Users\\dana\\Documents\\Luna Reports".into());
         m.set_source("D:\\SHOOT_DAY_12\\CAMERA".into());
         m.set_source_name("SHOOT_DAY_12".into());
         m.set_pdf_name("Luna Report 2026-10-16 1334.pdf".into());
@@ -115,8 +111,6 @@ fn main() {
             "C:\\Users\\dana\\Documents\\Luna Reports\\Luna Report 2026-10-16 1334".into(),
         );
         m.set_header_production("Night Shift".into());
-        m.set_header_company("Lumen Rentals".into());
-        m.set_header_summary("Night Shift · Shoot day 12 · Unit Main".into());
         m.set_header_fields(ModelRc::new(VecModel::from(vec![
             CustomField {
                 label: "Shoot day".into(),
@@ -152,7 +146,6 @@ fn main() {
     for i in 0..frames {
         let t = i as f32 / (frames.max(2) - 1) as f32;
         let m = MainWindow::new().unwrap();
-        m.set_output_dir(r"C:\Users\dana\Documents\Luna Reports".into());
         m.set_source(r"D:\SHOOT_DAY_12\CAMERA".into());
         m.set_source_name("SHOOT_DAY_12".into());
         m.set_header_production("Night Shift".into());
@@ -184,7 +177,6 @@ fn main() {
     // Settings replaces the moon; Credits sits behind a link in it.
     for (name, credits) in [("7-settings", false), ("8-credits", true)] {
         let m = MainWindow::new().unwrap();
-        m.set_output_dir(r"C:\Users\dana\Documents\Luna Reports".into());
         m.set_header_production("Night Shift".into());
         let spin = 0.0;
         let state = m.global::<SettingsState>();
@@ -201,6 +193,7 @@ fn main() {
         state.set_output_dir(r"C:\Users\dana\Documents\Luna Reports".into());
         state.set_can_save(true);
         state.set_show_credits(credits);
+        state.set_copy_to_source(true);
         state.set_credits(ModelRc::new(VecModel::from(vec![
             Component {
                 name: "Slint".into(),

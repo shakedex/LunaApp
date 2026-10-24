@@ -39,6 +39,8 @@ pub fn result_json(result: &Result<RunOutcome, RunError>) -> Value {
             "summary": o.summary,
             "not_included": o.not_included,
             "unreadable": o.unreadable,
+            "copies": o.copies,
+            "copy_errors": o.copy_errors,
         }),
         Err(e) => error_json(&e.to_string(), exit_code(result)),
     }

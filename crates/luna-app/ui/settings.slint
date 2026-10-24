@@ -6,7 +6,7 @@
 
 import { AboutSlint, ScrollView } from "std-widgets.slint";
 import { Theme } from "theme.slint";
-import { LunaButton, ButtonKind, IconButton, TextField, ErrorLine, Icon, Segmented } from "controls.slint";
+import { LunaButton, ButtonKind, IconButton, TextField, ErrorLine, Icon, Segmented, Checkbox } from "controls.slint";
 
 export struct CustomField {
     label: string,
@@ -33,6 +33,7 @@ export global SettingsState {
     in property <string> output-dir;
     in property <bool> can-save;
     in property <bool> report-dark;
+    in property <bool> copy-to-source;
     in property <string> save-error;
     in property <[Component]> credits;
     // Luna's version, and whether this build can update itself (packaged
@@ -54,6 +55,7 @@ export global SettingsState {
     callback save();
     callback cancel();
     callback set-report-dark(bool);
+    callback set-copy-to-source(bool);
 }
 
 component Rule inherits Rectangle {
@@ -288,6 +290,17 @@ export component SettingsView inherits Rectangle {
                                         SettingsState.pick-output();
                                     }
                                 }
+                            }
+                        }
+                    }
+
+                    HorizontalLayout {
+                        padding-left: 90px;
+                        Checkbox {
+                            text: "Also save on the source drive";
+                            checked: SettingsState.copy-to-source;
+                            toggled(on) => {
+                                SettingsState.set-copy-to-source(on);
                             }
                         }
                     }
