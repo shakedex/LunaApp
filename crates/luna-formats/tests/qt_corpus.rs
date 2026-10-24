@@ -1,5 +1,5 @@
 //! Golden tests over the camera corpus. Set `LUNA_CORPUS` to the CAMERA
-//! folder of the test project to run them; without it they pass vacuously.
+//! folder of the test project to run them; clips that are missing are skipped.
 //! Expected values were cross-checked against ffprobe (timecode, frame rate,
 //! frame count, packet positions and sizes) and the files' own bytes.
 
@@ -18,6 +18,10 @@ fn corpus(rel: &str) -> Option<Probe> {
         segments: vec![],
         sidecars: vec![],
     };
+    if !clip.main.is_file() {
+        eprintln!("skipping: {} not found", clip.main.display());
+        return None;
+    }
     Some(probe(&clip).unwrap_or_else(|e| panic!("{rel}: {e}")))
 }
 

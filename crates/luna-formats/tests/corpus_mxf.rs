@@ -18,6 +18,10 @@ fn probe_corpus(rel: &str, sidecar: Option<(SidecarKind, &str)>) -> Option<Probe
             .map(|(k, p)| vec![(k, root.join(p))])
             .unwrap_or_default(),
     };
+    if !clip.main.is_file() {
+        eprintln!("skipping: {} not found", clip.main.display());
+        return None;
+    }
     Some(probe(&clip).expect(rel))
 }
 

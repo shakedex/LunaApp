@@ -14,6 +14,9 @@ LUNA_R3D_SDK_DIR = { value = '../decoders/r3d-sdk/reference/Redistributable/win'
 LUNA_FFMPEG_DIR = { value = '../decoders/tools/ffmpeg-8.1-lgpl-shared/ffmpeg-n8.1-latest-win64-lgpl-shared-8.1/bin', relative = true, force = false }
 # The camera corpus the corpus tests read; they skip when it isn't there.
 LUNA_CORPUS = { value = 'D:\LUNA_TEST\TEST_PROJECT_LUNA\CAMERA', force = false }
+# The oldest macOS Luna supports (Apple Silicon). rustc and every cc-built shim
+# (here and in the decoders the xtask builds) target it; Info.plist says the same.
+MACOSX_DEPLOYMENT_TARGET = { value = '26.0', force = false }
 
 # The decoders live in a private GitHub repo: fetch it with git's own
 # credentials (`gh auth setup-git`).

@@ -372,7 +372,7 @@ fn h264_422_mov_falls_back_to_luna_h264() {
     );
 }
 
-#[cfg(windows)]
+#[cfg(any(windows, target_os = "macos"))]
 #[test]
 fn hevc_422_decodes_when_the_hevc_extension_offers_it() {
     let Some(path) = corpus("S_cam/S005/A_0001C107H250108_061243ND_CANON.MP4") else {
@@ -398,7 +398,7 @@ fn hevc_422_decodes_when_the_hevc_extension_offers_it() {
                 (4096, 2160, 2048, 2160, 10)
             );
         }
-        // Machines without the HEVC Video Extensions report it cleanly.
+        // Windows machines without the HEVC Video Extensions report it cleanly.
         Err(DecodeError::Unsupported(m)) => eprintln!("HEVC unsupported here: {m}"),
         Err(e) => panic!("{e}"),
     }
