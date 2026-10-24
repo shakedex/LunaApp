@@ -202,7 +202,7 @@ destination (`~/Documents/Luna Reports`), in an 880×640 window.
 
 Found so far:
 
-- **Window controls: fixed** (branch `mac/window-controls`). On macOS the window keeps its
+- **Window controls: fixed** (merged to master). On macOS the window keeps its
   system frame: a transparent, full-size title bar with no title text, so the traffic lights
   sit on Luna's own bar.
   - Luna's own minimize/maximize/close and resize edges are hidden there.
