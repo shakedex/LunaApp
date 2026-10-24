@@ -1,16 +1,20 @@
-"""Make a Luna report when OffShoot finishes a transfer.
+"""Make a Luna report when OffShoot finishes copying a card.
 
 Attach this script to OffShoot's "File Copy Completed" event
-(Settings > Scripting; needs OffShoot Pro). OffShoot passes the event's
-parameters as one JSON string argument. The event fires once per
-destination, so set DESTINATION_MATCH to the drive or folder whose copy
-Luna should report on; the other copies are skipped.
+(Settings > Scripting; needs OffShoot Pro and Python 3). OffShoot passes the
+event's parameters as one JSON string argument. The event fires once per
+destination, and every successful copy gets its own report. Each run opens
+its own Luna window.
+
+The card's source info from OffShoot (Shoot Day, Date, Location, ...) goes
+into the report header; a saved Luna field with the same name takes
+OffShoot's value. Production, company and the rest come from Luna's Settings.
 
 Run with --dump to write the payload OffShoot sends to offshoot_payload.json
 next to this script, without running Luna.
 
 Every setting below can also be set through the environment variable of the
-same name prefixed with LUNA_ (LUNA_MODE, LUNA_CLI, ...).
+same name prefixed with LUNA_ (LUNA_MODE, LUNA_APP, ...).
 """
 
 import json
@@ -19,13 +23,17 @@ import subprocess
 import sys
 from pathlib import Path
 
-# "headless": no window, Luna writes the report and exits.
-# "visible": the Luna window opens and shows the run.
-MODE = "headless"
+# "visible": a Luna window opens and shows the run and its result.
+# "headless": no window; luna-cli writes the report and exits.
+MODE = "visible"
 
-# Installed locations (Windows default; macOS: /Applications/Luna.app/Contents/MacOS/...).
-LUNA_CLI = r"C:\Program Files\Luna\luna-cli.exe"
-LUNA_APP = r"C:\Program Files\Luna\Luna.exe"
+# Installed locations.
+if sys.platform == "darwin":
+    LUNA_APP = "/Applications/Luna.app/Contents/MacOS/Luna"
+    LUNA_CLI = "/Applications/Luna.app/Contents/MacOS/luna-cli"
+else:
+    LUNA_APP = r"C:\Program Files\Luna\Luna.exe"
+    LUNA_CLI = r"C:\Program Files\Luna\luna-cli.exe"
 
 # Only destinations starting with this path get a report ("" = every destination).
 DESTINATION_MATCH = ""
@@ -39,9 +47,28 @@ def setting(name, default):
 
 
 def value(payload, key):
-    """OffShoot's docs name parameters FileCopyCompleted_<key>; accept both forms."""
+    """OffShoot names parameters FileCopyCompleted_<key>; accept both forms."""
     v = payload.get("FileCopyCompleted_" + key, payload.get(key))
     return v if isinstance(v, str) else ("" if v is None else str(v))
+
+
+def source_info(payload):
+    """The card's source info as label/value pairs, in OffShoot's order.
+    OffShoot sends it as a JSON string; empty values are left out."""
+    raw = payload.get("FileCopyCompleted_sourceInfo", payload.get("sourceInfo"))
+    if isinstance(raw, str):
+        try:
+            raw = json.loads(raw or "{}")
+        except json.JSONDecodeError:
+            return []
+    if not isinstance(raw, dict):
+        return []
+    fields = []
+    for label, v in raw.items():
+        text = "" if v is None else str(v).strip()
+        if str(label).strip() and text:
+            fields.append((str(label).strip(), text))
+    return fields
 
 
 def luna_command(payload):
@@ -53,24 +80,15 @@ def luna_command(payload):
     if not destination or not os.path.normcase(destination).startswith(os.path.normcase(match)):
         return None
 
-    mode = setting("MODE", MODE)
-    exe = setting("CLI", LUNA_CLI) if mode == "headless" else setting("APP", LUNA_APP)
+    headless = setting("MODE", MODE) == "headless"
+    exe = setting("CLI", LUNA_CLI) if headless else setting("APP", LUNA_APP)
     cmd = [exe, "report", destination]
-    preset = value(payload, "presetName")
-    if preset:
-        cmd += ["--production", preset]
-    try:
-        info = json.loads(value(payload, "sourceInfo") or "{}")
-    except json.JSONDecodeError:
-        info = {}
-    if isinstance(info, dict):
-        for label in ("Shoot Day", "Source Name", "Date"):
-            if info.get(label):
-                cmd += ["--field", f"{label}={info[label]}"]
+    for label, text in source_info(payload):
+        cmd += ["--field", f"{label}={text}"]
     output = setting("OUTPUT", OUTPUT)
     if output:
         cmd += ["--output", output]
-    if mode == "headless":
+    if headless:
         cmd.append("--json")
     return cmd
 
@@ -96,7 +114,8 @@ def main(argv):
     # A list, not a string: paths ending in a backslash stay intact on Windows.
     if setting("MODE", MODE) == "headless":
         return subprocess.run(cmd).returncode
-    subprocess.Popen(cmd)
+    # The window outlives this script, so OffShoot isn't kept waiting.
+    subprocess.Popen(cmd, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     return 0
 
 
