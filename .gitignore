@@ -25,3 +25,6 @@ Thumbs.db
 
 # Python bytecode
 __pycache__/
+
+# What OffShoot last sent the automation script
+automation/offshoot_payload.json

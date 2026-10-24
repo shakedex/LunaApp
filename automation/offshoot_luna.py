@@ -10,8 +10,8 @@ The card's source info from OffShoot (Shoot Day, Date, Location, ...) goes
 into the report header; a saved Luna field with the same name takes
 OffShoot's value. Production, company and the rest come from Luna's Settings.
 
-Run with --dump to write the payload OffShoot sends to offshoot_payload.json
-next to this script, without running Luna.
+Each run saves the payload OffShoot sent to offshoot_payload.json next to
+this script, so what OffShoot sends can be checked.
 
 Every setting below can also be set through the environment variable of the
 same name prefixed with LUNA_ (LUNA_MODE, LUNA_APP, ...).
@@ -95,18 +95,19 @@ def luna_command(payload):
 
 def main(argv):
     if len(argv) < 2:
-        print("usage: offshoot_luna.py '<OffShoot JSON payload>' [--dump]", file=sys.stderr)
+        print("usage: offshoot_luna.py '<OffShoot JSON payload>'", file=sys.stderr)
         return 2
     try:
         payload = json.loads(argv[1])
     except json.JSONDecodeError as e:
         print(f"The payload isn't JSON: {e}", file=sys.stderr)
         return 2
-    if "--dump" in argv[2:]:
+    try:
         Path(__file__).with_name("offshoot_payload.json").write_text(
             json.dumps(payload, indent=2), encoding="utf-8"
         )
-        return 0
+    except OSError:
+        pass
 
     cmd = luna_command(payload)
     if cmd is None:

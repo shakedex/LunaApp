@@ -91,8 +91,8 @@ Luna window.
    - `OUTPUT`: where reports go (empty: Luna's saved location)
 2. OffShoot: **Settings → Scripting → File Copy Completed**, add the script. Needs
    OffShoot Pro and Python 3.
-3. Run one test offload. To see exactly what OffShoot sends, call the script with
-   `--dump` once; it writes `offshoot_payload.json` next to itself.
+3. Run one test offload. Each run saves what OffShoot sent to
+   `offshoot_payload.json` next to the script.
 
 Only copies that end in Success get a report. The card's source info from
 OffShoot (Shoot Day, Date, Source Name, Location and any others) goes into the
