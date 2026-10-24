@@ -220,7 +220,7 @@ function build(p: Parts) {
     defaults: { ease: "none" },
     scrollTrigger: {
       trigger: p.stage,
-      start: "top 64px",
+      start: "top top",
       end: `+=${TRAVEL}`,
       pin: p.pin,
       scrub: 0.6,

@@ -32,7 +32,7 @@ const phases = ["idle", "running", "done"] as const;
           <span class="alt">{copy.hero.alsoFor} <a href={LATEST_URL} data-download-other>macOS</a></span>
         </div>
       </div>
-      <ol class="steps" id="stage-steps" aria-label={copy.nav.how}>
+      <ol class="steps" id="stage-steps" aria-label="Steps">
         {
           copy.stage.steps.map((step, i) => (
             <li data-step={i} class={i === 0 ? "is-on" : ""}>
@@ -78,7 +78,7 @@ const phases = ["idle", "running", "done"] as const;
   </div>
 
   <!-- Without motion: the three screens one after another, then the page. -->
-  <ol class="static wrap" aria-label={copy.nav.how}>
+  <ol class="static wrap" aria-label="Steps">
     {
       copy.stage.steps.map((step, i) => (
         <li>
@@ -106,12 +106,12 @@ const phases = ["idle", "running", "done"] as const;
     position: relative;
     width: min(1400px, 100% - 2 * var(--gutter));
     margin-inline: auto;
-    min-height: calc(100dvh - 64px);
+    min-height: 100dvh;
     display: grid;
     grid-template-columns: minmax(400px, 5fr) minmax(0, 9fr);
     align-items: center;
     gap: 56px;
-    padding: 24px 0 48px;
+    padding: 72px 0 48px;
   }
   .copy {
     position: relative;

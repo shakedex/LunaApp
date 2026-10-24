@@ -20,11 +20,9 @@ export const copy = {
   },
 
   nav: {
-    how: "How it works",
-    report: "The report",
+    report: "Report",
     formats: "Formats",
     download: "Download",
-    github: "GitHub",
   },
 
   hero: {
@@ -55,7 +53,7 @@ export const copy = {
   },
 
   report: {
-    title: "The report",
+    title: "Report",
     paper: "Paper",
     dark: "Dark",
     pageAlt: "The first page of a Luna camera report: production header, totals, Camera A, reel A003 and its clips.",
