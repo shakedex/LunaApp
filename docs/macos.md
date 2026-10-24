@@ -330,11 +330,10 @@ likely an entitlement the hardened runtime needs) in `sign_app`.
 **Done when** the DMG passes those checks, opens cleanly from quarantine, and
 `publish` then works for the first release.
 
-**Status 2026-10-24: blocked on Shaked.** This Mac has none of the three inputs:
-- **No Developer ID Application identity.** The keychain has only "Apple Development" and
-  "Apple Distribution: Shaked Lipszyc (N67345KMS8)". Neither can be notarized for
-  outside the App Store. Create one in Xcode → Settings → Accounts → Manage Certificates
-  → + → Developer ID Application (the team's Account Holder has to do it).
+**Status 2026-10-24: blocked on Shaked.** Two of the three inputs are still missing:
+- **Developer ID Application: in the keychain** ("Shaked Lipszyc (N67345KMS8)"). A
+  `package` signed with it verifies, and `spctl` says only "Unnotarized Developer ID".
+  Its headless report gives the same 81 thumbnails.
 - **No `luna-notary` profile.** Run
   `xcrun notarytool store-credentials luna-notary --apple-id <id> --team-id N67345KMS8`
   with an app-specific password.
