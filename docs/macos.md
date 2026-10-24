@@ -69,6 +69,10 @@ are missing, so note which ran.
 
 **Done when:** all three pass, and you've listed the tests that skipped.
 
+**Status 2026-10-24: done** (branch `mac/build`). All three pass. Without the corpus on
+the Mac, the 44 corpus tests ran vacuously; the list is in luna-decoders
+`mac-reports/2026-10-24.md`. Rerun once the clips are at `~/LunaCorpus/CAMERA`.
+
 ## 2. H.264 / HEVC thumbnails through AVFoundation
 
 `crates/luna-decode/src/platform_macos.rs` is a stub that returns "isn't
@@ -85,6 +89,10 @@ Clips: `S_cam/S002/lumix_s5.mov` and the H.264/HEVC clips in
 
 **Done when:** the H.264 and HEVC corpus tests pass on the Mac with real thumbnails.
 
+**Status 2026-10-24: written, waiting for clips** (branch `mac/build`). The synthetic
+platform tests pass through AVFoundation: H.264 8-bit 4:2:0, HEVC 10-bit 4:2:2, and the
+right frame at each position. The corpus tests still need the clips.
+
 ## 3. Blackmagic RAW on the Mac
 
 The checklist is `~/Coding/decoders/braw-sdk/docs/macos.md`. Its Mac code is
@@ -94,6 +102,11 @@ in the shim; the checklist says how to measure it.
 **Done when:** that checklist is ticked, BRAW tests pass in
 `~/Coding/decoders/braw-sdk`, and Luna's `braw_cinema_camera_6k` corpus test
 passes. Clip: `D_CAM/D001/D001_09150935_C013.braw`.
+
+**Status 2026-10-24: all but the clip steps** (luna-decoders branch `mac/braw`). It builds,
+CFString ownership is measured, the leak test and the metadata oracle pass, and the
+bundle check passes. The frame oracle, the typed-fields test and the timings need the
+clip.
 
 ## 4. R3D and N-RAW add-on on the Mac
 
@@ -106,6 +119,8 @@ Windows values; report Mac values instead.
 **Done when:** `cargo test` passes in `r3d-sdk` (one Windows-only test
 fewer), and Luna's `r3d_through_the_addon` and `nikon_nraw_through_the_addon`
 corpus tests pass. Clips: `R3D/A005_W055_0819CM_001.R3D` and the Nikon `.NEV`.
+
+**Status 2026-10-24: not started.** Needs the RED SDK subset and the clips.
 
 ## 5. ProRes RAW through VideoToolbox
 
@@ -123,6 +138,10 @@ renders of one test frame, not camera files).
 Luna is a later step; the hook is `proresraw_decode` in
 `crates/luna-decode/src/lib.rs`.
 
+**Status 2026-10-24: not started.** Needs the clip. `check.swift` compiles on macOS 27's SDK
+with every ProRes RAW key; it only warns that Swift's `AVAssetReader` reading calls are
+deprecated.
+
 ## 6. Package, sign and update
 
 `cargo xtask package` / `installer` / `publish` have macOS branches in
@@ -133,6 +152,9 @@ same ed25519 key as Windows (`~/.luna/update-key`); never generate a new one.
 **Done when:** `cargo xtask package` builds `dist/Luna.app` and it runs a
 report headlessly with `Contents/MacOS/luna-cli report ...`.
 `installer` and `publish` wait until Shaked asks for a release.
+
+**Status 2026-10-24: not started.** `assemble_macos` bundles the R3D add-on and
+`REDR3D.dylib`, so it waits for item 4.
 
 ## Reporting back
 
