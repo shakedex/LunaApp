@@ -194,6 +194,27 @@ on either platform yet.
   rustc, every `cc` shim and the R3D add-on the xtask builds all target it, and
   `Info.plist` says 26.0. Before this, the shims were built for the SDK's own 27.
 
+## 7. Luna's window on the Mac
+
+First launch, 2026-10-24 (`open dist/Luna.app`): the home screen draws correctly. That
+covers the starfield, the moon, "Drop a camera folder", the report header and the
+destination (`~/Documents/Luna Reports`), in an 880×640 window.
+
+Found so far:
+
+- **Window controls:** the title bar is Luna's own, with Windows-style minimize, maximize and
+  close icons on the right. On macOS, use the native red/yellow/green buttons on the left
+  instead (or Slint's macOS-style frame), and keep the title bar draggable.
+
+Not yet tried, because it needs clicks in the window: choosing or dropping a folder, the
+report header, making a report, Settings, and the update check.
+- **How to look:** `screencapture -x -o -l <window id>` captures the window without
+  clicking.
+- **How to click:** a session needs desktop control (computer use) turned on.
+
+**Done when** the whole flow (folder → report → open it) works through the window on the
+Mac, and the window looks and behaves like a Mac app.
+
 ## Reporting back
 
 Both machines push to GitHub, so report through it:
