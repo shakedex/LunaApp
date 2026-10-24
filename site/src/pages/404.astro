@@ -1,0 +1,36 @@
+---
+import Base from "../layouts/Base.astro";
+import { copy } from "../copy";
+---
+
+<Base title={copy.notFound.title} description={copy.meta.description}>
+  <main class="wrap not-found">
+    <img src="/img/luna-icon.png" alt="" width="96" height="96" />
+    <h1>{copy.notFound.title}</h1>
+    <p>{copy.notFound.body}</p>
+    <a href="/">{copy.notFound.back}</a>
+  </main>
+</Base>
+
+<style>
+  .not-found {
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 8px;
+  }
+  h1 {
+    margin: 24px 0 0;
+    font-size: 40px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+  p {
+    margin: 0;
+    color: var(--muted);
+  }
+  a {
+    color: var(--accent);
+  }
+</style>

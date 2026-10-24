@@ -1,0 +1,26 @@
+/* Luna's app theme, from crates/luna-app/ui/theme.slint. */
+:root {
+  --chrome: #07090d;
+  --canvas: #0c0f14;
+  --surface: #11151b;
+  --raised: #181d25;
+  --line: #1d232d;
+  --line-strong: #2b3341;
+  --text: #e4e8ef;
+  --muted: #99a2b2;
+  --faint: #5d6676;
+  --accent: #79caea;
+  --accent-hover: #95d7f1;
+  --on-accent: #04141c;
+  --focus: #a9e2f6;
+  --problem: #f07a6a;
+
+  --wrap: 1200px;
+  --gutter: 32px;
+}
+
+@media (max-width: 900px) {
+  :root {
+    --gutter: 16px;
+  }
+}
