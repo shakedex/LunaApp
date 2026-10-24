@@ -253,10 +253,10 @@ mod tests {
         Settings {
             production: "Night Swim".into(),
             company: "Moon & Co".into(),
-            author: "Shaked".into(),
+            author: "Noa".into(),
             logo: None,
             custom: vec![
-                ("DIT".into(), "Shaked".into()),
+                ("DIT".into(), "Noa".into()),
                 ("Day".into(), "3 \"wet\"".into()),
             ],
             output_dir: PathBuf::from("/reports/here"),
