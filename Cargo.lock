@@ -306,7 +306,7 @@ checksum = "d3fb67a6e08acf24fdeccbac2cb6ac4305825bd1f117462e0e6f2f193345ad56"
 [[package]]
 name = "arri"
 version = "0.1.0"
-source = "git+https://github.com/shakedex/luna-decoders?rev=0a0407a6643e43f0a3c6241eb630719e01fd592c#0a0407a6643e43f0a3c6241eb630719e01fd592c"
+source = "git+https://github.com/shakedex/luna-decoders?rev=72daea069ae6a200e90dc645cb70250b46382981#72daea069ae6a200e90dc645cb70250b46382981"
 dependencies = [
  "oxideav-jpegxs",
 ]
@@ -746,7 +746,7 @@ dependencies = [
 [[package]]
 name = "braw"
 version = "0.1.0"
-source = "git+https://github.com/shakedex/luna-decoders?rev=0a0407a6643e43f0a3c6241eb630719e01fd592c#0a0407a6643e43f0a3c6241eb630719e01fd592c"
+source = "git+https://github.com/shakedex/luna-decoders?rev=72daea069ae6a200e90dc645cb70250b46382981#72daea069ae6a200e90dc645cb70250b46382981"
 dependencies = [
  "cc",
 ]
@@ -841,9 +841,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.8.0"
+version = "1.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6651c9ed80effdc7db0ff72512157f901af5e3549e341e24b1dd4887d836d838"
+checksum = "86e055fa6e3e40ad6187ba25b6855eeb635d5271f8e0f0e1e9a5826b8d75bea0"
 dependencies = [
  "find-msvc-tools",
  "jobserver",
@@ -1229,7 +1229,7 @@ checksum = "790eea4361631c5e7d22598ecd5723ff611904e3344ce8720784c93e3d83d40b"
 [[package]]
 name = "crm"
 version = "0.1.0"
-source = "git+https://github.com/shakedex/luna-decoders?rev=0a0407a6643e43f0a3c6241eb630719e01fd592c#0a0407a6643e43f0a3c6241eb630719e01fd592c"
+source = "git+https://github.com/shakedex/luna-decoders?rev=72daea069ae6a200e90dc645cb70250b46382981#72daea069ae6a200e90dc645cb70250b46382981"
 
 [[package]]
 name = "crossbeam-channel"
@@ -1836,9 +1836,9 @@ dependencies = [
 
 [[package]]
 name = "find-msvc-tools"
-version = "0.1.14"
+version = "0.1.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aedcfb3409746eddb02b9e19ebda1c3394f759a152e48ee875a0844d1b955484"
+checksum = "1c66915cc5391097de7a2b0b972e8505aa33c0df401fd3a6811dbdb32881ba48"
 
 [[package]]
 name = "fixed_decimal"
@@ -3774,6 +3774,7 @@ version = "0.0.0"
 dependencies = [
  "arri",
  "braw",
+ "cc",
  "crm",
  "libloading 0.9.0",
  "luna-formats",
@@ -4977,7 +4978,7 @@ checksum = "3d595e54a326bc53c1c197b32d295e14b169e3cfeaa8dc82b529f947fba6bcf5"
 [[package]]
 name = "proresraw-ffmpeg"
 version = "0.1.0"
-source = "git+https://github.com/shakedex/luna-decoders?rev=0a0407a6643e43f0a3c6241eb630719e01fd592c#0a0407a6643e43f0a3c6241eb630719e01fd592c"
+source = "git+https://github.com/shakedex/luna-decoders?rev=72daea069ae6a200e90dc645cb70250b46382981#72daea069ae6a200e90dc645cb70250b46382981"
 dependencies = [
  "libloading 0.9.0",
 ]
@@ -8278,7 +8279,7 @@ checksum = "9440ea3e5aeabb0ac63af70daf835274065238cdd0cec83418f417eae38bacee"
 [[package]]
 name = "xocn"
 version = "0.1.0"
-source = "git+https://github.com/shakedex/luna-decoders?rev=0a0407a6643e43f0a3c6241eb630719e01fd592c#0a0407a6643e43f0a3c6241eb630719e01fd592c"
+source = "git+https://github.com/shakedex/luna-decoders?rev=72daea069ae6a200e90dc645cb70250b46382981#72daea069ae6a200e90dc645cb70250b46382981"
 
 [[package]]
 name = "xtask"
