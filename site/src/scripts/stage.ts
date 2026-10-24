@@ -242,12 +242,11 @@ function build(p: Parts) {
     },
   });
 
-  // Narrow: the page rises to the bottom of the close-up and its step bar,
-  // so the Report section follows it without a gap.
-  if (p.narrow) {
-    const bar = p.win.nextElementSibling as HTMLElement;
-    tl.set(p.page, { top: () => bar.offsetTop + bar.offsetHeight - p.page.offsetHeight / 2 }, 0);
-  }
+  // The page rises to the bottom of the stage, so the Report section
+  // follows it without a gap.
+  const pageTop = () =>
+    p.pin.clientHeight - parseFloat(getComputedStyle(p.pin).paddingBottom) - p.page.offsetHeight / 2;
+  tl.set(p.page, { top: pageTop }, 0);
 
   tl
     // The intro gives way to the steps.
@@ -277,7 +276,7 @@ function build(p: Parts) {
     .to(p.pointer, { scale: 1, duration: 0.01 }, T.click + 0.01)
     // The first page rises out of the window.
     .to(p.page, { y: 0, duration: 1 - T.pageUp, ease: "power2.out" }, T.pageUp)
-    .to(p.win, { opacity: p.narrow ? 0 : 0.12, scale: 0.94, duration: 0.08 }, T.pageUp + 0.01)
+    .to(p.win, { opacity: 0, scale: 0.94, duration: 0.08 }, T.pageUp + 0.01)
     .to(p.pointer, { opacity: 0, duration: 0.02 }, T.pageUp + 0.01)
     .to([p.steps, p.win.nextElementSibling], { autoAlpha: 0, duration: 0.06 }, T.pageUp + 0.03);
 
