@@ -17,6 +17,10 @@ fn corpus_groups_by_camera_and_card() {
         return;
     };
     let root = Path::new(&root);
+    if !root.is_dir() {
+        eprintln!("skipping: {} not found", root.display());
+        return;
+    }
     let s = scan(root);
     assert!(s.unreadable.is_empty(), "{:?}", s.unreadable);
     assert_eq!(

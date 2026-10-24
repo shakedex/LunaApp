@@ -37,6 +37,10 @@ fn check(rel: &str, tag: &str, width: u32, height: u32) {
         return;
     };
     let path = root.join(rel);
+    if !path.is_file() {
+        eprintln!("skipping: {} not found", path.display());
+        return;
+    }
     let frame = if rel.ends_with(".mxf") {
         first_mxf_frame(&path)
     } else {

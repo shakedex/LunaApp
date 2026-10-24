@@ -44,6 +44,10 @@ fn corpus_files_classify_by_content() {
         eprintln!("LUNA_CORPUS not set; skipping");
         return;
     };
+    if !Path::new(&root).is_dir() {
+        eprintln!("skipping: {} not found", Path::new(&root).display());
+        return;
+    }
     let mut all = Vec::new();
     files(Path::new(&root), &mut all);
     assert!(!all.is_empty(), "corpus is empty");
