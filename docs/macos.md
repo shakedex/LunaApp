@@ -330,7 +330,7 @@ likely an entitlement the hardened runtime needs) in `sign_app`.
 **Done when** the DMG passes those checks, opens cleanly from quarantine, and
 `publish` then works for the first release.
 
-**Status 2026-10-24: the installer is built; `publish` waits for Shaked.**
+**Status 2026-10-24: done.** `v2026.10.0` is published and is the latest release.
 - **Signing:** with the keychain's "Developer ID Application: Shaked Lipszyc (N67345KMS8)".
   `sign_app` needed no changes and the hardened runtime needed no entitlements.
 - **Notarizing:** the `luna-notary` profile holds the team's App Store Connect API key
@@ -354,8 +354,10 @@ likely an entitlement the hardened runtime needs) in `sign_app`.
   under the hardened runtime, so library validation lets RED, BRAW, N-RAW and ProRes RAW
   load.
 
-**Left:** `cargo xtask publish`, which uploads the DMG, zip and feed and takes the release
-out of draft. Shaked's call.
+**Published:** `cargo xtask publish` from the `v2026.10.0` checkout uploaded the DMG, zip
+and `appcast-macos.xml`.
+- With the Windows installer already there, the release left draft and became the latest.
+- Both `releases/latest/download/appcast-*.xml` feeds and the DMG return 200.
 
 ## Reporting back
 
