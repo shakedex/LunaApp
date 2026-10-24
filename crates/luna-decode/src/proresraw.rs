@@ -4,10 +4,10 @@
 //! `LUNA_FFMPEG_DIR` (at run time, or as it was when Luna was built) points
 //! development builds at an FFmpeg folder.
 //!
-//! Frames come back as the full Bayer mosaic (12-bit codes shifted to 16 bits)
-//! and are binned to thumbnail scale. White balance and the camera → XYZ
-//! matrix come from the frame header; black is 0 (shadows on the Ronin 4D
-//! reach code 4 of 4095, so the codes are black-subtracted).
+//! Frames come back as the full Bayer mosaic of linear sensels (FFmpeg 9.0)
+//! and are binned to thumbnail scale. White balance, the camera → XYZ matrix
+//! and the gain come from the frame header, black and white are the levels
+//! Apple's VideoToolbox reports; together they match the macOS path.
 
 use std::path::PathBuf;
 use std::sync::OnceLock;
@@ -119,6 +119,7 @@ fn to_frame(
         height: h,
     };
     let (data, bw, bh) = mosaic::crop_bin(&raw.data, w, h, full, f);
+    let (black, white) = (prr::BLACK as f32, prr::WHITE as f32);
     Ok(Frame {
         image: Decoded::Mosaic {
             width: bw as u32,
@@ -130,11 +131,16 @@ fn to_frame(
                 prr::Cfa::Bggr => Cfa::Bggr,
             },
             data,
-            black: 0.0,
-            white: 65535.0,
+            black,
+            white,
             wb: header.as_ref().map(|h| h.wb),
             camera_to_xyz: header.as_ref().map(|h| h.camera_to_xyz),
-            scene_scale: None,
+            // As on macOS: the gain is scene-linear per unit above black over
+            // the clip range.
+            scene_scale: header
+                .as_ref()
+                .filter(|h| h.gain > 0.0)
+                .map(|h| h.gain / (white - black)),
         },
         hint: HINT,
     })
@@ -160,6 +166,7 @@ mod tests {
             wb: [2.0, 1.0, 1.5],
             camera_to_xyz: [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0],
             colour_temperature: 5600,
+            gain: 21.0,
         };
         let f = to_frame(raw, Some(header), 8).unwrap();
         let Decoded::Mosaic {
@@ -168,12 +175,14 @@ mod tests {
             wb,
             camera_to_xyz,
             black,
+            scene_scale,
             ..
         } = f.image
         else {
             panic!("not a mosaic");
         };
-        assert_eq!((width, cfa, black), (16, Cfa::Rggb, 0.0));
+        assert_eq!((width, cfa, black), (16, Cfa::Rggb, 256.0));
+        assert_eq!(scene_scale, Some(21.0 / (65535.0 - 256.0)));
         assert_eq!(wb, Some([2.0, 1.0, 1.5]));
         assert!(camera_to_xyz.is_some());
         assert_eq!(f.hint.transfer, Some(Transfer::Linear));

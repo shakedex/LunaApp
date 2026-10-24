@@ -503,17 +503,28 @@ fn proresraw_ronin4d_through_ffmpeg() {
         assert_eq!(mosaic_size(&f), (2048, 1080));
         assert_eq!(f.hint.transfer, Some(Transfer::Linear));
         let Decoded::Mosaic {
-            wb, camera_to_xyz, ..
+            wb,
+            camera_to_xyz,
+            black,
+            white,
+            scene_scale,
+            ..
         } = &f.image
         else {
             unreachable!()
         };
+        // The levels and colour Apple's VideoToolbox reports for this clip,
+        // so Windows renders it as macOS does.
+        assert_eq!((*black, *white), (256.0, 65535.0));
+        assert_eq!(*wb, Some([2.6357422, 1.0, 1.9135742]));
         let m = camera_to_xyz.expect("matrix from the frame header");
-        // rows sum to the D65 white point
-        for (row, white) in m.chunks(3).zip([0.9505, 1.0, 1.0888]) {
-            assert!((row.iter().sum::<f32>() - white).abs() < 0.002, "{m:?}");
+        for (row, d65) in m.chunks(3).zip([0.9505, 1.0, 1.0888]) {
+            assert!((row.iter().sum::<f32>() - d65).abs() < 0.002, "{m:?}");
         }
-        assert!(wb.unwrap()[0] > 1.0 && wb.unwrap()[2] > 1.0);
-        assert!(mosaic_mean(&f) > 1000.0, "picture is black");
+        assert!((scene_scale.unwrap() * (white - black) - 21.112).abs() < 0.001);
+        // FFmpeg 9.0 returns linear sensels: the mean sits just above black
+        // in this dark frame, as Apple's does (8.1's companded codes sat ~4900).
+        let mean = mosaic_mean(&f);
+        assert!(mean > *black as f64 + 50.0 && mean < 2000.0, "mean {mean}");
     }
 }

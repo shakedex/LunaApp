@@ -415,9 +415,9 @@ fn assemble_windows(
     Ok(app)
 }
 
-/// FFmpeg's libraries for ProRes RAW (avcodec 62 / avutil 60, the ABI the
+/// FFmpeg's libraries for ProRes RAW (FFmpeg 9.0: avcodec 63 / avutil 61, the ABI the
 /// `proresraw-ffmpeg` crate checks for).
-const FFMPEG_DLLS: [&str; 3] = ["avcodec-62.dll", "avutil-60.dll", "swresample-6.dll"];
+const FFMPEG_DLLS: [&str; 3] = ["avcodec-63.dll", "avutil-61.dll", "swresample-7.dll"];
 
 /// The `bin` folder of an FFmpeg LGPL shared build, named by `LUNA_FFMPEG_DIR`
 /// (`.cargo/config.toml` sets it for this machine).
