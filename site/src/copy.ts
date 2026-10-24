@@ -26,6 +26,10 @@ export const copy = {
     lede: "Choose a card or a shoot drive. Luna writes a PDF, HTML and CSV report of every clip on it.",
     alsoOn: "Also for",
     moonLabel: "Luna's progress moon",
+    clips: (done: number, total: number) => `${done} of ${total} clips`,
+    reading: (reel: string) => `Reading ${reel}`,
+    ready: "Report ready",
+    readySub: "PDF, HTML and CSV",
   },
   how: {
     title: "How it works",
