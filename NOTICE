@@ -1,26 +1,34 @@
 Luna — Camera reports from camera originals
 Copyright 2026 Shaked Lipszyc <https://shaked.co>
 
-This product bundles third-party open-source software from crates.io.
-Each crate's license is listed in the app's Credits screen; the full set is
-recorded in Cargo.lock.
+Luna's source in this repository is under the MIT licence (LICENSE). The
+installers also contain the components below, each under its own licence.
+Open-source crates from crates.io are listed with their licences in the app's
+Credits screen; the full set is recorded in Cargo.lock.
 
-Notable components:
+Notable crates:
+    Slint (user interface)              Slint Royalty-free Licence 2.0;
+                                        attribution in Settings > Credits
     Typst (typesetting, PDF output)     Apache-2.0
     askama (HTML templates)             MIT OR Apache-2.0
+    oxideav-jpegxs (ARRICORE frames)    MIT
 
-Bundled typeface:
-    IBM Plex Sans and IBM Plex Sans Condensed, Copyright 2017 IBM Corp.,
-    with Reserved Font Name "Plex". SIL Open Font License 1.1; the full
-    licence is in Assets/fonts/OFL.txt.
-
-Lunar surface map:
-    Adapted from the CGI Moon Kit color map (LRO LROC data), NASA's
-    Scientific Visualization Studio, https://svs.gsfc.nasa.gov/4720.
-    Used under NASA's media usage guidelines; no endorsement implied.
-    Source in tools/moon/; baked by tools/moon/bake_albedo.py.
+Closed-source components:
+    Luna's decoders for Sony X-OCN, Canon Cinema RAW Light and
+    ARRIRAW/ARRICORE, Copyright 2026 Shaked Lipszyc, all rights reserved.
+    They are built from a private repository and are not covered by the MIT
+    licence.
+    The R3D add-on (luna_r3d), which reads R3D and N-RAW files with RED's
+    R3D SDK. It ships under its own end-user licence agreement,
+    packaging/R3D-EULA.txt, and is not covered by the MIT licence. Luna runs
+    without it; R3D and N-RAW clips are then reported as unsupported.
 
 Bundled libraries:
+    Blackmagic RAW SDK libraries, Copyright Blackmagic Design Pty. Ltd.,
+    redistributed in object code under the Blackmagic RAW SDK licence.
+    Luna is compatible with Blackmagic RAW.
+    RED R3D SDK libraries (REDR3D), Copyright RED Digital Cinema, LLC,
+    redistributed under the R3D SDK licence and used only by the R3D add-on.
     WinSparkle (Windows updates), Copyright 2009-2026 Vaclav Slavik. MIT
     licence; the full licence ships as lib\WinSparkle-COPYING.txt. Includes
     software developed by the OpenSSL Project for use in the OpenSSL Toolkit
@@ -34,12 +42,26 @@ Bundled libraries:
     source at https://github.com/FFmpeg/FFmpeg/tree/9a9b70bb8c. Luna loads
     the unmodified DLLs from lib\ at run time and they may be replaced with a
     compatible build. The licence ships as lib\FFmpeg-LICENSE.txt.
-    ProRes and ProRes RAW are trademarks of Apple Inc.; Luna is not
-    certified or endorsed by Apple.
+
+Bundled typeface:
+    IBM Plex Sans and IBM Plex Sans Condensed, Copyright 2017 IBM Corp.,
+    with Reserved Font Name "Plex". SIL Open Font License 1.1; the full
+    licence is in Assets/fonts/OFL.txt.
 
 Bundled icons:
     Phosphor Icons, Copyright 2023 Phosphor Icons. MIT licence; the full
     licence is in crates/luna-app/ui/icons/LICENSE.
 
-The earlier browser app (tag luna-web-final) and the retired .NET desktop app
-(branch archive/dotnet, tag dotnet-final) carry their own NOTICE files.
+Lunar surface map:
+    Adapted from the CGI Moon Kit color map (LRO LROC data), NASA's
+    Scientific Visualization Studio, https://svs.gsfc.nasa.gov/4720.
+    Used under NASA's media usage guidelines; no endorsement implied.
+    Source in tools/moon/; baked by tools/moon/bake_albedo.py.
+
+Trademarks:
+    ProRes and ProRes RAW are trademarks of Apple Inc.; Luna is not
+    certified or endorsed by Apple. Other camera and format names are
+    trademarks of their owners; see DISCLAIMER.md.
+
+Earlier versions (the browser app at tag luna-web-final, the .NET app at
+branch archive/dotnet, tag dotnet-final) carry their own NOTICE files.
