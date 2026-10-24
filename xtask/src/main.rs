@@ -525,7 +525,7 @@ fn info_plist(version: &str, public_key: &str) -> String {
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>CFBundleShortVersionString</key><string>{version}</string>
     <key>CFBundleVersion</key><string>{version}</string>
-    <key>LSMinimumSystemVersion</key><string>13.0</string>
+    <key>LSMinimumSystemVersion</key><string>26.0</string>
     <key>NSHighResolutionCapable</key><true/>
     <key>SUFeedURL</key><string>{MACOS_FEED_URL}</string>
     <key>SUPublicEDKey</key><string>{public_key}</string>
