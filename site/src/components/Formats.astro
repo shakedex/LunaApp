@@ -5,16 +5,16 @@ import red from "simple-icons/icons/red.svg?raw";
 import blackmagicdesign from "simple-icons/icons/blackmagicdesign.svg?raw";
 import nikon from "simple-icons/icons/nikon.svg?raw";
 import apple from "simple-icons/icons/apple.svg?raw";
+import arri from "../assets/logos/arri.svg?raw";
+import canon from "../assets/logos/canon.svg?raw";
 
-const logos: Record<string, string> = { sony, red, blackmagicdesign, nikon, apple };
+const logos: Record<string, string> = { sony, red, blackmagicdesign, nikon, apple, arri, canon };
+const wide = new Set(["sony", "nikon", "arri", "canon"]);
 ---
 
 <section class="section formats" id="formats" aria-labelledby="formats-title">
   <div class="wrap">
-    <div class="head">
-      <h2 class="title" id="formats-title">{copy.formats.title}</h2>
-      <p class="note">{copy.formats.lede}</p>
-    </div>
+    <h2 class="title" id="formats-title">{copy.formats.title}</h2>
 
     <ul class="grid">
       {
@@ -23,38 +23,24 @@ const logos: Record<string, string> = { sony, red, blackmagicdesign, nikon, appl
             <div class="maker">
               {row.logo ? (
                 <>
-                  <span class={`logo ${row.logo === "sony" || row.logo === "nikon" ? "wide" : ""}`} set:html={logos[row.logo]} />
+                  <span class={`logo ${wide.has(row.logo) ? "wide" : ""} ${row.logo}`} set:html={logos[row.logo]} />
                   <span class="sr-only">{row.maker}</span>
                 </>
               ) : (
                 <span class="wordmark">{row.maker}</span>
               )}
             </div>
-            <p class="list">{row.formats.join(", ")}</p>
+            {row.formats.length > 0 && <p class="list">{row.formats.join(", ")}</p>}
             <p class="ext data">{row.ext.join("  ")}</p>
           </li>
         ))
       }
     </ul>
 
-    <p class="sidecars">
-      <span class="label">{copy.formats.sidecarsLabel}</span>
-      <span>{copy.formats.sidecars}</span>
-    </p>
   </div>
 </section>
 
 <style>
-  .head {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 24px;
-  }
-  .note {
-    color: var(--muted);
-    font-size: 15.5px;
-  }
   .grid {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -91,6 +77,13 @@ const logos: Record<string, string> = { sony, red, blackmagicdesign, nikon, appl
     width: 72px;
     margin: -22px -8px;
   }
+  /* The ARRI and Canon marks come as wordmarks already. */
+  .logo.arri :global(svg),
+  .logo.canon :global(svg) {
+    height: 18px;
+    width: auto;
+    margin: 0;
+  }
   .wordmark {
     font-size: 16px;
     font-weight: 600;
@@ -105,17 +98,6 @@ const logos: Record<string, string> = { sony, red, blackmagicdesign, nikon, appl
     color: var(--quiet);
     white-space: pre;
   }
-  .sidecars {
-    margin-top: 20px;
-    display: flex;
-    gap: 16px;
-    font-size: 14.5px;
-    color: var(--muted);
-  }
-  .sidecars .label {
-    color: var(--text);
-    font-weight: 500;
-  }
   @media (max-width: 1000px) {
     .grid {
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -124,10 +106,6 @@ const logos: Record<string, string> = { sony, red, blackmagicdesign, nikon, appl
   @media (max-width: 600px) {
     .grid {
       grid-template-columns: 1fr;
-    }
-    .head {
-      flex-direction: column;
-      gap: 8px;
     }
   }
 </style>

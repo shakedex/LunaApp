@@ -27,7 +27,6 @@ const platforms = [
               <span class="icon" set:html={download} />
               {p.button}
             </a>
-            <p class="data file" data-asset-name>{p.file(KNOWN_VERSION)}</p>
             <p class="req">{p.requires}</p>
           </div>
         ))
@@ -44,7 +43,7 @@ const platforms = [
 </section>
 
 <script>
-  import { fetchLatestRelease, formatMb } from "../lib/release";
+  import { fetchLatestRelease } from "../lib/release";
   // The latest release's version, installer names and links, when GitHub answers.
   fetchLatestRelease().then((release) => {
     if (!release) return;
@@ -55,8 +54,6 @@ const platforms = [
       const box = document.querySelector(`[data-platform="${key}"]`);
       if (!asset || !box) continue;
       box.querySelectorAll("[data-asset-link]").forEach((a) => a.setAttribute("href", asset.url));
-      const name = box.querySelector("[data-asset-name]");
-      if (name) name.textContent = `${asset.name}  ${formatMb(asset.bytes)}`;
     }
   });
 </script>
@@ -96,12 +93,6 @@ const platforms = [
     height: 18px;
     fill: currentColor;
     display: block;
-  }
-  .file {
-    margin-top: 22px;
-    font-size: 13.5px;
-    color: var(--text);
-    white-space: pre;
   }
   .req {
     margin-top: 6px;

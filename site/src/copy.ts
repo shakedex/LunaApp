@@ -61,19 +61,16 @@ export const copy = {
 
   formats: {
     title: "Formats",
-    lede: "On Windows and macOS.",
     rows: [
-      { maker: "ARRI", logo: null, formats: ["ARRIRAW", "ARRICORE", "ProRes"], ext: [".ari", ".arx", ".mxf", ".mov"] },
+      { maker: "ARRI", logo: "arri", formats: ["ARRIRAW", "ARRICORE", "ProRes"], ext: [".ari", ".arx", ".mxf", ".mov"] },
       { maker: "Sony", logo: "sony", formats: ["X-OCN", "XAVC"], ext: [".mxf"] },
       { maker: "RED", logo: "red", formats: ["R3D"], ext: [".r3d"] },
       { maker: "Blackmagic Design", logo: "blackmagicdesign", formats: ["Blackmagic RAW"], ext: [".braw"] },
-      { maker: "Canon", logo: null, formats: ["Cinema RAW Light", "XF-AVC", "XF-HEVC"], ext: [".crm", ".mxf", ".mp4"] },
+      { maker: "Canon", logo: "canon", formats: ["Cinema RAW Light", "XF-AVC", "XF-HEVC"], ext: [".crm", ".mxf", ".mp4"] },
       { maker: "Nikon", logo: "nikon", formats: ["N-RAW", "R3D NE"], ext: [".nev", ".r3d"] },
       { maker: "Apple", logo: "apple", formats: ["ProRes", "ProRes RAW"], ext: [".mov"] },
-      { maker: "Other cameras", logo: null, formats: ["H.264", "HEVC"], ext: [".mov", ".mp4"] },
+      { maker: "H.264, HEVC", logo: null, formats: [], ext: [".mov", ".mp4"] },
     ],
-    sidecarsLabel: "Sidecars",
-    sidecars: "Sony and Canon XML, RED RMD, Blackmagic RAW sidecars, ALE",
   },
 
   download: {
@@ -81,13 +78,11 @@ export const copy = {
     windows: {
       name: "Windows",
       button: "Download for Windows",
-      file: (v: string) => `Luna-${v}-windows-x64-setup.exe`,
       requires: "Windows 10 or 11, x64",
     },
     macos: {
       name: "macOS",
       button: "Download for macOS",
-      file: (v: string) => `Luna-${v}-macos.dmg`,
       requires: "macOS 26 or later, Apple Silicon",
     },
     version: (v: string) => `Version ${v}`,
