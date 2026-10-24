@@ -14,9 +14,12 @@
     "astro": "astro"
   },
   "dependencies": {
-    "astro": "^7.4.2"
+    "astro": "^7.4.2",
+    "gsap": "^3.15.0",
+    "three": "^0.186.1"
   },
   "devDependencies": {
+    "@types/three": "^0.186.0",
     "vitest": "^5.0.5",
     "wrangler": "^4.152.0"
   },

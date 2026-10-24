@@ -237,9 +237,9 @@ fn report(frames_dir: &Path, logo: &Path, out: &Path) {
     dark.theme = ReportTheme::Dark;
     for (r, stem) in [(&light, "luna-sample"), (&dark, "luna-sample-dark")] {
         write(&out.join(format!("{stem}.pdf")), &luna_report::write_pdf(r).expect("pdf"));
-        write(&out.join(format!("{stem}.html")), luna_report::write_html(r).expect("html").as_bytes());
+        write(&out.join(format!("{stem}.html")), &luna_report::write_html(r).expect("html"));
     }
-    write(&out.join("luna-sample.csv"), luna_report::write_csv(&light).as_bytes());
+    write(&out.join("luna-sample.csv"), &luna_report::write_csv(&light));
 }
 
 // --------------------------------------------------------------- screens

@@ -1,0 +1,84 @@
+---
+import { copy, RELEASES_LATEST } from "../copy";
+---
+
+<footer class="footer">
+  <div class="wrap top">
+    <div class="mark">
+      <img src="/img/luna-icon.png" alt="Luna" width="120" height="120" />
+      <a class="btn" href={RELEASES_LATEST} data-download>
+        <span data-download-label>Download for Windows</span>
+      </a>
+    </div>
+    <div class="slot" id="footer-moon-slot" aria-hidden="true"></div>
+  </div>
+  <div class="wrap fine">
+    <nav aria-label="Project">
+      {copy.footer.links.map((l) => <a href={l.href}>{l.label}</a>)}
+    </nav>
+    <p>{copy.footer.legal}</p>
+  </div>
+</footer>
+
+<style>
+  .footer {
+    border-top: 1px solid var(--line);
+    padding: 96px 0 48px;
+  }
+  .top {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    align-items: center;
+    gap: 48px;
+  }
+  .mark {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 32px;
+  }
+  .slot {
+    aspect-ratio: 1;
+    width: min(100%, 420px);
+    justify-self: end;
+  }
+  .fine {
+    display: flex;
+    gap: 48px;
+    align-items: baseline;
+    margin-top: 80px;
+    font-size: 14px;
+    color: var(--faint);
+  }
+  .fine nav {
+    display: flex;
+    gap: 24px;
+  }
+  .fine a {
+    text-decoration: none;
+  }
+  .fine a:hover {
+    color: var(--text);
+  }
+  .fine p {
+    margin: 0 0 0 auto;
+    max-width: 60ch;
+    text-align: right;
+  }
+  @media (max-width: 900px) {
+    .top {
+      grid-template-columns: 1fr;
+    }
+    .slot {
+      display: none;
+    }
+    .fine {
+      flex-direction: column;
+      gap: 16px;
+    }
+    .fine p {
+      margin: 0;
+      text-align: left;
+    }
+  }
+</style>

@@ -1,0 +1,57 @@
+---
+import { copy, RELEASES_LATEST, REPO } from "../copy";
+---
+
+<header class="nav wrap">
+  <a class="brand" href="/" aria-label="Luna home">
+    <img src="/img/luna-icon.png" alt="" width="30" height="30" />
+    <span>Luna</span>
+  </a>
+  <nav aria-label="Sections">
+    <a href="#how">{copy.nav.how}</a>
+    <a href="#report">{copy.nav.report}</a>
+    <a href="#formats">{copy.nav.cameras}</a>
+    <a href={REPO}>{copy.nav.github}</a>
+  </nav>
+  <a class="btn small" href={RELEASES_LATEST}>{copy.nav.download}</a>
+</header>
+
+<style>
+  .nav {
+    position: relative;
+    z-index: 3;
+    height: 72px;
+    display: flex;
+    align-items: center;
+    gap: 32px;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 600;
+    font-size: 18px;
+    text-decoration: none;
+  }
+  nav {
+    display: flex;
+    gap: 28px;
+    margin-left: auto;
+    font-size: 15px;
+    color: var(--muted);
+  }
+  nav a {
+    text-decoration: none;
+  }
+  nav a:hover {
+    color: var(--text);
+  }
+  @media (max-width: 900px) {
+    nav {
+      display: none;
+    }
+    .btn {
+      margin-left: auto;
+    }
+  }
+</style>

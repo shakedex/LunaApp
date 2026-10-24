@@ -1,8 +1,41 @@
 ---
 import Base from "../layouts/Base.astro";
+import Nav from "../components/Nav.astro";
+import Hero from "../components/Hero.astro";
+import HowItWorks from "../components/HowItWorks.astro";
+import Report from "../components/Report.astro";
+import Formats from "../components/Formats.astro";
+import Specs from "../components/Specs.astro";
+import Footer from "../components/Footer.astro";
 import { copy } from "../copy";
 ---
 
 <Base title={copy.meta.title} description={copy.meta.description}>
-  <main class="wrap"></main>
+  <canvas id="moon-canvas" aria-hidden="true"></canvas>
+  <Nav />
+  <main>
+    <Hero />
+    <HowItWorks />
+    <Report />
+    <Formats />
+    <Specs />
+  </main>
+  <Footer />
 </Base>
+
+<style>
+  #moon-canvas {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100dvh;
+    z-index: 2;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.6s;
+  }
+  main,
+  :global(.footer) {
+    position: relative;
+  }
+</style>

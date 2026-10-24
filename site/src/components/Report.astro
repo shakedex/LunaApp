@@ -1,0 +1,125 @@
+---
+import { copy } from "../copy";
+---
+
+<section class="report wrap" id="report" aria-labelledby="report-title">
+  <div class="head">
+    <h2 class="section-title" id="report-title">{copy.report.title}</h2>
+    <p class="section-body">{copy.report.body}</p>
+  </div>
+  <dl class="outputs">
+    {
+      copy.report.outputs.map((o) => (
+        <div>
+          <dt>{o.name}</dt>
+          <dd>{o.detail}</dd>
+        </div>
+      ))
+    }
+  </dl>
+  <div class="viewer">
+    <div class="bar">
+      <div class="theme" role="group" aria-label="Report theme">
+        <button type="button" id="report-theme-light" aria-pressed="true">{copy.report.light}</button>
+        <button type="button" id="report-theme-dark" aria-pressed="false">{copy.report.dark}</button>
+      </div>
+    </div>
+    <div class="frame-box" id="report-box">
+      <iframe id="report-frame" src="/img/report/luna-sample.html" title={copy.report.frameTitle} loading="lazy"></iframe>
+    </div>
+  </div>
+</section>
+
+<script>
+  const frame = document.getElementById("report-frame") as HTMLIFrameElement;
+  const light = document.getElementById("report-theme-light")!;
+  const dark = document.getElementById("report-theme-dark")!;
+  const set = (isDark: boolean) => {
+    frame.src = isDark ? "/img/report/luna-sample-dark.html" : "/img/report/luna-sample.html";
+    light.setAttribute("aria-pressed", String(!isDark));
+    dark.setAttribute("aria-pressed", String(isDark));
+  };
+  light.addEventListener("click", () => set(false));
+  dark.addEventListener("click", () => set(true));
+
+  // The report lays out for a desktop browser window; show it at that width, scaled to fit.
+  const REPORT_WIDTH = 1440;
+  const box = document.getElementById("report-box")!;
+  new ResizeObserver(([entry]) => {
+    box.style.setProperty("--report-scale", String(Math.min(1, entry.contentRect.width / REPORT_WIDTH)));
+  }).observe(box);
+</script>
+
+<style>
+  .report {
+    padding-top: 140px;
+    padding-bottom: 140px;
+  }
+  .outputs {
+    display: flex;
+    gap: 48px;
+    margin: 36px 0 40px;
+  }
+  .outputs dt {
+    font-weight: 600;
+    font-size: 18px;
+  }
+  .outputs dd {
+    margin: 0;
+    color: var(--muted);
+    font-size: 15px;
+  }
+  .viewer {
+    border-radius: 14px;
+    border: 1px solid var(--line-strong);
+    overflow: hidden;
+    background: var(--surface);
+  }
+  .bar {
+    display: flex;
+    justify-content: flex-end;
+    padding: 10px;
+    border-bottom: 1px solid var(--line);
+  }
+  .theme {
+    display: flex;
+    padding: 3px;
+    border-radius: 999px;
+    background: var(--canvas);
+    border: 1px solid var(--line);
+  }
+  .theme button {
+    font: inherit;
+    font-size: 14px;
+    color: var(--muted);
+    background: none;
+    border: 0;
+    border-radius: 999px;
+    padding: 4px 16px;
+    cursor: pointer;
+  }
+  .theme button[aria-pressed="true"] {
+    background: var(--raised);
+    color: var(--text);
+  }
+  .frame-box {
+    --report-scale: 0.78;
+    height: min(78dvh, 820px);
+    overflow: hidden;
+  }
+  iframe {
+    display: block;
+    width: 1440px;
+    height: calc(min(78dvh, 820px) / var(--report-scale));
+    border: 0;
+    background: #fff;
+    transform: scale(var(--report-scale));
+    transform-origin: 0 0;
+  }
+  @media (max-width: 900px) {
+    .outputs {
+      flex-direction: column;
+      gap: 16px;
+    }
+  }
+</style>

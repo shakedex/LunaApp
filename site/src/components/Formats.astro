@@ -1,0 +1,70 @@
+---
+import { copy } from "../copy";
+---
+
+<section class="formats wrap" id="formats" aria-labelledby="formats-title">
+  <h2 class="section-title" id="formats-title">{copy.formats.title}</h2>
+  <ul>
+    {
+      copy.formats.groups.map((g) => (
+        <li>
+          <h3>{g.name}</h3>
+          <p>{g.formats}</p>
+          {g.note && <p class="note">{g.note}</p>}
+        </li>
+      ))
+    }
+  </ul>
+</section>
+
+<style>
+  .formats {
+    padding-top: 140px;
+    padding-bottom: 140px;
+  }
+  ul {
+    list-style: none;
+    padding: 0;
+    margin: 48px 0 0;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    border-top: 1px solid var(--line);
+  }
+  li {
+    padding: 28px 24px 32px;
+    border-bottom: 1px solid var(--line);
+  }
+  li:not(:nth-child(4n)) {
+    border-right: 1px solid var(--line);
+  }
+  li:nth-child(4n + 1) {
+    padding-left: 0;
+  }
+  h3 {
+    font-family: "Plex Condensed", "Plex", sans-serif;
+    font-size: 26px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin: 0 0 8px;
+  }
+  p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 15px;
+  }
+  .note {
+    margin-top: 10px;
+    color: var(--faint);
+    font-size: 13px;
+  }
+  @media (max-width: 900px) {
+    ul {
+      grid-template-columns: 1fr 1fr;
+    }
+    li,
+    li:nth-child(4n + 1) {
+      padding: 20px 12px;
+      border-right: 0;
+    }
+  }
+</style>
