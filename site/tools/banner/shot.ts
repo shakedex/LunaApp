@@ -43,6 +43,8 @@ const send = (method: string, params = {}) =>
   });
 
 await send("Emulation.setDeviceMetricsOverride", { width: +w, height: +h, deviceScaleFactor: 1, mobile: false });
+// One still frame of the sky.
+await send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-motion", value: "reduce" }] });
 await send("Page.navigate", { url: pathToFileURL(resolve(import.meta.dir, "banner.html")).href });
 await wait(1500);
 await send("Runtime.evaluate", { expression: "document.fonts.ready.then(() => Promise.all([...document.images].map((i) => i.decode())))", awaitPromise: true });

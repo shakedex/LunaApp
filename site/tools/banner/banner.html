@@ -92,6 +92,11 @@
         fill: #79caea;
       }
 
+      .sky {
+        position: absolute;
+        inset: 0;
+      }
+
       /* The report's first page, behind the window. */
       .page {
         position: absolute;
@@ -119,6 +124,9 @@
     </style>
   </head>
   <body>
+    <canvas class="sky"></canvas>
+    <canvas class="sky"></canvas>
+    <script src="sky.js"></script>
     <img class="page" src="../../public/img/report/light-p1.webp" alt="" />
     <img class="window" src="../../public/img/app-done@2x.webp" alt="" />
     <div class="copy">
