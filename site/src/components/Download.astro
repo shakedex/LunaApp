@@ -1,6 +1,9 @@
 ---
 import { copy, KNOWN_VERSION, LATEST_URL, RELEASES_URL, REPO_URL } from "../copy";
 import download from "@phosphor-icons/core/assets/regular/download-simple.svg?raw";
+import windowsLogo from "@phosphor-icons/core/assets/fill/windows-logo-fill.svg?raw";
+import appleLogo from "@phosphor-icons/core/assets/fill/apple-logo-fill.svg?raw";
+const logos = { windows: windowsLogo, macos: appleLogo };
 const d = copy.download;
 const platforms = [
   { key: "windows", ...d.windows },
@@ -16,7 +19,10 @@ const platforms = [
       {
         platforms.map((p) => (
           <div class="platform" data-platform={p.key}>
-            <h3>{p.name}</h3>
+            <h3>
+              <span class="os" set:html={logos[p.key]} />
+              {p.name}
+            </h3>
             <a class="btn btn-primary" href={LATEST_URL} data-asset-link>
               <span class="icon" set:html={download} />
               {p.button}
@@ -69,9 +75,18 @@ const platforms = [
     border: 1px solid var(--line);
   }
   .platform h3 {
+    display: flex;
+    align-items: center;
+    gap: 12px;
     font-size: 24px;
     font-weight: 500;
     letter-spacing: -0.015em;
+  }
+  .os :global(svg) {
+    width: 26px;
+    height: 26px;
+    fill: currentColor;
+    display: block;
   }
   .platform .btn {
     margin-top: 22px;

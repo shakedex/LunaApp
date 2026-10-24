@@ -25,10 +25,6 @@ for f in "$tmp"/screens/app-*.ppm; do
 done
 cp "$tmp/screens/layout.json" "$site/src/data/layout.json"
 
-# The star chart behind the hero.
-capture sky "$tmp/sky"
-webp "$tmp/sky/sky.ppm" "$img/sky.webp" 82
-
 # The lunar albedo the Moon shader samples, lossless.
 capture albedo "$tmp/albedo"
 ffmpeg -v error -y -i "$tmp/albedo/moon-albedo.pgm" -c:v libwebp -lossless 1 "$img/moon-albedo.webp"

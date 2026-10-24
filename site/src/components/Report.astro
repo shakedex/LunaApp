@@ -31,16 +31,6 @@ const pages = [1, 2, 3];
       }
     </div>
 
-    <ul class="files">
-      {
-        copy.report.files.map((f) => (
-          <li>
-            <span class="label">{f.label}</span>
-            <span class="data name">{f.name}</span>
-          </li>
-        ))
-      }
-    </ul>
   </div>
 </section>
 
@@ -136,30 +126,9 @@ const pages = [1, 2, 3];
       0 24px 60px -24px rgb(0 0 0 / 0.8);
   }
 
-  .files {
-    margin-top: 40px;
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 24px;
-  }
-  .files li {
-    display: grid;
-    gap: 6px;
-    padding-top: 14px;
-    border-top: 1px solid var(--line-strong);
-  }
-  .label {
-    font-size: 15px;
-    font-weight: 500;
-  }
-  .name {
-    font-size: 13px;
-    color: var(--quiet);
-  }
 
   @media (max-width: 900px) {
-    .pages,
-    .files {
+    .pages {
       grid-template-columns: 1fr;
     }
   }

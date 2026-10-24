@@ -9,13 +9,6 @@ export const LATEST_URL = `${RELEASES_URL}/latest`;
 /** The release the static page names before the live lookup fills in. */
 export const KNOWN_VERSION = "2026.10.0";
 
-/** The sample report's file names, as Luna writes them. */
-export const REPORT_FILES = {
-  pdf: "Luna Report 2026-10-21 1942.pdf",
-  html: "Luna Report 2026-10-21 1942.html",
-  csv: "Luna Report 2026-10-21 1942.csv",
-};
-
 export const copy = {
   meta: {
     title: "Luna",
@@ -40,8 +33,10 @@ export const copy = {
   /** The scroll sequence: three steps, and the window's own lines for each. */
   stage: {
     steps: ["Drop a camera folder", "Luna reads every clip", "Report ready"],
+    folder: "NIGHT_SHIFT_DAY12",
     window: {
       idle: ["Drop a camera folder", "or click anywhere to choose one"],
+      release: "Release to use this folder",
       looking: "Looking for clips",
       clips: (done: number, total: number) => `${done} of ${total} clips`,
       source: "E:\\NIGHT_SHIFT_DAY12",
@@ -62,25 +57,20 @@ export const copy = {
     pageAlt: "The first page of a Luna camera report: production header, totals, Camera A, reel A003 and its clips.",
     detailAlt: "One clip row of the report: three frames, then timecode, camera, lens and exposure fields.",
     pagesAlt: (n: number) => `Page ${n} of the sample report`,
-    files: [
-      { label: "PDF", name: REPORT_FILES.pdf },
-      { label: "HTML", name: REPORT_FILES.html },
-      { label: "CSV", name: REPORT_FILES.csv },
-    ],
   },
 
   formats: {
     title: "Formats",
     lede: "On Windows and macOS.",
     rows: [
-      { maker: "ARRI", formats: ["ARRIRAW", "ARRICORE", "ProRes"], ext: [".ari", ".arx", ".mxf", ".mov"] },
-      { maker: "Sony", formats: ["X-OCN", "XAVC"], ext: [".mxf"] },
-      { maker: "RED", formats: ["R3D"], ext: [".r3d"] },
-      { maker: "Blackmagic Design", formats: ["Blackmagic RAW"], ext: [".braw"] },
-      { maker: "Canon", formats: ["Cinema RAW Light", "XF-AVC", "XF-HEVC"], ext: [".crm", ".mxf", ".mp4"] },
-      { maker: "Nikon", formats: ["N-RAW", "R3D NE"], ext: [".nev", ".r3d"] },
-      { maker: "Apple", formats: ["ProRes", "ProRes RAW"], ext: [".mov"] },
-      { maker: "Other cameras", formats: ["H.264", "HEVC"], ext: [".mov", ".mp4"] },
+      { maker: "ARRI", logo: null, formats: ["ARRIRAW", "ARRICORE", "ProRes"], ext: [".ari", ".arx", ".mxf", ".mov"] },
+      { maker: "Sony", logo: "sony", formats: ["X-OCN", "XAVC"], ext: [".mxf"] },
+      { maker: "RED", logo: "red", formats: ["R3D"], ext: [".r3d"] },
+      { maker: "Blackmagic Design", logo: "blackmagicdesign", formats: ["Blackmagic RAW"], ext: [".braw"] },
+      { maker: "Canon", logo: null, formats: ["Cinema RAW Light", "XF-AVC", "XF-HEVC"], ext: [".crm", ".mxf", ".mp4"] },
+      { maker: "Nikon", logo: "nikon", formats: ["N-RAW", "R3D NE"], ext: [".nev", ".r3d"] },
+      { maker: "Apple", logo: "apple", formats: ["ProRes", "ProRes RAW"], ext: [".mov"] },
+      { maker: "Other cameras", logo: null, formats: ["H.264", "HEVC"], ext: [".mov", ".mp4"] },
     ],
     sidecarsLabel: "Sidecars",
     sidecars: "Sony and Canon XML, RED RMD, Blackmagic RAW sidecars, ALE",

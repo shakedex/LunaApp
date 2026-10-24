@@ -1,34 +1,35 @@
 ---
 import { copy } from "../copy";
-const rows = copy.formats.rows;
-const half = Math.ceil(rows.length / 2);
-const columns = [rows.slice(0, half), rows.slice(half)];
+import sony from "simple-icons/icons/sony.svg?raw";
+import red from "simple-icons/icons/red.svg?raw";
+import blackmagicdesign from "simple-icons/icons/blackmagicdesign.svg?raw";
+import nikon from "simple-icons/icons/nikon.svg?raw";
+import apple from "simple-icons/icons/apple.svg?raw";
+
+const logos: Record<string, string> = { sony, red, blackmagicdesign, nikon, apple };
 ---
 
 <section class="section formats" id="formats" aria-labelledby="formats-title">
   <div class="wrap">
-    <h2 class="title" id="formats-title">{copy.formats.title}</h2>
-    <p class="lede">{copy.formats.lede}</p>
+    <div class="head">
+      <h2 class="title" id="formats-title">{copy.formats.title}</h2>
+      <p class="note">{copy.formats.lede}</p>
+    </div>
 
-    <div class="matrix">
+    <ul class="grid">
       {
-        columns.map((col) => (
-          <ul>
-            {col.map((row) => (
-              <li>
-                <span class="maker">{row.maker}</span>
-                <span class="list">
-                  {row.formats.map((f) => (
-                    <span class="format">{f}</span>
-                  ))}
-                </span>
-                <span class="ext data">{row.ext.join("  ")}</span>
-              </li>
-            ))}
-          </ul>
+        copy.formats.rows.map((row) => (
+          <li>
+            <div class="maker">
+              {row.logo && <span class={`logo ${row.logo === "sony" || row.logo === "nikon" ? "wide" : ""}`} set:html={logos[row.logo]} />}
+              <span class="wordmark">{row.maker}</span>
+            </div>
+            <p class="list">{row.formats.join(", ")}</p>
+            <p class="ext data">{row.ext.join("  ")}</p>
+          </li>
         ))
       }
-    </div>
+    </ul>
 
     <p class="sidecars">
       <span class="label">{copy.formats.sidecarsLabel}</span>
@@ -38,60 +39,89 @@ const columns = [rows.slice(0, half), rows.slice(half)];
 </section>
 
 <style>
-  .matrix {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0 72px;
-    margin-top: 48px;
-    border-top: 1px solid var(--line-strong);
+  .head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 24px;
   }
-  .matrix li {
+  .note {
+    color: var(--muted);
+    font-size: 15.5px;
+  }
+  .grid {
     display: grid;
-    grid-template-columns: 170px 1fr;
-    gap: 6px 24px;
-    padding: 22px 0 24px;
-    border-bottom: 1px solid var(--line);
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 1px;
+    margin-top: 32px;
+    background: var(--line);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-window);
+    overflow: hidden;
+  }
+  .grid li {
+    background: var(--canvas);
+    padding: 22px 22px 20px;
+    display: grid;
+    gap: 10px;
+    align-content: start;
   }
   .maker {
-    font-size: 17px;
-    font-weight: 500;
-    grid-row: span 2;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--text);
+  }
+  .logo :global(svg) {
+    height: 22px;
+    width: 22px;
+    fill: currentColor;
+    display: block;
+  }
+  /* Wordmark logos sit small in their square; give them room. */
+  .logo.wide :global(svg) {
+    height: 44px;
+    width: 44px;
+    margin: -11px -6px;
+  }
+  .wordmark {
+    font-size: 16px;
+    font-weight: 600;
   }
   .list {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px 18px;
-    font-size: 17px;
+    font-size: 15px;
+    color: var(--text);
+    line-height: 1.4;
   }
   .ext {
-    font-size: 12.5px;
+    font-size: 12px;
     color: var(--quiet);
     white-space: pre;
   }
   .sidecars {
-    margin-top: 32px;
-    display: grid;
-    grid-template-columns: 170px 1fr;
-    gap: 24px;
-    font-size: 15.5px;
+    margin-top: 20px;
+    display: flex;
+    gap: 16px;
+    font-size: 14.5px;
     color: var(--muted);
-    max-width: 760px;
   }
   .sidecars .label {
     color: var(--text);
     font-weight: 500;
   }
-  @media (max-width: 900px) {
-    .matrix {
+  @media (max-width: 1000px) {
+    .grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+  @media (max-width: 600px) {
+    .grid {
       grid-template-columns: 1fr;
     }
-    .matrix li,
-    .sidecars {
-      grid-template-columns: 1fr;
-      gap: 4px;
-    }
-    .maker {
-      grid-row: auto;
+    .head {
+      flex-direction: column;
+      gap: 8px;
     }
   }
 </style>

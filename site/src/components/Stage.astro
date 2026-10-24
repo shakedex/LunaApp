@@ -1,12 +1,17 @@
 ---
 // The top of the page: the hero, and the one scroll sequence. The app's
-// window stays pinned while the visitor scrolls: a folder is dropped, the
-// Moon fills as the clips are read, the report is ready, and the first page
-// of it rises out of the window. Without motion (narrow screens, reduced
-// motion, no WebGL, no JS) the same content is a plain column.
+// window stays pinned while the visitor scrolls: a pointer drags a folder
+// onto it, the Moon fills as the clips are read, the report is ready, the
+// pointer opens the PDF and the first page rises out of the window. Without
+// motion (narrow screens, reduced motion, no WebGL, no JS) the same content
+// is a plain column.
 import { copy, LATEST_URL } from "../copy";
 import layout from "../data/layout.json";
 import download from "@phosphor-icons/core/assets/regular/download-simple.svg?raw";
+import windowsLogo from "@phosphor-icons/core/assets/fill/windows-logo-fill.svg?raw";
+import appleLogo from "@phosphor-icons/core/assets/fill/apple-logo-fill.svg?raw";
+import cursor from "@phosphor-icons/core/assets/fill/cursor-fill.svg?raw";
+import folder from "@phosphor-icons/core/assets/fill/folder-fill.svg?raw";
 
 const { width, height } = layout;
 const phases = ["idle", "running", "done"] as const;
@@ -20,7 +25,8 @@ const phases = ["idle", "running", "done"] as const;
         <p class="lede">{copy.hero.lede}</p>
         <div class="cta">
           <a class="btn btn-primary" href={LATEST_URL}>
-            <span class="icon" set:html={download} />
+            <span class="icon os windows" data-os-icon="windows" set:html={windowsLogo} />
+            <span class="icon os macos" data-os-icon="macos" set:html={appleLogo} />
             <span data-download-label>Download for Windows</span>
           </a>
           <span class="alt">{copy.hero.alsoFor} <a href={LATEST_URL} data-download-other>macOS</a></span>
@@ -57,6 +63,12 @@ const phases = ["idle", "running", "done"] as const;
       <canvas class="moon" id="stage-moon" width="600" height="600" hidden></canvas>
       <div class="line title" id="stage-line-1" aria-hidden="true" hidden></div>
       <div class="line sub" id="stage-line-2" aria-hidden="true" hidden></div>
+      <!-- The folder being dragged in, and the pointer doing it. -->
+      <div class="folder" id="stage-folder" aria-hidden="true" hidden>
+        <span class="glyph" set:html={folder} />
+        <span class="name">{copy.stage.folder}</span>
+      </div>
+      <div class="pointer" id="stage-pointer" aria-hidden="true" hidden set:html={cursor} />
     </figure>
 
     <figure class="page" id="stage-page" data-report>
@@ -126,6 +138,13 @@ const phases = ["idle", "running", "done"] as const;
     width: 18px;
     height: 18px;
     fill: currentColor;
+    display: block;
+  }
+  .os {
+    display: none;
+  }
+  :global([data-os="windows"]) .os.windows,
+  :global([data-os="macos"]) .os.macos {
     display: block;
   }
   .alt {
@@ -252,6 +271,46 @@ const phases = ["idle", "running", "done"] as const;
     color: var(--faint);
   }
 
+  /* The folder on its way in, and the pointer. Both placed by the timeline. */
+  .folder {
+    position: absolute;
+    left: 0;
+    top: 0;
+    display: grid;
+    justify-items: center;
+    gap: 0.6cqw;
+    width: 16cqw;
+    color: var(--accent);
+    filter: drop-shadow(0 1.2cqw 2.4cqw rgb(0 0 0 / 0.5));
+  }
+  .folder .glyph :global(svg) {
+    width: 7.2cqw;
+    height: 7.2cqw;
+    fill: currentColor;
+    display: block;
+  }
+  .folder .name {
+    font-size: 1.35cqw;
+    color: var(--text);
+    white-space: nowrap;
+  }
+  .pointer {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 3cqw;
+    height: 3cqw;
+    color: var(--text);
+    filter: drop-shadow(0 0.2cqw 0.6cqw rgb(0 0 0 / 0.6));
+    transform-origin: 20% 10%;
+  }
+  .pointer :global(svg) {
+    width: 100%;
+    height: 100%;
+    fill: currentColor;
+    display: block;
+  }
+
   /* The report's first page, which rises out of the window at the end. */
   .page {
     position: absolute;
@@ -259,7 +318,6 @@ const phases = ["idle", "running", "done"] as const;
     top: 50%;
     width: min(1060px, 78%);
     aspect-ratio: 2105 / 1489;
-    /* Centred and moved by the timeline alone (GSAP owns the transform). */
     border-radius: 4px;
     overflow: hidden;
     background: var(--paper);
