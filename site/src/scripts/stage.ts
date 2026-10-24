@@ -6,7 +6,7 @@
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { copy } from "../copy";
-import { detectPlatform, downloadLabels } from "../lib/platform";
+import { setupDownloads } from "../lib/downloads";
 import type { Moon } from "../moon/scene";
 
 interface Rows {
@@ -38,16 +38,8 @@ const T = {
   pageUp: 0.9,
 };
 
-function labelDownloads() {
-  const platform = detectPlatform(navigator.userAgent);
-  const labels = downloadLabels(platform);
-  document.documentElement.dataset.os = platform === "macos" ? "macos" : "windows";
-  document.querySelectorAll("[data-download-label]").forEach((el) => (el.textContent = labels.primary));
-  document.querySelectorAll("[data-download-other]").forEach((el) => (el.textContent = labels.secondary));
-}
-
 export function runStage() {
-  labelDownloads();
+  setupDownloads();
   const ids = [
     "how",
     "stage-pin",

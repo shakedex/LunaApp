@@ -1,5 +1,6 @@
 ---
-import { copy, KNOWN_VERSION, LATEST_URL, RELEASES_URL, REPO_URL } from "../copy";
+import { copy, KNOWN_VERSION, RELEASES_URL, REPO_URL } from "../copy";
+import { installerUrl } from "../lib/downloads";
 import download from "@phosphor-icons/core/assets/regular/download-simple.svg?raw";
 import windowsLogo from "@phosphor-icons/core/assets/fill/windows-logo-fill.svg?raw";
 import appleLogo from "@phosphor-icons/core/assets/fill/apple-logo-fill.svg?raw";
@@ -23,7 +24,7 @@ const platforms = [
               <span class="os" set:html={logos[p.key]} />
               {p.name}
             </h3>
-            <a class="btn btn-primary" href={LATEST_URL} data-asset-link>
+            <a class="btn btn-primary" href={installerUrl(p.key)} data-dl={p.key}>
               <span class="icon" set:html={download} />
               {p.button}
             </a>
@@ -42,21 +43,6 @@ const platforms = [
   </div>
 </section>
 
-<script>
-  import { fetchLatestRelease } from "../lib/release";
-  // The latest release's version, installer names and links, when GitHub answers.
-  fetchLatestRelease().then((release) => {
-    if (!release) return;
-    const version = document.querySelector("[data-release-version]");
-    if (version) version.textContent = `Version ${release.version}`;
-    for (const key of ["windows", "macos"] as const) {
-      const asset = release[key];
-      const box = document.querySelector(`[data-platform="${key}"]`);
-      if (!asset || !box) continue;
-      box.querySelectorAll("[data-asset-link]").forEach((a) => a.setAttribute("href", asset.url));
-    }
-  });
-</script>
 
 <style>
   .platforms {

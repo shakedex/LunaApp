@@ -1,5 +1,6 @@
 ---
-import { copy, LATEST_URL } from "../copy";
+import { copy } from "../copy";
+import { installerUrl } from "../lib/downloads";
 ---
 
 <header class="nav">
@@ -10,7 +11,7 @@ import { copy, LATEST_URL } from "../copy";
     </a>
     <a href="#report">{copy.nav.report}</a>
     <a href="#formats">{copy.nav.formats}</a>
-    <a class="btn btn-primary small" href={LATEST_URL}>{copy.nav.download}</a>
+    <a class="btn btn-primary small" href={installerUrl("windows")} data-dl="primary">{copy.nav.download}</a>
   </nav>
 </header>
 

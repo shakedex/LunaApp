@@ -5,7 +5,8 @@
 // pointer opens the PDF and the first page rises out of the window. Without
 // motion (narrow screens, reduced motion, no WebGL, no JS) the same content
 // is a plain column.
-import { copy, LATEST_URL } from "../copy";
+import { copy } from "../copy";
+import { installerUrl } from "../lib/downloads";
 import layout from "../data/layout.json";
 import download from "@phosphor-icons/core/assets/regular/download-simple.svg?raw";
 import windowsLogo from "@phosphor-icons/core/assets/fill/windows-logo-fill.svg?raw";
@@ -24,12 +25,12 @@ const phases = ["idle", "running", "done"] as const;
         <h1>{copy.hero.title}</h1>
         <p class="lede">{copy.hero.lede}</p>
         <div class="cta">
-          <a class="btn btn-primary" href={LATEST_URL}>
+          <a class="btn btn-primary" href={installerUrl("windows")} data-dl="primary">
             <span class="icon os windows" data-os-icon="windows" set:html={windowsLogo} />
             <span class="icon os macos" data-os-icon="macos" set:html={appleLogo} />
             <span data-download-label>Download for Windows</span>
           </a>
-          <span class="alt">{copy.hero.alsoFor} <a href={LATEST_URL} data-download-other>macOS</a></span>
+          <span class="alt">{copy.hero.alsoFor} <a href={installerUrl("macos")} data-dl="other" data-download-other>macOS</a></span>
         </div>
       </div>
       <ol class="steps" id="stage-steps" aria-label="Steps">
