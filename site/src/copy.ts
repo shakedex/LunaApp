@@ -1,105 +1,124 @@
-// Every visible string on the site. All of it is a draft for Shaked to rewrite.
-// Rules: facts and labels only; no taglines, no "No X, no Y", no "X. Y." pairs, no em dashes.
-// Vendor wording: no RED name or marks (R3D is a format), "compatible with Blackmagic RAW",
-// no claim of Apple certification for ProRes.
+// Every visible string on the site, in one place. All of it is a draft for
+// Shaked to rewrite. Rules: labels and facts only; no explanations, no
+// taglines, no "No X, no Y", no "X. Y." pairs, no dashes as punctuation.
 
-export const RELEASES_LATEST = "https://github.com/shakedex/LunaApp/releases/latest";
-export const REPO = "https://github.com/shakedex/LunaApp";
+export const REPO_URL = "https://github.com/shakedex/LunaApp";
+export const RELEASES_URL = `${REPO_URL}/releases`;
+export const LATEST_URL = `${RELEASES_URL}/latest`;
 
-/** Formats still missing from the macOS build (docs/macos.md items 2 to 5). */
-const WINDOWS_ONLY = "Windows only for now";
+/** The release the static page names before the live lookup fills in. */
+export const KNOWN_VERSION = "2026.10.0";
+
+/** The sample report's file names, as Luna writes them. */
+export const REPORT_FILES = {
+  pdf: "Luna Report 2026-10-21 1942.pdf",
+  html: "Luna Report 2026-10-21 1942.html",
+  csv: "Luna Report 2026-10-21 1942.csv",
+};
 
 export const copy = {
   meta: {
-    title: "Luna, camera reports",
-    description: "Luna reads camera cards and writes a camera report as PDF, HTML and CSV. Windows and macOS.",
+    title: "Luna",
+    description: "Camera reports from camera originals. PDF, HTML and CSV. Free, for Windows and macOS.",
   },
+
   nav: {
     how: "How it works",
-    report: "Report",
-    cameras: "Formats",
-    github: "GitHub",
+    report: "The report",
+    formats: "Formats",
     download: "Download",
+    github: "GitHub",
   },
+
   hero: {
-    title: "Camera reports from camera originals",
-    lede: "Choose a card or a shoot drive. Luna writes a PDF, HTML and CSV report of every clip on it.",
-    alsoOn: "Also for",
-    moonLabel: "Luna's progress moon",
-    clips: (done: number, total: number) => `${done} of ${total} clips`,
-    reading: (reel: string) => `Reading ${reel}`,
-    ready: "Report ready",
-    readySub: "PDF, HTML and CSV",
+    title: "Camera reports from camera originals.",
+    lede: "Reads a card or a whole shoot drive and writes the camera report as PDF, HTML and CSV.",
+    alsoFor: "Also for",
+    windowAlt: "Luna's window: the engraved Moon fills as the clips are read.",
   },
-  how: {
-    title: "How it works",
-    stages: [
-      {
-        title: "Choose a folder",
-        body: "A single card, or a drive holding cards from several cameras.",
-        alt: "Luna waiting for a camera folder",
-      },
-      {
-        title: "Luna reads each clip",
-        body: "Timecode, lens, exposure settings and three frames from every clip, decoded on your computer.",
-        alt: "Luna reading clip 17 of 25",
-      },
-      {
-        title: "The report",
-        body: "Clips grouped by camera and reel. Clips with problems are counted at the top of the report.",
-        alt: "Luna with the report ready",
-      },
+
+  /** The scroll sequence: three steps, and the window's own lines for each. */
+  stage: {
+    steps: ["Drop a camera folder", "Luna reads every clip", "Report ready"],
+    window: {
+      idle: ["Drop a camera folder", "or click anywhere to choose one"],
+      looking: "Looking for clips",
+      clips: (done: number, total: number) => `${done} of ${total} clips`,
+      source: "E:\\NIGHT_SHIFT_DAY12",
+      ready: "Report ready",
+      summary: "25 clips, no problems",
+    },
+    stepAlts: [
+      "Luna's window waiting for a folder, with a thin crescent Moon.",
+      "Luna's window reading clip 17 of 25, the Moon two thirds lit.",
+      "Luna's window with the full Moon, Report ready, and the Open PDF button.",
     ],
   },
+
   report: {
     title: "The report",
-    body: "The sample below is 11 clips from two cameras on one shoot day. Scroll it, or switch it to the dark version.",
-    frameTitle: "Sample Luna camera report",
-    light: "Light",
+    paper: "Paper",
     dark: "Dark",
-    outputs: [
-      { name: "PDF", detail: "For printing and email" },
-      { name: "HTML", detail: "One file, opens in a browser" },
-      { name: "CSV", detail: "One row per clip, every field" },
+    pageAlt: "The first page of a Luna camera report: production header, totals, Camera A, reel A003 and its clips.",
+    detailAlt: "One clip row of the report: three frames, then timecode, camera, lens and exposure fields.",
+    pagesAlt: (n: number) => `Page ${n} of the sample report`,
+    files: [
+      { label: "PDF", name: REPORT_FILES.pdf },
+      { label: "HTML", name: REPORT_FILES.html },
+      { label: "CSV", name: REPORT_FILES.csv },
     ],
   },
+
   formats: {
     title: "Formats",
-    groups: [
-      { name: "ARRI", formats: "ARRIRAW, ARRICORE, ProRes in MXF and MOV" },
-      { name: "Sony", formats: "X-OCN, XAVC" },
-      { name: "Canon", formats: "Cinema RAW Light, XF-AVC, XF-HEVC" },
-      { name: "Nikon", formats: "N-RAW, R3D NE", note: WINDOWS_ONLY },
-      { name: "R3D", formats: ".R3D files", note: WINDOWS_ONLY },
-      { name: "Blackmagic RAW", formats: "Luna is compatible with Blackmagic RAW (.braw)", note: WINDOWS_ONLY },
-      { name: "ProRes RAW", formats: "MOV", note: WINDOWS_ONLY },
-      { name: "H.264 and HEVC", formats: "MOV and MP4 from other cameras", note: WINDOWS_ONLY },
-    ],
-  },
-  specs: {
-    title: "Specifications",
+    lede: "On Windows and macOS.",
     rows: [
-      { label: "Windows", value: "Windows 10 and 11, x64" },
-      { label: "macOS", value: "macOS 26 or later, Apple Silicon" },
-      { label: "Report files", value: "PDF, HTML, CSV" },
-      { label: "Internet", value: "Not used to make a report" },
-      { label: "Command line", value: "luna-cli, installed with the app" },
-      { label: "Licence", value: "Source code under MIT. The installers also include closed decoders and third-party SDKs." },
-      { label: "Price", value: "Free" },
+      { maker: "ARRI", formats: ["ARRIRAW", "ARRICORE", "ProRes"], ext: [".ari", ".arx", ".mxf", ".mov"] },
+      { maker: "Sony", formats: ["X-OCN", "XAVC"], ext: [".mxf"] },
+      { maker: "RED", formats: ["R3D"], ext: [".r3d"] },
+      { maker: "Blackmagic Design", formats: ["Blackmagic RAW"], ext: [".braw"] },
+      { maker: "Canon", formats: ["Cinema RAW Light", "XF-AVC", "XF-HEVC"], ext: [".crm", ".mxf", ".mp4"] },
+      { maker: "Nikon", formats: ["N-RAW", "R3D NE"], ext: [".nev", ".r3d"] },
+      { maker: "Apple", formats: ["ProRes", "ProRes RAW"], ext: [".mov"] },
+      { maker: "Other cameras", formats: ["H.264", "HEVC"], ext: [".mov", ".mp4"] },
     ],
+    sidecarsLabel: "Sidecars",
+    sidecars: "Sony and Canon XML, RED RMD, Blackmagic RAW sidecars, ALE",
   },
+
+  download: {
+    title: "Download",
+    windows: {
+      name: "Windows",
+      button: "Download for Windows",
+      file: (v: string) => `Luna-${v}-windows-x64-setup.exe`,
+      requires: "Windows 10 or 11, x64",
+    },
+    macos: {
+      name: "macOS",
+      button: "Download for macOS",
+      file: (v: string) => `Luna-${v}-macos.dmg`,
+      requires: "macOS 26 or later, Apple Silicon",
+    },
+    version: (v: string) => `Version ${v}`,
+    free: "Free. MIT licence.",
+    allReleases: "All releases",
+    source: "Source on GitHub",
+  },
+
   footer: {
     links: [
-      { label: "GitHub", href: REPO },
-      { label: "Releases", href: "https://github.com/shakedex/LunaApp/releases" },
-      { label: "License", href: "https://github.com/shakedex/LunaApp/blob/master/LICENSE" },
+      { label: "GitHub", href: REPO_URL },
+      { label: "Releases", href: RELEASES_URL },
+      { label: "Licence", href: `${REPO_URL}/blob/master/LICENSE` },
+      { label: "Disclaimer", href: `${REPO_URL}/blob/master/DISCLAIMER.md` },
     ],
     legal:
-      "ARRI, Sony, Canon, Nikon, Blackmagic RAW and ProRes are trademarks of their owners. Luna is not affiliated with or endorsed by them.",
+      "ARRI, Sony, RED, Blackmagic Design, Canon, Nikon and Apple ProRes are trademarks of their owners. Luna is not affiliated with or endorsed by any of them.",
   },
+
   notFound: {
     title: "Page not found",
-    body: "This page does not exist.",
-    back: "Go to the home page",
+    back: "Home",
   },
 };

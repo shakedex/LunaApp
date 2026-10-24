@@ -1,125 +1,166 @@
 ---
+// The report, after its first page has risen out of the window: one clip
+// row at reading size, the three pages, and the three files.
 import { copy } from "../copy";
+const pages = [1, 2, 3];
 ---
 
-<section class="report wrap" id="report" aria-labelledby="report-title">
-  <div class="head">
-    <h2 class="section-title" id="report-title">{copy.report.title}</h2>
-    <p class="section-body">{copy.report.body}</p>
-  </div>
-  <dl class="outputs">
-    {
-      copy.report.outputs.map((o) => (
-        <div>
-          <dt>{o.name}</dt>
-          <dd>{o.detail}</dd>
-        </div>
-      ))
-    }
-  </dl>
-  <div class="viewer">
-    <div class="bar">
+<section class="section report" id="report" aria-labelledby="report-title">
+  <div class="wrap">
+    <div class="head">
+      <h2 class="title" id="report-title">{copy.report.title}</h2>
       <div class="theme" role="group" aria-label="Report theme">
-        <button type="button" id="report-theme-light" aria-pressed="true">{copy.report.light}</button>
-        <button type="button" id="report-theme-dark" aria-pressed="false">{copy.report.dark}</button>
+        <button type="button" class="seg is-on" data-theme="light" aria-pressed="true">{copy.report.paper}</button>
+        <button type="button" class="seg" data-theme="dark" aria-pressed="false">{copy.report.dark}</button>
       </div>
     </div>
-    <div class="frame-box" id="report-box">
-      <iframe id="report-frame" src="/img/report/luna-sample.html" title={copy.report.frameTitle} loading="lazy"></iframe>
+
+    <figure class="detail" data-report>
+      <img class="light" src="/img/report/detail-light.webp" alt={copy.report.detailAlt} width="3250" height="350" loading="lazy" decoding="async" />
+      <img class="dark" src="/img/report/detail-dark.webp" alt="" width="3250" height="350" loading="lazy" decoding="async" />
+    </figure>
+
+    <div class="pages">
+      {
+        pages.map((n) => (
+          <figure class="thumb" data-report>
+            <img class="light" src={`/img/report/light-p${n}.webp`} alt={copy.report.pagesAlt(n)} width="2105" height="1489" loading="lazy" decoding="async" />
+            <img class="dark" src={`/img/report/dark-p${n}.webp`} alt="" width="2105" height="1489" loading="lazy" decoding="async" />
+          </figure>
+        ))
+      }
     </div>
+
+    <ul class="files">
+      {
+        copy.report.files.map((f) => (
+          <li>
+            <span class="label">{f.label}</span>
+            <span class="data name">{f.name}</span>
+          </li>
+        ))
+      }
+    </ul>
   </div>
 </section>
 
 <script>
-  const frame = document.getElementById("report-frame") as HTMLIFrameElement;
-  const light = document.getElementById("report-theme-light")!;
-  const dark = document.getElementById("report-theme-dark")!;
-  const set = (isDark: boolean) => {
-    frame.src = isDark ? "/img/report/luna-sample-dark.html" : "/img/report/luna-sample.html";
-    light.setAttribute("aria-pressed", String(!isDark));
-    dark.setAttribute("aria-pressed", String(isDark));
-  };
-  light.addEventListener("click", () => set(false));
-  dark.addEventListener("click", () => set(true));
-
-  // The report lays out for a desktop browser window; show it at that width, scaled to fit.
-  const REPORT_WIDTH = 1440;
-  const box = document.getElementById("report-box")!;
-  new ResizeObserver(([entry]) => {
-    box.style.setProperty("--report-scale", String(Math.min(1, entry.contentRect.width / REPORT_WIDTH)));
-  }).observe(box);
+  // Paper or dark, for every picture of the report on the page.
+  const section = document.getElementById("report");
+  if (section) {
+    const segs = section.querySelectorAll<HTMLButtonElement>(".seg");
+    segs.forEach((b) =>
+      b.addEventListener("click", () => {
+        document.body.classList.toggle("show-dark", b.dataset.theme === "dark");
+        segs.forEach((s) => {
+          const on = s === b;
+          s.classList.toggle("is-on", on);
+          s.setAttribute("aria-pressed", String(on));
+        });
+      }),
+    );
+  }
 </script>
 
 <style>
-  .report {
-    padding-top: 140px;
-    padding-bottom: 140px;
-  }
-  .outputs {
+  .head {
     display: flex;
-    gap: 48px;
-    margin: 36px 0 40px;
-  }
-  .outputs dt {
-    font-weight: 600;
-    font-size: 18px;
-  }
-  .outputs dd {
-    margin: 0;
-    color: var(--muted);
-    font-size: 15px;
-  }
-  .viewer {
-    border-radius: 14px;
-    border: 1px solid var(--line-strong);
-    overflow: hidden;
-    background: var(--surface);
-  }
-  .bar {
-    display: flex;
-    justify-content: flex-end;
-    padding: 10px;
-    border-bottom: 1px solid var(--line);
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 24px;
   }
   .theme {
-    display: flex;
+    display: inline-flex;
     padding: 3px;
-    border-radius: 999px;
-    background: var(--canvas);
-    border: 1px solid var(--line);
-  }
-  .theme button {
-    font: inherit;
-    font-size: 14px;
-    color: var(--muted);
-    background: none;
-    border: 0;
-    border-radius: 999px;
-    padding: 4px 16px;
-    cursor: pointer;
-  }
-  .theme button[aria-pressed="true"] {
+    border-radius: var(--radius);
     background: var(--raised);
+    border: 1px solid var(--line-strong);
+  }
+  .seg {
+    height: 30px;
+    padding: 0 14px;
+    border-radius: 4px;
+    font-size: 13.5px;
+    font-weight: 500;
+    color: var(--muted);
+    transition:
+      background-color 0.15s var(--ease-out),
+      color 0.15s var(--ease-out);
+  }
+  .seg.is-on {
+    background: var(--line-strong);
     color: var(--text);
   }
-  .frame-box {
-    --report-scale: 0.78;
-    height: min(78dvh, 820px);
+
+  figure {
+    position: relative;
     overflow: hidden;
+    background: var(--paper);
+    box-shadow: 0 0 0 1px rgb(255 255 255 / 0.09);
   }
-  iframe {
-    display: block;
-    width: 1440px;
-    height: calc(min(78dvh, 820px) / var(--report-scale));
-    border: 0;
-    background: #fff;
-    transform: scale(var(--report-scale));
-    transform-origin: 0 0;
+  figure img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    transition: opacity 0.35s var(--ease-out);
   }
+  figure img.dark {
+    opacity: 0;
+  }
+  :global(body.show-dark) figure img.dark {
+    opacity: 1;
+  }
+  :global(body.show-dark) figure {
+    background: #0e1117;
+  }
+
+  /* One clip row, as large as the page allows. */
+  .detail {
+    margin-top: 40px;
+    aspect-ratio: 3250 / 350;
+    border-radius: 3px;
+  }
+
+  .pages {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 24px;
+    margin-top: 24px;
+  }
+  .thumb {
+    aspect-ratio: 2105 / 1489;
+    border-radius: 3px;
+    box-shadow:
+      0 0 0 1px rgb(255 255 255 / 0.09),
+      0 24px 60px -24px rgb(0 0 0 / 0.8);
+  }
+
+  .files {
+    margin-top: 40px;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 24px;
+  }
+  .files li {
+    display: grid;
+    gap: 6px;
+    padding-top: 14px;
+    border-top: 1px solid var(--line-strong);
+  }
+  .label {
+    font-size: 15px;
+    font-weight: 500;
+  }
+  .name {
+    font-size: 13px;
+    color: var(--quiet);
+  }
+
   @media (max-width: 900px) {
-    .outputs {
-      flex-direction: column;
-      gap: 16px;
+    .pages,
+    .files {
+      grid-template-columns: 1fr;
     }
   }
 </style>

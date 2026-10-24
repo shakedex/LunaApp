@@ -1,0 +1,332 @@
+---
+// The top of the page: the hero, and the one scroll sequence. The app's
+// window stays pinned while the visitor scrolls: a folder is dropped, the
+// Moon fills as the clips are read, the report is ready, and the first page
+// of it rises out of the window. Without motion (narrow screens, reduced
+// motion, no WebGL, no JS) the same content is a plain column.
+import { copy, LATEST_URL } from "../copy";
+import layout from "../data/layout.json";
+import download from "@phosphor-icons/core/assets/regular/download-simple.svg?raw";
+
+const { width, height } = layout;
+const phases = ["idle", "running", "done"] as const;
+---
+
+<section class="stage" id="how" data-layout={JSON.stringify(layout)}>
+  <div class="pin" id="stage-pin">
+    <div class="copy">
+      <div class="intro" id="stage-intro">
+        <h1>{copy.hero.title}</h1>
+        <p class="lede">{copy.hero.lede}</p>
+        <div class="cta">
+          <a class="btn btn-primary" href={LATEST_URL}>
+            <span class="icon" set:html={download} />
+            <span data-download-label>Download for Windows</span>
+          </a>
+          <span class="alt">{copy.hero.alsoFor} <a href={LATEST_URL} data-download-other>macOS</a></span>
+        </div>
+      </div>
+      <ol class="steps" id="stage-steps" aria-label={copy.nav.how}>
+        {
+          copy.stage.steps.map((step, i) => (
+            <li data-step={i} class={i === 0 ? "is-on" : ""}>
+              <span class="n">{i + 1}</span>
+              <span class="t">{step}</span>
+            </li>
+          ))
+        }
+      </ol>
+    </div>
+
+    <figure class="window" id="stage-window" role="img" aria-label={copy.hero.windowAlt}>
+      {
+        phases.map((p, i) => (
+          <img
+            class={`layer ${p}`}
+            data-phase={p}
+            src={`/img/app-${p}@2x.webp`}
+            data-live={`/img/app-hero-${p}@2x.webp`}
+            alt=""
+            width={width}
+            height={height}
+            fetchpriority={i === 0 ? "high" : undefined}
+            decoding="async"
+          />
+        ))
+      }
+      <canvas class="moon" id="stage-moon" width="600" height="600" hidden></canvas>
+      <div class="line title" id="stage-line-1" aria-hidden="true" hidden></div>
+      <div class="line sub" id="stage-line-2" aria-hidden="true" hidden></div>
+    </figure>
+
+    <figure class="page" id="stage-page" data-report>
+      <img class="light" src="/img/report/light-p1.webp" alt={copy.report.pageAlt} width="2105" height="1489" decoding="async" />
+      <img class="dark" src="/img/report/dark-p1.webp" alt="" width="2105" height="1489" loading="lazy" decoding="async" />
+    </figure>
+  </div>
+
+  <!-- Without motion: the three screens one after another, then the page. -->
+  <ol class="static wrap" aria-label={copy.nav.how}>
+    {
+      copy.stage.steps.map((step, i) => (
+        <li>
+          <h2>
+            <span class="n">{i + 1}</span>
+            {step}
+          </h2>
+          <img src={`/img/app-${phases[i]}@2x.webp`} alt={copy.stage.stepAlts[i]} width={width} height={height} loading="lazy" decoding="async" />
+        </li>
+      ))
+    }
+  </ol>
+</section>
+
+<script>
+  import { runStage } from "../scripts/stage";
+  runStage();
+</script>
+
+<style>
+  .stage {
+    position: relative;
+  }
+  .pin {
+    position: relative;
+    width: min(1400px, 100% - 2 * var(--gutter));
+    margin-inline: auto;
+    min-height: calc(100dvh - 64px);
+    display: grid;
+    grid-template-columns: minmax(400px, 5fr) minmax(0, 9fr);
+    align-items: center;
+    gap: 56px;
+    padding: 24px 0 48px;
+  }
+  .copy {
+    position: relative;
+  }
+  h1 {
+    font-size: clamp(38px, 3.4vw, 50px);
+    line-height: 1.06;
+    letter-spacing: -0.03em;
+    font-weight: 500;
+    max-width: 19ch;
+  }
+  .intro .lede {
+    margin-top: 24px;
+    max-width: 40ch;
+  }
+  .cta {
+    display: flex;
+    align-items: center;
+    gap: 22px;
+    margin-top: 36px;
+    flex-wrap: wrap;
+  }
+  .icon :global(svg) {
+    width: 18px;
+    height: 18px;
+    fill: currentColor;
+    display: block;
+  }
+  .alt {
+    color: var(--muted);
+    font-size: 15px;
+  }
+  .alt a {
+    color: var(--text);
+    text-decoration: underline;
+    text-decoration-color: var(--line-strong);
+    text-underline-offset: 4px;
+  }
+  .alt a:hover {
+    text-decoration-color: var(--text);
+  }
+
+  /* The three steps take the intro's place once the sequence starts. */
+  .steps {
+    position: absolute;
+    inset: 0;
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    gap: 26px;
+    opacity: 0;
+    visibility: hidden;
+  }
+  :global(html.motion) .steps {
+    display: flex;
+  }
+  .steps li {
+    display: flex;
+    align-items: baseline;
+    gap: 18px;
+    font-size: clamp(22px, 2vw, 30px);
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    color: var(--faint);
+    transition: color 0.35s var(--ease-out);
+  }
+  .steps li.is-on {
+    color: var(--text);
+  }
+  .steps .n {
+    font-size: 14px;
+    font-weight: 500;
+    width: 28px;
+    height: 28px;
+    flex: none;
+    display: inline-grid;
+    place-items: center;
+    align-self: center;
+    border-radius: 50%;
+    border: 1px solid var(--line-strong);
+    color: var(--muted);
+    transition:
+      border-color 0.35s var(--ease-out),
+      color 0.35s var(--ease-out),
+      background-color 0.35s var(--ease-out);
+  }
+  .steps li.is-on .n {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: var(--on-accent);
+  }
+
+  /* The app's window at 2x, title bar and all. With motion, the Moon and the
+     two lines under it are drawn live over a screenshot without them. */
+  .window {
+    position: relative;
+    container-type: inline-size;
+    aspect-ratio: 11 / 8;
+    border-radius: var(--radius-window);
+    overflow: hidden;
+    background: var(--canvas);
+    box-shadow:
+      0 0 0 1px rgb(255 255 255 / 0.07),
+      0 60px 140px -30px rgb(0 0 0 / 0.8),
+      0 24px 48px -24px rgb(0 0 0 / 0.6);
+    isolation: isolate;
+    transform-origin: 50% 50%;
+  }
+  .layer {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+  .layer.running,
+  .layer.done {
+    opacity: 0;
+  }
+  :global(html:not(.motion)) .layer.idle {
+    opacity: 0;
+  }
+  :global(html:not(.motion)) .layer.done {
+    opacity: 1;
+  }
+  .moon {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 34%;
+    height: auto;
+    aspect-ratio: 1;
+  }
+  /* The app's type: 20px and 12px in an 880px window. */
+  .line {
+    position: absolute;
+    left: 0;
+    right: 0;
+    text-align: center;
+    line-height: 1;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+  .title {
+    font-size: 2.2727cqw;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .sub {
+    font-size: 1.3636cqw;
+    color: var(--faint);
+  }
+
+  /* The report's first page, which rises out of the window at the end. */
+  .page {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: min(1060px, 78%);
+    aspect-ratio: 2105 / 1489;
+    /* Centred and moved by the timeline alone (GSAP owns the transform). */
+    border-radius: 4px;
+    overflow: hidden;
+    background: var(--paper);
+    box-shadow:
+      0 0 0 1px rgb(255 255 255 / 0.1),
+      0 50px 120px -20px rgb(0 0 0 / 0.9);
+    display: none;
+  }
+  :global(html.motion) .page {
+    display: block;
+  }
+  .page img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    transition: opacity 0.35s var(--ease-out);
+  }
+  .page img.dark {
+    opacity: 0;
+  }
+  :global(.show-dark) .page img.dark {
+    opacity: 1;
+  }
+
+  .static {
+    display: grid;
+    gap: 64px;
+    padding: 72px 0 40px;
+  }
+  :global(html.motion) .static {
+    display: none;
+  }
+  .static h2 {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    font-size: 24px;
+    font-weight: 500;
+    letter-spacing: -0.015em;
+    margin-bottom: 20px;
+  }
+  .static .n {
+    font-size: 14px;
+    width: 28px;
+    height: 28px;
+    display: inline-grid;
+    place-items: center;
+    border-radius: 50%;
+    border: 1px solid var(--line-strong);
+    color: var(--muted);
+  }
+  .static img {
+    width: min(100%, 980px);
+    border-radius: var(--radius-window);
+    box-shadow: 0 0 0 1px rgb(255 255 255 / 0.07);
+  }
+
+  @media (max-width: 1000px) {
+    .pin {
+      grid-template-columns: 1fr;
+      gap: 40px;
+      min-height: 0;
+      padding-top: 40px;
+    }
+    h1 {
+      max-width: 16ch;
+    }
+  }
+</style>

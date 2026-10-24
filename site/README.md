@@ -1,43 +1,40 @@
-# Astro Starter Kit: Minimal
+# Luna's website
 
-```sh
-bun create astro@latest -- --template minimal
+A static Astro site, served from Cloudflare Workers (static assets). Every
+picture on it is rendered by Luna's own code: the app's window and star chart
+through its Slint UI and `luna-app` renderers, the sample report through
+`luna-report`, and the Moon live in the browser through a GLSL port of
+`crates/luna-app/src/moon.rs`.
+
+## Commands
+
+| Command             | What it does                                  |
+| ------------------- | --------------------------------------------- |
+| `bun install`       | Install dependencies                          |
+| `bun run dev`       | Dev server                                    |
+| `bun run check`     | Type check, tests and a production build      |
+| `bun run build`     | Build into `dist/`                            |
+| `bun run deploy`    | Build and `wrangler deploy`                   |
+
+## Generated assets
+
+`public/img` and `src/data` are generated. To rebuild them:
+
+```bash
+tools/frames.sh <dir with the GH5 clips> <frames dir>   # needs ffmpeg
+tools/build-assets.sh <frames dir>                      # needs cargo, ffmpeg, python + pymupdf
 ```
 
-> 🧑‍🚀 **Seasoned astronaut?** Delete this file. Have fun!
+`tools/capture` is a Rust program outside Luna's workspace that links
+`luna-app` and `luna-report`; it builds into Luna's `target/` directory. It
+writes the app's screens at 2x (`app-*@2x.webp`, with `layout.json` saying
+where the Moon and the text lines are), the star chart (`sky.webp`), the
+lunar albedo for the shader (`moon-albedo.webp`) and the sample report (PDF,
+HTML, CSV; the pages become `report/*.webp`).
 
-## 🚀 Project Structure
+The sample report uses frames from Shaked's GH5 clips of Luna the cat with
+made-up production metadata. Camera files never enter the repository.
 
-Inside of your Astro project, you'll see the following folders and files:
+## Copy
 
-```text
-/
-├── public/
-├── src/
-│   └── pages/
-│       └── index.astro
-└── package.json
-```
-
-Astro looks for `.astro` or `.md` files in the `src/pages/` directory. Each page is exposed as a route based on its file name.
-
-There's nothing special about `src/components/`, but that's where we like to put any Astro/React/Vue/Svelte/Preact components.
-
-Any static assets, like images, can be placed in the `public/` directory.
-
-## 🧞 Commands
-
-All commands are run from the root of the project, from a terminal:
-
-| Command                   | Action                                           |
-| :------------------------ | :----------------------------------------------- |
-| `bun install`             | Installs dependencies                            |
-| `bun dev`             | Starts local dev server at `localhost:4321`      |
-| `bun build`           | Build your production site to `./dist/`          |
-| `bun preview`         | Preview your build locally, before deploying     |
-| `bun astro ...`       | Run CLI commands like `astro add`, `astro check` |
-| `bun astro -- --help` | Get help using the Astro CLI                     |
-
-## 👀 Want to learn more?
-
-Feel free to check [our documentation](https://docs.astro.build) or jump into our [Discord server](https://astro.build/chat).
+All visible text is in `src/copy.ts`.

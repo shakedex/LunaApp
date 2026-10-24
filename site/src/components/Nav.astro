@@ -1,57 +1,94 @@
 ---
-import { copy, RELEASES_LATEST, REPO } from "../copy";
+import { copy, LATEST_URL, REPO_URL } from "../copy";
+import github from "@phosphor-icons/core/assets/regular/github-logo.svg?raw";
 ---
 
-<header class="nav wrap">
-  <a class="brand" href="/" aria-label="Luna home">
-    <img src="/img/luna-icon.png" alt="" width="30" height="30" />
-    <span>Luna</span>
-  </a>
-  <nav aria-label="Sections">
-    <a href="#how">{copy.nav.how}</a>
-    <a href="#report">{copy.nav.report}</a>
-    <a href="#formats">{copy.nav.cameras}</a>
-    <a href={REPO}>{copy.nav.github}</a>
-  </nav>
-  <a class="btn small" href={RELEASES_LATEST}>{copy.nav.download}</a>
+<header class="nav">
+  <div class="wrap bar">
+    <a class="home" href="/" aria-label="Luna home">
+      <img src="/img/luna-icon.png" alt="" width="28" height="28" />
+      <span>Luna</span>
+    </a>
+    <nav class="links" aria-label="Sections">
+      <a href="#how">{copy.nav.how}</a>
+      <a href="#report">{copy.nav.report}</a>
+      <a href="#formats">{copy.nav.formats}</a>
+      <a href="#download">{copy.nav.download}</a>
+    </nav>
+    <div class="actions">
+      <a class="github" href={REPO_URL} aria-label={copy.nav.github} set:html={github} />
+      <a class="btn btn-primary small" href={LATEST_URL} data-download-label>Download</a>
+    </div>
+  </div>
 </header>
 
 <style>
   .nav {
-    position: relative;
-    z-index: 3;
-    height: 72px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: rgb(12 15 20 / 0.72);
+    backdrop-filter: blur(14px) saturate(1.2);
+    -webkit-backdrop-filter: blur(14px) saturate(1.2);
+    border-bottom: 1px solid rgb(255 255 255 / 0.06);
+  }
+  .bar {
     display: flex;
     align-items: center;
-    gap: 32px;
+    height: 64px;
+    gap: 40px;
   }
-  .brand {
+  .home {
     display: flex;
     align-items: center;
     gap: 10px;
     font-weight: 600;
-    font-size: 18px;
-    text-decoration: none;
+    font-size: 17px;
+    letter-spacing: -0.01em;
   }
-  nav {
+  .home img {
+    border-radius: 7px;
+  }
+  .links {
     display: flex;
     gap: 28px;
-    margin-left: auto;
-    font-size: 15px;
+    font-size: 14.5px;
     color: var(--muted);
+    margin-left: 8px;
   }
-  nav a {
-    text-decoration: none;
+  .links a {
+    transition: color 0.15s var(--ease-out);
   }
-  nav a:hover {
+  .links a:hover {
     color: var(--text);
   }
+  .actions {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+  }
+  .github {
+    display: inline-flex;
+    color: var(--muted);
+    transition: color 0.15s var(--ease-out);
+  }
+  .github:hover {
+    color: var(--text);
+  }
+  .github :global(svg) {
+    width: 22px;
+    height: 22px;
+    fill: currentColor;
+  }
+  .btn.small {
+    height: 36px;
+    padding: 0 14px;
+    font-size: 14px;
+  }
   @media (max-width: 900px) {
-    nav {
+    .links {
       display: none;
-    }
-    .btn {
-      margin-left: auto;
     }
   }
 </style>

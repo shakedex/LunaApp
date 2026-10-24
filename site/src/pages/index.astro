@@ -1,45 +1,40 @@
 ---
 import Base from "../layouts/Base.astro";
 import Nav from "../components/Nav.astro";
-import Hero from "../components/Hero.astro";
-import HowItWorks from "../components/HowItWorks.astro";
+import Stage from "../components/Stage.astro";
 import Report from "../components/Report.astro";
 import Formats from "../components/Formats.astro";
-import Specs from "../components/Specs.astro";
+import Download from "../components/Download.astro";
 import Footer from "../components/Footer.astro";
 import { copy } from "../copy";
 ---
 
 <Base title={copy.meta.title} description={copy.meta.description}>
-  <canvas id="moon-canvas" aria-hidden="true"></canvas>
+  <div class="sky" aria-hidden="true"></div>
   <Nav />
   <main>
-    <Hero />
-    <HowItWorks />
+    <Stage />
     <Report />
     <Formats />
-    <Specs />
+    <Download />
   </main>
   <Footer />
 </Base>
 
-<script>
-  import "../scripts/main";
-</script>
-
 <style>
-  #moon-canvas {
-    position: fixed;
-    inset: 0;
-    width: 100vw;
-    height: 100dvh;
-    z-index: 2;
+  /* The app's star chart behind the top of the page, fading into the canvas. */
+  .sky {
+    position: absolute;
+    inset: 0 0 auto;
+    height: min(1400px, 150dvh);
+    background: url("/img/sky.webp") center top / cover no-repeat;
+    mask-image: linear-gradient(#000 55%, transparent);
     pointer-events: none;
-    opacity: 0;
-    transition: opacity 0.6s;
+    z-index: 0;
   }
   main,
-  :global(.footer) {
+  :global(.footer),
+  :global(.nav) {
     position: relative;
   }
 </style>

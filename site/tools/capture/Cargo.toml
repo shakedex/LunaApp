@@ -4,7 +4,7 @@ version = "0.0.0"
 edition = "2024"
 publish = false
 
-# Not part of Luna's workspace: a site-only tool with its own lock and target.
+# Not part of Luna's workspace: a site-only tool with its own lock file.
 [workspace]
 
 [dependencies]

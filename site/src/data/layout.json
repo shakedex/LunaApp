@@ -1,0 +1,9 @@
+{
+  "width": 1760,
+  "height": 1280,
+  "scale": 2,
+  "moon": { "cx": 880.0, "cy": 548.0, "box": 600.0 },
+  "hero-idle": { "moon": { "cx": 880.0, "cy": 548.0, "box": 600.0 }, "titleTop": 883, "titleBottom": 920, "subTop": 947, "subBottom": 969, "buttonTop": 1280 },
+  "hero-running": { "moon": { "cx": 880.0, "cy": 548.0, "box": 600.0 }, "titleTop": 883, "titleBottom": 920, "subTop": 947, "subBottom": 968, "buttonTop": 1020 },
+  "hero-done": { "moon": { "cx": 880.0, "cy": 520.0, "box": 600.0 }, "titleTop": 855, "titleBottom": 892, "subTop": 919, "subBottom": 941, "buttonTop": 992 }
+}

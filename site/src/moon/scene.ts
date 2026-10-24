@@ -1,130 +1,131 @@
+// The live Moon: a square WebGL canvas running the engraved shader.
 import {
-  CustomBlending,
+  ClampToEdgeWrapping,
+  GLSL3,
   LinearFilter,
   Mesh,
-  OneFactor,
-  OneMinusSrcAlphaFactor,
+  NearestFilter,
+  NoColorSpace,
   OrthographicCamera,
   PlaneGeometry,
   RepeatWrapping,
   Scene,
   ShaderMaterial,
   TextureLoader,
-  Vector3,
+  Vector2,
   WebGLRenderer,
+  type Texture,
 } from "three";
-import { fragment, vertex } from "./engrave.glsl";
-import { phaseToSunDirection } from "./phase";
+import { fragment, vertex } from "./engrave";
+
+export interface MoonState {
+  /** Lit fraction of the disc: 0 new, 1 full. */
+  lit: number;
+  /** Rotation about the Moon's axis, in radians. */
+  spin: number;
+  /** Share of the orbit dial lit, 0..=1. */
+  progress: number;
+}
 
 export interface Moon {
-  /** Lit share of the disc, 0 (new) to 1 (full). */
-  setPhase(lit: number): void;
-  /** Share of the orbit dial lit, 0 to 1. */
-  setProgress(p: number): void;
-  /** The Moon's square in viewport CSS pixels: top-left corner and side. */
-  setRect(x: number, y: number, size: number): void;
+  /** Draws one frame. */
+  render(state: MoonState): void;
+  /** Re-reads the canvas's CSS size. */
+  resize(): void;
   dispose(): void;
 }
 
-/** Lines in the app sit 5.2 px apart on a 300 px Moon; a larger Moon gets slightly wider spacing. */
-const periodFor = (size: number) => 5.2 * Math.max(1, size / 300) ** 0.55;
-const tickFor = (size: number) => Math.max(1, size / 300) * 1.1;
+/** The biggest square the Moon is drawn at, in device pixels. */
+const MAX_PIXELS = 1800;
 
 /**
- * Luna's Moon on `canvas` (fixed, full viewport). Resolves to null without WebGL.
- * `onLost` runs if the GPU context goes away, so the page can show the still frame again.
+ * Sets the shader up on `canvas`, or returns null where WebGL is missing.
+ * The canvas is drawn at twice the device's pixels on ordinary screens, so
+ * the lines come out antialiased the way the app supersamples them.
  */
-export async function createMoon(canvas: HTMLCanvasElement, onLost: () => void): Promise<Moon | null> {
+export async function createMoon(canvas: HTMLCanvasElement, albedoUrl: string): Promise<Moon | null> {
   let renderer: WebGLRenderer;
   try {
-    renderer = new WebGLRenderer({ canvas, alpha: true, premultipliedAlpha: true, antialias: false });
-  } catch {
+    renderer = new WebGLRenderer({
+      canvas,
+      alpha: true,
+      antialias: false,
+      premultipliedAlpha: true,
+      powerPreference: "low-power",
+    });
+  } catch (e) {
+    console.warn("Luna: no WebGL, the Moon stays a picture", e);
     return null;
   }
-  const albedo = await new TextureLoader().loadAsync("/img/moon-albedo.webp");
-  albedo.wrapS = RepeatWrapping;
-  albedo.minFilter = LinearFilter;
-  albedo.generateMipmaps = false;
-  // Rows run north to south, as the app reads them.
-  albedo.flipY = false;
+  renderer.setClearColor(0x000000, 0);
 
-  const uniforms = {
-    uAlbedo: { value: albedo },
-    uSize: { value: 1 },
-    uSun: { value: new Vector3(0, 0, 1) },
-    uLit: { value: 1 },
-    uProgress: { value: 1 },
-    uPeriod: { value: 5.2 },
-    uTick: { value: 1 },
-    uSpin: { value: 0 },
-  };
+  let texture: Texture;
+  try {
+    texture = await new TextureLoader().loadAsync(albedoUrl);
+  } catch (e) {
+    console.warn("Luna: the Moon's albedo did not load", e);
+    renderer.dispose();
+    return null;
+  }
+  texture.wrapS = RepeatWrapping;
+  texture.wrapT = ClampToEdgeWrapping;
+  texture.magFilter = NearestFilter;
+  texture.minFilter = LinearFilter;
+  texture.generateMipmaps = false;
+  texture.colorSpace = NoColorSpace;
+  texture.flipY = false;
+  texture.needsUpdate = true;
+
   const material = new ShaderMaterial({
-    uniforms,
+    // GLSL ES 3.00: the stipple hash needs unsigned integer arithmetic.
+    glslVersion: GLSL3,
     vertexShader: vertex,
     fragmentShader: fragment,
+    uniforms: {
+      uRes: { value: new Vector2(1, 1) },
+      uSs: { value: 1 },
+      uLit: { value: 1 },
+      uSpin: { value: 0 },
+      uProgress: { value: 1 },
+      uAlbedo: { value: texture },
+    },
     transparent: true,
     depthTest: false,
-    blending: CustomBlending,
-    blendSrc: OneFactor,
-    blendDst: OneMinusSrcAlphaFactor,
-    premultipliedAlpha: true,
+    depthWrite: false,
   });
-  const mesh = new Mesh(new PlaneGeometry(1, 1), material);
+  // The material writes premultiplied colour itself; the browser composites.
+  material.blending = 0; // NoBlending: write the fragment as is
   const scene = new Scene();
-  scene.add(mesh);
-  const camera = new OrthographicCamera(0, 1, 0, -1, -1, 1);
+  scene.add(new Mesh(new PlaneGeometry(2, 2), material));
+  const camera = new OrthographicCamera(-1, 1, 1, -1, 0, 1);
 
-  let rect = { x: 0, y: 0, size: 0 };
-  let queued = false;
-  const draw = () => {
-    queued = false;
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const w = window.innerWidth;
-    const h = window.innerHeight;
-    renderer.setPixelRatio(dpr);
-    renderer.setSize(w, h, false);
-    camera.right = w;
-    camera.bottom = -h;
-    camera.updateProjectionMatrix();
-    mesh.scale.set(rect.size, rect.size, 1);
-    mesh.position.set(rect.x + rect.size / 2, -(rect.y + rect.size / 2), 0);
-    uniforms.uSize.value = rect.size * dpr;
-    uniforms.uPeriod.value = periodFor(rect.size) * dpr;
-    uniforms.uTick.value = tickFor(rect.size) * dpr;
-    renderer.render(scene, camera);
+  let pixels = 0;
+  const resize = () => {
+    const css = canvas.clientWidth || canvas.width;
+    const dpr = window.devicePixelRatio || 1;
+    // Two samples per device pixel on 1x screens, one on dense ones.
+    const ss = dpr >= 1.5 ? 1 : 2;
+    const size = Math.min(MAX_PIXELS, Math.round(css * dpr * ss));
+    if (size === pixels) return;
+    pixels = size;
+    renderer.setPixelRatio(1);
+    renderer.setSize(size, size, false);
+    material.uniforms.uRes.value.set(size, size);
+    material.uniforms.uSs.value = ss;
   };
-  const request = () => {
-    if (!queued) {
-      queued = true;
-      requestAnimationFrame(draw);
-    }
-  };
-
-  canvas.addEventListener("webglcontextlost", (e) => {
-    e.preventDefault();
-    onLost();
-  });
-  window.addEventListener("resize", request);
+  resize();
 
   return {
-    setPhase(lit) {
-      const [x, y, z] = phaseToSunDirection(lit);
-      uniforms.uSun.value.set(x, y, z);
-      uniforms.uLit.value = Math.min(1, Math.max(0, lit));
-      request();
+    render(state) {
+      material.uniforms.uLit.value = state.lit;
+      material.uniforms.uSpin.value = state.spin;
+      material.uniforms.uProgress.value = state.progress;
+      renderer.render(scene, camera);
     },
-    setProgress(p) {
-      uniforms.uProgress.value = Math.min(1, Math.max(0, p));
-      request();
-    },
-    setRect(x, y, size) {
-      rect = { x, y, size };
-      request();
-    },
+    resize,
     dispose() {
-      window.removeEventListener("resize", request);
       material.dispose();
-      albedo.dispose();
+      texture.dispose();
       renderer.dispose();
     },
   };

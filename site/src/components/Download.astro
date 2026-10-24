@@ -1,0 +1,118 @@
+---
+import { copy, KNOWN_VERSION, LATEST_URL, RELEASES_URL, REPO_URL } from "../copy";
+import download from "@phosphor-icons/core/assets/regular/download-simple.svg?raw";
+const d = copy.download;
+const platforms = [
+  { key: "windows", ...d.windows },
+  { key: "macos", ...d.macos },
+] as const;
+---
+
+<section class="section download" id="download" aria-labelledby="download-title">
+  <div class="wrap">
+    <h2 class="title" id="download-title">{d.title}</h2>
+
+    <div class="platforms">
+      {
+        platforms.map((p) => (
+          <div class="platform" data-platform={p.key}>
+            <h3>{p.name}</h3>
+            <a class="btn btn-primary" href={LATEST_URL} data-asset-link>
+              <span class="icon" set:html={download} />
+              {p.button}
+            </a>
+            <p class="data file" data-asset-name>{p.file(KNOWN_VERSION)}</p>
+            <p class="req">{p.requires}</p>
+          </div>
+        ))
+      }
+    </div>
+
+    <p class="meta">
+      <span data-release-version>{d.version(KNOWN_VERSION)}</span>
+      <span>{d.free}</span>
+      <a href={RELEASES_URL}>{d.allReleases}</a>
+      <a href={REPO_URL}>{d.source}</a>
+    </p>
+  </div>
+</section>
+
+<script>
+  import { fetchLatestRelease, formatMb } from "../lib/release";
+  // The latest release's version, installer names and links, when GitHub answers.
+  fetchLatestRelease().then((release) => {
+    if (!release) return;
+    const version = document.querySelector("[data-release-version]");
+    if (version) version.textContent = `Version ${release.version}`;
+    for (const key of ["windows", "macos"] as const) {
+      const asset = release[key];
+      const box = document.querySelector(`[data-platform="${key}"]`);
+      if (!asset || !box) continue;
+      box.querySelectorAll("[data-asset-link]").forEach((a) => a.setAttribute("href", asset.url));
+      const name = box.querySelector("[data-asset-name]");
+      if (name) name.textContent = `${asset.name}  ${formatMb(asset.bytes)}`;
+    }
+  });
+</script>
+
+<style>
+  .platforms {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 28px;
+    margin-top: 48px;
+  }
+  .platform {
+    padding: 32px 32px 30px;
+    border-radius: var(--radius-window);
+    background: var(--surface);
+    border: 1px solid var(--line);
+  }
+  .platform h3 {
+    font-size: 24px;
+    font-weight: 500;
+    letter-spacing: -0.015em;
+  }
+  .platform .btn {
+    margin-top: 22px;
+  }
+  .icon :global(svg) {
+    width: 18px;
+    height: 18px;
+    fill: currentColor;
+    display: block;
+  }
+  .file {
+    margin-top: 22px;
+    font-size: 13.5px;
+    color: var(--text);
+    white-space: pre;
+  }
+  .req {
+    margin-top: 6px;
+    font-size: 15px;
+    color: var(--muted);
+  }
+  .meta {
+    margin-top: 28px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 28px;
+    font-size: 14.5px;
+    color: var(--quiet);
+  }
+  .meta a {
+    color: var(--muted);
+    text-decoration: underline;
+    text-underline-offset: 4px;
+    text-decoration-color: var(--line-strong);
+  }
+  .meta a:hover {
+    color: var(--text);
+  }
+  @media (max-width: 900px) {
+    .platforms {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

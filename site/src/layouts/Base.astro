@@ -8,6 +8,7 @@ interface Props {
 }
 
 const { title, description } = Astro.props;
+const og = new URL("/img/og.png", Astro.site ?? Astro.url).href;
 ---
 
 <!doctype html>
@@ -18,14 +19,12 @@ const { title, description } = Astro.props;
     <title>{title}</title>
     <meta name="description" content={description} />
     <link rel="icon" type="image/png" href="/img/luna-icon.png" />
-    <link rel="preload" href="/fonts/IBMPlexSans-SemiBold.ttf" as="font" type="font/ttf" crossorigin />
-    <link rel="preload" href="/fonts/IBMPlexSans-Light.ttf" as="font" type="font/ttf" crossorigin />
+    <meta name="theme-color" content="#0c0f14" />
     <meta property="og:type" content="website" />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
-    <meta property="og:image" content="/img/og.png" />
+    <meta property="og:image" content={og} />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="theme-color" content="#0c0f14" />
     <slot name="head" />
   </head>
   <body>

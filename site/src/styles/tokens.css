@@ -1,28 +1,50 @@
-/* Luna's app theme, from crates/luna-app/ui/theme.slint. */
+/* Luna's own palette, from crates/luna-app/ui/theme.slint. The site is the
+   app's night sky: the page is one dark surface, moonlight text, and the
+   crescent blue of the logo as the only accent. */
 :root {
   --chrome: #07090d;
   --canvas: #0c0f14;
   --surface: #11151b;
   --raised: #181d25;
+  --raised-hover: #212833;
   --line: #1d232d;
   --line-strong: #2b3341;
+
   --text: #e4e8ef;
   --muted: #99a2b2;
+  /* Small text that still passes AA on the canvas. */
+  --quiet: #7f8999;
   --faint: #5d6676;
-  /* Small secondary text: AA on --canvas. */
-  --quiet: #808a9a;
+
   --accent: #79caea;
   --accent-hover: #95d7f1;
+  --accent-pressed: #5fb7db;
+  --accent-soft: rgb(121 202 234 / 0.11);
   --on-accent: #04141c;
   --focus: #a9e2f6;
-  --problem: #f07a6a;
 
-  --wrap: 1200px;
-  --gutter: 32px;
+  /* The report's paper, when a page of it sits on the canvas. */
+  --paper: #ffffff;
+
+  --sans: "IBM Plex Sans Variable", "IBM Plex Sans", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  --wrap: 1280px;
+  --gutter: 40px;
+  --radius: 6px;
+  --radius-window: 10px;
+
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1100px) {
   :root {
-    --gutter: 16px;
+    --gutter: 28px;
+  }
+}
+
+@media (max-width: 720px) {
+  :root {
+    --gutter: 18px;
   }
 }

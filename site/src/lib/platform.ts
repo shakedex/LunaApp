@@ -1,13 +1,21 @@
-export type Platform = "windows" | "macos";
+export type Platform = "windows" | "macos" | "other";
 
-const LABEL: Record<Platform, string> = { windows: "Windows", macos: "macOS" };
-
-/** Luna ships for Windows and macOS; any other system gets the Windows build named first. */
+/** The visitor's desktop platform from the user agent; phones count as other. */
 export function detectPlatform(userAgent: string): Platform {
-  return /Macintosh|Mac OS X/.test(userAgent) ? "macos" : "windows";
+  const ua = userAgent.toLowerCase();
+  if (/iphone|ipad|ipod|android/.test(ua)) return "other";
+  if (ua.includes("windows")) return "windows";
+  if (ua.includes("mac os") || ua.includes("macintosh")) return "macos";
+  return "other";
 }
 
-export function downloadLabels(platform: Platform): { primary: string; secondary: string } {
-  const other: Platform = platform === "macos" ? "windows" : "macos";
-  return { primary: `Download for ${LABEL[platform]}`, secondary: LABEL[other] };
+export interface DownloadLabels {
+  primary: string;
+  secondary: string;
+}
+
+/** The main button names the visitor's platform; the other one is a link. */
+export function downloadLabels(platform: Platform): DownloadLabels {
+  if (platform === "macos") return { primary: "Download for macOS", secondary: "Windows" };
+  return { primary: "Download for Windows", secondary: "macOS" };
 }

@@ -1,70 +1,97 @@
 ---
 import { copy } from "../copy";
+const rows = copy.formats.rows;
+const half = Math.ceil(rows.length / 2);
+const columns = [rows.slice(0, half), rows.slice(half)];
 ---
 
-<section class="formats wrap" id="formats" aria-labelledby="formats-title">
-  <h2 class="section-title" id="formats-title">{copy.formats.title}</h2>
-  <ul>
-    {
-      copy.formats.groups.map((g) => (
-        <li>
-          <h3>{g.name}</h3>
-          <p>{g.formats}</p>
-          {g.note && <p class="note">{g.note}</p>}
-        </li>
-      ))
-    }
-  </ul>
+<section class="section formats" id="formats" aria-labelledby="formats-title">
+  <div class="wrap">
+    <h2 class="title" id="formats-title">{copy.formats.title}</h2>
+    <p class="lede">{copy.formats.lede}</p>
+
+    <div class="matrix">
+      {
+        columns.map((col) => (
+          <ul>
+            {col.map((row) => (
+              <li>
+                <span class="maker">{row.maker}</span>
+                <span class="list">
+                  {row.formats.map((f) => (
+                    <span class="format">{f}</span>
+                  ))}
+                </span>
+                <span class="ext data">{row.ext.join("  ")}</span>
+              </li>
+            ))}
+          </ul>
+        ))
+      }
+    </div>
+
+    <p class="sidecars">
+      <span class="label">{copy.formats.sidecarsLabel}</span>
+      <span>{copy.formats.sidecars}</span>
+    </p>
+  </div>
 </section>
 
 <style>
-  .formats {
-    padding-top: 140px;
-    padding-bottom: 140px;
-  }
-  ul {
-    list-style: none;
-    padding: 0;
-    margin: 48px 0 0;
+  .matrix {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    border-top: 1px solid var(--line);
+    grid-template-columns: 1fr 1fr;
+    gap: 0 72px;
+    margin-top: 48px;
+    border-top: 1px solid var(--line-strong);
   }
-  li {
-    padding: 28px 24px 32px;
+  .matrix li {
+    display: grid;
+    grid-template-columns: 170px 1fr;
+    gap: 6px 24px;
+    padding: 22px 0 24px;
     border-bottom: 1px solid var(--line);
   }
-  li:not(:nth-child(4n)) {
-    border-right: 1px solid var(--line);
+  .maker {
+    font-size: 17px;
+    font-weight: 500;
+    grid-row: span 2;
   }
-  li:nth-child(4n + 1) {
-    padding-left: 0;
+  .list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 18px;
+    font-size: 17px;
   }
-  h3 {
-    font-family: "Plex Condensed", "Plex", sans-serif;
-    font-size: 26px;
-    font-weight: 600;
-    letter-spacing: -0.01em;
-    margin: 0 0 8px;
-  }
-  p {
-    margin: 0;
-    color: var(--muted);
-    font-size: 15px;
-  }
-  .note {
-    margin-top: 10px;
+  .ext {
+    font-size: 12.5px;
     color: var(--quiet);
-    font-size: 13px;
+    white-space: pre;
+  }
+  .sidecars {
+    margin-top: 32px;
+    display: grid;
+    grid-template-columns: 170px 1fr;
+    gap: 24px;
+    font-size: 15.5px;
+    color: var(--muted);
+    max-width: 760px;
+  }
+  .sidecars .label {
+    color: var(--text);
+    font-weight: 500;
   }
   @media (max-width: 900px) {
-    ul {
-      grid-template-columns: 1fr 1fr;
+    .matrix {
+      grid-template-columns: 1fr;
     }
-    li,
-    li:nth-child(4n + 1) {
-      padding: 20px 12px;
-      border-right: 0;
+    .matrix li,
+    .sidecars {
+      grid-template-columns: 1fr;
+      gap: 4px;
+    }
+    .maker {
+      grid-row: auto;
     }
   }
 </style>
