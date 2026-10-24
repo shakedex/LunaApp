@@ -1,0 +1,113 @@
+<!doctype html>
+<!-- The repo's social preview (1280 x 640) and the site's sharing card
+     (1200 x 630), from one layout. render.sh screenshots it at both sizes. -->
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      @font-face {
+        font-family: "Plex";
+        src: url("../../../Assets/fonts/IBMPlexSans-Regular.ttf");
+        font-weight: 400;
+      }
+      @font-face {
+        font-family: "Plex";
+        src: url("../../../Assets/fonts/IBMPlexSans-Medium.ttf");
+        font-weight: 500;
+      }
+      @font-face {
+        font-family: "Plex";
+        src: url("../../../Assets/fonts/IBMPlexSans-SemiBold.ttf");
+        font-weight: 600;
+      }
+      * {
+        margin: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 100vw;
+        height: 100vh;
+        overflow: hidden;
+      }
+      body {
+        position: relative;
+        font-family: "Plex", sans-serif;
+        color: #e4e8ef;
+        background:
+          radial-gradient(60vw 70vh at 78% 55%, rgb(121 202 234 / 0.1), transparent 70%),
+          #0c0f14;
+      }
+
+      .copy {
+        position: absolute;
+        left: 6.9vw;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 40vw;
+      }
+      .logo {
+        width: 7.5vw;
+        display: block;
+        margin-bottom: 2.6vh;
+      }
+      h1 {
+        font-size: 9.4vw;
+        line-height: 0.95;
+        letter-spacing: -0.045em;
+        font-weight: 600;
+      }
+      p {
+        margin-top: 3.4vh;
+        font-size: 2.65vw;
+        line-height: 1.2;
+        letter-spacing: -0.02em;
+        font-weight: 500;
+        color: #99a2b2;
+        max-width: 15em;
+      }
+      .meta {
+        margin-top: 4.4vh;
+        font-size: 1.35vw;
+        font-weight: 400;
+        color: #7f8999;
+        letter-spacing: 0;
+      }
+
+      /* The report's first page, behind the window. */
+      .page {
+        position: absolute;
+        left: 47vw;
+        top: 7vh;
+        width: 42vw;
+        border-radius: 0.3vw;
+        transform: rotate(-5deg);
+        box-shadow:
+          0 0 0 1px rgb(255 255 255 / 0.1),
+          0 3vw 7vw -1vw rgb(0 0 0 / 0.8);
+        opacity: 0.92;
+      }
+      /* The app's window, done, running off the right edge. */
+      .window {
+        position: absolute;
+        left: 53vw;
+        top: 21vh;
+        width: 53vw;
+        border-radius: 0.8vw;
+        box-shadow:
+          0 0 0 1px rgb(255 255 255 / 0.08),
+          0 4vw 9vw -2vw rgb(0 0 0 / 0.85);
+      }
+    </style>
+  </head>
+  <body>
+    <img class="page" src="../../public/img/report/light-p1.webp" alt="" />
+    <img class="window" src="../../public/img/app-done@2x.webp" alt="" />
+    <div class="copy">
+      <img class="logo" src="../../../Assets/luna-logo-lg.webp" alt="" />
+      <h1>Luna</h1>
+      <p>Beautiful reports for every camera. Free.</p>
+      <div class="meta">Windows and macOS</div>
+    </div>
+  </body>
+</html>

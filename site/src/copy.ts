@@ -12,7 +12,7 @@ export const copy = {
     title: "Luna: beautiful reports for every camera",
     description:
       "Camera reports from ARRIRAW, X-OCN, R3D, Blackmagic RAW, Cinema RAW Light, N-RAW and ProRes RAW originals, as PDF, HTML and CSV. Free for Windows and macOS.",
-    ogImageAlt: "Luna's window with the full Moon: Report ready, 25 clips, no problems.",
+    ogImageAlt: "Luna: beautiful reports for every camera. The app's window with the full Moon over the first page of a report.",
     category: "MultimediaApplication",
     os: "Windows 10, Windows 11, macOS 26",
   },
