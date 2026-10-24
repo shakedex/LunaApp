@@ -330,6 +330,30 @@ likely an entitlement the hardened runtime needs) in `sign_app`.
 **Done when** the DMG passes those checks, opens cleanly from quarantine, and
 `publish` then works for the first release.
 
+**Status 2026-10-24: blocked on Shaked.** This Mac has none of the three inputs:
+- **No Developer ID Application identity.** The keychain has only "Apple Development" and
+  "Apple Distribution: Shaked Lipszyc (N67345KMS8)". Neither can be notarized for
+  outside the App Store. Create one in Xcode → Settings → Accounts → Manage Certificates
+  → + → Developer ID Application (the team's Account Holder has to do it).
+- **No `luna-notary` profile.** Run
+  `xcrun notarytool store-credentials luna-notary --apple-id <id> --team-id N67345KMS8`
+  with an app-specific password.
+- **No `~/.luna/update-key`.** `installer` checks it before building. Copy it over by hand.
+
+**Dry run with the hardened runtime** (`LUNA_SIGN_IDENTITY` set to the Apple Development
+identity, `cargo xtask package`, `v2026.10.0`):
+- `sign_app` signs every file and bundle with `runtime` and a timestamp, and
+  `codesign --verify --strict --deep` passes.
+- **Report:** `luna-cli report` over the whole corpus gives 81 thumbnails for 27 clips in
+  5 s, so library validation lets RED, BRAW, N-RAW and ProRes RAW load. 1 needs attention:
+  the VENICE 2 MXF, as before.
+- **Window:** `Luna.app` opens and draws the home screen, and Sparkle loads from the bundle.
+- **No extra entitlements needed so far.** Sparkle 2.10.0's Downloader ships without
+  entitlements (it only needs them in sandboxed apps), so the empty set after signing
+  is correct.
+- `spctl` rejects this build, as it should for a Development identity. The real checks
+  wait for the Developer ID.
+
 ## Reporting back
 
 Both machines push to GitHub, so report through it:
