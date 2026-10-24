@@ -330,28 +330,32 @@ likely an entitlement the hardened runtime needs) in `sign_app`.
 **Done when** the DMG passes those checks, opens cleanly from quarantine, and
 `publish` then works for the first release.
 
-**Status 2026-10-24: blocked on Shaked.** Two of the three inputs are still missing:
-- **Developer ID Application: in the keychain** ("Shaked Lipszyc (N67345KMS8)"). A
-  `package` signed with it verifies, and `spctl` says only "Unnotarized Developer ID".
-  Its headless report gives the same 81 thumbnails.
-- **No `luna-notary` profile.** Run
-  `xcrun notarytool store-credentials luna-notary --apple-id <id> --team-id N67345KMS8`
-  with an app-specific password.
-- **No `~/.luna/update-key`.** `installer` checks it before building. Copy it over by hand.
+**Status 2026-10-24: the installer is built; `publish` waits for Shaked.**
+- **Signing:** with the keychain's "Developer ID Application: Shaked Lipszyc (N67345KMS8)".
+  `sign_app` needed no changes and the hardened runtime needed no entitlements.
+- **Notarizing:** the `luna-notary` profile holds the team's App Store Connect API key
+  (`~/.appstoreconnect/private_keys/AuthKey_*.p8`, the one VideoBridge uses), not an Apple
+  ID, so a locked Apple ID doesn't block it.
+  - Apple accepted every submission with no issues ("Ready for distribution").
+  - The first ones took 30–50 minutes each in Apple's queue, so a whole `installer` run
+    took about 2 hours.
+- **What `cargo xtask installer` (`v2026.10.0`) built:** `Luna-2026.10.0-macos.dmg`
+  (75 MB, with an Applications link), `Luna-2026.10.0-macos.zip` (68 MB) and
+  `appcast-macos.xml`.
+- **Checks:**
+  - `spctl` accepts the app and the DMG as "Notarized Developer ID".
+  - `stapler validate` passes.
+  - `syspolicy_check distribution` says "ready for distribution".
+- **From quarantine:** a copy of the DMG got a Safari quarantine flag, and the app was
+  copied out of it.
+  - Gatekeeper accepts it. Opening it shows only macOS's usual first-open prompt: "Apple
+    checked it for malicious software and none was detected."
+- **Before this:** a dry run with the Development identity gave 81 thumbnails for 27 clips
+  under the hardened runtime, so library validation lets RED, BRAW, N-RAW and ProRes RAW
+  load.
 
-**Dry run with the hardened runtime** (`LUNA_SIGN_IDENTITY` set to the Apple Development
-identity, `cargo xtask package`, `v2026.10.0`):
-- `sign_app` signs every file and bundle with `runtime` and a timestamp, and
-  `codesign --verify --strict --deep` passes.
-- **Report:** `luna-cli report` over the whole corpus gives 81 thumbnails for 27 clips in
-  5 s, so library validation lets RED, BRAW, N-RAW and ProRes RAW load. 1 needs attention:
-  the VENICE 2 MXF, as before.
-- **Window:** `Luna.app` opens and draws the home screen, and Sparkle loads from the bundle.
-- **No extra entitlements needed so far.** Sparkle 2.10.0's Downloader ships without
-  entitlements (it only needs them in sandboxed apps), so the empty set after signing
-  is correct.
-- `spctl` rejects this build, as it should for a Development identity. The real checks
-  wait for the Developer ID.
+**Left:** `cargo xtask publish`, which uploads the DMG, zip and feed and takes the release
+out of draft. Shaked's call.
 
 ## Reporting back
 
