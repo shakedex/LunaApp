@@ -210,11 +210,36 @@ Found so far:
   - The setting is `native-frame` in `main.slint`, set in `ui.rs`. Windows is unchanged.
   - Checked by screencapture. Dragging and double-clicking the bar haven't been tried.
 
-Not yet tried, because it needs clicks in the window: choosing or dropping a folder, the
-report header, making a report, Settings, and the update check.
-- **How to look:** `screencapture -x -o -l <window id>` captures the window without
-  clicking.
-- **How to click:** a session needs desktop control (computer use) turned on.
+**Parity check, 2026-10-24.** These were run without clicks, against the whole corpus on the
+external drive.
+
+*Code:* every place with a Windows-only implementation has a macOS side: decoding, the
+Sparkle updater, the window and the R3D add-on names. Opening files, file dialogs, the
+settings and log locations, and worker processes go through cross-platform crates
+(`open`, `rfd`, `dirs`) or work the same way on both.
+
+*Behaviour:*
+
+| What | Result on the Mac |
+|---|---|
+| Report from the window | Launched as `Luna.app --args report <folder> --output <dir>`: the window scans, decodes and shows "Report ready". 1 of 27 clips needs attention: the VENICE 2 MXF, which is cut short on purpose. |
+| Report content | All 27 clips have their 3 thumbnails and metadata, including ProRes RAW, R3D, N-RAW and BRAW. The PDF (8 pages), HTML and CSV are all written. |
+| Workers | Two worker processes during a run, with no extra Dock icons. |
+| Settings, log | `~/Library/Application Support/Luna/` (`settings.toml`, `luna.log`). A run with `--output` leaves the saved destination alone. |
+| Updates | Sparkle loads in the packaged app and checks quietly. There's no release to find yet. |
+| `luna-cli` | `report`, `inspect` (21 cards) and `mcp` (4 tools) work from inside the bundle. |
+| `cargo xtask check` | Passes. |
+
+**Still to try by clicking** (a session with computer use on):
+- Clicking the window to choose a folder, and dragging a folder onto it.
+- The report header: production, company, custom fields and logo.
+- Settings: every field, and whether it's still set after a restart.
+- Changing the destination.
+- After a report: Open PDF / HTML / CSV, Show in folder, New report.
+- Cancelling a running report.
+- The window itself: dragging and double-clicking the title bar, the traffic lights,
+  resizing, and full screen.
+- *Check for updates* with no release published: what does the user see?
 
 **Done when** the whole flow (folder → report → open it) works through the window on the
 Mac, and the window looks and behaves like a Mac app.
