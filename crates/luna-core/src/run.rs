@@ -233,12 +233,14 @@ pub fn run(
         req.name.as_deref(),
         &now.strftime("%Y-%m-%d %H%M").to_string(),
     );
-    let stem = target
+    let files =
+        write_outputs(&target, &pdf, &html, &csv).map_err(|e| RunError::Output(e.to_string()))?;
+    // The copies take the name the report got.
+    let stem = files
+        .folder
         .file_name()
         .map(|n| n.to_string_lossy().into_owned())
         .unwrap_or_else(|| "Luna Report".into());
-    let files = write_outputs(&target, &stem, &pdf, &html, &csv)
-        .map_err(|e| RunError::Output(e.to_string()))?;
     let (copies, copy_errors) = if settings.copy_to_source {
         copy_to_drives(&files.folder, &roots, &stem, &pdf, &html, &csv)
     } else {
@@ -271,7 +273,7 @@ fn copy_to_drives(
     let (mut copies, mut errors) = (Vec::new(), Vec::new());
     for drive in copy_drives(&report, roots) {
         let target = output_folder(&drive.join("Luna"), "", Some(stem), "");
-        match write_outputs(&target, stem, pdf, html, csv) {
+        match write_outputs(&target, pdf, html, csv) {
             Ok(files) => copies.push(files.folder),
             Err(e) => errors.push(format!(
                 "The copy on {} couldn't be saved: {e}",

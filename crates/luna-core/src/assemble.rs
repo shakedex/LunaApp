@@ -178,11 +178,13 @@ pub struct OutputFiles {
     pub csv: PathBuf,
 }
 
-/// Writes the three files into a hidden temporary folder beside `target`, then
-/// renames it into place, so a failed run leaves no partial report.
+/// Writes the three files, named after the folder, into `target`. The files
+/// are written to a hidden temporary folder first, so a failed run leaves no
+/// partial report. The folder is claimed only then, by creating it: when
+/// another run (another Luna window) took the name in the meantime, the next
+/// free " (2)", " (3)"… is used instead.
 pub fn write_outputs(
     target: &Path,
-    stem: &str,
     pdf: &[u8],
     html: &[u8],
     csv: &[u8],
@@ -191,23 +193,68 @@ pub fn write_outputs(
         .parent()
         .ok_or_else(|| io::Error::other("output folder has no parent"))?;
     std::fs::create_dir_all(parent)?;
-    let tmp = parent.join(format!(".luna-writing-{}", std::process::id()));
+    static WRITES: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let n = WRITES.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let tmp = parent.join(format!(".luna-writing-{}-{n}", std::process::id()));
     let _ = std::fs::remove_dir_all(&tmp);
     std::fs::create_dir(&tmp)?;
-    let write_all = || -> io::Result<()> {
-        std::fs::write(tmp.join(format!("{stem}.pdf")), pdf)?;
-        std::fs::write(tmp.join(format!("{stem}.html")), html)?;
-        std::fs::write(tmp.join(format!("{stem}.csv")), csv)?;
-        std::fs::rename(&tmp, target)
+    let files = [("pdf", pdf), ("html", html), ("csv", csv)];
+    let result = (|| {
+        for (ext, bytes) in files {
+            std::fs::write(tmp.join(ext), bytes)?;
+        }
+        let folder = claim_folder(target)?;
+        let stem = folder
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_else(|| "Luna Report".into());
+        let moved = files.iter().try_for_each(|(ext, _)| {
+            std::fs::rename(tmp.join(ext), folder.join(format!("{stem}.{ext}")))
+        });
+        if let Err(e) = moved {
+            let _ = std::fs::remove_dir_all(&folder);
+            return Err(e);
+        }
+        Ok(OutputFiles {
+            pdf: folder.join(format!("{stem}.pdf")),
+            html: folder.join(format!("{stem}.html")),
+            csv: folder.join(format!("{stem}.csv")),
+            folder,
+        })
+    })();
+    let _ = std::fs::remove_dir_all(&tmp);
+    result
+}
+
+/// Creates `target`, or the first free numbered name after it, and returns the
+/// folder created. Creating is what claims a name, so two runs can't both get it.
+fn claim_folder(target: &Path) -> io::Result<PathBuf> {
+    let name = target
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    // "Day 1 (2)" continues at " (3)", not "Day 1 (2) (2)".
+    let (base, first) = match name.rsplit_once(" (") {
+        Some((base, n)) => match n.strip_suffix(')').and_then(|n| n.parse::<u32>().ok()) {
+            Some(n) => (base.to_owned(), n),
+            None => (name.clone(), 1),
+        },
+        None => (name.clone(), 1),
     };
-    if let Err(e) = write_all() {
-        let _ = std::fs::remove_dir_all(&tmp);
-        return Err(e);
+    for n in first..first + 1000 {
+        let candidate = if n == 1 {
+            target.to_path_buf()
+        } else {
+            target.with_file_name(format!("{base} ({n})"))
+        };
+        match std::fs::create_dir(&candidate) {
+            Ok(()) => return Ok(candidate),
+            Err(e) if e.kind() == io::ErrorKind::AlreadyExists => continue,
+            Err(e) => return Err(e),
+        }
     }
-    Ok(OutputFiles {
-        folder: target.to_path_buf(),
-        pdf: target.join(format!("{stem}.pdf")),
-        html: target.join(format!("{stem}.html")),
-        csv: target.join(format!("{stem}.csv")),
-    })
+    Err(io::Error::other(format!(
+        "no free folder name next to {}",
+        target.display()
+    )))
 }

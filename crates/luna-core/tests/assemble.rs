@@ -150,7 +150,7 @@ fn output_folder_is_named_and_never_collides() {
 fn outputs_appear_all_at_once() {
     let dir = tempfile::tempdir().unwrap();
     let target = dir.path().join("Report 1");
-    let files = write_outputs(&target, "Report 1", b"%PDF-1.7", b"<html>", b"csv").unwrap();
+    let files = write_outputs(&target, b"%PDF-1.7", b"<html>", b"csv").unwrap();
     assert_eq!(std::fs::read(&files.pdf).unwrap(), b"%PDF-1.7");
     assert_eq!(files.html, target.join("Report 1.html"));
     assert_eq!(files.csv, target.join("Report 1.csv"));
@@ -163,6 +163,51 @@ fn outputs_appear_all_at_once() {
         vec![std::ffi::OsString::from("Report 1")],
         "no temp folder left behind"
     );
+}
+
+#[test]
+fn a_name_taken_meanwhile_gets_the_next_number() {
+    // Another Luna window wrote "Day 1" after this run picked the name.
+    let dir = tempfile::tempdir().unwrap();
+    let target = dir.path().join("Day 1");
+    std::fs::create_dir(&target).unwrap();
+    std::fs::write(target.join("Day 1.pdf"), b"theirs").unwrap();
+    let files = write_outputs(&target, b"ours", b"<html>", b"csv").unwrap();
+    assert_eq!(files.folder, dir.path().join("Day 1 (2)"));
+    assert_eq!(
+        files.pdf,
+        dir.path().join("Day 1 (2)").join("Day 1 (2).pdf")
+    );
+    assert_eq!(std::fs::read(target.join("Day 1.pdf")).unwrap(), b"theirs");
+    // A numbered name continues its numbering.
+    let again = write_outputs(&dir.path().join("Day 1 (2)"), b"x", b"x", b"x").unwrap();
+    assert_eq!(again.folder, dir.path().join("Day 1 (3)"));
+}
+
+#[test]
+fn runs_writing_at_once_each_get_a_folder() {
+    let dir = tempfile::tempdir().unwrap();
+    let target = dir.path().join("Day 1");
+    let folders: Vec<_> = std::thread::scope(|s| {
+        let runs: Vec<_> = (0..4)
+            .map(|_| {
+                s.spawn(|| {
+                    write_outputs(&target, b"pdf", b"html", b"csv")
+                        .unwrap()
+                        .folder
+                })
+            })
+            .collect();
+        runs.into_iter().map(|r| r.join().unwrap()).collect()
+    });
+    let mut names: Vec<_> = folders
+        .iter()
+        .map(|f| f.file_name().unwrap().to_string_lossy().into_owned())
+        .collect();
+    names.sort();
+    assert_eq!(names, ["Day 1", "Day 1 (2)", "Day 1 (3)", "Day 1 (4)"]);
+    let entries = std::fs::read_dir(dir.path()).unwrap().count();
+    assert_eq!(entries, 4, "no temp folders left behind");
 }
 
 #[test]
