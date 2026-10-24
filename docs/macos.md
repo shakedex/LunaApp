@@ -283,6 +283,19 @@ and the destination with `--output`. `cargo xtask check` passes.
 The report header card can't be opened from the keyboard or with VoiceOver (Shaked: not
 needed).
 
+**Windows changes checked on the Mac, 2026-10-24** (`1bba6b9`, FFmpeg 9.0 pin `6d7f665`):
+- `cargo xtask check` passes with the corpus.
+- The new home screen and the Mac window controls are intact.
+- ProRes RAW still decodes through VideoToolbox. The FFmpeg change is Windows-only.
+- *Also save on the source drive:*
+  - With the source on MASTER_01, the copy lands in `/Volumes/MASTER_01/Luna/<report>`.
+  - A source on the Mac's own disk tried to copy to `/` and failed every time with
+    "Read-only file system". The startup disk is now left out (`copy_drives`), so there's
+    no copy and no error.
+  - On exFAT, macOS adds `._` files next to each copy.
+- Not yet checked through the window: the folder screen's new report fields, and the
+  Settings toggle.
+
 **Done when** the whole flow (folder → report → open it) works through the window on the
 Mac, and the window looks and behaves like a Mac app.
 

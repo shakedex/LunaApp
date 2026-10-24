@@ -10,7 +10,7 @@ use luna_worker::pool::{JobOutcome, PoolConfig, PoolError, run_pool};
 use luna_worker::{ClipJob, ClipResult};
 
 use crate::assemble::{
-    OutputFiles, clip_fields, drive_root, output_folder, same_drive, thumbnails, write_outputs,
+    OutputFiles, clip_fields, copy_drives, output_folder, thumbnails, write_outputs,
 };
 use crate::identity::resolve_identity;
 use crate::scan::{Scan, outermost, scan_roots};
@@ -258,7 +258,7 @@ pub fn run(
 }
 
 /// Writes the report again into `Luna` at the root of each source drive, once
-/// per drive, skipping the drive the report is already on.
+/// per drive ([`copy_drives`]).
 fn copy_to_drives(
     report: &Path,
     roots: &[PathBuf],
@@ -268,14 +268,8 @@ fn copy_to_drives(
     csv: &[u8],
 ) -> (Vec<PathBuf>, Vec<String>) {
     let report = dunce::canonicalize(report).unwrap_or_else(|_| report.to_path_buf());
-    let mut drives: Vec<PathBuf> = Vec::new();
-    for root in roots {
-        if !same_drive(root, &report) && !drives.iter().any(|d| same_drive(d, root)) {
-            drives.push(drive_root(root));
-        }
-    }
     let (mut copies, mut errors) = (Vec::new(), Vec::new());
-    for drive in drives {
+    for drive in copy_drives(&report, roots) {
         let target = output_folder(&drive.join("Luna"), "", Some(stem), "");
         match write_outputs(&target, stem, pdf, html, csv) {
             Ok(files) => copies.push(files.folder),
