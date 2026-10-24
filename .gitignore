@@ -14,7 +14,9 @@ Thumbs.db
 
 # Local-only working docs: branding, samples, plans/specs.
 # Kept on disk but not published to the remote.
-/docs/
+/docs/*
+# Shared with the Mac: the one list of open Mac work.
+!/docs/macos.md
 
 # Packaged app, and the pinned downloads xtask bundles into it
 /dist/
