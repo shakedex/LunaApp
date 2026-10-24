@@ -6,7 +6,13 @@ fn main() {
             .file("shim/luna_avf.m")
             .flag("-fobjc-arc")
             .compile("luna_avf");
-        for framework in ["AVFoundation", "CoreMedia", "CoreVideo", "Foundation"] {
+        for framework in [
+            "AVFoundation",
+            "CoreMedia",
+            "CoreVideo",
+            "Foundation",
+            "VideoToolbox",
+        ] {
             println!("cargo:rustc-link-lib=framework={framework}");
         }
     }

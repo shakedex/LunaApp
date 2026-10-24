@@ -435,6 +435,51 @@ fn prores_frames_reach_the_decoder() {
     }
 }
 
+#[cfg(target_os = "macos")]
+#[test]
+fn proresraw_ronin4d_through_videotoolbox() {
+    let Some(path) = corpus("S_cam/S006/A003C0011_210922_0000_ronin4d_proresraw.mov") else {
+        return;
+    };
+    let ranges = common::mov_video_ranges(&path).unwrap();
+    assert_eq!(ranges.len(), 705);
+    let n = ranges.len() as u64;
+    let p = probe(
+        Codec::ProResRaw,
+        FrameIndex::Ranges(ranges),
+        Default::default(),
+    );
+    let clip = files(Container::QuickTime, &path);
+    for r in decode_frames(&clip, &p, &[0, 302, n - 1], 640) {
+        let f = r.unwrap();
+        // 8192 photosites binned by 4: two picture pixels per 2x2 cell
+        assert_eq!(mosaic_size(&f), (2048, 1080));
+        assert_eq!(f.hint.transfer, Some(Transfer::Linear));
+        let Decoded::Mosaic {
+            black,
+            white,
+            wb,
+            camera_to_xyz,
+            scene_scale,
+            ..
+        } = &f.image
+        else {
+            unreachable!()
+        };
+        // Apple's metadata for this clip (proresraw-mac-check in luna-decoders).
+        assert_eq!((*black, *white), (256.0, 65535.0));
+        assert_eq!(*wb, Some([2.6357422, 1.0, 1.9135742]));
+        let m = camera_to_xyz.expect("Apple's colour matrix");
+        // rows sum to the D65 white point
+        for (row, white) in m.chunks(3).zip([0.9505, 1.0, 1.0888]) {
+            assert!((row.iter().sum::<f32>() - white).abs() < 0.002, "{m:?}");
+        }
+        assert!((scene_scale.unwrap() * (white - black) - 21.112).abs() < 0.001);
+        // Linear sensels just above black: a real picture, not black or flat.
+        assert!(mosaic_mean(&f) > *black as f64 + 50.0, "picture is black");
+    }
+}
+
 #[cfg(windows)]
 #[test]
 fn proresraw_ronin4d_through_ffmpeg() {

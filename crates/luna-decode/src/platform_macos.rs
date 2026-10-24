@@ -1,21 +1,27 @@
-//! H.264 / HEVC in MOV/MP4 through AVFoundation, macOS's own decoders.
+//! H.264 / HEVC and ProRes RAW in MOV/MP4 through AVFoundation, macOS's own
+//! decoders.
 //!
 //! The Objective-C shim (`shim/luna_avf.m`) opens one `AVAssetReader` per
 //! position, limited to a time range that starts a quarter of a frame into it,
-//! and hands back the first frame it decodes as the decoder's native bi-planar
-//! Y′CbCr (no colour conversion), locked in place while we copy it. The output
-//! format follows the stream's `avcC` / `hvcC` record: 8- or 10-bit, 4:2:0,
-//! 4:2:2 or 4:4:4, video or full range.
+//! and hands back the first frame it decodes, locked in place while we copy it.
+//!
+//! - Video comes back as the decoder's native bi-planar Y′CbCr (no colour
+//!   conversion). The format follows the stream's `avcC` / `hvcC` record: 8- or
+//!   10-bit, 4:2:0, 4:2:2 or 4:4:4, video or full range.
+//! - ProRes RAW comes back as the 16-bit sensor mosaic (`bp16`), binned to
+//!   thumbnail scale. It carries Apple's raw-conversion metadata: black and white
+//!   levels, white balance, the camera → XYZ matrix and the gain.
 //!
 //! A stream the decoder refuses before any frame has decoded is reported as
 //! unsupported, so H.264 the platform can't take falls back to our own decoder.
 
 use std::ffi::{CString, c_char, c_void};
 
-use luna_formats::{ClipFiles, Codec, ColourHint, Probe};
+use luna_formats::{ClipFiles, Codec, ColourHint, FrameIndex, Probe, Transfer};
 
+use crate::mosaic::{self, Rect};
 use crate::util;
-use crate::{DecodeError, Decoded, Frame};
+use crate::{Cfa, DecodeError, Decoded, Frame};
 
 const OK: i32 = 0;
 const UNSUPPORTED: i32 = 2;
@@ -49,6 +55,22 @@ struct Image {
     handle: *mut c_void,
 }
 
+#[repr(C)]
+struct Raw {
+    width: u32,
+    height: u32,
+    data: *const u16,
+    bytes_per_row: usize,
+    bayer: i32,
+    black: i32,
+    white: i32,
+    wb_red: f32,
+    wb_blue: f32,
+    camera_to_xyz: [f32; 9],
+    gain: f32,
+    handle: *mut c_void,
+}
+
 unsafe extern "C" {
     fn luna_avf_open(
         path: *const c_char,
@@ -65,6 +87,14 @@ unsafe extern "C" {
         len: usize,
     ) -> i32;
     fn luna_avf_image_release(image: *mut Image);
+    fn luna_avf_raw_frame(
+        reader: *mut c_void,
+        seconds: f64,
+        out: *mut Raw,
+        err: *mut c_char,
+        len: usize,
+    ) -> i32;
+    fn luna_avf_raw_release(raw: *mut Raw);
     fn luna_avf_close(reader: *mut c_void);
 }
 
@@ -87,6 +117,31 @@ pub(crate) fn decode(
         })
         .unwrap_or(u64::MAX);
     util::per_frame("AVFoundation", positions, count, |i| reader.frame_at(i))
+}
+
+/// ProRes RAW frames, binned so the mosaic is at least `2 × min_width` wide.
+pub(crate) fn decode_raw(
+    clip: &ClipFiles,
+    probe: &Probe,
+    positions: &[u64],
+    min_width: u32,
+) -> Vec<Result<Frame, DecodeError>> {
+    let mut reader = match Reader::open(clip, probe) {
+        Ok(r) => r,
+        Err(e) => return util::all_err(positions.len(), e),
+    };
+    let count = match &probe.frames {
+        FrameIndex::Ranges(r) => Some(r.len() as u64),
+        _ => probe.meta.frame_count,
+    }
+    .or_else(|| {
+        let n = (reader.duration * reader.fps).round();
+        (n >= 1.0).then_some(n as u64)
+    })
+    .unwrap_or(u64::MAX);
+    util::per_frame("ProRes RAW", positions, count, |i| {
+        reader.raw_frame_at(i, min_width)
+    })
 }
 
 struct Reader {
@@ -146,10 +201,10 @@ impl Reader {
             duration: info.duration,
             pixel_format: pixel_format(chroma, bits, info.full_range == 1),
             hint,
-            label: if hevc {
-                "This HEVC stream"
-            } else {
-                "This H.264 stream"
+            label: match probe.codec {
+                Codec::Hevc => "This HEVC stream",
+                Codec::ProResRaw => "This ProRes RAW stream",
+                _ => "This H.264 stream",
             },
             decoded_any: false,
             broken: None,
@@ -157,26 +212,60 @@ impl Reader {
     }
 
     fn frame_at(&mut self, frame: u64) -> Result<Frame, DecodeError> {
+        // SAFETY: zeroed is a valid empty Image (null planes and handle).
+        let mut image: Image = unsafe { std::mem::zeroed() };
+        let format = self.pixel_format;
+        self.read(frame, |raw, seconds, err| {
+            // SAFETY: live reader, out pointers to live locals.
+            unsafe {
+                luna_avf_frame(
+                    raw,
+                    seconds,
+                    format,
+                    &mut image,
+                    err.as_mut_ptr(),
+                    err.len(),
+                )
+            }
+        })?;
+        let decoded = copy_image(&image);
+        // SAFETY: releases the buffer the shim locked for us, once.
+        unsafe { luna_avf_image_release(&mut image) };
+        decoded.map(|image| Frame {
+            image,
+            hint: self.hint,
+        })
+    }
+
+    fn raw_frame_at(&mut self, frame: u64, min_width: u32) -> Result<Frame, DecodeError> {
+        // SAFETY: zeroed is a valid empty Raw (null data and handle).
+        let mut raw: Raw = unsafe { std::mem::zeroed() };
+        self.read(frame, |reader, seconds, err| {
+            // SAFETY: live reader, out pointers to live locals.
+            unsafe { luna_avf_raw_frame(reader, seconds, &mut raw, err.as_mut_ptr(), err.len()) }
+        })?;
+        let decoded = raw_mosaic(&raw, min_width);
+        // SAFETY: releases the buffer the shim locked for us, once.
+        unsafe { luna_avf_raw_release(&mut raw) };
+        decoded.map(|image| Frame {
+            image,
+            hint: RAW_HINT,
+        })
+    }
+
+    /// Runs one shim read for `frame` and turns its status into an error.
+    fn read(
+        &mut self,
+        frame: u64,
+        call: impl FnOnce(*mut c_void, f64, &mut [c_char; 512]) -> i32,
+    ) -> Result<(), DecodeError> {
         if let Some(e) = &self.broken {
             return Err(e.clone());
         }
         // A quarter frame in, so rounding never lands on the frame before.
         let seconds = self.start + (frame as f64 + 0.25) / self.fps;
         let mut err = [0 as c_char; 512];
-        // SAFETY: zeroed is a valid empty Image (null planes and handle).
-        let mut image: Image = unsafe { std::mem::zeroed() };
-        // SAFETY: live reader, out pointers to live locals.
-        let code = unsafe {
-            luna_avf_frame(
-                self.raw,
-                seconds,
-                self.pixel_format,
-                &mut image,
-                err.as_mut_ptr(),
-                err.len(),
-            )
-        };
-        match code {
+        match call(self.raw, seconds, &mut err) {
             OK => {}
             UNSUPPORTED if !self.decoded_any => {
                 let e = DecodeError::Unsupported(format!(
@@ -200,14 +289,77 @@ impl Reader {
             }
         }
         self.decoded_any = true;
-        let decoded = copy_image(&image);
-        // SAFETY: releases the buffer the shim locked for us, once.
-        unsafe { luna_avf_image_release(&mut image) };
-        decoded.map(|image| Frame {
-            image,
-            hint: self.hint,
-        })
+        Ok(())
     }
+}
+
+/// ProRes RAW is linear camera RGB; the matrix carries the colour, so no
+/// gamut is assumed.
+const RAW_HINT: ColourHint = ColourHint {
+    transfer: Some(Transfer::Linear),
+    gamut: None,
+};
+
+/// The locked `bp16` mosaic, binned, with Apple's metadata mapped onto
+/// [`Decoded::Mosaic`]. The gain is scene-linear per unit above black over
+/// the clip range, so `scene_scale` is gain / (white − black).
+fn raw_mosaic(raw: &Raw, min_width: u32) -> Result<Decoded, DecodeError> {
+    let (w, h) = (raw.width as usize, raw.height as usize);
+    if w < 2 || h < 2 || w > 16384 || h > 16384 || raw.data.is_null() || raw.bytes_per_row < 2 * w {
+        return Err(DecodeError::Failed(format!(
+            "AVFoundation returned an inconsistent ProRes RAW frame ({w}×{h})"
+        )));
+    }
+    let cfa = match raw.bayer {
+        0 => Cfa::Rggb,
+        1 => Cfa::Grbg,
+        2 => Cfa::Gbrg,
+        3 => Cfa::Bggr,
+        p => {
+            return Err(DecodeError::Failed(format!(
+                "Unknown ProRes RAW Bayer pattern {p}"
+            )));
+        }
+    };
+    let (black, white) = (raw.black as f32, raw.white as f32);
+    if white <= black {
+        return Err(DecodeError::Failed(format!(
+            "ProRes RAW levels make no sense (black {black}, white {white})"
+        )));
+    }
+    let stride = raw.bytes_per_row / 2;
+    // SAFETY: the shim holds the buffer locked; it is bytes_per_row × height,
+    // and CoreVideo aligns its base address for 16-bit samples.
+    let all = unsafe { std::slice::from_raw_parts(raw.data, stride * (h - 1) + w) };
+    let packed: std::borrow::Cow<[u16]> = if stride == w {
+        all.into()
+    } else {
+        all.chunks(stride)
+            .flat_map(|row| &row[..w])
+            .copied()
+            .collect::<Vec<_>>()
+            .into()
+    };
+    let full = Rect {
+        x: 0,
+        y: 0,
+        width: w,
+        height: h,
+    };
+    let (data, bw, bh) = mosaic::crop_bin(&packed, w, h, full, mosaic::bin_factor(w, min_width));
+    let wb = [raw.wb_red, 1.0, raw.wb_blue];
+    let m = raw.camera_to_xyz;
+    Ok(Decoded::Mosaic {
+        width: bw as u32,
+        height: bh as u32,
+        cfa,
+        data,
+        black,
+        white,
+        wb: wb.iter().all(|v| v.is_finite() && *v > 0.0).then_some(wb),
+        camera_to_xyz: m.iter().all(|v| v.is_finite()).then_some(m),
+        scene_scale: (raw.gain.is_finite() && raw.gain > 0.0).then(|| raw.gain / (white - black)),
+    })
 }
 
 fn message(err: &[c_char]) -> String {
@@ -460,6 +612,74 @@ mod tests {
         assert_eq!(pixel_format(2, 10, true), fourcc(b"xf22"));
         assert_eq!(pixel_format(3, 12, false), fourcc(b"x444"));
         assert_eq!(pixel_format(0, 8, true), fourcc(b"420f"));
+    }
+
+    fn raw(data: &[u16], width: u32, height: u32, bytes_per_row: usize) -> Raw {
+        Raw {
+            width,
+            height,
+            data: data.as_ptr(),
+            bytes_per_row,
+            bayer: 0,
+            black: 256,
+            white: 65535,
+            wb_red: 2.5,
+            wb_blue: 1.9,
+            camera_to_xyz: [0.6, 0.2, 0.1, 0.2, 1.0, -0.2, 0.1, -0.4, 1.4],
+            gain: 21.0,
+            handle: std::ptr::null_mut(),
+        }
+    }
+
+    #[test]
+    fn raw_mosaic_carries_apples_metadata() {
+        let data = vec![1000u16; 64 * 8];
+        let d = raw_mosaic(&raw(&data, 64, 8, 128), 8).unwrap();
+        let Decoded::Mosaic {
+            width,
+            height,
+            cfa,
+            black,
+            white,
+            wb,
+            camera_to_xyz,
+            scene_scale,
+            ..
+        } = d
+        else {
+            panic!("not a mosaic")
+        };
+        // 64 photosites binned by 4 keeps 16 >= 2 × 8.
+        assert_eq!((width, height, cfa), (16, 2, Cfa::Rggb));
+        assert_eq!((black, white), (256.0, 65535.0));
+        assert_eq!(wb, Some([2.5, 1.0, 1.9]));
+        assert_eq!(camera_to_xyz.unwrap()[4], 1.0);
+        assert!((scene_scale.unwrap() - 21.0 / 65279.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn raw_mosaic_skips_row_padding() {
+        // 4×2 photosites in rows padded to 6 samples; the padding holds junk.
+        // min_width 2 keeps the full 4 photosites (no binning).
+        let data = [1u16, 2, 3, 4, 999, 999, 5, 6, 7, 8, 999, 999];
+        let d = raw_mosaic(&raw(&data, 4, 2, 12), 2).unwrap();
+        let Decoded::Mosaic { data, width, .. } = d else {
+            panic!("not a mosaic")
+        };
+        assert_eq!(width, 4);
+        assert_eq!(data, vec![1, 2, 3, 4, 5, 6, 7, 8]);
+    }
+
+    #[test]
+    fn raw_mosaic_rejects_bad_frames() {
+        let data = vec![0u16; 16];
+        assert!(raw_mosaic(&raw(&data, 4, 4, 4), 0).is_err()); // rows too short
+        let mut r = raw(&data, 4, 4, 8);
+        r.white = r.black;
+        assert!(raw_mosaic(&r, 0).is_err());
+        let mut r = raw(&data, 4, 4, 8);
+        r.bayer = 7;
+        assert!(raw_mosaic(&r, 0).is_err());
     }
 
     fn planes(d: &Decoded) -> (u32, u32, u32, u32, &[u16], &[u16], &[u16]) {
