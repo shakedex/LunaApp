@@ -569,6 +569,17 @@ impl App {
         }
     }
 
+    /// Opens the logs folder in the file manager.
+    fn show_logs(&self) {
+        let opened = ensure_dir(luna_log::logs_dir())
+            .and_then(|dir| open::that_detached(dir).map_err(|e| e.to_string()));
+        let error = match opened {
+            Ok(()) => String::new(),
+            Err(e) => format!("Couldn't open the logs folder: {e}"),
+        };
+        self.settings_state().set_save_error(error.into());
+    }
+
     fn cancel(&self) {
         if self.flow.lock().expect("flow lock").request_cancel() {
             if let Some(control) = self.control.borrow().as_ref() {
@@ -673,6 +684,10 @@ impl App {
         s.set_app_version(env!("CARGO_PKG_VERSION").into());
         s.on_check_for_updates({
             let f = unit(|app| app.check_for_updates());
+            move || f(())
+        });
+        s.on_show_logs({
+            let f = unit(|app| app.show_logs());
             move || f(())
         });
         s.on_text_edited({
@@ -1036,8 +1051,38 @@ fn output_text(s: &Settings) -> String {
     s.output_dir.display().to_string()
 }
 
+/// Creates the logs folder if it's missing so the file manager has
+/// something to open.
+fn ensure_dir(dir: Option<PathBuf>) -> Result<PathBuf, String> {
+    let dir = dir.ok_or("Luna has no local data folder on this system")?;
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    Ok(dir)
+}
+
 fn file_name(p: &Path) -> String {
     p.file_name()
         .map(|n| n.to_string_lossy().into_owned())
         .unwrap_or_else(|| p.display().to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn show_logs_creates_the_folder() {
+        let root = tempfile::tempdir().unwrap();
+        let dir = root.path().join("not").join("yet").join("there");
+        let got = ensure_dir(Some(dir.clone())).unwrap();
+        assert_eq!(got, dir);
+        assert!(dir.is_dir());
+    }
+
+    #[test]
+    fn show_logs_without_a_data_folder_is_an_error() {
+        assert_eq!(
+            ensure_dir(None).unwrap_err(),
+            "Luna has no local data folder on this system"
+        );
+    }
 }

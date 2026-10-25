@@ -41,6 +41,7 @@ export global SettingsState {
     in property <string> app-version;
     in property <bool> can-check-updates;
     callback check-for-updates();
+    callback show-logs();
 
     callback text-edited();
     callback pick-logo();
@@ -531,6 +532,14 @@ export component SettingsView inherits Rectangle {
                 kind: ButtonKind.quiet;
                 clicked => {
                     SettingsState.check-for-updates();
+                }
+            }
+
+            LunaButton {
+                text: "Show logs";
+                kind: ButtonKind.quiet;
+                clicked => {
+                    SettingsState.show-logs();
                 }
             }
 
