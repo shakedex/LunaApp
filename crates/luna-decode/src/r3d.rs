@@ -20,8 +20,13 @@ use luna_formats::{ClipFiles, ColourHint, Gamut, Probe, Transfer};
 use crate::util;
 use crate::{DecodeError, Decoded, Frame};
 
-/// The ABI version this core speaks (`LUNA_R3D_ABI_VERSION`).
-const ABI_VERSION: u32 = 1;
+/// The ABI versions this core speaks (`LUNA_R3D_ABI_VERSION`). Version 2 adds
+/// `luna_r3d_set_log`; a version 1 add-on works the same, without logs.
+const ABI_VERSIONS: std::ops::RangeInclusive<u32> = 1..=2;
+
+fn accepts_abi(version: u32) -> bool {
+    ABI_VERSIONS.contains(&version)
+}
 
 pub(crate) const NOT_INSTALLED: &str = "R3D support is a separate add-on and isn't installed";
 
@@ -83,6 +88,29 @@ type MetadataFn = unsafe extern "C" fn(*const c_void, Option<MetaCb>, *mut c_voi
 type DecodeSizeFn = unsafe extern "C" fn(*const c_void, u32, *mut u32, *mut u32) -> i32;
 type DecodeFn = unsafe extern "C" fn(*const c_void, u64, u32, *mut u16, usize) -> i32;
 type LastErrorFn = unsafe extern "C" fn(*mut c_char, usize) -> usize;
+type LogCb = extern "C" fn(u32, *const c_char);
+type SetLogFn = unsafe extern "C" fn(Option<LogCb>);
+
+/// The add-on's log lines (ABI 2) as `tracing` events with target `r3d`.
+/// May run on any thread, SDK threads included: it copies the message and
+/// never unwinds into the add-on.
+extern "C" fn log_line(level: u32, message: *const c_char) {
+    let _ = std::panic::catch_unwind(|| {
+        if message.is_null() {
+            return;
+        }
+        // SAFETY: the add-on passes a NUL-terminated string valid during the call.
+        let text = unsafe { CStr::from_ptr(message) }
+            .to_string_lossy()
+            .into_owned();
+        match level {
+            1 => tracing::error!(target: "r3d", "{text}"),
+            2 => tracing::warn!(target: "r3d", "{text}"),
+            3 => tracing::info!(target: "r3d", "{text}"),
+            _ => tracing::debug!(target: "r3d", "{text}"),
+        }
+    });
+}
 
 /// The loaded add-on. The library stays loaded for the life of the process,
 /// so the function pointers stay valid.
@@ -146,9 +174,11 @@ fn load() -> Result<Addon, DecodeError> {
             .get::<AbiVersionFn>(b"luna_r3d_abi_version\0")
             .map_err(|e| broken(&e))?;
         let version = abi();
-        if version != ABI_VERSION {
+        if !accepts_abi(version) {
             return Err(DecodeError::Unsupported(format!(
-                "The installed R3D add-on is the wrong version (ABI {version}, Luna needs {ABI_VERSION})"
+                "The installed R3D add-on is the wrong version (ABI {version}, Luna needs {} to {})",
+                ABI_VERSIONS.start(),
+                ABI_VERSIONS.end()
             )));
         }
         macro_rules! sym {
@@ -157,6 +187,11 @@ fn load() -> Result<Addon, DecodeError> {
                     .map_err(|e| broken(&e))?
             };
         }
+        if version >= 2 {
+            let set_log: SetLogFn = sym!("luna_r3d_set_log", SetLogFn);
+            set_log(Some(log_line));
+        }
+        tracing::debug!(target: "r3d", abi = version, path = %path.display(), "add-on loaded");
         let init: InitFn = sym!("luna_r3d_init", InitFn);
         let addon = Addon {
             open: sym!("luna_r3d_open", OpenFn),
@@ -373,6 +408,13 @@ mod tests {
         // no NUL at all: all 16 bytes
         let full = [b'1' as c_char; 16];
         assert_eq!(Info::text(&full).map(|s| s.len()), Some(16));
+    }
+
+    #[test]
+    fn abi_v1_still_accepted() {
+        assert!(accepts_abi(1));
+        assert!(accepts_abi(2));
+        assert!(!accepts_abi(3));
     }
 
     #[test]
