@@ -50,8 +50,10 @@ pub fn init(mode: Mode) {
     init_with_dir(mode, logs_dir());
 }
 
-/// Luna's own targets at DEBUG; other crates only when something is wrong.
-const FILTER: &str = "warn,luna=debug";
+/// Luna's own targets and the decoder crates at DEBUG; other crates only when
+/// something is wrong.
+const FILTER: &str =
+    "warn,luna=debug,xocn=debug,crm=debug,arri=debug,braw=debug,proresraw_ffmpeg=debug,r3d=debug";
 
 /// [`init`] with an explicit logs folder; `None` writes no files.
 pub fn init_with_dir(mode: Mode, dir: Option<PathBuf>) {
@@ -90,4 +92,42 @@ fn install_panic_hook(chain: bool) {
             default(info);
         }
     }));
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::{Arc, Mutex};
+
+    #[derive(Clone, Default)]
+    struct Sink(Arc<Mutex<Vec<u8>>>);
+
+    impl Write for Sink {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            self.0.lock().unwrap().write(buf)
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn decoder_debug_events_pass_the_filter() {
+        let sink = Sink::default();
+        let layer = RunLayer::new(None, Some(Box::new(sink.clone())), None);
+        let subscriber = tracing_subscriber::registry()
+            .with(EnvFilter::new(FILTER))
+            .with(layer);
+        tracing::subscriber::with_default(subscriber, || {
+            tracing::debug!(target: "xocn", "from xocn");
+            tracing::debug!(target: "r3d", "from r3d");
+            tracing::debug!(target: "luna_report::pdf", "from luna");
+            tracing::info!(target: "wgpu_core", "from wgpu");
+        });
+        let text = String::from_utf8(sink.0.lock().unwrap().clone()).unwrap();
+        assert!(text.contains("xocn: from xocn\n"), "{text}");
+        assert!(text.contains("r3d: from r3d\n"), "{text}");
+        assert!(text.contains("luna_report::pdf: from luna\n"), "{text}");
+        assert!(!text.contains("from wgpu"), "{text}");
+    }
 }

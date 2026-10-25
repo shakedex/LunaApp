@@ -52,7 +52,7 @@ fn field(record: impl FnOnce(&mut FieldText<'_>), name: &str) -> Option<String> 
 }
 
 /// Writes one line; the first failure is reported once on stderr, the rest
-/// are dropped.
+/// are dropped. Runs under a writer lock, so nothing here may panic.
 fn write_line(w: &mut dyn Write, line: &str, flush: bool) {
     static REPORTED: AtomicBool = AtomicBool::new(false);
     let result = w
@@ -61,7 +61,8 @@ fn write_line(w: &mut dyn Write, line: &str, flush: bool) {
     if let Err(e) = result
         && !REPORTED.swap(true, Ordering::Relaxed)
     {
-        eprintln!("luna-log: could not write the log: {e}");
+        let note = format!("luna-log: could not write the log: {e}\n");
+        let _ = std::io::stderr().lock().write_all(note.as_bytes());
     }
 }
 
