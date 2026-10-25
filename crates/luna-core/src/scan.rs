@@ -36,7 +36,7 @@ impl Scan {
                 .iter()
                 .map(|(kind, p)| format!("{kind:?} {}", show(p)))
                 .collect();
-            tracing::info!(
+            tracing::debug!(
                 container = ?clip.container,
                 segments = ?segments,
                 sidecars = ?sidecars,
@@ -45,10 +45,10 @@ impl Scan {
             );
         }
         for path in &self.not_included {
-            tracing::info!("not included: {path} (not part of a clip)");
+            tracing::debug!("not included: {path} (not part of a clip)");
         }
         for u in &self.unreadable {
-            tracing::info!(kind = ?u.kind, "unreadable: {}: {}", u.path, u.reason);
+            tracing::debug!(kind = ?u.kind, "unreadable: {}: {}", u.path, u.reason);
         }
     }
 }

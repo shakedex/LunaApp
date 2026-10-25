@@ -205,7 +205,7 @@ fn log_header(req: &RunRequest, workers: &WorkerSpec) {
         std::env::consts::OS,
         std::env::consts::ARCH
     );
-    tracing::info!("settings: {:?}", req.settings);
+    tracing::debug!("settings: {:?}", req.settings);
     for source in &req.sources {
         tracing::info!("source: {}", source.display());
     }

@@ -21,7 +21,7 @@ fn main() -> ExitCode {
         return ExitCode::SUCCESS;
     }
     luna_log::init(Mode::Cli);
-    tracing::info!(
+    tracing::debug!(
         "Luna {} {} {}",
         env!("CARGO_PKG_VERSION"),
         std::env::consts::OS,
