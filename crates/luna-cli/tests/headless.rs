@@ -32,11 +32,32 @@ fn two_cameras() -> tempfile::TempDir {
     ])
 }
 
-fn luna(args: &[&str]) -> Output {
-    Command::new(env!("CARGO_BIN_EXE_luna-cli"))
+/// Runs `luna-cli` with its logs in a fresh folder, returned with the output.
+fn luna_logged(args: &[&str]) -> (Output, tempfile::TempDir) {
+    let logs = tempfile::tempdir().unwrap();
+    let out = Command::new(env!("CARGO_BIN_EXE_luna-cli"))
         .args(args)
+        .env("LUNA_LOG_DIR", logs.path())
         .output()
+        .unwrap();
+    (out, logs)
+}
+
+fn luna(args: &[&str]) -> Output {
+    luna_logged(args).0
+}
+
+/// The run logs in `logs`, without `luna.log`.
+fn run_logs(logs: &Path) -> Vec<std::path::PathBuf> {
+    std::fs::read_dir(logs)
         .unwrap()
+        .flatten()
+        .map(|e| e.path())
+        .filter(|p| {
+            p.extension().is_some_and(|x| x == "log")
+                && p.file_name().is_some_and(|n| n != "luna.log")
+        })
+        .collect()
 }
 
 fn json(out: &Output) -> serde_json::Value {
@@ -71,6 +92,23 @@ fn report_json_exit_1_when_clips_have_problems() {
     assert_eq!(v["clips_with_problems"], 3);
     assert_eq!(v["not_included"], 1);
     assert!(Path::new(v["files"]["pdf"].as_str().unwrap()).exists());
+}
+
+#[test]
+#[ignore = "needs the run span (Task 3)"]
+fn logs_go_to_the_log_dir_not_stdout() {
+    let src = two_cameras();
+    let out_dir = tempfile::tempdir().unwrap();
+    let (out, logs) = luna_logged(&[
+        "report",
+        s(src.path()),
+        "--output",
+        s(out_dir.path()),
+        "--json",
+    ]);
+    assert_eq!(json(&out)["clips"], 3);
+    assert!(logs.path().join("luna.log").exists());
+    assert_eq!(run_logs(logs.path()).len(), 1);
 }
 
 #[test]

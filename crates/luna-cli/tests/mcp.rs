@@ -28,13 +28,17 @@ struct Server {
     stdin: Option<ChildStdin>,
     lines: Receiver<Value>,
     next: u64,
+    /// The server's `LUNA_LOG_DIR`, so tests never log into the real folder.
+    _logs: tempfile::TempDir,
 }
 
 impl Server {
     fn start() -> Server {
+        let logs = tempfile::tempdir().unwrap();
         let mut child = Command::new(env!("CARGO_BIN_EXE_luna-cli"))
             .arg("mcp")
             .env("LUNA_WORKER_TEST_HOOKS", "1")
+            .env("LUNA_LOG_DIR", logs.path())
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::null())
@@ -54,6 +58,7 @@ impl Server {
             child,
             lines,
             next: 0,
+            _logs: logs,
         };
         s.request(
             "initialize",

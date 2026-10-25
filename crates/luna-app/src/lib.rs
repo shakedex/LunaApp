@@ -8,7 +8,6 @@ pub mod backdrop;
 pub mod backend;
 pub mod core_backend;
 pub mod flow;
-pub mod log;
 #[cfg(target_os = "macos")]
 mod mac_menu;
 pub mod moon;

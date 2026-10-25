@@ -3714,9 +3714,9 @@ name = "luna-app"
 version = "2026.10.1"
 dependencies = [
  "clap",
- "dirs",
  "i-slint-backend-winit",
  "luna-core",
+ "luna-log",
  "luna-update",
  "luna-worker",
  "muda",
@@ -3725,6 +3725,7 @@ dependencies = [
  "slint",
  "slint-build",
  "tempfile",
+ "tracing",
  "winresource",
 ]
 
@@ -3735,6 +3736,7 @@ dependencies = [
  "clap",
  "ctrlc",
  "luna-core",
+ "luna-log",
  "luna-worker",
  "rmcp",
  "schemars",
@@ -3742,6 +3744,7 @@ dependencies = [
  "serde_json",
  "tempfile",
  "tokio",
+ "tracing",
 ]
 
 [[package]]

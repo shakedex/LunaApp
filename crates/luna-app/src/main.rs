@@ -11,14 +11,22 @@ use luna_app::core_backend::{CoreBackend, PlatformSettingsStore};
 use luna_app::settings_store::{MemorySettingsStore, SettingsStore};
 use luna_core::cli::{Cli, Command};
 use luna_core::run::{RunRequest, WorkerSpec};
+use luna_log::Mode;
 
 fn main() -> ExitCode {
     if std::env::args().nth(1).as_deref() == Some("--worker") {
+        luna_log::init(Mode::Worker);
         luna_worker::worker_main();
         return ExitCode::SUCCESS;
     }
 
-    luna_app::log::install_panic_hook();
+    luna_log::init(Mode::App);
+    tracing::info!(
+        "Luna {} {} {}",
+        env!("CARGO_PKG_VERSION"),
+        std::env::consts::OS,
+        std::env::consts::ARCH
+    );
 
     // `LUNA_FAKE_BACKEND=1` simulates runs (UI work); otherwise the real pipeline.
     let fake = std::env::var_os("LUNA_FAKE_BACKEND").is_some();
@@ -28,7 +36,7 @@ fn main() -> ExitCode {
         match WorkerSpec::current_exe() {
             Ok(spec) => Arc::new(CoreBackend::new(spec)),
             Err(e) => {
-                luna_app::log::error(&format!("Luna couldn't find its own executable: {e}"));
+                tracing::error!("Luna couldn't find its own executable: {e}");
                 return ExitCode::FAILURE;
             }
         }
@@ -43,7 +51,7 @@ fn main() -> ExitCode {
     match luna_app::ui::run(backend, store, !fake, preset) {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
-            luna_app::log::error(&format!("Luna couldn't open its window: {e}"));
+            tracing::error!("Luna couldn't open its window: {e}");
             ExitCode::FAILURE
         }
     }

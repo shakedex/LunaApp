@@ -12,12 +12,21 @@ use std::process::ExitCode;
 
 use clap::Parser;
 use luna_core::cli::{Cli, Command};
+use luna_log::Mode;
 
 fn main() -> ExitCode {
     if std::env::args().nth(1).as_deref() == Some("--worker") {
+        luna_log::init(Mode::Worker);
         luna_worker::worker_main();
         return ExitCode::SUCCESS;
     }
+    luna_log::init(Mode::Cli);
+    tracing::info!(
+        "Luna {} {} {}",
+        env!("CARGO_PKG_VERSION"),
+        std::env::consts::OS,
+        std::env::consts::ARCH
+    );
     let cli = match Cli::try_parse() {
         Ok(c) => c,
         Err(e) => {
@@ -36,12 +45,12 @@ fn main() -> ExitCode {
             Ok(workers) => match mcp::serve(workers) {
                 Ok(()) => 0,
                 Err(e) => {
-                    eprintln!("{e}");
+                    tracing::error!("{e}");
                     headless::FAILED
                 }
             },
             Err(e) => {
-                eprintln!("Luna couldn't find its own executable: {e}");
+                tracing::error!("Luna couldn't find its own executable: {e}");
                 headless::FAILED
             }
         },

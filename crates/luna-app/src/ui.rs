@@ -420,7 +420,7 @@ impl App {
         edit(&mut settings);
         match self.store.save(&settings) {
             Ok(()) => *self.settings.borrow_mut() = settings,
-            Err(e) => crate::log::error(&format!("Couldn't save the report header: {e}")),
+            Err(e) => tracing::error!("Couldn't save the report header: {e}"),
         }
         self.render();
     }
@@ -435,7 +435,7 @@ impl App {
         };
         match self.store.save(&settings) {
             Ok(()) => *self.settings.borrow_mut() = settings,
-            Err(e) => crate::log::error(&format!("Couldn't save the report theme: {e}")),
+            Err(e) => tracing::error!("Couldn't save the report theme: {e}"),
         }
         self.settings_state()
             .set_report_dark(self.settings.borrow().report_theme == ReportTheme::Dark);
@@ -447,7 +447,7 @@ impl App {
         settings.copy_to_source = on;
         match self.store.save(&settings) {
             Ok(()) => *self.settings.borrow_mut() = settings,
-            Err(e) => crate::log::error(&format!("Couldn't save the source-drive copy: {e}")),
+            Err(e) => tracing::error!("Couldn't save the source-drive copy: {e}"),
         }
         self.settings_state()
             .set_copy_to_source(self.settings.borrow().copy_to_source);
@@ -534,7 +534,7 @@ impl App {
         });
         if updater.is_none() {
             let why = luna_update::unavailable_reason().unwrap_or_default();
-            crate::log::error(&format!("Updates are off: {why}"));
+            tracing::error!("Updates are off: {why}");
         }
         self.settings_state()
             .set_can_check_updates(updater.is_some());
