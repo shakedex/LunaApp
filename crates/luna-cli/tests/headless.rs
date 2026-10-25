@@ -95,7 +95,6 @@ fn report_json_exit_1_when_clips_have_problems() {
 }
 
 #[test]
-#[ignore = "needs the run span (Task 3)"]
 fn logs_go_to_the_log_dir_not_stdout() {
     let src = two_cameras();
     let out_dir = tempfile::tempdir().unwrap();
@@ -108,7 +107,18 @@ fn logs_go_to_the_log_dir_not_stdout() {
     ]);
     assert_eq!(json(&out)["clips"], 3);
     assert!(logs.path().join("luna.log").exists());
-    assert_eq!(run_logs(logs.path()).len(), 1);
+    let runs = run_logs(logs.path());
+    assert_eq!(runs.len(), 1);
+    let text = std::fs::read_to_string(&runs[0]).unwrap();
+    for want in ["Luna 20", "settings:", "source:", "output:"] {
+        assert!(text.contains(want), "{want}: {text}");
+    }
+    assert_eq!(text.matches(": scan: ").count(), 3, "{text}");
+    let last = text.lines().last().unwrap();
+    assert!(
+        last.contains("summary: clips=3 ok=0 warnings=3 failed="),
+        "{text}"
+    );
 }
 
 #[test]

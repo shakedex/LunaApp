@@ -3,7 +3,7 @@
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use luna_report::{Camera, Card, Clip, CustomField, Header, Logo, Report, Thumbnail};
 use luna_worker::pool::{JobOutcome, PoolConfig, PoolError, run_pool};
@@ -159,15 +159,108 @@ pub fn source_roots(sources: &[PathBuf]) -> Result<Vec<PathBuf>, RunError> {
 
 /// Scans the request's sources, reads every clip in worker processes, and
 /// writes the PDF, HTML and CSV into a new folder under the output location.
+/// The run is logged to its own file (the `run` span).
 pub fn run(
     req: &RunRequest,
     workers: &WorkerSpec,
     progress: &(dyn Fn(Progress) + Sync),
     cancel: &AtomicBool,
 ) -> Result<RunOutcome, RunError> {
+    let span = tracing::info_span!(target: "luna::run", "run", source = %run_name(&req.sources));
+    let _run = span.enter();
+    let result = run_inner(req, workers, progress, cancel);
+    match &result {
+        Ok(_) => {}
+        Err(RunError::Cancelled) => tracing::info!("cancelled"),
+        Err(e) => tracing::error!("{e}"),
+    }
+    result
+}
+
+/// The run log's name: the first source's folder name (its full path when it
+/// has none, like a drive root), with ` +N` for the other sources.
+fn run_name(sources: &[PathBuf]) -> String {
+    let Some(first) = sources.first() else {
+        return String::new();
+    };
+    let name = first.file_name().map_or_else(
+        || first.display().to_string(),
+        |n| n.to_string_lossy().into_owned(),
+    );
+    match sources.len() {
+        1 => name,
+        n => format!("{name} +{}", n - 1),
+    }
+}
+
+/// The header of a run log: Luna, the machine, the workers and the request.
+fn log_header(req: &RunRequest, workers: &WorkerSpec) {
+    let cores = std::thread::available_parallelism().map_or(0, |n| n.get());
+    tracing::info!(
+        cores,
+        workers = workers.workers,
+        timeout = ?workers.timeout,
+        "Luna {} {} {}",
+        env!("CARGO_PKG_VERSION"),
+        std::env::consts::OS,
+        std::env::consts::ARCH
+    );
+    tracing::info!("settings: {:?}", req.settings);
+    for source in &req.sources {
+        tracing::info!("source: {}", source.display());
+    }
+    if req.cameras.is_empty() {
+        tracing::info!("cameras: all");
+    } else {
+        tracing::info!("cameras: {}", req.cameras.join(", "));
+    }
+    tracing::info!("output: {}", req.settings.output_dir.display());
+}
+
+/// How the decoded clips came out, for the run log's summary. `ok` and
+/// `warnings` split every clip; `failed` (nothing could be read), `crashed`
+/// and `timed_out` are clips counted under `warnings`.
+#[derive(Debug, Default)]
+struct Tally {
+    ok: usize,
+    warnings: usize,
+    failed: usize,
+    crashed: usize,
+    timed_out: usize,
+}
+
+impl Tally {
+    fn of(done: &[(u64, JobOutcome)]) -> Self {
+        let mut t = Tally::default();
+        for (_, outcome) in done {
+            if !outcome_has_problems(outcome) {
+                t.ok += 1;
+                continue;
+            }
+            t.warnings += 1;
+            match outcome {
+                JobOutcome::Done(r) if r.meta.is_none() => t.failed += 1,
+                JobOutcome::Done(_) => {}
+                JobOutcome::Crashed => t.crashed += 1,
+                JobOutcome::TimedOut => t.timed_out += 1,
+            }
+        }
+        t
+    }
+}
+
+fn run_inner(
+    req: &RunRequest,
+    workers: &WorkerSpec,
+    progress: &(dyn Fn(Progress) + Sync),
+    cancel: &AtomicBool,
+) -> Result<RunOutcome, RunError> {
+    let started = Instant::now();
+    log_header(req, workers);
     let settings = &req.settings;
     let roots = source_roots(&req.sources)?;
     let scanned = scan_roots(&roots);
+    scanned.log(&roots);
     let files = scanned
         .clips
         .iter()
@@ -207,6 +300,7 @@ pub fn run(
         });
     };
     let done = run_jobs(&scanned, &selected, STRIP, workers, cancel, &on_done)?;
+    let tally = Tally::of(&done);
     let outcomes = merge_outcomes(probed, done, &selected);
     if cancel.load(Ordering::SeqCst) {
         return Err(RunError::Cancelled);
@@ -246,6 +340,17 @@ pub fn run(
     } else {
         Default::default()
     };
+    tracing::info!("report: {}", files.folder.display());
+    tracing::info!(
+        clips = selected_total,
+        ok = tally.ok,
+        warnings = tally.warnings,
+        failed = tally.failed,
+        crashed = tally.crashed,
+        timed_out = tally.timed_out,
+        wall = ?started.elapsed(),
+        "summary:"
+    );
     let totals = report.totals();
     Ok(RunOutcome {
         summary: summary(&report),

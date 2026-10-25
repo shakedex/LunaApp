@@ -24,6 +24,35 @@ pub struct Scan {
     pub unreadable: Vec<Unreadable>,
 }
 
+impl Scan {
+    /// Logs what the walk found: each clip with its segments and sidecars,
+    /// then every file left out and every path that couldn't be read.
+    pub fn log(&self, roots: &[PathBuf]) {
+        let show = |p: &Path| display_path(roots, p);
+        for clip in &self.clips {
+            let segments: Vec<_> = clip.segments.iter().map(|p| show(p)).collect();
+            let sidecars: Vec<_> = clip
+                .sidecars
+                .iter()
+                .map(|(kind, p)| format!("{kind:?} {}", show(p)))
+                .collect();
+            tracing::info!(
+                container = ?clip.container,
+                segments = ?segments,
+                sidecars = ?sidecars,
+                "scan: {}",
+                show(&clip.main)
+            );
+        }
+        for path in &self.not_included {
+            tracing::info!("not included: {path} (not part of a clip)");
+        }
+        for u in &self.unreadable {
+            tracing::info!(kind = ?u.kind, "unreadable: {}: {}", u.path, u.reason);
+        }
+    }
+}
+
 /// Folder and file names an OS leaves behind. Matched case-insensitively.
 const CLUTTER: [&str; 9] = [
     ".trashes",
