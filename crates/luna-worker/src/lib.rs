@@ -53,10 +53,13 @@ pub fn worker_main() {
             Request::Job(job) => job,
             Request::Shutdown => break,
         };
-        if hooks {
-            test_hooks(&job);
-        }
-        let result = std::panic::catch_unwind(|| run_job(&job)).unwrap_or_else(|_| ClipResult {
+        let result = std::panic::catch_unwind(|| {
+            if hooks {
+                test_hooks(&job);
+            }
+            run_job(&job)
+        })
+        .unwrap_or_else(|_| ClipResult {
             id: job.id,
             meta: None,
             codec: None,
@@ -79,6 +82,12 @@ fn test_hooks(job: &ClipJob) {
     let name = job.files.main.to_string_lossy();
     if name.contains("__crash__") {
         std::process::abort();
+    }
+    if name.contains("__log__") {
+        eprintln!("12:00:00.000 WARN  [x] hook: hello");
+    }
+    if name.contains("__panic__") {
+        panic!("boom");
     }
     if name.contains("__hang__") {
         loop {

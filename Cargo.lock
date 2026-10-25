@@ -3855,6 +3855,7 @@ dependencies = [
  "postcard",
  "serde",
  "tempfile",
+ "tracing",
 ]
 
 [[package]]

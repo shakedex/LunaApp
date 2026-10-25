@@ -1,5 +1,5 @@
-use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use luna_formats::{ClipFiles, Container};
@@ -13,6 +13,7 @@ fn config(workers: usize, timeout: Duration) -> PoolConfig {
         env: vec![("LUNA_WORKER_TEST_HOOKS".into(), "1".into())],
         workers,
         timeout,
+        on_line: None,
     }
 }
 
@@ -129,4 +130,33 @@ fn a_missing_worker_binary_is_a_run_error() {
         &|_, _| {},
     );
     assert!(matches!(res, Err(PoolError::Spawn(_))));
+}
+
+/// Runs `jobs` on one worker and returns every stderr line it forwarded.
+fn forwarded_lines(jobs: Vec<ClipJob>) -> Vec<String> {
+    let lines = Arc::new(Mutex::new(Vec::new()));
+    let sink = lines.clone();
+    let mut c = config(1, Duration::from_secs(30));
+    c.on_line = Some(Arc::new(move |l: &str| {
+        sink.lock().unwrap().push(l.to_string())
+    }));
+    run_pool(&c, jobs, &AtomicBool::new(false), &|_, _| {}).unwrap();
+    lines.lock().unwrap().clone()
+}
+
+#[test]
+fn worker_stderr_lines_are_forwarded() {
+    let lines = forwarded_lines(vec![job(0, "__log__.mov")]);
+    assert!(
+        lines
+            .iter()
+            .any(|l| l == "12:00:00.000 WARN  [x] hook: hello"),
+        "{lines:?}"
+    );
+}
+
+#[test]
+fn worker_panic_message_is_forwarded() {
+    let lines = forwarded_lines(vec![job(0, "__panic__.mov"), job(1, "b.mov")]);
+    assert!(lines.iter().any(|l| l.contains("boom")), "{lines:?}");
 }

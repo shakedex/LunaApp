@@ -414,6 +414,7 @@ fn run_jobs(
         env: vec![],
         workers: workers.workers,
         timeout: workers.timeout,
+        on_line: None,
     };
     match run_pool(&config, jobs, cancel, on_done) {
         Ok(d) => Ok(d),
