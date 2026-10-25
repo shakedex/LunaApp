@@ -29,7 +29,7 @@ struct Server {
     lines: Receiver<Value>,
     next: u64,
     /// The server's `LUNA_LOG_DIR`, so tests never log into the real folder.
-    _logs: tempfile::TempDir,
+    logs: tempfile::TempDir,
 }
 
 impl Server {
@@ -58,7 +58,7 @@ impl Server {
             child,
             lines,
             next: 0,
-            _logs: logs,
+            logs,
         };
         s.request(
             "initialize",
@@ -157,6 +157,38 @@ fn start_and_poll_to_done() {
     };
     assert_eq!(status["state"], "done", "{status}");
     assert!(Path::new(status["result"]["files"]["pdf"].as_str().unwrap()).exists());
+}
+
+#[test]
+fn mcp_job_writes_a_run_log() {
+    let src = tree(&["A_CAM/A001/A001C001_251020_R1AB.mxf"]);
+    let out = tempfile::tempdir().unwrap();
+    let mut server = Server::start();
+    let started = server.call(
+        "start_report",
+        json!({ "sources": [s(src.path())], "output": s(out.path()) }),
+    );
+    let id = payload(&started)["report_id"].as_str().unwrap().to_owned();
+    let start = Instant::now();
+    loop {
+        let status = payload(&server.call("report_status", json!({ "report_id": id })));
+        if status["state"] != "queued" && status["state"] != "running" {
+            break;
+        }
+        assert!(start.elapsed() < Duration::from_secs(60));
+        std::thread::sleep(Duration::from_millis(100));
+    }
+    let runs: Vec<_> = std::fs::read_dir(server.logs.path())
+        .unwrap()
+        .flatten()
+        .map(|e| e.path())
+        .filter(|p| {
+            p.extension().is_some_and(|x| x == "log") && p.file_name() != Some("luna.log".as_ref())
+        })
+        .collect();
+    assert_eq!(runs.len(), 1, "{runs:?}");
+    let text = std::fs::read_to_string(&runs[0]).unwrap();
+    assert!(text.contains("summary: clips=1"), "{text}");
 }
 
 #[test]

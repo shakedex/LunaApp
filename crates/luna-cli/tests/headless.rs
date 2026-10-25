@@ -136,7 +136,7 @@ fn camera_filter_reports_one_camera() {
     ]);
     let v = json(&out);
     assert_eq!(v["clips"], 1, "{v}");
-    let csv = std::fs::read_to_string(v["files"]["csv"].as_str().unwrap()).unwrap();
+    let csv = std::fs::read_to_string(v["files"]["html"].as_str().unwrap()).unwrap();
     assert!(csv.contains("B001C001"));
     assert!(!csv.contains("A001C001"));
 }
@@ -241,4 +241,86 @@ fn saved_settings_untouched() {
     ]);
     let after = settings.as_ref().and_then(|p| std::fs::read(p).ok());
     assert_eq!(before, after);
+}
+
+/// The text between `open` and `close` after every occurrence of `open`.
+fn between<'a>(hay: &'a str, open: &str, close: &str) -> Vec<&'a str> {
+    hay.split(open)
+        .skip(1)
+        .filter_map(|rest| rest.split_once(close).map(|(t, _)| t))
+        .collect()
+}
+
+#[test]
+fn every_report_warning_has_a_warn_line() {
+    let src = two_cameras();
+    let out_dir = tempfile::tempdir().unwrap();
+    let (out, logs) = luna_logged(&[
+        "report",
+        s(src.path()),
+        "--output",
+        s(out_dir.path()),
+        "--json",
+    ]);
+    // The JSON output only counts problems; the warnings are in the HTML report.
+    let html = std::fs::read_to_string(json(&out)["files"]["html"].as_str().unwrap()).unwrap();
+    let runs = run_logs(logs.path());
+    assert_eq!(runs.len(), 1);
+    let log = std::fs::read_to_string(&runs[0]).unwrap();
+
+    let mut warnings = 0;
+    for clip in html.split("<article class=\"clip").skip(1) {
+        let name = between(clip, "<h4>", "</h4>")[0];
+        let stem = name.rsplit_once('.').map_or(name, |(stem, _)| stem);
+        for warning in between(clip, "<p class=\"warning\">", "</p>") {
+            warnings += 1;
+            assert!(
+                log.lines().any(|l| l.contains(" WARN ")
+                    && l.contains(&format!("[{stem}]"))
+                    && l.contains(warning)),
+                "no WARN line in [{stem}] for {warning:?}:
+{log}"
+            );
+        }
+    }
+    assert_eq!(warnings, 3, "{html}");
+}
+
+#[test]
+fn unwritable_log_dir_keeps_exit_code() {
+    let src = two_cameras();
+    let args = |out: &Path| {
+        vec![
+            "report".to_owned(),
+            s(src.path()).to_owned(),
+            "--output".to_owned(),
+            s(out).to_owned(),
+            "--json".to_owned(),
+        ]
+    };
+    let out_a = tempfile::tempdir().unwrap();
+    let a = args(out_a.path());
+    let normal = luna(&a.iter().map(String::as_str).collect::<Vec<_>>());
+
+    let blocker = tempfile::tempdir().unwrap();
+    let not_a_dir = blocker.path().join("file");
+    std::fs::write(&not_a_dir, "x").unwrap();
+    let out_b = tempfile::tempdir().unwrap();
+    let b = args(out_b.path());
+    let blocked = Command::new(env!("CARGO_BIN_EXE_luna-cli"))
+        .args(&b)
+        .env("LUNA_LOG_DIR", &not_a_dir)
+        .output()
+        .unwrap();
+
+    assert_eq!(normal.status.code(), Some(1));
+    assert_eq!(blocked.status.code(), normal.status.code());
+    // Only the output folder differs between the two runs.
+    let scrub = |o: &Output| {
+        let mut v = json(o);
+        v["files"] = serde_json::Value::Null;
+        v["report_dir"] = serde_json::Value::Null;
+        v
+    };
+    assert_eq!(scrub(&normal), scrub(&blocked));
 }
