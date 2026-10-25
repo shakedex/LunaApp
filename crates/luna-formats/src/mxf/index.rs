@@ -172,6 +172,18 @@ pub(crate) fn frames<R: Read + Seek>(
         match indexed {
             Ok(f) => return f,
             Err(why) => {
+                let entries: usize = segs.iter().map(|s| s.entries.len()).sum();
+                let cbe = segs.iter().map(|s| s.edit_unit_byte_count).find(|&b| b > 0);
+                tracing::warn!(
+                    why = %why,
+                    segments = segs.len(),
+                    entries,
+                    edit_unit_byte_count = ?cbe,
+                    body_sid = sid,
+                    stretches = st.len(),
+                    duration = ?t.duration,
+                    "index unusable: falling back to a KLV scan"
+                );
                 let mut f = scan(r, parts, sid, t);
                 f.warnings.insert(
                     0,
@@ -181,6 +193,12 @@ pub(crate) fn frames<R: Read + Seek>(
             }
         }
     }
+    tracing::debug!(
+        body_sid = sid,
+        stretches = st.len(),
+        segments = segs.len(),
+        "frames: no usable index segments, scanning KLVs"
+    );
     scan(r, parts, sid, t)
 }
 
@@ -339,6 +357,11 @@ fn scan<R: Read + Seek>(r: &mut Reader<R>, parts: &[Partition], sid: u32, t: &Ta
         .or_else(|| parts.first())
         .map(|p| essence_start(r, p));
     let Some(mut off) = start else {
+        tracing::warn!(
+            partitions = parts.len(),
+            body_sid = sid,
+            "no essence partition: no partition to start the essence walk from"
+        );
         f.warnings.push("No essence partition was found.".into());
         return f;
     };
@@ -350,10 +373,17 @@ fn scan<R: Read + Seek>(r: &mut Reader<R>, parts: &[Partition], sid: u32, t: &Ta
     while off < len && off < footer {
         let k = match read_klv(r, off) {
             Ok(k) => k,
-            Err(_) => {
+            Err(e) => {
                 if off + 17 > len {
                     f.truncated = true;
                 } else {
+                    tracing::warn!(
+                        offset = off,
+                        file_len = len,
+                        frames_before = f.ranges.len(),
+                        error = %e,
+                        "essence damaged: no KLV can be read here"
+                    );
                     f.warnings.push(format!(
                         "The essence is damaged at offset {off}; frames after it are not listed."
                     ));

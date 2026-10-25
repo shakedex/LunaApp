@@ -8,6 +8,7 @@
 mod mxf;
 mod qt;
 mod sniff;
+mod trace;
 mod types;
 
 pub use mxf::arriraw_image_offset;

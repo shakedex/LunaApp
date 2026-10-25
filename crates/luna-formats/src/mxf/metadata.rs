@@ -149,8 +149,8 @@ pub(crate) const INSTANCE_UID: Prop = prop(0x3c0a, "060e2b3401010101010115020000
 #[derive(Debug, Default)]
 pub(crate) struct Metadata {
     pub sets: Vec<LocalSet>,
-    /// The metadata stopped early at a damaged or cut-short item.
-    pub truncated: bool,
+    /// Offset of the damaged or cut-short item the metadata stopped at.
+    pub truncated: Option<u64>,
     by_uid: HashMap<[u8; 16], usize>,
 }
 
@@ -195,7 +195,7 @@ pub(crate) fn read_metadata<R: Read + Seek>(
         let k = match read_klv(r, off) {
             Ok(k) if k.end() <= r.len() => k,
             Ok(_) | Err(_) if !md.sets.is_empty() => {
-                md.truncated = true;
+                md.truncated = Some(off);
                 break;
             }
             Ok(_) => {

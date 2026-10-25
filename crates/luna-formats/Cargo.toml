@@ -8,3 +8,4 @@ license.workspace = true
 roxmltree = "0.21.1"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"
+tracing = "0.1.44"

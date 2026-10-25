@@ -25,6 +25,7 @@ use std::cell::RefCell;
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
 
+use crate::trace::{Sources, present};
 use crate::types::{
     Audio, ByteRange, ClipFiles, ClipMeta, FormatError, FrameIndex, PictureLayout, Probe, Timecode,
 };
@@ -71,6 +72,13 @@ impl Source for FileSource {
         f.read_exact(buf)
     }
 }
+
+/// Vendor metadata blocks, as the run log names them.
+const ARRI: &str = "moov/meta com.arri.camera.* keys";
+const PANA: &str = "Panasonic metadata.xml key / udta PANA Exif";
+const CANON_UUID: &str = "Canon moov/uuid Exif";
+const CNDM: &str = "Canon cndm track (RDD 18)";
+const DJMD: &str = "DJI djmd track";
 
 /// A `moov` larger than this is not something a camera wrote.
 const MAX_MOOV: u64 = 256 << 20;
@@ -120,6 +128,11 @@ pub(crate) fn probe_source(src: &dyn Source) -> Result<Probe, FormatError> {
         .find(|t| &t.handler == b"vide" && !t.entry.is_empty())
         .ok_or_else(|| FormatError::Unsupported("The file has no video track".into()))?;
     for table in &video.damaged {
+        tracing::warn!(
+            track = video.id,
+            table,
+            "damaged table: present in the video track but unreadable"
+        );
         warnings.push(format!("The video track's '{table}' table is damaged."));
     }
 
@@ -127,6 +140,10 @@ pub(crate) fn probe_source(src: &dyn Source) -> Result<Probe, FormatError> {
     let mut ve = entry::video_entry(&video.entry).unwrap_or_default();
     let codec_config = ve.config.take();
     if ve.fields == Some(2) {
+        tracing::warn!(
+            fields = 2,
+            "interlaced: the sample entry's fiel atom says two fields"
+        );
         warnings.push("The picture is interlaced (two fields per frame).".into());
     }
     let (width, height) = ve.clean.unwrap_or((ve.width, ve.height));
@@ -149,38 +166,98 @@ pub(crate) fn probe_source(src: &dyn Source) -> Result<Probe, FormatError> {
         height: (height > 0).then_some(height),
         ..ClipMeta::default()
     };
+    let mut sources = Sources::default();
+    sources.set(
+        "frame_rate",
+        format!(
+            "video track {} stts, mdhd timescale {}",
+            video.id, video.timescale
+        ),
+    );
+    sources.set("frame_count", format!("video track {} stsz", video.id));
+    let dims = if ve.clean.is_some() {
+        "video sample entry clap"
+    } else {
+        "video sample entry width/height"
+    };
+    sources.set("width", dims);
+    sources.set("height", dims);
 
     meta.audio = audio(&movie);
+    sources.set("audio", "sound track sample entries");
 
     let tc = timecode(&movie, video, src, media, &mut warnings);
     meta.start_timecode = tc.as_ref().and_then(|t| t.0);
+    sources.set("start_timecode", "tmcd track first sample");
 
     // Vendor metadata first: it is the most specific. Generic QuickTime
     // metadata and the movie header only fill what vendors leave empty.
-    let mut vendors: Vec<ClipMeta> = Vec::new();
-    vendors.extend(arri::read(&movie.items));
-    vendors.extend(panasonic::read(&movie.items, movie.pana.as_deref()));
+    let has_track = |f: &[u8; 4]| movie.tracks.iter().any(|t| &t.entry_format == f);
+    let blocks = [
+        (ARRI.to_string(), movie.items.has_prefix("com.arri.camera.")),
+        (
+            PANA.to_string(),
+            movie.items.text(panasonic::XML_KEY).is_some() || movie.pana.is_some(),
+        ),
+        (CANON_UUID.to_string(), movie.canon_uuid.is_some()),
+        (CNDM.to_string(), has_track(b"cndm")),
+        (DJMD.to_string(), has_track(b"djmd")),
+    ];
+    let mut vendors: Vec<(&str, ClipMeta)> = Vec::new();
+    vendors.extend(arri::read(&movie.items).map(|m| (ARRI, m)));
+    vendors.extend(panasonic::read(&movie.items, movie.pana.as_deref()).map(|m| (PANA, m)));
     if let Some(u) = &movie.canon_uuid {
-        vendors.extend(canon::read_uuid(u));
+        match canon::read_uuid(u) {
+            Some(m) => vendors.push((CANON_UUID, m)),
+            None => tracing::debug!("canon uuid: no Exif TIFF header inside the box"),
+        }
     }
     if let Some(s) = meta_sample(&movie, b"cndm", src, media, &mut warnings) {
-        vendors.push(canon::read_rdd18(&s));
+        vendors.push((CNDM, canon::read_rdd18(&s)));
     }
     if let Some(s) = meta_sample(&movie, b"djmd", src, media, &mut warnings) {
-        vendors.extend(dji::read(&s));
+        match dji::read(&s) {
+            Some(m) => vendors.push((DJMD, m)),
+            None => tracing::debug!("djmd: no model starting \"DJI\" at field 2.2.1.4"),
+        }
     }
     let vendor_colour = vendors
         .iter()
-        .map(|v| v.colour)
-        .find(|c| c.transfer.is_some() || c.gamut.is_some());
-    for v in vendors {
+        .find(|(_, v)| v.colour.transfer.is_some() || v.colour.gamut.is_some())
+        .map(|(label, v)| (*label, v.colour));
+    for (label, v) in vendors {
+        let before = present(&meta);
         fill(&mut meta, v);
+        sources.gained(&before, &meta, |_| label.to_string());
     }
-    fill(&mut meta, generic(&movie));
+    let (g, keys) = generic(&movie);
+    let before = present(&meta);
+    fill(&mut meta, g);
+    sources.gained(&before, &meta, |f| {
+        keys.get(f).unwrap_or("QuickTime metadata").to_string()
+    });
     if meta.embedded_reel.is_none() {
         meta.embedded_reel = tc.and_then(|t| t.1);
+        sources.set("embedded_reel", "tmcd sample entry name");
     }
-    meta.colour = vendor_colour.unwrap_or(ve.colour);
+    let colour_source = vendor_colour.map_or("video sample entry colr", |(l, _)| l);
+    sources.set("transfer", colour_source);
+    sources.set("gamut", colour_source);
+    meta.colour = vendor_colour.map_or(ve.colour, |(_, c)| c);
+    let base = |f: &str| match f {
+        "frame_rate" => "video track stts",
+        "frame_count" => "video track stsz",
+        "width" | "height" => "video sample entry",
+        "audio" => "sound track sample entries",
+        "start_timecode" => "tmcd track",
+        "embedded_reel" => "tmcd sample entry name",
+        "recording_date" => "keys com.apple.quicktime.creationdate, \u{a9}day; mvhd creation_time",
+        "camera_make" => "keys com.apple.quicktime.make, \u{a9}mak, manu",
+        "camera_model" => "keys com.apple.quicktime.model, \u{a9}mod, modl",
+        "transfer" | "gamut" => "video sample entry colr",
+        _ => "",
+    };
+    sources.log(&meta, base, &blocks);
 
     Ok(Probe {
         codec,
@@ -281,7 +358,12 @@ impl Movie {
                 _ => {}
             }
         }
-        if atoms.damaged() {
+        if let Some(at) = atoms.damaged_at() {
+            tracing::warn!(
+                at,
+                moov_len = moov.len(),
+                "moov damaged: an atom header inside moov doesn't fit"
+            );
             warnings.push(
                 "The movie header is damaged; some tracks or metadata may be missing.".into(),
             );
@@ -303,10 +385,61 @@ fn frame_rate(t: &Track, warnings: &mut Vec<String>) -> Option<crate::types::Rat
         .enumerate()
         .all(|(i, &&(n, d))| d == delta || (i == rest.len() - 1 && n == 1));
     if !constant || delta == 0 {
+        tracing::warn!(track = t.id, "vfr: {}", stts_summary(&t.stts, t.timescale));
         warnings.push("The frame rate varies within the clip.".into());
         return None;
     }
     Some(entry::reduce(t.timescale, delta))
+}
+
+/// Timing evidence for a frame rate that varies: the `stts` run count, the
+/// distinct deltas with their sample counts (top 5), the min and max delta
+/// in ms, and the first 5 sample indices where the delta changes.
+pub(crate) fn stts_summary(stts: &[(u32, u32)], timescale: u32) -> String {
+    let mut counts: std::collections::HashMap<u32, u64> = std::collections::HashMap::new();
+    let mut changes = Vec::new();
+    let mut change_count = 0u64;
+    let mut sample = 0u64;
+    let mut prev = None;
+    for &(n, d) in stts.iter().filter(|r| r.0 > 0) {
+        if prev.is_some_and(|p| p != d) {
+            change_count += 1;
+            if changes.len() < 5 {
+                changes.push(sample.to_string());
+            }
+        }
+        prev = Some(d);
+        *counts.entry(d).or_default() += u64::from(n);
+        sample += u64::from(n);
+    }
+    let ms = |d: u32| {
+        if timescale == 0 {
+            format!("{d}ticks")
+        } else {
+            format!("{:.3}ms", f64::from(d) * 1000.0 / f64::from(timescale))
+        }
+    };
+    let min = counts.keys().min().map_or("none".into(), |&d| ms(d));
+    let max = counts.keys().max().map_or("none".into(), |&d| ms(d));
+    let mut by_count: Vec<(u32, u64)> = counts.into_iter().collect();
+    by_count.sort_by_key(|&(d, n)| (std::cmp::Reverse(n), d));
+    let top: Vec<String> = by_count
+        .iter()
+        .take(5)
+        .map(|(d, n)| format!("{d}x{n}"))
+        .collect();
+    let more = if change_count > changes.len() as u64 {
+        ", ..."
+    } else {
+        ""
+    };
+    format!(
+        "runs={} samples={sample} timescale={timescale} distinct={} deltas={} min={min} max={max}          {change_count} changes at {}{more}",
+        stts.len(),
+        by_count.len(),
+        top.join(" "),
+        changes.join(", "),
+    )
 }
 
 fn edit_warnings(t: &Track, warnings: &mut Vec<String>) {
@@ -316,6 +449,18 @@ fn edit_warnings(t: &Track, warnings: &mut Vec<String>) {
         _ => false,
     };
     if !plain {
+        let edits: Vec<String> = t
+            .edits
+            .iter()
+            .take(5)
+            .map(|e| format!("media_time={} rate_one={}", e.media_time, e.rate_is_one))
+            .collect();
+        tracing::warn!(
+            count = t.edits.len(),
+            first_cts = track::first_cts(t),
+            edits = %edits.join("; "),
+            "edit list: not a plain start"
+        );
         warnings.push(
             "The file has an edit list (a trimmed or delayed start); frame count and \
              frame index cover every recorded frame, not the edited range."
@@ -327,6 +472,11 @@ fn edit_warnings(t: &Track, warnings: &mut Vec<String>) {
 fn frame_index(t: &Track, media: Media, warnings: &mut Vec<String>) -> FrameIndex {
     // Every coded frame takes at least one byte of the file.
     if u64::from(t.sizes.count()) > media.file_len {
+        tracing::warn!(
+            samples = t.sizes.count(),
+            file_len = media.file_len,
+            "frame index: more samples than file bytes"
+        );
         warnings.push(
             "The frame index can't be built: it lists more frames than the file has bytes.".into(),
         );
@@ -335,6 +485,13 @@ fn frame_index(t: &Track, media: Media, warnings: &mut Vec<String>) -> FrameInde
     let ranges = match track::sample_ranges(t) {
         Ok(r) => r,
         Err(e) => {
+            tracing::warn!(
+                samples = t.sizes.count(),
+                stsc = t.stsc.len(),
+                chunks = t.chunk_offsets.len(),
+                error = %e,
+                "frame index: sample tables don't agree"
+            );
             warnings.push(format!("The frame index can't be built: {e}."));
             return FrameIndex::Ranges(Vec::new());
         }
@@ -344,8 +501,25 @@ fn frame_index(t: &Track, media: Media, warnings: &mut Vec<String>) -> FrameInde
         None => ranges,
     };
     let total = ordered.len();
-    let inside: Vec<ByteRange> = ordered.into_iter().filter(|r| media.holds(*r)).collect();
+    let mut inside = Vec::with_capacity(total);
+    let mut outside = Vec::new();
+    for (i, r) in ordered.into_iter().enumerate() {
+        if media.holds(r) {
+            inside.push(r);
+        } else if outside.len() < 5 {
+            outside.push(format!("#{i} at {} len {}", r.offset, r.len));
+        }
+    }
     if inside.len() < total {
+        tracing::warn!(
+            outside = total - inside.len(),
+            total,
+            file_len = media.file_len,
+            moov_at = media.moov.0,
+            moov_len = media.moov.1,
+            first = %outside.join(", "),
+            "frames outside media: sample ranges past the file end or inside moov"
+        );
         warnings.push(format!(
             "{} of {} frames lie outside the file's media data; it may be truncated or damaged.",
             total - inside.len(),
@@ -376,10 +550,18 @@ fn timecode(
     let entry = entry::timecode_entry(&tmcd.entry)?;
     let name = entry.name.clone();
     if entry.counter {
+        tracing::warn!(
+            track = tmcd.id,
+            timescale = entry.timescale,
+            frame_duration = entry.frame_duration,
+            fps = entry.frames_per_second,
+            "timecode counter: tmcd flags have the counter bit (0x8) set"
+        );
         warnings.push("The timecode track is a counter, not a time of day.".into());
         return Some((None, name));
     }
-    let start = track::first_sample(tmcd)
+    let first = track::first_sample(tmcd);
+    let start = first
         .filter(|r| r.len >= 4 && media.holds(*r))
         .and_then(|r| {
             let mut b = [0u8; 4];
@@ -388,6 +570,16 @@ fn timecode(
                 .map(|_| u32::from_be_bytes(b))
         });
     let (Some(frames), Some(base)) = (start, entry.base()) else {
+        tracing::warn!(
+            track = tmcd.id,
+            first_sample = ?first.map(|r| (r.offset, r.len)),
+            in_media = first.is_some_and(|r| media.holds(r)),
+            file_len = media.file_len,
+            fps = entry.frames_per_second,
+            timescale = entry.timescale,
+            frame_duration = entry.frame_duration,
+            "start timecode: no readable 4-byte first sample or no counting base"
+        );
         warnings.push("The start timecode can't be read.".into());
         return Some((None, name));
     };
@@ -415,6 +607,15 @@ fn meta_sample(
     match media.holds(r).then(|| src.read_at(r.offset, &mut buf)) {
         Some(Ok(())) => Some(buf),
         _ => {
+            tracing::warn!(
+                track = t.id,
+                format = %String::from_utf8_lossy(format),
+                offset = r.offset,
+                len = r.len,
+                file_len = media.file_len,
+                in_media = media.holds(r),
+                "metadata sample: first sample can't be read"
+            );
             warnings.push(format!(
                 "The camera metadata track ('{}') can't be read.",
                 String::from_utf8_lossy(format)
@@ -440,24 +641,33 @@ fn audio(movie: &Movie) -> Option<Audio> {
     Some(total)
 }
 
-/// Make, model and date from QuickTime/ISO generic metadata and `mvhd`.
-fn generic(movie: &Movie) -> ClipMeta {
+/// Make, model and date from QuickTime/ISO generic metadata and `mvhd`, and
+/// the key each came from.
+fn generic(movie: &Movie) -> (ClipMeta, Sources) {
     let it = &movie.items;
-    let date = it
-        .text("com.apple.quicktime.creationdate")
-        .or_else(|| it.text("©day"))
-        .and_then(|s| display::iso_local(&s))
-        .or_else(|| display::qt_time(movie.creation_time));
-    ClipMeta {
-        camera_make: it
-            .text("com.apple.quicktime.make")
-            .or_else(|| it.text("©mak"))
-            .or_else(|| it.text("manu")),
-        camera_model: it
-            .text("com.apple.quicktime.model")
-            .or_else(|| it.text("©mod"))
-            .or_else(|| it.text("modl")),
-        recording_date: date,
+    let first = |keys: &[&'static str]| keys.iter().find_map(|&k| it.text(k).map(|v| (k, v)));
+    let mut keys = Sources::default();
+    let date = first(&["com.apple.quicktime.creationdate", "\u{a9}day"])
+        .and_then(|(k, s)| display::iso_local(&s).map(|d| (k, d)))
+        .or_else(|| display::qt_time(movie.creation_time).map(|d| ("mvhd creation_time", d)));
+    let make = first(&["com.apple.quicktime.make", "\u{a9}mak", "manu"]);
+    let model = first(&["com.apple.quicktime.model", "\u{a9}mod", "modl"]);
+    let mut take = |field, v: Option<(&str, String)>| {
+        v.map(|(k, v)| {
+            let source = if k.starts_with("mvhd") {
+                k.to_string()
+            } else {
+                format!("QuickTime key {k}")
+            };
+            keys.set(field, source);
+            v
+        })
+    };
+    let m = ClipMeta {
+        camera_make: take("camera_make", make),
+        camera_model: take("camera_model", model),
+        recording_date: take("recording_date", date),
         ..ClipMeta::default()
-    }
+    };
+    (m, keys)
 }

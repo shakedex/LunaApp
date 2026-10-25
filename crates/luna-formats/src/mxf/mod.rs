@@ -21,6 +21,7 @@ use self::klv::{Ul, is_essence_element, is_partition, read_klv};
 use self::partition::{Kind, Partition, essence_start};
 use self::reader::Reader;
 use self::structure::Structure;
+use crate::trace::Sources;
 use crate::types::{
     ClipFiles, ClipMeta, Codec, ColourHint, FormatError, FrameIndex, Gamut, PictureLayout, Probe,
     Rational, SidecarKind, Timecode, Transfer,
@@ -35,10 +36,18 @@ pub(crate) fn probe(clip: &ClipFiles) -> Result<Probe, FormatError> {
         if matches!(kind, SidecarKind::SonyXml | SidecarKind::CanonXml) {
             match read_text(path) {
                 Ok(t) => sidecars.push((*kind, t)),
-                Err(e) => unreadable.push(format!(
-                    "The sidecar {} could not be read: {e}",
-                    path.display()
-                )),
+                Err(e) => {
+                    tracing::warn!(
+                        kind = ?kind,
+                        path = %path.display(),
+                        error = %e,
+                        "sidecar unreadable: the file can't be opened or read"
+                    );
+                    unreadable.push(format!(
+                        "The sidecar {} could not be read: {e}",
+                        path.display()
+                    ));
+                }
             }
         }
     }
@@ -72,6 +81,18 @@ pub(crate) fn probe_source<R: Read + Seek>(
     let mut warnings = Vec::new();
     let parts = partition::find_partitions(&mut r)?;
     if !parts.complete {
+        let kinds: Vec<String> = parts
+            .list
+            .iter()
+            .take(5)
+            .map(|p| format!("{:?}@{}", p.kind, p.offset))
+            .collect();
+        tracing::warn!(
+            partitions = parts.list.len(),
+            first = %kinds.join(", "),
+            file_len = r.len(),
+            "no footer: no random index pack or footer partition reached"
+        );
         warnings.push("The file has no footer or partition index; it may be incomplete.".into());
     }
 
@@ -90,13 +111,27 @@ pub(crate) fn probe_source<R: Read + Seek>(
                 md = Some(m);
                 break;
             }
-            Err(e) => last_err = Some(e),
+            Err(e) => {
+                tracing::debug!(
+                    partition = p.offset,
+                    header_byte_count = p.header_byte_count,
+                    error = %e,
+                    "header metadata copy unreadable, trying the next"
+                );
+                last_err = Some(e)
+            }
         }
     }
     let md = md.ok_or_else(|| {
         last_err.unwrap_or_else(|| FormatError::Corrupt("no header metadata".into()))
     })?;
-    if md.truncated {
+    if let Some(at) = md.truncated {
+        tracing::warn!(
+            stopped_at = at,
+            sets = md.sets.len(),
+            file_len = r.len(),
+            "header metadata cut short: an item is damaged or runs past the file end"
+        );
         warnings.push("The header metadata is cut short; some values may be missing.".into());
     }
     let st = structure::resolve(&md);
@@ -104,6 +139,18 @@ pub(crate) fn probe_source<R: Read + Seek>(
     let segments = match index::read_segments(&mut r, &parts.list) {
         Ok(s) => s,
         Err(e) => {
+            let indexed: Vec<String> = parts
+                .list
+                .iter()
+                .filter(|p| p.index_byte_count > 0)
+                .take(5)
+                .map(|p| format!("{}+{}", p.offset, p.index_byte_count))
+                .collect();
+            tracing::warn!(
+                error = %e,
+                partitions_with_index = %indexed.join(", "),
+                "index unreadable: an index segment can't be read"
+            );
             warnings.push(format!("The index table could not be read: {e}"));
             Vec::new()
         }
@@ -132,13 +179,29 @@ pub(crate) fn probe_source<R: Read + Seek>(
     let first_unit = first_unit_data(&mut r, &parts.list, &st, &frames);
 
     let mut meta = generic_meta(&st);
+    let mut sources = generic_sources(&st);
     if let Some(n) = target.duration {
         meta.frame_count = Some(n);
+        let from = if st.duration.is_some_and(|d| d > 0) {
+            "picture track Duration"
+        } else {
+            "picture descriptor ContainerDuration"
+        };
+        sources.set("frame_count", from);
     } else if !frames.truncated && !frames.clip_wrapped && !frames.ranges.is_empty() {
         meta.frame_count = Some(frames.ranges.len() as u64);
+        sources.set("frame_count", "picture elements counted in the essence");
     }
     if frames.truncated {
         let have = frames.ranges.len();
+        tracing::warn!(
+            present = have,
+            expected = ?meta.frame_count,
+            duration = ?target.duration,
+            last_frame_end = ?frames.ranges.last().map(|f| f.offset + f.len),
+            file_len = r.len(),
+            "ends early: the last indexed frame runs past the file end"
+        );
         match meta.frame_count {
             Some(n) => warnings.push(format!(
                 "The file ends early: {have} of {n} frames are present."
@@ -148,33 +211,79 @@ pub(crate) fn probe_source<R: Read + Seek>(
     }
 
     let vendor = vendor_of(&st);
+    tracing::debug!(
+        company = ?st.ident.company,
+        product = ?st.ident.product,
+        make = ?vendor,
+        "mxf identification"
+    );
     let mut v = Vendor::default();
+    let mut blocks: Vec<(String, bool)> = Vec::new();
     match vendor {
-        Make::Arri => arri_meta(&md, &first_unit, &mut v),
+        Make::Arri => arri_meta(&md, &first_unit, &mut v, &mut sources, &mut blocks),
         Make::Sony | Make::Canon | Make::Other => {}
     }
-    if let Some(acq) = first_unit
+    let acq = first_unit
         .iter()
         .filter(|(k, _)| k.0[12] == 0x17)
         .map(|(_, val)| rdd18::parse(&rdd18::anc_payload(val)))
-        .find(|a| *a != rdd18::Acquisition::default())
-    {
+        .find(|a| *a != rdd18::Acquisition::default());
+    blocks.push((RDD18.into(), acq.is_some()));
+    if let Some(acq) = acq {
+        let before = v.values();
         rdd18_meta(&acq, &mut v);
+        v.credit(&before, RDD18, &mut sources);
+    }
+    if sidecars.is_empty() {
+        blocks.push(("XML sidecar".into(), false));
     }
     for (kind, text) in sidecars {
+        let before = v.values();
         match kind {
             SidecarKind::SonyXml => match sidecar::parse_sony(text) {
-                Some(x) => sony_xml_meta(&x, &mut v),
-                None => warnings.push("The Sony XML sidecar could not be read.".into()),
+                Some(x) => {
+                    sony_xml_meta(&x, &mut v);
+                    v.credit(&before, SONY_XML, &mut sources);
+                    blocks.push((SONY_XML.into(), true));
+                }
+                None => {
+                    blocks.push((format!("{SONY_XML} (unparsed)"), false));
+                    sidecar_unparsed("Sony", text);
+                    warnings.push("The Sony XML sidecar could not be read.".into())
+                }
             },
             SidecarKind::CanonXml => match sidecar::parse_canon(text) {
-                Some(x) => canon_xml_meta(&x, &mut v),
-                None => warnings.push("The Canon XML sidecar could not be read.".into()),
+                Some(x) => {
+                    canon_xml_meta(&x, &mut v);
+                    v.credit(&before, CANON_XML, &mut sources);
+                    blocks.push((CANON_XML.into(), true));
+                }
+                None => {
+                    blocks.push((format!("{CANON_XML} (unparsed)"), false));
+                    sidecar_unparsed("Canon", text);
+                    warnings.push("The Canon XML sidecar could not be read.".into())
+                }
             },
             _ => {}
         }
     }
-    merge(&mut meta, v, vendor, &st);
+    merge(&mut meta, v, vendor, &st, &mut sources);
+    let base = |f: &str| match f {
+        "frame_rate" => "picture track EditRate",
+        "frame_count" => "picture track Duration, descriptor ContainerDuration, essence",
+        "width" | "height" => "picture descriptor",
+        "audio" => "sound descriptors",
+        "start_timecode" => "timecode track",
+        "camera_make" => "Identification CompanyName",
+        "camera_model" if vendor == Make::Sony => {
+            "vendor blocks (Sony's Identification names the recorder)"
+        }
+        "camera_model" => "Identification ProductName",
+        "recording_date" => "material package CreationDate, Identification ModificationDate",
+        "transfer" | "gamut" => "picture descriptor",
+        _ => "",
+    };
+    sources.log(&meta, base, &blocks);
 
     // Picture layout.
     let mut layout = PictureLayout {
@@ -193,16 +302,38 @@ pub(crate) fn probe_source<R: Read + Seek>(
             )
         });
         if layout.raw_bits.is_none() {
+            let px = layout.stored_width as u64 * layout.stored_height as u64;
+            tracing::warn!(
+                frame_len = ?frames.ranges.first().map(|f| f.len),
+                width = layout.stored_width,
+                height = layout.stored_height,
+                image_start_offset = ?pic.image_start_offset,
+                bytes_12bit = (px * 12).div_ceil(8),
+                bytes_13bit = (px * 13).div_ceil(8),
+                "arriraw bits: frame size matches neither 12- nor 13-bit packing"
+            );
             warnings
                 .push("The ARRIRAW bit depth could not be worked out from the frame size.".into());
         }
     }
 
     let frames_index = if frames.clip_wrapped {
+        tracing::warn!(
+            element_len = ?frames.ranges.first().map(|f| f.len),
+            duration = ?target.duration,
+            "clip-wrapped: one picture element holds every frame"
+        );
         warnings
             .push("The picture is clip-wrapped; frame positions are left to the decoder.".into());
         FrameIndex::DecoderOwned
     } else if frames.ranges.is_empty() {
+        tracing::warn!(
+            track_number = ?target.track_number,
+            body_sid = ?target.body_sid,
+            partitions = parts.list.len(),
+            segments = segments.len(),
+            "no picture frames: no essence element matched the picture track"
+        );
         warnings.push("No picture frames were found.".into());
         FrameIndex::DecoderOwned
     } else {
@@ -217,6 +348,50 @@ pub(crate) fn probe_source<R: Read + Seek>(
         codec_config: None,
         warnings,
     })
+}
+
+/// Metadata blocks, as the run log names them.
+const ARRI_JSON: &str = "ARRI JSON documents";
+const ARRI_HEADER: &str = "ARRI legacy camera header";
+const ARRI_FRAME: &str = "ARRI frame metadata element (first frame)";
+const RDD18: &str = "RDD 18 ANC (first frame)";
+const SONY_XML: &str = "Sony XML sidecar";
+const CANON_XML: &str = "Canon XML sidecar";
+
+/// Logs how a sidecar that didn't parse begins.
+fn sidecar_unparsed(vendor: &str, text: &str) {
+    let head: String = text.trim_start().chars().take(80).collect();
+    tracing::warn!(
+        vendor,
+        len = text.len(),
+        head = ?head,
+        "sidecar unparsed: not XML or not the expected root element"
+    );
+}
+
+/// Where `generic_meta` took each field from.
+fn generic_sources(st: &Structure) -> Sources {
+    let mut s = Sources::default();
+    s.set("frame_rate", "picture track EditRate");
+    s.set("start_timecode", "timecode track StartTimecode");
+    s.set("audio", "sound descriptors");
+    if let Some(p) = &st.picture {
+        let w = if p.display_width.is_some() {
+            "DisplayWidth"
+        } else {
+            "StoredWidth"
+        };
+        let h = if p.display_height.is_some() {
+            "DisplayHeight"
+        } else {
+            "StoredHeight"
+        };
+        s.set("width", format!("picture descriptor {w}"));
+        s.set("height", format!("picture descriptor {h}"));
+        s.set("transfer", "picture descriptor TransferCharacteristic");
+        s.set("gamut", "picture descriptor ColorPrimaries");
+    }
+    s
 }
 
 fn arriraw_bits(len: u64, w: u32, h: u32, start: Option<u32>) -> Option<u8> {
@@ -384,14 +559,67 @@ struct Vendor {
     gamut: Option<Gamut>,
 }
 
+impl Vendor {
+    /// Each value under the `ClipMeta` field it feeds (`start_tc_text` and
+    /// `utc_date` under their own names), for crediting sources.
+    fn values(&self) -> [(&'static str, String); 19] {
+        fn d(v: &dyn std::fmt::Debug) -> String {
+            format!("{v:?}")
+        }
+        [
+            ("camera_make", d(&self.make)),
+            ("camera_model", d(&self.model)),
+            ("camera_serial", d(&self.serial)),
+            ("lens", d(&self.lens)),
+            ("focal_length", d(&self.focal)),
+            ("stop", d(&self.stop)),
+            ("iso", d(&self.iso)),
+            ("shutter", d(&self.shutter)),
+            ("white_balance", d(&self.white_balance)),
+            ("nd", d(&self.nd)),
+            ("sensor_fps", d(&self.sensor_fps)),
+            ("embedded_reel", d(&self.reel)),
+            ("embedded_camera_id", d(&self.camera_id)),
+            ("start_timecode", d(&self.start_tc)),
+            ("start_tc_text", d(&self.start_tc_text)),
+            ("recording_date", d(&self.date)),
+            ("utc_date", d(&self.utc_date)),
+            ("transfer", d(&self.transfer)),
+            ("gamut", d(&self.gamut)),
+        ]
+    }
+
+    /// Credits `source` with every value that changed since `before`.
+    fn credit(&self, before: &[(&'static str, String); 19], source: &str, sources: &mut Sources) {
+        for ((field, old), (_, new)) in before.iter().zip(self.values()) {
+            if *old != new {
+                sources.set(field, source);
+            }
+        }
+    }
+}
+
 fn set<T>(slot: &mut Option<T>, v: Option<T>) {
     if v.is_some() {
         *slot = v;
     }
 }
 
-fn arri_meta(md: &metadata::Metadata, unit: &[(Ul, Vec<u8>)], v: &mut Vendor) {
+fn arri_meta(
+    md: &metadata::Metadata,
+    unit: &[(Ul, Vec<u8>)],
+    v: &mut Vendor,
+    sources: &mut Sources,
+    blocks: &mut Vec<(String, bool)>,
+) {
     let docs = arri::json_documents(md);
+    let mut names: Vec<&str> = docs.keys().map(String::as_str).collect();
+    names.sort_unstable();
+    blocks.push((
+        format!("{ARRI_JSON} ({})", names.join(", ")),
+        !names.is_empty(),
+    ));
+    let before = v.values();
     let j = |d: &str, f: &str| arri::json_str(&docs, d, f);
     set(
         &mut v.model,
@@ -402,8 +630,12 @@ fn arri_meta(md: &metadata::Metadata, unit: &[(Ul, Vec<u8>)], v: &mut Vendor) {
     set(&mut v.lens, j("Lens Device", "lensModel"));
     set(&mut v.reel, j("Slate Info", "reelName"));
     set(&mut v.camera_id, j("Slate Info", "cameraIndex"));
+    v.credit(&before, ARRI_JSON, sources);
 
-    if let Some(l) = arri::legacy_header(md) {
+    let legacy = arri::legacy_header(md);
+    blocks.push((ARRI_HEADER.into(), legacy.is_some()));
+    if let Some(l) = legacy {
+        let before = v.values();
         set(
             &mut v.model,
             l.camera_model
@@ -430,10 +662,14 @@ fn arri_meta(md: &metadata::Metadata, unit: &[(Ul, Vec<u8>)], v: &mut Vendor) {
             &mut v.focal,
             l.focal_um.and_then(|u| display::focal(u as f64 / 1000.0)),
         );
+        v.credit(&before, ARRI_HEADER, sources);
     }
 
     // ARRI frame metadata element: …0d01030117010f00
-    if let Some((_, val)) = unit.iter().find(|(k, _)| k.0[12..15] == [0x17, 0x01, 0x0f]) {
+    let element = unit.iter().find(|(k, _)| k.0[12..15] == [0x17, 0x01, 0x0f]);
+    blocks.push((ARRI_FRAME.into(), element.is_some()));
+    if let Some((_, val)) = element {
+        let before = v.values();
         let f = arri::frame_meta(val);
         set(&mut v.iso, f.exposure_index.map(|e| e.to_string()));
         set(
@@ -458,6 +694,7 @@ fn arri_meta(md: &metadata::Metadata, unit: &[(Ul, Vec<u8>)], v: &mut Vendor) {
             let fps = f.sensor_fps.map(|(a, b)| a as f64 / b as f64);
             set(&mut v.shutter, display::shutter(n as f64 / d as f64, fps));
         }
+        v.credit(&before, ARRI_FRAME, sources);
     }
 }
 
@@ -676,8 +913,14 @@ fn normalise_make(s: &str) -> String {
     }
 }
 
-fn merge(m: &mut ClipMeta, v: Vendor, make: Make, st: &Structure) {
+fn merge(m: &mut ClipMeta, v: Vendor, make: Make, st: &Structure, sources: &mut Sources) {
     let ident = &st.ident;
+    if v.make.is_none() {
+        sources.set("camera_make", "Identification CompanyName");
+    }
+    if v.model.is_none() {
+        sources.set("camera_model", "Identification ProductName");
+    }
     m.camera_make = v
         .make
         .as_deref()
@@ -700,20 +943,29 @@ fn merge(m: &mut ClipMeta, v: Vendor, make: Make, st: &Structure) {
     m.sensor_fps = v.sensor_fps;
     m.embedded_reel = v.reel;
     m.embedded_camera_id = v.camera_id;
-    if m.start_timecode.is_none() {
+    if m.start_timecode.is_some() {
+        sources.set("start_timecode", "timecode track StartTimecode");
+    } else {
         m.start_timecode = v.start_tc;
     }
     if m.start_timecode.is_none() {
+        if let Some(s) = sources.get("start_tc_text").map(str::to_string) {
+            sources.set("start_timecode", s);
+        }
         let base = m.frame_rate.map(|r| r.as_f64().round() as u32).unwrap_or(0);
         m.start_timecode = v
             .start_tc_text
             .as_deref()
             .and_then(|t| parse_tc_text(t, base));
     }
-    if m.colour.transfer.is_none() {
+    if m.colour.transfer.is_some() {
+        sources.set("transfer", "picture descriptor TransferCharacteristic");
+    } else {
         m.colour.transfer = v.transfer;
     }
-    if m.colour.gamut.is_none() {
+    if m.colour.gamut.is_some() {
+        sources.set("gamut", "picture descriptor ColorPrimaries");
+    } else {
         m.colour.gamut = v.gamut;
     }
     if make == Make::Arri {
@@ -722,6 +974,7 @@ fn merge(m: &mut ClipMeta, v: Vendor, make: Make, st: &Structure) {
             .as_deref()
             .is_some_and(|s| s.contains("ALEXA 35"));
         if m.colour.transfer.is_none() {
+            sources.set("transfer", "ARRI default for the camera model");
             m.colour.transfer = Some(if a35 {
                 Transfer::LogC4
             } else {
@@ -729,6 +982,7 @@ fn merge(m: &mut ClipMeta, v: Vendor, make: Make, st: &Structure) {
             });
         }
         if m.colour.gamut.is_none() {
+            sources.set("gamut", "ARRI default for the camera model");
             m.colour.gamut = Some(if a35 {
                 Gamut::ArriWideGamut4
             } else {
@@ -738,6 +992,19 @@ fn merge(m: &mut ClipMeta, v: Vendor, make: Make, st: &Structure) {
     }
 
     let file_stamp = st.created.or(ident.modified).map(display::stamp);
+    let stamp_source = if st.created.is_some() {
+        "material package CreationDate"
+    } else {
+        "Identification ModificationDate"
+    };
+    match (&v.date, make, &v.utc_date) {
+        (Some(_), _, _) => {}
+        (None, Make::Sony, Some(_)) => {
+            let s = sources.get("utc_date").unwrap_or("vendor").to_string();
+            sources.set("recording_date", s);
+        }
+        _ => sources.set("recording_date", stamp_source),
+    }
     m.recording_date = match (v.date, make) {
         (Some(d), _) => Some(d),
         // Sony's MXF writers stamp UTC (it matches the XML's "Z" times): show

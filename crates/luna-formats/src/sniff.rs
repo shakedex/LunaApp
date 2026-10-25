@@ -26,6 +26,13 @@ const NOT_MOVIE_BRANDS: [&[u8; 4]; 13] = [
 
 /// Classifies a file from its first bytes (up to [`SNIFF_LEN`]).
 pub fn sniff(path: &Path, head: &[u8]) -> Sniffed {
+    let (sniffed, matched) = classify(path, head);
+    tracing::debug!(path = %path.display(), result = ?sniffed, matched = %matched, "sniff");
+    sniffed
+}
+
+/// The classification and what in the head decided it.
+fn classify(path: &Path, head: &[u8]) -> (Sniffed, String) {
     let head = &head[..head.len().min(SNIFF_LEN)];
     let ext = path
         .extension()
@@ -34,21 +41,45 @@ pub fn sniff(path: &Path, head: &[u8]) -> Sniffed {
         .unwrap_or_default();
 
     if head.len() >= 8 && &head[..4] == b"ARRI" && head[4..8] == [0x12, 0x34, 0x56, 0x78] {
-        return Sniffed::CameraOriginal(Container::AriFrame);
+        return (
+            Sniffed::CameraOriginal(Container::AriFrame),
+            "ARRI 12345678 magic".into(),
+        );
     }
     if head.len() >= 8 && (&head[4..8] == b"RED1" || &head[4..8] == b"RED2") {
-        return Sniffed::CameraOriginal(Container::R3d);
+        return (
+            Sniffed::CameraOriginal(Container::R3d),
+            format!("{} at byte 4", String::from_utf8_lossy(&head[4..8])),
+        );
     }
     if let Some(c) = quicktime(head, &ext) {
-        return c;
+        let brand = (&head[4..8] == b"ftyp")
+            .then(|| head.get(8..12))
+            .flatten()
+            .map(String::from_utf8_lossy);
+        let why = format!(
+            "leading atom '{}', major brand {:?}, extension {ext:?}",
+            String::from_utf8_lossy(&head[4..8]),
+            brand.as_deref().unwrap_or("none"),
+        );
+        return (c, why);
     }
-    if head
+    if let Some(at) = head
         .windows(MXF_HEADER_PARTITION.len())
-        .any(|w| w == MXF_HEADER_PARTITION)
+        .position(|w| w == MXF_HEADER_PARTITION)
     {
-        return Sniffed::CameraOriginal(Container::Mxf);
+        return (
+            Sniffed::CameraOriginal(Container::Mxf),
+            format!("MXF header partition key at byte {at}"),
+        );
     }
-    text(head, &ext).map_or(Sniffed::Other, Sniffed::Sidecar)
+    match text(head, &ext) {
+        Some(k) => (
+            Sniffed::Sidecar(k),
+            format!("text sidecar, extension {ext:?}"),
+        ),
+        None => (Sniffed::Other, "no known signature".into()),
+    }
 }
 
 /// `Some` when the head is an atom structure: a camera original, or `Other`

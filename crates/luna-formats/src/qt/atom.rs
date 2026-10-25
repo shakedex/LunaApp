@@ -12,11 +12,12 @@ pub(crate) struct Atom<'a> {
 }
 
 /// Iterates the atoms packed in `buf`. Stops at the first header that doesn't
-/// fit or whose size runs past the buffer, and records that in `damaged`.
+/// fit or whose size runs past the buffer, and records where in `damaged`.
 pub(crate) struct Atoms<'a> {
     buf: &'a [u8],
     pos: usize,
-    damaged: bool,
+    /// Offset in `buf` of the header that stopped iteration.
+    damaged: Option<usize>,
 }
 
 impl<'a> Atoms<'a> {
@@ -24,12 +25,13 @@ impl<'a> Atoms<'a> {
         Atoms {
             buf,
             pos: 0,
-            damaged: false,
+            damaged: None,
         }
     }
 
-    /// True when iteration stopped on a malformed header rather than at the end.
-    pub(crate) fn damaged(&self) -> bool {
+    /// Where in the buffer the malformed header sits, when iteration stopped
+    /// on one rather than at the end.
+    pub(crate) fn damaged_at(&self) -> Option<usize> {
         self.damaged
     }
 }
@@ -42,7 +44,7 @@ impl<'a> Iterator for Atoms<'a> {
         if rest.len() < 8 {
             // A 4-byte zero terminator (QuickTime sample entries, udta) is legal.
             if !rest.is_empty() && rest.iter().any(|&b| b != 0) {
-                self.damaged = true;
+                self.damaged = Some(self.pos);
             }
             self.pos = self.buf.len();
             return None;
@@ -60,7 +62,7 @@ impl<'a> Iterator for Atoms<'a> {
             }
             1 => {
                 let Some(b) = rest.get(8..16) else {
-                    self.damaged = true;
+                    self.damaged = Some(self.pos);
                     self.pos = self.buf.len();
                     return None;
                 };
@@ -71,7 +73,7 @@ impl<'a> Iterator for Atoms<'a> {
             n => (n as u64, 8),
         };
         if size < header as u64 || size > rest.len() as u64 {
-            self.damaged = true;
+            self.damaged = Some(self.pos);
             self.pos = self.buf.len();
             return None;
         }
@@ -136,6 +138,13 @@ pub(crate) fn scan_top_level(src: &dyn Source) -> Result<TopLevel, FormatError> 
         };
         if size < header {
             if top.moov.is_some() {
+                tracing::warn!(
+                    at = pos,
+                    size,
+                    file_len = len,
+                    kind = %String::from_utf8_lossy(&kind),
+                    "top-level atom: size smaller than its header after moov"
+                );
                 top.warnings
                     .push("The file has unreadable data after the movie header.".into());
                 break;
@@ -151,6 +160,14 @@ pub(crate) fn scan_top_level(src: &dyn Source) -> Result<TopLevel, FormatError> 
                     "the movie header (moov) is cut off; the file is truncated".into(),
                 ));
             }
+            tracing::warn!(
+                at = pos,
+                size,
+                end,
+                file_len = len,
+                kind = %String::from_utf8_lossy(&kind),
+                "truncated atom: runs past the end of the file"
+            );
             top.warnings.push(format!(
                 "The file is shorter than its '{}' atom says; it may be truncated.",
                 String::from_utf8_lossy(&kind)
@@ -219,7 +236,7 @@ mod tests {
         let mut it = Atoms::new(&buf);
         assert_eq!(it.next().map(|a| a.kind), Some(*b"free"));
         assert!(it.next().is_none());
-        assert!(it.damaged());
+        assert!(it.damaged_at().is_some());
     }
 
     #[test]
@@ -229,7 +246,7 @@ mod tests {
         let mut it = Atoms::new(&buf);
         assert!(it.next().is_some());
         assert!(it.next().is_none());
-        assert!(!it.damaged());
+        assert!(it.damaged_at().is_none());
     }
 
     #[test]

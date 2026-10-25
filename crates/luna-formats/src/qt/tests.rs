@@ -448,3 +448,11 @@ fn corruption_harness() {
         }
     }
 }
+
+#[test]
+fn stts_summary_names_the_irregular_samples() {
+    let s = super::stts_summary(&[(100, 1001), (1, 2002), (50, 1001)], 24000);
+    assert!(s.contains("min=41.708ms"), "{s}");
+    assert!(s.contains("max=83.417ms"), "{s}");
+    assert!(s.contains("changes at 100, 101"), "{s}");
+}
