@@ -1,7 +1,7 @@
 //! Luna's logging: one file per run, `luna.log` for everything else, retention
 //! at startup. Binaries call [`init`]; library crates only emit `tracing` events.
 
-use std::io::{BufWriter, Write};
+use std::io::Write;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, SystemTime};
@@ -23,7 +23,7 @@ pub use format::parse_level;
 pub const KEEP_RUNS: usize = 50;
 /// Run logs older than this are deleted at startup.
 pub const MAX_AGE: Duration = Duration::from_secs(60 * 24 * 3600);
-/// `luna.log` rolls over to `luna.old.log` past this size.
+/// `luna.log` rolls over to `luna.old.log` at this size.
 pub const APP_LOG_MAX_BYTES: u64 = 5_000_000;
 
 /// Which process is logging.
@@ -65,14 +65,14 @@ pub fn init_with_dir(mode: Mode, dir: Option<PathBuf>) {
     let app = dir.as_deref().and_then(|dir| {
         let _ = std::fs::create_dir_all(dir);
         prune(dir, SystemTime::now());
-        files::open_app_log(dir)
+        files::AppLog::open(dir, APP_LOG_MAX_BYTES)
     });
     let stderr = match mode {
         Mode::App => cfg!(debug_assertions).then_some(Level::DEBUG),
         Mode::Cli => Some(Level::INFO),
         Mode::Worker => Some(Level::DEBUG),
     };
-    let app = app.map(|f| Box::new(BufWriter::new(f)) as Box<dyn Write + Send>);
+    let app = app.map(|f| Box::new(f) as Box<dyn Write + Send>);
     let subscriber = tracing_subscriber::registry()
         .with(EnvFilter::new(FILTER))
         .with(RunLayer::new(dir, app, stderr));

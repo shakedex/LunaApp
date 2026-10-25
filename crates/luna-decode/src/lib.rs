@@ -125,8 +125,8 @@ pub struct Frame {
 }
 
 impl Frame {
-    /// One short line for the log: the picture's form, size, levels and colour,
-    /// never its samples (only how many there are).
+    /// One short line for the log: the picture's form, size, levels, value
+    /// range and colour, never its samples (only how many there are).
     pub fn describe(&self) -> String {
         let hint = format!("hint={}/{}", opt(self.hint.transfer), opt(self.hint.gamut));
         match &self.image {
@@ -141,8 +141,9 @@ impl Frame {
                 camera_to_xyz,
                 scene_scale,
             } => format!(
-                "Mosaic {width}x{height} cfa={cfa:?} samples={} black={black} white={white}                  wb={} camera_to_xyz={} scene_scale={} {hint}",
+                "Mosaic {width}x{height} cfa={cfa:?} samples={} range={} black={black} white={white} wb={} camera_to_xyz={} scene_scale={} {hint}",
                 data.len(),
+                range(data),
                 match wb {
                     Some([r, g, b]) => format!("{r:.4},{g:.4},{b:.4}"),
                     None => "none".into(),
@@ -160,14 +161,19 @@ impl Frame {
                 transfer,
                 gamut,
             } => format!(
-                "Rgb16 {width}x{height} samples={} transfer={transfer:?} gamut={gamut:?} {hint}",
-                data.len()
+                "Rgb16 {width}x{height} samples={} range={} transfer={transfer:?} gamut={gamut:?} {hint}",
+                data.len(),
+                range(data)
             ),
             Decoded::Display8 {
                 width,
                 height,
                 data,
-            } => format!("Display8 {width}x{height} samples={} {hint}", data.len()),
+            } => format!(
+                "Display8 {width}x{height} samples={} range={} {hint}",
+                data.len(),
+                range(data)
+            ),
             Decoded::Ycbcr {
                 width,
                 height,
@@ -179,11 +185,26 @@ impl Frame {
                 full_range,
                 ..
             } => format!(
-                "Ycbcr {width}x{height} chroma={chroma_width}x{chroma_height} bits={bits}                  samples={} matrix={matrix:?} range={} {hint}",
+                "Ycbcr {width}x{height} chroma={chroma_width}x{chroma_height} bits={bits} samples={} range={} matrix={matrix:?} levels={} {hint}",
                 y.len(),
+                range(y),
                 if *full_range { "full" } else { "legal" }
             ),
         }
+    }
+}
+
+/// How many samples [`range`] looks at, at most.
+const RANGE_SAMPLES: usize = 65_536;
+
+/// `min..max` of an evenly spaced sample of the codes (and the last one), so
+/// a full-size frame stays cheap; `none` when there are no samples.
+fn range<T: Copy + Ord + std::fmt::Display>(data: &[T]) -> String {
+    let step = data.len().div_ceil(RANGE_SAMPLES).max(1);
+    let sample = data.iter().step_by(step).chain(data.last()).copied();
+    match sample.clone().min().zip(sample.max()) {
+        Some((min, max)) => format!("{min}..{max}"),
+        None => "none".into(),
     }
 }
 
@@ -491,7 +512,12 @@ mod tests {
                 width: 4448,
                 height: 3096,
                 cfa: Cfa::Rggb,
-                data: vec![1234; 4448 * 3096],
+                data: {
+                    let mut data = vec![1234; 4448 * 3096];
+                    data[0] = 300;
+                    *data.last_mut().unwrap() = 3999;
+                    data
+                },
                 black: 256.0,
                 white: 4095.0,
                 wb: Some([1.9, 1.0, 1.6]),
@@ -506,8 +532,60 @@ mod tests {
         let text = frame.describe();
         assert!(text.contains("black=256"), "{text}");
         assert!(text.contains("white=4095"), "{text}");
+        assert!(text.contains("range=300..3999"), "{text}");
         assert!(!text.contains("1234"), "{text}");
+        assert!(!text.contains("  "), "{text}");
         assert!(text.len() < 300, "{text}");
+    }
+
+    #[test]
+    fn describe_gives_the_value_range_of_every_form() {
+        let rgb = Frame {
+            image: Decoded::Rgb16 {
+                width: 2,
+                height: 1,
+                data: vec![40, 9000, 512, 7, 65535, 100],
+                transfer: Transfer::Rec709,
+                gamut: Gamut::Rec709,
+            },
+            hint: ColourHint::default(),
+        };
+        let text = rgb.describe();
+        assert!(text.contains("range=7..65535"), "{text}");
+        assert!(!text.contains("  "), "{text}");
+
+        let ycbcr = Frame {
+            image: Decoded::Ycbcr {
+                width: 2,
+                height: 2,
+                chroma_width: 1,
+                chroma_height: 1,
+                bits: 10,
+                y: vec![64, 940, 500, 70],
+                cb: vec![0],
+                cr: vec![1023],
+                matrix: YcbcrMatrix::Bt709,
+                full_range: false,
+            },
+            hint: ColourHint::default(),
+        };
+        let text = ycbcr.describe();
+        assert!(text.contains("range=64..940"), "{text}");
+        assert!(!text.contains("  "), "{text}");
+
+        let empty = Frame {
+            image: Decoded::Display8 {
+                width: 0,
+                height: 0,
+                data: Vec::new(),
+            },
+            hint: ColourHint::default(),
+        };
+        assert!(
+            empty.describe().contains("range=none"),
+            "{}",
+            empty.describe()
+        );
     }
 
     #[test]

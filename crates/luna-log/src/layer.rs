@@ -6,6 +6,7 @@ use std::io::{BufWriter, Write};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, PoisonError};
+use std::thread::ThreadId;
 
 use tracing::span::{Attributes, Id};
 use tracing::{Event, Level, Subscriber};
@@ -25,8 +26,18 @@ pub(crate) struct RunLayer {
     stderr: Option<Level>,
 }
 
-/// The open file of a `run` span.
-struct RunFile(Mutex<BufWriter<File>>);
+/// The open file of a `run` span, and the thread that opened it.
+struct RunFile {
+    file: Mutex<BufWriter<File>>,
+    owner: ThreadId,
+}
+
+impl RunFile {
+    fn flush(&self) {
+        let mut w = self.file.lock().unwrap_or_else(PoisonError::into_inner);
+        let _ = w.flush();
+    }
+}
 
 /// The `clip` field of a `clip` span.
 struct Clip(String);
@@ -83,7 +94,10 @@ impl<S: Subscriber + for<'a> LookupSpan<'a>> Layer<S> for RunLayer {
             let source = field(|v| attrs.record(v), "source").unwrap_or_default();
             let started = jiff::Zoned::now().datetime();
             if let Some(file) = open_run_file(dir, &started, &source) {
-                ext.insert(RunFile(Mutex::new(BufWriter::new(file))));
+                ext.insert(RunFile {
+                    file: Mutex::new(BufWriter::new(file)),
+                    owner: std::thread::current().id(),
+                });
             }
         }
     }
@@ -112,7 +126,7 @@ impl<S: Subscriber + for<'a> LookupSpan<'a>> Layer<S> for RunLayer {
             for span in scope {
                 let ext = span.extensions();
                 if let Some(run) = ext.get::<RunFile>() {
-                    let mut w = run.0.lock().unwrap_or_else(PoisonError::into_inner);
+                    let mut w = run.file.lock().unwrap_or_else(PoisonError::into_inner);
                     write_line(&mut *w, &text, urgent);
                     return;
                 }
@@ -124,12 +138,22 @@ impl<S: Subscriber + for<'a> LookupSpan<'a>> Layer<S> for RunLayer {
         }
     }
 
+    /// The thread that opened the run leaving it means the run is over, even
+    /// while other threads still hold the span.
+    fn on_exit(&self, id: &Id, ctx: Context<'_, S>) {
+        if let Some(span) = ctx.span(id)
+            && let Some(run) = span.extensions().get::<RunFile>()
+            && run.owner == std::thread::current().id()
+        {
+            run.flush();
+        }
+    }
+
     fn on_close(&self, id: Id, ctx: Context<'_, S>) {
         if let Some(span) = ctx.span(&id)
             && let Some(run) = span.extensions().get::<RunFile>()
         {
-            let mut w = run.0.lock().unwrap_or_else(PoisonError::into_inner);
-            let _ = w.flush();
+            run.flush();
         }
     }
 }
@@ -151,6 +175,25 @@ mod tests {
             tracing::error!(target: "luna::test", "still fine");
         });
         assert_eq!(std::fs::read(&not_a_dir).unwrap(), b"");
+    }
+
+    #[test]
+    fn run_file_is_flushed_when_its_thread_leaves_the_run() {
+        let dir = tempfile::tempdir().unwrap();
+        let layer = RunLayer::new(Some(dir.path().to_path_buf()), None, None);
+        tracing::subscriber::with_default(tracing_subscriber::registry().with(layer), || {
+            let run = tracing::info_span!(target: "luna::run", "run", source = %"Card A");
+            // A reader thread that outlives the run still holds a clone.
+            let still_alive = run.clone();
+            run.in_scope(|| tracing::info!(target: "luna::run", "summary: 3 clips"));
+            let files: Vec<_> = std::fs::read_dir(dir.path()).unwrap().flatten().collect();
+            let text = std::fs::read_to_string(files[0].path()).unwrap();
+            assert!(
+                text.ends_with(" INFO  luna::run: summary: 3 clips\n"),
+                "{text}"
+            );
+            drop(still_alive);
+        });
     }
 
     #[test]

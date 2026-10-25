@@ -455,4 +455,5 @@ fn stts_summary_names_the_irregular_samples() {
     assert!(s.contains("min=41.708ms"), "{s}");
     assert!(s.contains("max=83.417ms"), "{s}");
     assert!(s.contains("changes at 100, 101"), "{s}");
+    assert!(!s.contains("  "), "{s}");
 }

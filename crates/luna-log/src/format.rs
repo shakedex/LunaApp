@@ -23,13 +23,20 @@ pub(crate) fn line(level: Level, clip: Option<&str>, target: &str, event: &Event
     if let Some(clip) = clip {
         let _ = write!(out, "[{clip}] ");
     }
-    let _ = write!(out, "{target}: {}", fields.message);
+    let _ = write!(out, "{target}: ");
     let rest = if fields.message.is_empty() {
         fields.rest.trim_start()
     } else {
         &fields.rest
     };
-    out.push_str(rest);
+    // One event, one line: line breaks inside it are written as `\n`.
+    for c in fields.message.chars().chain(rest.chars()) {
+        match c {
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            c => out.push(c),
+        }
+    }
     out.push('\n');
     out
 }
@@ -153,6 +160,17 @@ mod tests {
     fn line_outside_a_clip_has_no_brackets() {
         let text = capture(|| tracing::error!(target: "t", name = "a b", "boom"));
         assert_eq!(&text[12..], " ERROR t: boom name=\"a b\"\n");
+    }
+
+    #[test]
+    fn line_breaks_stay_on_one_line() {
+        let text = capture(|| {
+            tracing::error!(target: "t", note = %"a\r\nb", "panicked at x:\nboom");
+        });
+        assert_eq!(
+            &text[12..],
+            " ERROR t: panicked at x:\\nboom note=a\\r\\nb\n"
+        );
     }
 
     #[test]

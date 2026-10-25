@@ -10,7 +10,7 @@ use std::sync::mpsc::{self, Receiver, RecvTimeoutError};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use tracing::{Level, Span, debug, error, info};
+use tracing::{Level, Span, debug, error, info, info_span};
 
 use crate::protocol::{read_message, write_message};
 use crate::{ClipJob, ClipResult, Request};
@@ -132,6 +132,7 @@ fn drive(
         let id = job.id;
         let main = job.files.main.clone();
         let path = main.display();
+        // Started outside the clip: a worker outlives the clip it starts on.
         let next = match worker.take() {
             Some(w) => Ok(w),
             None => {
@@ -141,6 +142,8 @@ fn drive(
                 Worker::spawn(config)
             }
         };
+        let stem = main.file_stem().unwrap_or_default().to_string_lossy();
+        let _clip = info_span!("clip", clip = %stem).entered();
         let start = Instant::now();
         let outcome = match next {
             Err(e) => {
@@ -154,17 +157,18 @@ fn drive(
                     worker = Some(w);
                     JobOutcome::Done(r)
                 }
+                // Logged once the worker's last lines are in, so they come first.
                 Step::Died => {
                     let elapsed_ms = start.elapsed().as_millis() as u64;
-                    error!(path = %path, elapsed_ms, "worker crashed");
                     w.kill();
+                    error!(path = %path, elapsed_ms, "worker crashed");
                     lost = true;
                     JobOutcome::Crashed
                 }
                 Step::TimedOut => {
                     let elapsed_ms = start.elapsed().as_millis() as u64;
-                    error!(path = %path, elapsed_ms, "worker timed out");
                     w.kill();
+                    error!(path = %path, elapsed_ms, "worker timed out");
                     lost = true;
                     JobOutcome::TimedOut
                 }
@@ -219,21 +223,21 @@ impl Worker {
         let stdin = child.stdin.take().ok_or("no stdin")?;
         let stdout = child.stdout.take().ok_or("no stdout")?;
         let stderr = child.stderr.take().ok_or("no stderr")?;
+        // Forwarded lines belong to the caller's span (the run, and the clip).
         let span = Span::current();
 
         // Readers per process: blocking reads end when the process exits or is killed.
         let (done_tx, stderr_done) = mpsc::channel::<()>();
         let on_line = config.on_line.clone();
-        let stderr_span = span.clone();
         std::thread::spawn(move || {
-            let _run = stderr_span.enter();
+            let _run = span.enter();
             forward_lines(stderr, on_line.as_deref());
             drop(done_tx);
         });
 
         let (tx, rx) = mpsc::channel();
+        // Logs nothing, so it holds no span: it may outlive the run.
         std::thread::spawn(move || {
-            let _run = span.enter();
             let mut r = BufReader::new(stdout);
             loop {
                 match read_message::<ClipResult>(&mut r) {

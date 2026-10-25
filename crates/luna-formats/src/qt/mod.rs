@@ -360,7 +360,7 @@ impl Movie {
         }
         if let Some(at) = atoms.damaged_at() {
             tracing::warn!(
-                at,
+                moov_offset = at,
                 moov_len = moov.len(),
                 "moov damaged: an atom header inside moov doesn't fit"
             );
@@ -434,7 +434,7 @@ pub(crate) fn stts_summary(stts: &[(u32, u32)], timescale: u32) -> String {
         ""
     };
     format!(
-        "runs={} samples={sample} timescale={timescale} distinct={} deltas={} min={min} max={max}          {change_count} changes at {}{more}",
+        "runs={} samples={sample} timescale={timescale} distinct={} deltas={} min={min} max={max} {change_count} changes at {}{more}",
         stts.len(),
         by_count.len(),
         top.join(" "),

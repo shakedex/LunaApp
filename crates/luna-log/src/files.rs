@@ -1,7 +1,7 @@
 //! The logs folder: file names, opening, retention and rollover.
 
 use std::fs::{File, OpenOptions};
-use std::io::ErrorKind;
+use std::io::{BufWriter, ErrorKind, Write};
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
@@ -82,6 +82,64 @@ pub(crate) fn open_app_log(dir: &Path) -> Option<File> {
         let _ = std::fs::rename(&path, dir.join(APP_LOG_OLD));
     }
     OpenOptions::new().create(true).append(true).open(path).ok()
+}
+
+/// `luna.log` as it is written: rolls over to `luna.old.log` whenever the next
+/// write would take it past `limit` bytes.
+pub(crate) struct AppLog {
+    dir: PathBuf,
+    limit: u64,
+    written: u64,
+    file: Option<BufWriter<File>>,
+}
+
+impl AppLog {
+    /// Opens `luna.log` (rolling it over first when it is already too big).
+    pub(crate) fn open(dir: &Path, limit: u64) -> Option<AppLog> {
+        let file = open_app_log(dir)?;
+        let written = file.metadata().map_or(0, |m| m.len());
+        Some(AppLog {
+            dir: dir.to_path_buf(),
+            limit,
+            written,
+            file: Some(BufWriter::new(file)),
+        })
+    }
+
+    fn roll_over(&mut self) {
+        if let Some(mut f) = self.file.take() {
+            let _ = f.flush();
+        }
+        let path = self.dir.join(APP_LOG);
+        let _ = std::fs::rename(&path, self.dir.join(APP_LOG_OLD));
+        self.file = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(path)
+            .ok()
+            .map(BufWriter::new);
+        // Counted from zero even when the rename failed, so a stuck file is
+        // retried once per `limit` bytes rather than on every line.
+        self.written = 0;
+    }
+}
+
+impl Write for AppLog {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        if self.written > 0 && self.written + buf.len() as u64 > self.limit {
+            self.roll_over();
+        }
+        let Some(f) = self.file.as_mut() else {
+            return Err(std::io::Error::other("luna.log is not open"));
+        };
+        let n = f.write(buf)?;
+        self.written += n as u64;
+        Ok(n)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.file.as_mut().map_or(Ok(()), |f| f.flush())
+    }
 }
 
 /// Creates a new run file; a name already taken gets ` (2)`, ` (3)`, ….
@@ -178,6 +236,20 @@ mod tests {
         let old = dir.path().join("luna.old.log");
         assert_eq!(std::fs::metadata(old).unwrap().len(), APP_LOG_MAX_BYTES + 1);
         assert_eq!(std::fs::metadata(&log).unwrap().len(), 0);
+    }
+
+    #[test]
+    fn app_log_rolls_over_while_writing() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("luna.log"), "old\n").unwrap();
+        let mut log = AppLog::open(dir.path(), 20).unwrap();
+        for line in ["first line\n", "second line\n", "third line\n"] {
+            log.write_all(line.as_bytes()).unwrap();
+            log.flush().unwrap();
+        }
+        let read = |name| std::fs::read_to_string(dir.path().join(name)).unwrap();
+        assert_eq!(read("luna.old.log"), "second line\n");
+        assert_eq!(read("luna.log"), "third line\n");
     }
 
     #[test]

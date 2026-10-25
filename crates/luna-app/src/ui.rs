@@ -573,11 +573,10 @@ impl App {
     fn show_logs(&self) {
         let opened = ensure_dir(luna_log::logs_dir())
             .and_then(|dir| open::that_detached(dir).map_err(|e| e.to_string()));
-        let error = match opened {
-            Ok(()) => String::new(),
-            Err(e) => format!("Couldn't open the logs folder: {e}"),
-        };
-        self.settings_state().set_save_error(error.into());
+        if let Err(e) = opened {
+            let error = format!("Couldn't open the logs folder: {e}");
+            self.settings_state().set_save_error(error.into());
+        }
     }
 
     fn cancel(&self) {

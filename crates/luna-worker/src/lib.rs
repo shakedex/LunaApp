@@ -83,11 +83,11 @@ pub fn worker_main() {
 /// crash and timeout handling can be exercised with a real process.
 fn test_hooks(job: &ClipJob) {
     let name = job.files.main.to_string_lossy();
-    if name.contains("__crash__") {
-        std::process::abort();
-    }
     if name.contains("__log__") {
         eprintln!("12:00:00.000 WARN  [x] hook: hello");
+    }
+    if name.contains("__crash__") {
+        std::process::abort();
     }
     if name.contains("__panic__") {
         panic!("boom");
@@ -178,8 +178,7 @@ pub fn run_job(job: &ClipJob) -> ClipResult {
         .unwrap_or_default();
     tracing::debug!(positions = ?positions, inset, "strip");
     let thumbnails = if positions.is_empty() {
-        tracing::warn!("no thumbnails: frame count unknown");
-        vec![Err("The clip's frame count is unknown".into()); strip]
+        no_thumbnails(probe.meta.frame_count, job.strip)
     } else {
         let aspect = probe.layout.pixel_aspect.map(|r| (r.num, r.den));
         let mut unknown_transform = false;
@@ -214,6 +213,23 @@ pub fn run_job(job: &ClipJob) -> ClipResult {
         thumbnails,
         warnings,
     }
+}
+
+/// The strip when no frame can be picked, with the reason logged. A probe-only
+/// job (`strip` 0) asked for none, so it gets none and no warning.
+fn no_thumbnails(frame_count: Option<u64>, strip: u32) -> Vec<Result<Vec<u8>, String>> {
+    let reason = match frame_count {
+        _ if strip == 0 => return Vec::new(),
+        None => {
+            tracing::warn!("no thumbnails: frame count unknown");
+            "The clip's frame count is unknown"
+        }
+        Some(_) => {
+            tracing::warn!("no thumbnails: no frames");
+            "The clip has no frames"
+        }
+    };
+    vec![Err(reason.into()); strip as usize]
 }
 
 /// Every metadata field as `name=value`, `missing` when the file doesn't say.
@@ -331,6 +347,36 @@ mod tests {
         assert_eq!(thumb_event(&stats(0)), Level::WARN);
         assert_eq!(thumb_event(&stats(NEAR_BLACK_MAX)), Level::WARN);
         assert_eq!(thumb_event(&stats(NEAR_BLACK_MAX + 1)), Level::DEBUG);
+    }
+
+    #[test]
+    fn no_thumbnails_says_why_only_when_some_were_asked_for() {
+        let (thumbs, events) = collect::capture(|| no_thumbnails(None, 0));
+        assert!(thumbs.is_empty());
+        assert!(events.is_empty(), "{events:#?}");
+
+        let (thumbs, events) = collect::capture(|| no_thumbnails(Some(0), 0));
+        assert!(thumbs.is_empty());
+        assert!(events.is_empty(), "{events:#?}");
+
+        let (thumbs, events) = collect::capture(|| no_thumbnails(None, 3));
+        assert_eq!(
+            thumbs,
+            vec![Err("The clip's frame count is unknown".into()); 3]
+        );
+        assert_eq!(events.len(), 1, "{events:#?}");
+        assert_eq!(events[0].level, Level::WARN);
+        assert!(
+            events[0]
+                .text
+                .contains("no thumbnails: frame count unknown")
+        );
+
+        let (thumbs, events) = collect::capture(|| no_thumbnails(Some(0), 3));
+        assert_eq!(thumbs, vec![Err("The clip has no frames".into()); 3]);
+        assert_eq!(events.len(), 1, "{events:#?}");
+        assert_eq!(events[0].level, Level::WARN);
+        assert!(events[0].text.contains("no thumbnails: no frames"));
     }
 
     #[test]

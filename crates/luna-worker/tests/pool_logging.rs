@@ -1,6 +1,7 @@
 //! The pool's own log events. Pool threads only see a global subscriber, so this
 //! file holds a single test and installs one.
 
+use std::cell::RefCell;
 use std::fmt::Debug;
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
@@ -13,8 +14,20 @@ use tracing::field::{Field, Visit};
 use tracing::span::{Attributes, Id, Record};
 use tracing::{Event, Level, Metadata};
 
-/// Keeps every event as its level and `name=value` fields.
-struct Collect(Arc<Mutex<Vec<(Level, String)>>>);
+/// One event: its level, the clip of the innermost `clip` span it ran in on
+/// its thread, and its `name=value` fields.
+type Seen = (Level, Option<String>, String);
+
+/// Keeps every event.
+struct Collect {
+    events: Arc<Mutex<Vec<Seen>>>,
+    /// The `clip` field of each span, by id − 1.
+    spans: Mutex<Vec<Option<String>>>,
+}
+
+thread_local! {
+    static ENTERED: RefCell<Vec<u64>> = const { RefCell::new(Vec::new()) };
+}
 
 struct Fields(String);
 
@@ -24,12 +37,26 @@ impl Visit for Fields {
     }
 }
 
+struct ClipField(Option<String>);
+
+impl Visit for ClipField {
+    fn record_debug(&mut self, field: &Field, value: &dyn Debug) {
+        if field.name() == "clip" {
+            self.0 = Some(format!("{value:?}"));
+        }
+    }
+}
+
 impl tracing::Subscriber for Collect {
     fn enabled(&self, _: &Metadata<'_>) -> bool {
         true
     }
-    fn new_span(&self, _: &Attributes<'_>) -> Id {
-        Id::from_u64(1)
+    fn new_span(&self, attrs: &Attributes<'_>) -> Id {
+        let mut clip = ClipField(None);
+        attrs.record(&mut clip);
+        let mut spans = self.spans.lock().unwrap();
+        spans.push(clip.0);
+        Id::from_u64(spans.len() as u64)
     }
     fn record(&self, _: &Id, _: &Record<'_>) {}
     fn record_follows_from(&self, _: &Id, _: &Id) {}
@@ -37,16 +64,31 @@ impl tracing::Subscriber for Collect {
         let mut f = Fields(String::new());
         event.record(&mut f);
         let level = *event.metadata().level();
-        self.0.lock().unwrap().push((level, f.0));
+        let spans = self.spans.lock().unwrap();
+        let clip = ENTERED.with(|e| {
+            e.borrow()
+                .iter()
+                .rev()
+                .find_map(|id| spans[*id as usize - 1].clone())
+        });
+        self.events.lock().unwrap().push((level, clip, f.0));
     }
-    fn enter(&self, _: &Id) {}
-    fn exit(&self, _: &Id) {}
+    fn enter(&self, id: &Id) {
+        ENTERED.with(|e| e.borrow_mut().push(id.into_u64()));
+    }
+    fn exit(&self, _: &Id) {
+        ENTERED.with(|e| e.borrow_mut().pop());
+    }
 }
 
 #[test]
-fn crash_is_logged_with_clip_path() {
+fn crash_is_logged_under_its_clip_after_the_workers_last_lines() {
     let events = Arc::new(Mutex::new(Vec::new()));
-    tracing::subscriber::set_global_default(Collect(events.clone())).unwrap();
+    tracing::subscriber::set_global_default(Collect {
+        events: events.clone(),
+        spans: Mutex::new(Vec::new()),
+    })
+    .unwrap();
 
     let config = PoolConfig {
         exe: env!("CARGO_BIN_EXE_luna-worker").into(),
@@ -60,7 +102,7 @@ fn crash_is_logged_with_clip_path() {
         id: 0,
         files: ClipFiles {
             container: Container::QuickTime,
-            main: "Z:/does-not-exist/A001__crash__.mov".into(),
+            main: "Z:/does-not-exist/A001__log____crash__.mov".into(),
             segments: vec![],
             sidecars: vec![],
         },
@@ -71,10 +113,25 @@ fn crash_is_logged_with_clip_path() {
     assert_eq!(out[0].1, JobOutcome::Crashed);
 
     let events = events.lock().unwrap();
-    assert!(
-        events
-            .iter()
-            .any(|(level, text)| *level == Level::ERROR && text.contains("A001__crash__.mov")),
-        "{events:?}"
+    let crashed = events
+        .iter()
+        .position(|(level, _, text)| *level == Level::ERROR && text.contains("worker crashed"))
+        .unwrap_or_else(|| panic!("{events:#?}"));
+    let (_, clip, text) = &events[crashed];
+    assert_eq!(clip.as_deref(), Some("A001__log____crash__"), "{events:#?}");
+    assert!(text.contains("A001__log____crash__.mov"), "{events:#?}");
+    let forwarded = events
+        .iter()
+        .position(|(_, _, text)| text.contains("hook: hello"))
+        .unwrap_or_else(|| panic!("{events:#?}"));
+    assert!(forwarded < crashed, "{events:#?}");
+    let started = events
+        .iter()
+        .find(|(_, _, text)| text.contains("job started"))
+        .unwrap_or_else(|| panic!("{events:#?}"));
+    assert_eq!(
+        started.1.as_deref(),
+        Some("A001__log____crash__"),
+        "{events:#?}"
     );
 }
