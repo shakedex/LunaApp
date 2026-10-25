@@ -178,16 +178,33 @@ fn mcp_job_writes_a_run_log() {
         assert!(start.elapsed() < Duration::from_secs(60));
         std::thread::sleep(Duration::from_millis(100));
     }
-    let runs: Vec<_> = std::fs::read_dir(server.logs.path())
-        .unwrap()
-        .flatten()
-        .map(|e| e.path())
-        .filter(|p| {
-            p.extension().is_some_and(|x| x == "log") && p.file_name() != Some("luna.log".as_ref())
-        })
-        .collect();
-    assert_eq!(runs.len(), 1, "{runs:?}");
-    let text = std::fs::read_to_string(&runs[0]).unwrap();
+    // The run file closes just after the job state flips, so wait for the summary.
+    let start = Instant::now();
+    let text = loop {
+        let runs: Vec<_> = std::fs::read_dir(server.logs.path())
+            .unwrap()
+            .flatten()
+            .map(|e| e.path())
+            .filter(|p| {
+                p.extension().is_some_and(|x| x == "log")
+                    && p.file_name() != Some("luna.log".as_ref())
+            })
+            .collect();
+        assert!(runs.len() <= 1, "{runs:?}");
+        let text = runs
+            .first()
+            .map(|p| std::fs::read_to_string(p).unwrap_or_default())
+            .unwrap_or_default();
+        if text.contains("summary: clips=1") {
+            break text;
+        }
+        assert!(
+            start.elapsed() < Duration::from_secs(5),
+            "no summary in run log ({} run files): {text}",
+            runs.len()
+        );
+        std::thread::sleep(Duration::from_millis(50));
+    };
     assert!(text.contains("summary: clips=1"), "{text}");
 }
 

@@ -136,7 +136,7 @@ fn camera_filter_reports_one_camera() {
     ]);
     let v = json(&out);
     assert_eq!(v["clips"], 1, "{v}");
-    let csv = std::fs::read_to_string(v["files"]["html"].as_str().unwrap()).unwrap();
+    let csv = std::fs::read_to_string(v["files"]["csv"].as_str().unwrap()).unwrap();
     assert!(csv.contains("B001C001"));
     assert!(!csv.contains("A001C001"));
 }
@@ -270,7 +270,15 @@ fn every_report_warning_has_a_warn_line() {
 
     let mut warnings = 0;
     for clip in html.split("<article class=\"clip").skip(1) {
-        let name = between(clip, "<h4>", "</h4>")[0];
+        let name = between(clip, "<h4>", "</h4>")
+            .first()
+            .copied()
+            .unwrap_or_else(|| {
+                panic!(
+                    "clip article without an <h4> name:
+{clip}"
+                )
+            });
         let stem = name.rsplit_once('.').map_or(name, |(stem, _)| stem);
         for warning in between(clip, "<p class=\"warning\">", "</p>") {
             warnings += 1;
