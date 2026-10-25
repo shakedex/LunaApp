@@ -13,6 +13,7 @@ luna-formats = { path = "../luna-formats" }
 luna-h264 = { path = "../luna-h264" }
 luna-prores = { path = "../luna-prores" }
 xocn.workspace = true
+tracing = "0.1.44"
 
 [target."cfg(windows)".dependencies]
 proresraw-ffmpeg.workspace = true

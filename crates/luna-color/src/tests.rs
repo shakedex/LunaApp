@@ -3,7 +3,7 @@
 use luna_decode::{Cfa, Decoded, Frame, YcbcrMatrix};
 use luna_formats::{ColourHint, Gamut, Transfer};
 
-use crate::{Rgb8, curves, encode_jpeg, gamut, mosaic, render};
+use crate::{LumaStats, Rgb8, curves, encode_jpeg, gamut, luma_stats, mosaic, render};
 
 /// Where 18% grey must land on every camera: 0.42 signal → code 107.
 const GREY: u8 = 107;
@@ -592,4 +592,25 @@ fn perf_8k_mosaic_and_4k_ycbcr() {
         jpeg.len(),
         t.elapsed()
     );
+}
+
+#[test]
+fn luma_stats_of_black_and_white() {
+    let image = |v: u8| Rgb8 {
+        width: 4,
+        height: 2,
+        data: vec![v; 4 * 2 * 3],
+    };
+    let black = LumaStats {
+        min: 0,
+        mean: 0.0,
+        max: 0,
+    };
+    let white = LumaStats {
+        min: 255,
+        mean: 255.0,
+        max: 255,
+    };
+    assert_eq!(luma_stats(&image(0)), black);
+    assert_eq!(luma_stats(&image(255)), white);
 }

@@ -124,6 +124,73 @@ pub struct Frame {
     pub hint: ColourHint,
 }
 
+impl Frame {
+    /// One short line for the log: the picture's form, size, levels and colour,
+    /// never its samples (only how many there are).
+    pub fn describe(&self) -> String {
+        let hint = format!("hint={}/{}", opt(self.hint.transfer), opt(self.hint.gamut));
+        match &self.image {
+            Decoded::Mosaic {
+                width,
+                height,
+                cfa,
+                data,
+                black,
+                white,
+                wb,
+                camera_to_xyz,
+                scene_scale,
+            } => format!(
+                "Mosaic {width}x{height} cfa={cfa:?} samples={} black={black} white={white}                  wb={} camera_to_xyz={} scene_scale={} {hint}",
+                data.len(),
+                match wb {
+                    Some([r, g, b]) => format!("{r:.4},{g:.4},{b:.4}"),
+                    None => "none".into(),
+                },
+                if camera_to_xyz.is_some() { "yes" } else { "no" },
+                match scene_scale {
+                    Some(s) => format!("{s}"),
+                    None => "none".into(),
+                },
+            ),
+            Decoded::Rgb16 {
+                width,
+                height,
+                data,
+                transfer,
+                gamut,
+            } => format!(
+                "Rgb16 {width}x{height} samples={} transfer={transfer:?} gamut={gamut:?} {hint}",
+                data.len()
+            ),
+            Decoded::Display8 {
+                width,
+                height,
+                data,
+            } => format!("Display8 {width}x{height} samples={} {hint}", data.len()),
+            Decoded::Ycbcr {
+                width,
+                height,
+                chroma_width,
+                chroma_height,
+                bits,
+                y,
+                matrix,
+                full_range,
+                ..
+            } => format!(
+                "Ycbcr {width}x{height} chroma={chroma_width}x{chroma_height} bits={bits}                  samples={} matrix={matrix:?} range={} {hint}",
+                y.len(),
+                if *full_range { "full" } else { "legal" }
+            ),
+        }
+    }
+}
+
+fn opt<T: std::fmt::Debug>(v: Option<T>) -> String {
+    v.map_or_else(|| "unknown".into(), |v| format!("{v:?}"))
+}
+
 /// Decodes the frames at `positions` (0-based frame numbers), each at the
 /// smallest native scale that is at least `min_width` wide where the decoder
 /// offers scales. One result per position, in order; a failed frame never
@@ -141,6 +208,7 @@ pub fn decode_frames(
         return Vec::new();
     }
     let backend = backend_for(clip, probe);
+    tracing::debug!(positions = ?positions, min_width, "decode: {}", backend.name());
     let out = util::guard(backend.name(), || {
         Ok(match backend {
             Backend::XOcn => xocn_raw::decode(clip, probe, positions, min_width),
@@ -414,6 +482,32 @@ mod tests {
                 "No decoder for AVC-Intra yet".into()
             ))]
         );
+    }
+
+    #[test]
+    fn describe_has_levels_not_data() {
+        let frame = Frame {
+            image: Decoded::Mosaic {
+                width: 4448,
+                height: 3096,
+                cfa: Cfa::Rggb,
+                data: vec![1234; 4448 * 3096],
+                black: 256.0,
+                white: 4095.0,
+                wb: Some([1.9, 1.0, 1.6]),
+                camera_to_xyz: Some([0.5; 9]),
+                scene_scale: None,
+            },
+            hint: ColourHint {
+                transfer: Some(Transfer::LogC3),
+                gamut: Some(Gamut::ArriWideGamut3),
+            },
+        };
+        let text = frame.describe();
+        assert!(text.contains("black=256"), "{text}");
+        assert!(text.contains("white=4095"), "{text}");
+        assert!(!text.contains("1234"), "{text}");
+        assert!(text.len() < 300, "{text}");
     }
 
     #[test]

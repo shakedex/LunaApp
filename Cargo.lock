@@ -3754,6 +3754,7 @@ dependencies = [
  "jpeg-encoder",
  "luna-decode",
  "luna-formats",
+ "tracing",
 ]
 
 [[package]]
@@ -3787,6 +3788,7 @@ dependencies = [
  "luna-h264",
  "luna-prores",
  "proresraw-ffmpeg",
+ "tracing",
  "windows",
  "xocn",
 ]

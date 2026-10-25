@@ -53,6 +53,42 @@ pub struct Rendered {
 /// JPEG quality for report thumbnails.
 pub const JPEG_QUALITY: u8 = 82;
 
+/// A thumbnail whose brightest luma is at or below this looks black.
+pub const NEAR_BLACK_MAX: u8 = 16;
+
+/// Rec.709 luma of a display image, on its 8-bit codes.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct LumaStats {
+    pub min: u8,
+    pub mean: f32,
+    pub max: u8,
+}
+
+/// Min, mean and max Rec.709 luma over every pixel. All zero for an empty image.
+pub fn luma_stats(image: &Rgb8) -> LumaStats {
+    let (mut min, mut max, mut sum, mut n) = (u8::MAX, 0u8, 0f64, 0u64);
+    for px in image.data.as_chunks::<3>().0 {
+        let y = 0.2126 * px[0] as f32 + 0.7152 * px[1] as f32 + 0.0722 * px[2] as f32;
+        let code = y.round().clamp(0.0, 255.0) as u8;
+        min = min.min(code);
+        max = max.max(code);
+        sum += y as f64;
+        n += 1;
+    }
+    if n == 0 {
+        return LumaStats {
+            min: 0,
+            mean: 0.0,
+            max: 0,
+        };
+    }
+    LumaStats {
+        min,
+        mean: (sum / n as f64) as f32,
+        max,
+    }
+}
+
 /// Renders `frame` to Rec.709 and scales it to at most `max_width` wide
 /// (aspect kept, never upscaled). `pixel_aspect` widens anamorphic pictures.
 ///
@@ -97,10 +133,14 @@ pub fn render(frame: &Frame, max_width: u32, pixel_aspect: Option<(u32, u32)>) -
             let img = (cw > 0 && ch > 0).then(|| {
                 let (kx, ky) = (scale::reduction(cw, tw), scale::reduction(ch, th));
                 let mut img = mosaic::reduce(width, rows, *cfa, data, kx, ky);
-                let stops = match scene_scale.filter(|s| s.is_finite() && *s > 0.0) {
-                    Some(s) => (s * (white - black) / 0.18).log2(),
-                    None => mosaic::clip_stops_above_grey(frame.hint.gamut),
+                let (stops, from) = match scene_scale.filter(|s| s.is_finite() && *s > 0.0) {
+                    Some(s) => ((s * (white - black) / 0.18).log2(), "scene_scale"),
+                    None => (
+                        mosaic::clip_stops_above_grey(frame.hint.gamut),
+                        "camera family",
+                    ),
                 };
+                tracing::debug!(stops, from, "render: clip point above grey");
                 mosaic::linearise(&mut img, *black, *white, *wb, stops);
                 img
             });
@@ -166,13 +206,17 @@ pub fn render(frame: &Frame, max_width: u32, pixel_aspect: Option<(u32, u32)>) -
 
     let image = match img {
         Some(img) if img.width > 0 && img.height > 0 => {
+            tracing::debug!(look = look.name(), width = tw, height = th, "render: done");
             look.apply(&scale::area_resample(&img, tw, th))
         }
-        _ => Rgb8 {
-            width: tw as u32,
-            height: th as u32,
-            data: vec![0; tw * th * 3],
-        },
+        _ => {
+            tracing::warn!("render: frame data is shorter than its size, rendered black");
+            Rgb8 {
+                width: tw as u32,
+                height: th as u32,
+                data: vec![0; tw * th * 3],
+            }
+        }
     };
     Rendered {
         image,
@@ -321,6 +365,15 @@ impl Look {
                 decode: Some(CodeToLinear::new(t, to_code)),
                 matrix,
             },
+        }
+    }
+
+    fn name(&self) -> &'static str {
+        match self {
+            Look::Passthrough => "passthrough",
+            Look::DisplayGamut(_) => "display gamut",
+            Look::Scene { decode: None, .. } => "scene linear",
+            Look::Scene { .. } => "scene curve",
         }
     }
 

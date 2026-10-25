@@ -8,3 +8,4 @@ license.workspace = true
 jpeg-encoder = "0.7.1"
 luna-decode = { path = "../luna-decode" }
 luna-formats = { path = "../luna-formats" }
+tracing = "0.1.44"
