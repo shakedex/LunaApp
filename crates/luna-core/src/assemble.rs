@@ -57,6 +57,9 @@ pub fn clip_fields(
     };
     f.camera_serial = m.camera_serial.clone();
     f.lens = m.lens.clone();
+    f.scene = m.slate.scene.clone();
+    f.shot = m.slate.shot.clone();
+    f.take = m.slate.take.clone();
     f.focal_length = m.focal_length.clone();
     f.stop = m.stop.clone();
     f.iso = m.iso.clone();

@@ -154,6 +154,10 @@ pub struct ClipFields {
     /// e.g. "4 ch, 48 kHz, 24-bit", or "None" for a clip without sound.
     pub audio: Option<String>,
     pub file_size: Option<u64>,
+    /// The recorder's slate entry, when the file carries one.
+    pub scene: Option<String>,
+    pub shot: Option<String>,
+    pub take: Option<String>,
 }
 
 impl ClipFields {

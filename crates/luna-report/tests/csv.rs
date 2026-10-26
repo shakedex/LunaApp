@@ -3,7 +3,7 @@ mod common;
 use common::{HOSTILE, empty_report, hostile_report, non_ascii_report, sample_report};
 use luna_report::write_csv;
 
-const HEADER: &str = "Camera,Reel,File name,Recording date,TC in,TC out,Duration,FPS,Sensor FPS,Resolution,Codec,Camera model,Camera serial,Lens,Focal length,T/f-stop,ISO/EI,Shutter,WB,ND,Audio,File size (bytes)";
+const HEADER: &str = "Camera,Reel,Scene,Shot,Take,File name,Recording date,TC in,TC out,Duration,FPS,Sensor FPS,Resolution,Codec,Camera model,Camera serial,Lens,Focal length,T/f-stop,ISO/EI,Shutter,WB,ND,Audio,File size (bytes)";
 
 fn text(bytes: &[u8]) -> &str {
     assert_eq!(&bytes[..3], &[0xEF, 0xBB, 0xBF], "UTF-8 byte-order mark");
@@ -17,7 +17,7 @@ fn one_row_per_clip_with_camera_and_reel_first() {
     assert_eq!(lines[0], HEADER);
     assert_eq!(
         lines[1],
-        "A,A001,A001C001_261001_R1AB.mxf,2026-10-01,10:00:00:00,10:00:10:00,00:00:10:00,25,50,4096×2160,ProRes 4444,ALEXA 35,60123,Signature Prime 47,47 mm,T2.8,800,180°,5600 K,0.6,\"4 ch, 48 kHz, 24-bit\",4294967296"
+        "A,A001,12,3,,A001C001_261001_R1AB.mxf,2026-10-01,10:00:00:00,10:00:10:00,00:00:10:00,25,50,4096×2160,ProRes 4444,ALEXA 35,60123,Signature Prime 47,47 mm,T2.8,800,180°,5600 K,0.6,\"4 ch, 48 kHz, 24-bit\",4294967296"
     );
     assert_eq!(
         lines.len(),
@@ -31,7 +31,7 @@ fn one_row_per_clip_with_camera_and_reel_first() {
 fn missing_values_are_empty_cells() {
     let csv = write_csv(&sample_report());
     let last = text(&csv).split("\r\n").nth(4).unwrap();
-    assert_eq!(last, "B,B001,B001C001.mov,,,,,,,,,,,,,,,,,,,");
+    assert_eq!(last, "B,B001,,,,B001C001.mov,,,,,,,,,,,,,,,,,,,");
 }
 
 #[test]
@@ -45,7 +45,10 @@ fn commas_quotes_and_newlines_are_quoted() {
     let csv = write_csv(&hostile_report());
     let quoted = format!("\"{}\"", HOSTILE.replace('"', "\"\""));
     let body = text(&csv);
-    assert!(body.contains(&format!("{quoted},A001,{quoted},")), "{body}");
+    assert!(
+        body.contains(&format!("{quoted},A001,12,3,,{quoted},")),
+        "{body}"
+    );
 }
 
 #[test]

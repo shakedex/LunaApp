@@ -128,3 +128,15 @@ fn html_lists_several_sources() {
     let html = String::from_utf8(luna_report::write_html(&r).unwrap()).unwrap();
     assert!(html.contains("E:/Footage, F:/Footage"));
 }
+
+#[test]
+fn slate_shows_only_when_the_file_has_it() {
+    let h = html(&sample_report());
+    // Three full clips carry scene 12, shot 3 and no take; the bare clip has none.
+    assert_eq!(
+        h.matches("<dt>Slate</dt><dd>Sc 12 · Sh 3</dd>").count(),
+        3,
+        "{h}"
+    );
+    assert_eq!(h.matches("<dt>Slate</dt>").count(), 3);
+}

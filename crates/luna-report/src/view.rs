@@ -195,6 +195,16 @@ fn clip_view(clip: &Clip, image_ref: &mut dyn FnMut(ImageRef) -> String) -> Clip
     };
     let mut fps_cell = cell("FPS", fps);
     fps_cell.accent = off_speed;
+    let mut optics = vec![
+        cell("Camera", f.camera_model.clone()),
+        cell("Serial", f.camera_serial.clone()),
+        cell("Lens", f.lens.clone()),
+        cell("Focal length", f.focal_length.clone()),
+        cell("T/f-stop", f.stop.clone()),
+    ];
+    if let Some(slate) = slate(f) {
+        optics.push(cell("Slate", Some(slate)));
+    }
 
     ClipView {
         name: f.file_name.clone(),
@@ -208,13 +218,7 @@ fn clip_view(clip: &Clip, image_ref: &mut dyn FnMut(ImageRef) -> String) -> Clip
                 cell("Resolution", f.resolution.clone()),
                 cell("Codec", f.codec.clone()),
             ],
-            vec![
-                cell("Camera", f.camera_model.clone()),
-                cell("Serial", f.camera_serial.clone()),
-                cell("Lens", f.lens.clone()),
-                cell("Focal length", f.focal_length.clone()),
-                cell("T/f-stop", f.stop.clone()),
-            ],
+            optics,
             vec![
                 cell("ISO/EI", f.iso.clone()),
                 cell("Shutter", f.shutter.clone()),
@@ -239,6 +243,15 @@ fn clip_view(clip: &Clip, image_ref: &mut dyn FnMut(ImageRef) -> String) -> Clip
         problem: clip.has_problems(),
         off_speed,
     }
+}
+
+/// "Sc 12 · Sh 3 · Tk 2" from whichever parts the file has; `None` without any.
+fn slate(f: &ClipFields) -> Option<String> {
+    let parts: Vec<String> = [("Sc", &f.scene), ("Sh", &f.shot), ("Tk", &f.take)]
+        .into_iter()
+        .filter_map(|(tag, v)| v.as_ref().map(|v| format!("{tag} {v}")))
+        .collect();
+    (!parts.is_empty()).then(|| parts.join(" · "))
 }
 
 fn guessed_identity(clip: &Clip) -> Option<String> {
