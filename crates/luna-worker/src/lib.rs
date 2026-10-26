@@ -181,13 +181,15 @@ pub fn run_job(job: &ClipJob) -> ClipResult {
         no_thumbnails(probe.meta.frame_count, job.strip)
     } else {
         let aspect = probe.layout.pixel_aspect.map(|r| (r.num, r.den));
+        let turn = probe.layout.rotation;
         let mut unknown_transform = false;
         let thumbs = luna_decode::decode_frames(files, &probe, &positions, job.thumb_width)
             .into_iter()
             .zip(&positions)
             .map(|(frame, &position)| match frame {
                 Ok(frame) => {
-                    let (jpeg, unknown) = thumbnail(&frame, position, job.thumb_width, aspect);
+                    let (jpeg, unknown) =
+                        thumbnail(&frame, position, job.thumb_width, aspect, turn);
                     unknown_transform |= unknown;
                     Ok(jpeg)
                 }
@@ -263,6 +265,9 @@ fn log_meta(m: &ClipMeta) {
         audio = %v(&m.audio),
         embedded_reel = %v(&m.embedded_reel),
         embedded_camera_id = %v(&m.embedded_camera_id),
+        scene = %v(&m.slate.scene),
+        shot = %v(&m.slate.shot),
+        take = %v(&m.slate.take),
         transfer = %d(&m.colour.transfer),
         gamut = %d(&m.colour.gamut),
         "meta"
@@ -276,9 +281,11 @@ fn thumbnail(
     position: u64,
     width: u32,
     aspect: Option<(u32, u32)>,
+    rotation: u16,
 ) -> (Vec<u8>, bool) {
     let start = std::time::Instant::now();
-    let rendered = luna_color::render(frame, width, aspect);
+    let mut rendered = luna_color::render(frame, width, aspect);
+    rendered.image = luna_color::rotate(&rendered.image, rotation);
     let render_ms = start.elapsed().as_secs_f64() * 1000.0;
     let stats = luna_color::luma_stats(&rendered.image);
     let (luma_min, luma_mean, luma_max) = (stats.min, stats.mean, stats.max);
@@ -288,6 +295,7 @@ fn thumbnail(
     if thumb_event(&stats) == Level::WARN {
         tracing::warn!(
             render_ms,
+            rotation,
             transform_unknown = unknown,
             luma_min,
             luma_mean,
@@ -297,6 +305,7 @@ fn thumbnail(
     } else {
         tracing::debug!(
             render_ms,
+            rotation,
             transform_unknown = unknown,
             luma_min,
             luma_mean,
@@ -381,7 +390,7 @@ mod tests {
 
     #[test]
     fn black_thumbnail_logs_warn() {
-        let (jpeg, events) = collect::capture(|| thumbnail(&display8(0), 24, 640, None));
+        let (jpeg, events) = collect::capture(|| thumbnail(&display8(0), 24, 640, None, 0));
         assert!(!jpeg.0.is_empty());
         let thumb: Vec<_> = events
             .iter()
@@ -400,7 +409,7 @@ mod tests {
             assert!(thumb[0].text.contains(field), "{field}: {thumb:?}");
         }
 
-        let (_, events) = collect::capture(|| thumbnail(&display8(128), 24, 640, None));
+        let (_, events) = collect::capture(|| thumbnail(&display8(128), 24, 640, None, 0));
         assert!(
             events
                 .iter()

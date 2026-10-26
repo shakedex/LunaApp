@@ -3,7 +3,7 @@
 use luna_decode::{Cfa, Decoded, Frame, YcbcrMatrix};
 use luna_formats::{ColourHint, Gamut, Transfer};
 
-use crate::{LumaStats, Rgb8, curves, encode_jpeg, gamut, luma_stats, mosaic, render};
+use crate::{LumaStats, Rgb8, curves, encode_jpeg, gamut, luma_stats, mosaic, render, rotate};
 
 /// Where 18% grey must land on every camera: 0.42 signal → code 107.
 const GREY: u8 = 107;
@@ -613,4 +613,28 @@ fn luma_stats_of_black_and_white() {
     };
     assert_eq!(luma_stats(&image(0)), black);
     assert_eq!(luma_stats(&image(255)), white);
+}
+
+#[test]
+fn rotate_turns_clockwise() {
+    // 3×2: pixels numbered row by row, one grey value each.
+    let img = Rgb8 {
+        width: 3,
+        height: 2,
+        data: [1u8, 2, 3, 4, 5, 6]
+            .iter()
+            .flat_map(|&v| [v, v, v])
+            .collect(),
+    };
+    let grey = |i: &Rgb8| i.data.iter().step_by(3).copied().collect::<Vec<_>>();
+    let r90 = rotate(&img, 90);
+    assert_eq!((r90.width, r90.height), (2, 3));
+    assert_eq!(grey(&r90), vec![4, 1, 5, 2, 6, 3]);
+    let r180 = rotate(&img, 180);
+    assert_eq!((r180.width, r180.height), (3, 2));
+    assert_eq!(grey(&r180), vec![6, 5, 4, 3, 2, 1]);
+    let r270 = rotate(&img, 270);
+    assert_eq!((r270.width, r270.height), (2, 3));
+    assert_eq!(grey(&r270), vec![3, 6, 2, 5, 1, 4]);
+    assert_eq!(rotate(&img, 0), img);
 }

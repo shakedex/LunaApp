@@ -64,6 +64,7 @@ fn probe_crm(clip: &ClipFiles) -> Result<Probe, FormatError> {
         drop_frame: t.flags & 1 != 0,
     });
     let meta = ClipMeta {
+        slate: Default::default(),
         recording_date: m.capture_time.as_deref().map(exif_date),
         start_timecode,
         frame_rate,
@@ -99,6 +100,7 @@ fn probe_crm(clip: &ClipFiles) -> Result<Probe, FormatError> {
     };
     let cmp = c.codec();
     let layout = PictureLayout {
+        rotation: 0,
         stored_width: cmp.width,
         stored_height: cmp.height,
         raw_bits: u8::try_from(cmp.bits).ok(),
@@ -135,6 +137,7 @@ fn probe_braw(clip: &ClipFiles) -> Result<Probe, FormatError> {
         .as_deref()
         .and_then(|t| parse_timecode(t, frame_rate));
     let meta = ClipMeta {
+        slate: Default::default(),
         recording_date: info.date_recorded.as_deref().map(exif_date),
         start_timecode,
         frame_rate,
@@ -159,6 +162,7 @@ fn probe_braw(clip: &ClipFiles) -> Result<Probe, FormatError> {
         colour: braw_sdk::HINT,
     };
     let layout = PictureLayout {
+        rotation: 0,
         stored_width: info.width,
         stored_height: info.height,
         raw_bits: None,
@@ -254,6 +258,7 @@ fn probe_r3d(clip: &ClipFiles) -> Result<Probe, FormatError> {
         (b, None) => b,
     };
     let meta = ClipMeta {
+        slate: Default::default(),
         recording_date,
         start_timecode,
         frame_rate,
@@ -300,6 +305,7 @@ fn probe_r3d(clip: &ClipFiles) -> Result<Probe, FormatError> {
         .filter(|p| *p > 0.0 && (p - 1.0).abs() > 1e-3)
         .and_then(|p| rational((p * 1000.0).round() as u32, 1000));
     let layout = PictureLayout {
+        rotation: 0,
         stored_width: info.width,
         stored_height: info.height,
         raw_bits: None,

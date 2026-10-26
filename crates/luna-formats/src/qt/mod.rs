@@ -6,6 +6,7 @@
 //! (bounded), and a handful of small samples (the first timecode sample and
 //! the first vendor-metadata sample). Coded frames in `mdat` are never read.
 
+mod apple;
 mod arri;
 mod atom;
 mod bytes;
@@ -152,7 +153,15 @@ pub(crate) fn probe_source(src: &dyn Source) -> Result<Probe, FormatError> {
         stored_height: ve.height,
         raw_bits: None,
         pixel_aspect: ve.pixel_aspect,
+        rotation: video.rotation,
     };
+    if video.rotation != 0 {
+        tracing::debug!(
+            track = video.id,
+            degrees = video.rotation,
+            "display turn from tkhd matrix"
+        );
+    }
 
     let frame_count = video.sizes.count() as u64;
     let frame_rate = frame_rate(video, &mut warnings);
@@ -236,6 +245,12 @@ pub(crate) fn probe_source(src: &dyn Source) -> Result<Probe, FormatError> {
     sources.gained(&before, &meta, |f| {
         keys.get(f).unwrap_or("QuickTime metadata").to_string()
     });
+    let (a, keys) = apple::read(&movie.items, &video.items);
+    let before = present(&meta);
+    fill(&mut meta, a);
+    sources.gained(&before, &meta, |f| {
+        keys.get(f).unwrap_or("QuickTime metadata").to_string()
+    });
     if meta.embedded_reel.is_none() {
         meta.embedded_reel = tc.and_then(|t| t.1);
         sources.set("embedded_reel", "tmcd sample entry name");
@@ -314,6 +329,10 @@ pub(crate) fn fill(into: &mut ClipMeta, from: ClipMeta) {
         embedded_reel,
         embedded_camera_id
     );
+    let (to, slate) = (&mut into.slate, &from.slate);
+    to.scene = to.scene.take().or_else(|| slate.scene.clone());
+    to.shot = to.shot.take().or_else(|| slate.shot.clone());
+    to.take = to.take.take().or_else(|| slate.take.clone());
     if into.colour.transfer.is_none() && into.colour.gamut.is_none() {
         into.colour = from.colour;
     }

@@ -64,6 +64,35 @@ pub struct LumaStats {
     pub max: u8,
 }
 
+/// `image` turned clockwise by `degrees` (90, 180 or 270); any other value
+/// returns it unchanged.
+pub fn rotate(image: &Rgb8, degrees: u16) -> Rgb8 {
+    let (w, h) = (image.width as usize, image.height as usize);
+    let (nw, nh) = match degrees {
+        90 | 270 => (h, w),
+        180 => (w, h),
+        _ => return image.clone(),
+    };
+    // The source pixel each output pixel takes.
+    let source = |x: usize, y: usize| match degrees {
+        90 => (y, h - 1 - x),
+        180 => (w - 1 - x, h - 1 - y),
+        _ => (w - 1 - y, x),
+    };
+    let mut data = Vec::with_capacity(image.data.len());
+    for y in 0..nh {
+        for x in 0..nw {
+            let (sx, sy) = source(x, y);
+            data.extend_from_slice(&image.data[(sy * w + sx) * 3..][..3]);
+        }
+    }
+    Rgb8 {
+        width: nw as u32,
+        height: nh as u32,
+        data,
+    }
+}
+
 /// Min, mean and max Rec.709 luma over every pixel. All zero for an empty image.
 pub fn luma_stats(image: &Rgb8) -> LumaStats {
     let (mut min, mut max, mut sum, mut n) = (u8::MAX, 0u8, 0f64, 0u64);

@@ -70,6 +70,7 @@ fn colour(transfer: Transfer, gamut: Option<Gamut>) -> ColourHint {
 
 fn arri(date: &str, lens: Option<String>, start: u64, frames: u64, w: u32, h: u32) -> ClipMeta {
     ClipMeta {
+        slate: Default::default(),
         recording_date: s(date),
         start_timecode: tc(start, 24),
         frame_rate: rate(24, 1),

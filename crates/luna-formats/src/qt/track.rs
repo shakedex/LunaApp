@@ -2,6 +2,7 @@
 
 use super::atom::{Atoms, child, path};
 use super::bytes::{Reader, table_fits};
+use super::meta::{self, Items};
 use crate::types::ByteRange;
 
 #[derive(Debug, Default, Clone)]
@@ -23,6 +24,10 @@ pub(crate) struct Track {
     pub tmcd_refs: Vec<u32>,
     /// Table atoms that were present but unreadable.
     pub damaged: Vec<&'static str>,
+    /// Clockwise turn the `tkhd` matrix applies for display: 0, 90, 180 or 270.
+    pub rotation: u16,
+    /// The track's own `meta` items (iPhone lens keys live here).
+    pub items: Items,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -63,6 +68,18 @@ pub(crate) struct Edit {
 /// (over 46 hours at 60 fps); refusing it bounds the frame-index allocation.
 pub(crate) const MAX_SAMPLES: u32 = 10_000_000;
 
+/// The clockwise display turn of a `tkhd` matrix's 16.16 `a b c d`
+/// (x' = a·x + c·y, y' = b·x + d·y). Anything but a quarter turn is 0.
+fn rotation(a: i32, b: i32, c: i32, d: i32) -> u16 {
+    const ONE: i32 = 1 << 16;
+    match (a, b, c, d) {
+        (0, ONE, n, 0) if n == -ONE => 90,
+        (n, 0, 0, m) if n == -ONE && m == -ONE => 180,
+        (0, n, ONE, 0) if n == -ONE => 270,
+        _ => 0,
+    }
+}
+
 pub(crate) fn parse_track(trak: &[u8]) -> Track {
     let mut t = Track::default();
     if let Some(tkhd) = child(trak, b"tkhd") {
@@ -70,7 +87,19 @@ pub(crate) fn parse_track(trak: &[u8]) -> Track {
         if let Some(v) = r.u8() {
             let skip = if v == 1 { 3 + 16 } else { 3 + 8 };
             t.id = r.skip(skip).and_then(|_| r.u32()).unwrap_or(0);
+            // reserved, duration, reserved ×2, layer, group, volume, reserved
+            let skip = if v == 1 { 4 + 8 } else { 4 + 4 } + 8 + 8;
+            if r.skip(skip).is_some() {
+                // Matrix order: a b u c d v x y w.
+                let m: Vec<i32> = (0..5).filter_map(|_| r.u32().map(|x| x as i32)).collect();
+                if let [a, b, _, c, d] = m[..] {
+                    t.rotation = rotation(a, b, c, d);
+                }
+            }
         }
+    }
+    if let Some(m) = child(trak, b"meta") {
+        meta::read_meta(m, &mut t.items);
     }
     if let Some(tref) = child(trak, b"tref")
         && let Some(tm) = child(tref, b"tmcd")
@@ -370,6 +399,36 @@ mod tests {
             chunk_offsets: offsets,
             ..Track::default()
         }
+    }
+
+    /// A version-0 `tkhd` atom with the given matrix `a b c d` (16.16).
+    fn tkhd(a: i32, b: i32, c: i32, d: i32) -> Vec<u8> {
+        let mut body = vec![0u8; 4]; // version 0, flags
+        body.extend([0u8; 8]); // creation, modification
+        body.extend(7u32.to_be_bytes()); // track id
+        body.extend([0u8; 4 + 4 + 8 + 8]); // reserved, duration, reserved, layer..volume
+        for v in [a, b, 0, c, d, 0, 0, 0, 0x4000_0000] {
+            body.extend(v.to_be_bytes());
+        }
+        body.extend([0u8; 8]); // width, height
+        let mut atom = ((body.len() + 8) as u32).to_be_bytes().to_vec();
+        atom.extend(b"tkhd");
+        atom.extend(body);
+        atom
+    }
+
+    #[test]
+    fn tkhd_matrix_gives_the_display_turn() {
+        const ONE: i32 = 1 << 16;
+        let turn = |a, b, c, d| parse_track(&tkhd(a, b, c, d)).rotation;
+        assert_eq!(turn(ONE, 0, 0, ONE), 0);
+        // iPhone portrait: ffprobe reports rotation -90 (display turned clockwise).
+        assert_eq!(turn(0, ONE, -ONE, 0), 90);
+        assert_eq!(turn(-ONE, 0, 0, -ONE), 180);
+        assert_eq!(turn(0, -ONE, ONE, 0), 270);
+        // Scaling or skew isn't a turn.
+        assert_eq!(turn(2 * ONE, 0, 0, ONE), 0);
+        assert_eq!(parse_track(&tkhd(0, ONE, -ONE, 0)).id, 7);
     }
 
     #[test]

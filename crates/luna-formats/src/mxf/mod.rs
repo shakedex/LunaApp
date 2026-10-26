@@ -299,6 +299,7 @@ pub(crate) fn probe_source<R: Read + Seek>(
         stored_height: pic.stored_height.unwrap_or(0),
         raw_bits: None,
         pixel_aspect: pixel_aspect(&pic),
+        rotation: 0,
     };
     if codec == Codec::ArriRaw {
         layout.raw_bits = frames.ranges.first().and_then(|f| {

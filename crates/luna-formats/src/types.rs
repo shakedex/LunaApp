@@ -329,7 +329,18 @@ pub struct ClipMeta {
     pub embedded_reel: Option<String>,
     /// Camera letter or ID as the camera records it (e.g. "A").
     pub embedded_camera_id: Option<String>,
+    /// Scene, shot and take as the recorder's slate entry records them.
+    #[serde(default)]
+    pub slate: Slate,
     pub colour: ColourHint,
+}
+
+/// A recorder's slate entry (Blackmagic Video Assist, Final Cut keys).
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Slate {
+    pub scene: Option<String>,
+    pub shot: Option<String>,
+    pub take: Option<String>,
 }
 
 /// Where the coded frames of a clip sit, for decoders that read them from our index.
@@ -360,6 +371,10 @@ pub struct PictureLayout {
     pub raw_bits: Option<u8>,
     /// Pixel aspect ratio (anamorphic squeeze), 1/1 when square.
     pub pixel_aspect: Option<Rational>,
+    /// Clockwise turn (0, 90, 180 or 270 degrees) that shows the picture
+    /// upright, e.g. a phone held in portrait.
+    #[serde(default)]
+    pub rotation: u16,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

@@ -3,7 +3,7 @@
 use crate::types::ClipMeta;
 
 /// Every `ClipMeta` field by name, and whether it holds a value.
-pub(crate) fn present(m: &ClipMeta) -> [(&'static str, bool); 22] {
+pub(crate) fn present(m: &ClipMeta) -> [(&'static str, bool); 25] {
     [
         ("recording_date", m.recording_date.is_some()),
         ("start_timecode", m.start_timecode.is_some()),
@@ -25,6 +25,9 @@ pub(crate) fn present(m: &ClipMeta) -> [(&'static str, bool); 22] {
         ("audio", m.audio.is_some()),
         ("embedded_reel", m.embedded_reel.is_some()),
         ("embedded_camera_id", m.embedded_camera_id.is_some()),
+        ("scene", m.slate.scene.is_some()),
+        ("shot", m.slate.shot.is_some()),
+        ("take", m.slate.take.is_some()),
         ("transfer", m.colour.transfer.is_some()),
         ("gamut", m.colour.gamut.is_some()),
     ]
@@ -47,7 +50,7 @@ impl Sources {
     /// Credits `source(field)` with every field `after` has and `before` lacked.
     pub(crate) fn gained(
         &mut self,
-        before: &[(&'static str, bool); 22],
+        before: &[(&'static str, bool); 25],
         after: &ClipMeta,
         source: impl Fn(&'static str) -> String,
     ) {

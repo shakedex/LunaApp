@@ -59,6 +59,7 @@ fn colour(t: Transfer, g: Gamut) -> ColourHint {
 
 fn layout(w: u32, h: u32, raw_bits: Option<u8>, par: (u32, u32)) -> PictureLayout {
     PictureLayout {
+        rotation: 0,
         stored_width: w,
         stored_height: h,
         raw_bits,
@@ -83,6 +84,7 @@ fn br(offset: u64, len: u64) -> ByteRange {
 
 fn alexa35_prores_meta() -> ClipMeta {
     ClipMeta {
+        slate: Default::default(),
         recording_date: s("2025-10-20 13:54:13"),
         start_timecode: tc(1_201_264, 24),
         frame_rate: fps(24, 1),
@@ -138,6 +140,7 @@ fn alexa35_arriraw() {
     assert_eq!(
         p.meta,
         ClipMeta {
+            slate: Default::default(),
             recording_date: s("2025-10-20 13:23:07"),
             start_timecode: tc(1_156_457, 24),
             frame_rate: fps(24, 1),
@@ -184,6 +187,7 @@ fn alexa35_arricore() {
     assert_eq!(
         p.meta,
         ClipMeta {
+            slate: Default::default(),
             recording_date: s("2025-10-20 12:34:57"),
             start_timecode: tc(1_087_110, 24),
             frame_rate: fps(24, 1),
@@ -217,6 +221,7 @@ fn alexa35_arricore() {
 
 fn mini_lf(lens: &str, focal: &str, wb: &str, date: &str, tc_frames: u64, count: u64) -> ClipMeta {
     ClipMeta {
+        slate: Default::default(),
         recording_date: s(date),
         start_timecode: tc(tc_frames, 24),
         frame_rate: fps(24, 1),
@@ -309,6 +314,7 @@ fn burano_xocn_with_xml() {
     assert_eq!(
         p.meta,
         ClipMeta {
+            slate: Default::default(),
             recording_date: Some("2024-10-24 20:28:24 UTC".into()),
             start_timecode: tc(1_080_147, 24),
             frame_rate: fps(24, 1),
@@ -352,6 +358,7 @@ fn venice_xocn_with_xml() {
     assert_eq!(
         p.meta,
         ClipMeta {
+            slate: Default::default(),
             recording_date: Some("2020-11-02 01:39:05 UTC".into()),
             start_timecode: tc(419_016, 24),
             frame_rate: fps(24000, 1001),
@@ -392,6 +399,7 @@ fn venice2_xocn_anamorphic_truncated() {
     assert_eq!(
         p.meta,
         ClipMeta {
+            slate: Default::default(),
             recording_date: Some("2024-10-24 20:27:45 UTC".into()),
             start_timecode: tc(1_079_731, 24),
             frame_rate: fps(24, 1),
@@ -433,6 +441,7 @@ fn fx6_xavc_intra() {
     assert_eq!(
         p.meta,
         ClipMeta {
+            slate: Default::default(),
             recording_date: Some("2021-01-24 15:50:43 UTC".into()),
             start_timecode: tc(210_394, 50),
             frame_rate: fps(50, 1),
@@ -473,6 +482,7 @@ fn canon_c50_xf_avc() {
     assert_eq!(
         p.meta,
         ClipMeta {
+            slate: Default::default(),
             recording_date: s("2025-01-07 22:40:21"),
             start_timecode: tc(1_187_062, 25),
             frame_rate: fps(25, 1),
