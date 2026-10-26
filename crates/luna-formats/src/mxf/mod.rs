@@ -206,7 +206,15 @@ pub(crate) fn probe_source<R: Read + Seek>(
             Some(n) => warnings.push(format!(
                 "The file ends early: {have} of {n} frames are present."
             )),
-            None => warnings.push(format!("The file ends early after {have} frames.")),
+            None => {
+                warnings.push(format!("The file ends early after {have} frames."));
+                // A recording cut off (power loss, card pulled) never got its
+                // durations written: the complete frames are the clip.
+                if !frames.clip_wrapped && have > 0 {
+                    meta.frame_count = Some(have as u64);
+                    sources.set("frame_count", "complete picture elements before the cut");
+                }
+            }
         }
     }
 

@@ -377,19 +377,53 @@ fn frame_rate(t: &Track, warnings: &mut Vec<String>) -> Option<crate::types::Rat
     if t.timescale == 0 {
         return None;
     }
-    let runs: Vec<_> = t.stts.iter().filter(|&&(n, _)| n > 0).collect();
-    let (&&(_, delta), rest) = runs.split_first()?;
-    // A single odd-length last sample is common and doesn't make a clip VFR.
-    let constant = rest
-        .iter()
-        .enumerate()
-        .all(|(i, &&(n, d))| d == delta || (i == rest.len() - 1 && n == 1));
-    if !constant || delta == 0 {
+    if t.stts.iter().all(|&(n, _)| n == 0) {
+        return None;
+    }
+    let Some(delta) = steady_delta(&t.stts) else {
         tracing::warn!(track = t.id, "vfr: {}", stts_summary(&t.stts, t.timescale));
         warnings.push("The frame rate varies within the clip.".into());
         return None;
+    };
+    if t.stts.iter().any(|&(n, d)| n > 0 && d != delta) {
+        tracing::debug!(
+            track = t.id,
+            "timing jitter ignored: {}",
+            stts_summary(&t.stts, t.timescale)
+        );
     }
     Some(entry::reduce(t.timescale, delta))
+}
+
+/// The frame duration of a steady clip, from its `stts` runs: one duration
+/// throughout, or one duration with a few frames a tick longer or shorter
+/// (phones stamp frames at capture time, rounded to the timescale). A single
+/// odd-length last sample is common and doesn't count. `None` when the rate
+/// really varies.
+fn steady_delta(stts: &[(u32, u32)]) -> Option<u32> {
+    /// Frames this many ticks long or more can be a tick off and still steady.
+    const MIN_TICKS: u32 = 20;
+    /// At most this share of frames may be a tick off.
+    const MAX_OFF: f64 = 0.02;
+    let mut runs: Vec<_> = stts.iter().copied().filter(|&(n, _)| n > 0).collect();
+    if runs.len() > 1 && runs.last().is_some_and(|&(n, _)| n == 1) {
+        runs.pop();
+    }
+    let mut counts: std::collections::HashMap<u32, u64> = std::collections::HashMap::new();
+    for &(n, d) in &runs {
+        *counts.entry(d).or_default() += u64::from(n);
+    }
+    let (&delta, &main) = counts.iter().max_by_key(|&(&d, &n)| (n, d))?;
+    if delta == 0 {
+        return None;
+    }
+    if counts.len() == 1 {
+        return Some(delta);
+    }
+    let total: u64 = counts.values().sum();
+    let near = counts.keys().all(|&d| d.abs_diff(delta) <= 1);
+    let off = (total - main) as f64 / total as f64;
+    (delta >= MIN_TICKS && near && off <= MAX_OFF).then_some(delta)
 }
 
 /// Timing evidence for a frame rate that varies: the `stts` run count, the

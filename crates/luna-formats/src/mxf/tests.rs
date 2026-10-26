@@ -299,6 +299,8 @@ struct Opts {
     footer: bool,
     /// Constant-size frames with a CBE index.
     cbe: bool,
+    /// Durations written in the header; a recording cut off by power loss has none.
+    durations: bool,
 }
 
 impl Default for Opts {
@@ -309,12 +311,13 @@ impl Default for Opts {
             rip: true,
             footer: true,
             cbe: false,
+            durations: true,
         }
     }
 }
 
 fn build(o: Opts) -> Built {
-    let md = header_metadata(o.frames as i64);
+    let md = header_metadata(if o.durations { o.frames as i64 } else { 0 });
     let header_pack = partition(0x02, 0x04, 0, 0, 0, md.len() as u64, 0, 0, 0, 0);
     let mut out = header_pack;
     out.extend(&md);
@@ -494,6 +497,26 @@ fn a_cut_short_file_lists_the_complete_frames() {
     assert_eq!(p.meta.frame_count, Some(5));
     assert!(
         p.warnings.iter().any(|w| w.contains("4 of 5")),
+        "{:?}",
+        p.warnings
+    );
+}
+
+#[test]
+fn a_cut_off_recording_counts_its_complete_frames() {
+    let b = build(Opts {
+        index: false,
+        footer: false,
+        durations: false,
+        ..Default::default()
+    });
+    let last = b.frames[4];
+    let cut = &b.bytes[..(last.offset + last.len / 2) as usize];
+    let p = run(cut).unwrap();
+    assert_eq!(p.frames, FrameIndex::Ranges(b.frames[..4].to_vec()));
+    assert_eq!(p.meta.frame_count, Some(4));
+    assert!(
+        p.warnings.iter().any(|w| w.contains("after 4 frames")),
         "{:?}",
         p.warnings
     );

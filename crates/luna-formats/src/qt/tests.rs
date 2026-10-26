@@ -450,6 +450,39 @@ fn corruption_harness() {
 }
 
 #[test]
+fn one_tick_jitter_is_a_steady_rate() {
+    use super::steady_delta;
+    // iPhone 25p at timescale 600: one frame a tick long.
+    assert_eq!(steady_delta(&[(231, 24), (1, 25), (122, 24)]), Some(24));
+    // A tick added every 100 frames, and a short frame paired with a long one.
+    let periodic = [
+        (50, 24),
+        (1, 25),
+        (99, 24),
+        (1, 25),
+        (99, 24),
+        (1, 25),
+        (99, 24),
+        (1, 25),
+        (99, 24),
+        (1, 25),
+        (19, 24),
+    ];
+    assert_eq!(steady_delta(&periodic), Some(24));
+    assert_eq!(
+        steady_delta(&[(228, 24), (1, 23), (1, 25), (60, 24)]),
+        Some(24)
+    );
+    // An odd-length last sample, as before.
+    assert_eq!(steady_delta(&[(100, 24), (1, 7)]), Some(24));
+    // Real changes of rate stay variable.
+    assert_eq!(steady_delta(&[(100, 24), (100, 30)]), None);
+    assert_eq!(steady_delta(&[(50, 24), (50, 25)]), None);
+    // A tick is too coarse to ignore when frames are only a few ticks long.
+    assert_eq!(steady_delta(&[(10, 1), (1, 2), (10, 1)]), None);
+}
+
+#[test]
 fn stts_summary_names_the_irregular_samples() {
     let s = super::stts_summary(&[(100, 1001), (1, 2002), (50, 1001)], 24000);
     assert!(s.contains("min=41.708ms"), "{s}");
