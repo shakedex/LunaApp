@@ -306,9 +306,10 @@ checksum = "d3fb67a6e08acf24fdeccbac2cb6ac4305825bd1f117462e0e6f2f193345ad56"
 [[package]]
 name = "arri"
 version = "0.1.0"
-source = "git+https://github.com/shakedex/luna-decoders?rev=6d7f66529b9c8756fde1e905a998819e834ba6bd#6d7f66529b9c8756fde1e905a998819e834ba6bd"
+source = "git+https://github.com/shakedex/luna-decoders?rev=d8d0c215be0eeba96bd56c1a76ca7a67411fb7e0#d8d0c215be0eeba96bd56c1a76ca7a67411fb7e0"
 dependencies = [
  "oxideav-jpegxs",
+ "tracing",
 ]
 
 [[package]]
@@ -746,9 +747,10 @@ dependencies = [
 [[package]]
 name = "braw"
 version = "0.1.0"
-source = "git+https://github.com/shakedex/luna-decoders?rev=6d7f66529b9c8756fde1e905a998819e834ba6bd#6d7f66529b9c8756fde1e905a998819e834ba6bd"
+source = "git+https://github.com/shakedex/luna-decoders?rev=d8d0c215be0eeba96bd56c1a76ca7a67411fb7e0#d8d0c215be0eeba96bd56c1a76ca7a67411fb7e0"
 dependencies = [
  "cc",
+ "tracing",
 ]
 
 [[package]]
@@ -1229,7 +1231,10 @@ checksum = "790eea4361631c5e7d22598ecd5723ff611904e3344ce8720784c93e3d83d40b"
 [[package]]
 name = "crm"
 version = "0.1.0"
-source = "git+https://github.com/shakedex/luna-decoders?rev=6d7f66529b9c8756fde1e905a998819e834ba6bd#6d7f66529b9c8756fde1e905a998819e834ba6bd"
+source = "git+https://github.com/shakedex/luna-decoders?rev=d8d0c215be0eeba96bd56c1a76ca7a67411fb7e0#d8d0c215be0eeba96bd56c1a76ca7a67411fb7e0"
+dependencies = [
+ "tracing",
+]
 
 [[package]]
 name = "crossbeam-channel"
@@ -5008,9 +5013,10 @@ checksum = "3d595e54a326bc53c1c197b32d295e14b169e3cfeaa8dc82b529f947fba6bcf5"
 [[package]]
 name = "proresraw-ffmpeg"
 version = "0.1.0"
-source = "git+https://github.com/shakedex/luna-decoders?rev=6d7f66529b9c8756fde1e905a998819e834ba6bd#6d7f66529b9c8756fde1e905a998819e834ba6bd"
+source = "git+https://github.com/shakedex/luna-decoders?rev=d8d0c215be0eeba96bd56c1a76ca7a67411fb7e0#d8d0c215be0eeba96bd56c1a76ca7a67411fb7e0"
 dependencies = [
  "libloading 0.9.0",
+ "tracing",
 ]
 
 [[package]]
@@ -6248,7 +6254,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.4.3",
+ "getrandom 0.3.4",
  "once_cell",
  "rustix 1.1.5",
  "windows-sys 0.61.2",
@@ -8342,7 +8348,10 @@ checksum = "9440ea3e5aeabb0ac63af70daf835274065238cdd0cec83418f417eae38bacee"
 [[package]]
 name = "xocn"
 version = "0.1.0"
-source = "git+https://github.com/shakedex/luna-decoders?rev=6d7f66529b9c8756fde1e905a998819e834ba6bd#6d7f66529b9c8756fde1e905a998819e834ba6bd"
+source = "git+https://github.com/shakedex/luna-decoders?rev=d8d0c215be0eeba96bd56c1a76ca7a67411fb7e0#d8d0c215be0eeba96bd56c1a76ca7a67411fb7e0"
+dependencies = [
+ "tracing",
+]
 
 [[package]]
 name = "xtask"
