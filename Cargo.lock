@@ -3716,7 +3716,7 @@ checksum = "f9f8bd3e56ce4dfc153cf470fffbfa98c7620958b312ca5c3a4b8d5181fd13c6"
 
 [[package]]
 name = "luna-app"
-version = "2026.10.1"
+version = "2026.10.2"
 dependencies = [
  "clap",
  "i-slint-backend-winit",
@@ -3736,7 +3736,7 @@ dependencies = [
 
 [[package]]
 name = "luna-cli"
-version = "2026.10.1"
+version = "2026.10.2"
 dependencies = [
  "clap",
  "ctrlc",
@@ -3754,7 +3754,7 @@ dependencies = [
 
 [[package]]
 name = "luna-color"
-version = "2026.10.1"
+version = "2026.10.2"
 dependencies = [
  "jpeg-encoder",
  "luna-decode",
@@ -3764,7 +3764,7 @@ dependencies = [
 
 [[package]]
 name = "luna-core"
-version = "2026.10.1"
+version = "2026.10.2"
 dependencies = [
  "clap",
  "dirs",
@@ -3782,7 +3782,7 @@ dependencies = [
 
 [[package]]
 name = "luna-decode"
-version = "2026.10.1"
+version = "2026.10.2"
 dependencies = [
  "arri",
  "braw",
@@ -3800,7 +3800,7 @@ dependencies = [
 
 [[package]]
 name = "luna-formats"
-version = "2026.10.1"
+version = "2026.10.2"
 dependencies = [
  "roxmltree 0.21.1",
  "serde",
@@ -3810,14 +3810,14 @@ dependencies = [
 
 [[package]]
 name = "luna-h264"
-version = "2026.10.1"
+version = "2026.10.2"
 dependencies = [
  "luna-formats",
 ]
 
 [[package]]
 name = "luna-log"
-version = "2026.10.1"
+version = "2026.10.2"
 dependencies = [
  "dirs",
  "jiff",
@@ -3828,11 +3828,11 @@ dependencies = [
 
 [[package]]
 name = "luna-prores"
-version = "2026.10.1"
+version = "2026.10.2"
 
 [[package]]
 name = "luna-report"
-version = "2026.10.1"
+version = "2026.10.2"
 dependencies = [
  "askama",
  "base64 0.23.1",
@@ -3846,7 +3846,7 @@ dependencies = [
 
 [[package]]
 name = "luna-update"
-version = "2026.10.1"
+version = "2026.10.2"
 dependencies = [
  "base64 0.23.1",
  "cc",
@@ -3855,7 +3855,7 @@ dependencies = [
 
 [[package]]
 name = "luna-worker"
-version = "2026.10.1"
+version = "2026.10.2"
 dependencies = [
  "luna-color",
  "luna-decode",
@@ -8355,7 +8355,7 @@ dependencies = [
 
 [[package]]
 name = "xtask"
-version = "2026.10.1"
+version = "2026.10.2"
 dependencies = [
  "base64 0.23.1",
  "ed25519-dalek",
