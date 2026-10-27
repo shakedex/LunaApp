@@ -48,7 +48,7 @@ camera and reel, with its metadata and a strip of three stills.
 | **Rec.709, log or your LUT** | RAW to Rec.709, bring your own LUT, or use the embedded LUT with Camera Look on supported cameras¹ |
 | **Script it** | `luna-cli` makes reports from a terminal or a script, and over MCP for AI agents ([guide](automation/README.md)) |
 
-¹ Camera Look: Blackmagic RAW.
+¹ Camera Look: Blackmagic RAW, Sony VENICE 2 (X-OCN) and BURANO (XAVC), ARRI ALEXA 35 and ALEXA Mini LF (MXF).
 
 ## Formats
 
@@ -91,8 +91,10 @@ in reports** is on; the results screen and the run logs always list them.
 
 **Colour** in Settings sets the thumbnails: Rec.709, None (the camera's log as
 recorded) or a `.cube` LUT, with the last five LUTs in its menu. **Camera look**
-uses the LUT a Blackmagic RAW clip was recorded with when the camera applied it
-("Apply LUT in File").
+uses the look a clip was recorded with: the LUT of a Blackmagic RAW clip when the
+camera applied it ("Apply LUT in File"), the LUT a Sony VENICE 2 or BURANO stored
+in the clip, or the look of an ARRI ALEXA 35 or ALEXA Mini LF clip as the camera's
+monitor output showed it.
 
 ## Development
 

@@ -14,6 +14,8 @@ luna-h264 = { path = "../luna-h264" }
 luna-prores = { path = "../luna-prores" }
 xocn.workspace = true
 tracing = "0.1.44"
+sony-look.workspace = true
+arri-look.workspace = true
 
 [target."cfg(windows)".dependencies]
 proresraw-ffmpeg.workspace = true

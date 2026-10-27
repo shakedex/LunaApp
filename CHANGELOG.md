@@ -10,6 +10,12 @@ both. Each release names the `shakedex/luna-decoders` commit it pins.
 
 ## Unreleased
 
+Decoders: luna-decoders `68ef869`.
+
+- **New:** Camera look for Sony and ARRI: the LUT a VENICE 2 (X-OCN) or BURANO (XAVC) stored
+  in the clip, and the look of an ALEXA 35 (ARRIRAW, ARRICORE, HDE, ProRes) or ALEXA Mini LF
+  (ARRIRAW, HDE, ProRes) clip as the camera's monitor output showed it. The report names
+  the look ("5110 Nature.alf4", "SL3SG3CtoTealOR_709.cube").
 - **Fixed:** PDF pages that only list Other files or Unreadable no longer carry the last
   camera and reel in the page header.
 

@@ -164,6 +164,12 @@ pub fn xyz_to(g: Gamut, w: (f64, f64)) -> Mat3 {
     }
 }
 
+/// Linear RGB in `from` → linear RGB in `to`, adapting white points.
+pub fn convert(from: Gamut, to: Gamut) -> Mat3 {
+    let p = primaries(from);
+    mul(&xyz_to(to, p.w), &rgb_to_xyz(&p))
+}
+
 /// Linear RGB in `g` → linear Rec.709 (D65).
 pub fn to_rec709(g: Gamut) -> Mat3 {
     let p = primaries(g);

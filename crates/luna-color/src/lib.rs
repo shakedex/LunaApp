@@ -32,7 +32,7 @@ mod tests;
 pub use lut::{Lut, LutError};
 
 use luna_decode::{Decoded, Frame};
-use luna_formats::{Gamut, Transfer};
+use luna_formats::{ColourHint, Gamut, Transfer};
 
 use gamut::Mat3;
 use scale::Image;
@@ -300,7 +300,10 @@ pub fn render_with(
     };
     let (look, applied) = match (colour, signal) {
         (Colour::CameraLog, Some(s)) => (Look::Signal(s, None), Applied::CameraLog),
-        (Colour::Lut(lut), Some(s)) => (Look::Signal(s, Some(lut)), Applied::Lut),
+        (Colour::Lut(lut), Some(s)) => {
+            let s = lut_signal(frame, lut.input()).unwrap_or(s);
+            (Look::Signal(s, Some(lut)), Applied::Lut)
+        }
         _ => (look, Applied::Rec709),
     };
 
@@ -370,6 +373,13 @@ enum Signal {
         matrix: Option<[[f32; 3]; 3]>,
         log: Transfer,
     },
+    /// One camera log curve → scene-linear, through the matrix when given,
+    /// → another log curve.
+    Recode {
+        from: Transfer,
+        matrix: Option<[[f32; 3]; 3]>,
+        to: Transfer,
+    },
 }
 
 impl Signal {
@@ -380,7 +390,58 @@ impl Signal {
                 let lin = matrix.as_ref().map_or(px, |m| mat(m, px));
                 lin.map(|v| curves::encode(*log, v.max(0.0) as f64) as f32)
             }
+            Signal::Recode { from, matrix, to } => {
+                let lin = px.map(|v| curves::decode(*from, v as f64) as f32);
+                let lin = matrix.as_ref().map_or(lin, |m| mat(m, lin));
+                lin.map(|v| curves::encode(*to, v.max(0.0) as f64) as f32)
+            }
         }
+    }
+}
+
+/// The camera signal a LUT that names its input takes: the frame's picture
+/// re-encoded in that transfer and gamut. `None` when the LUT names none, or
+/// the frame can't be re-encoded (video whose tags differ, display pictures):
+/// those get the usual camera signal.
+///
+/// ARRI LogC3 here is the EI 800 curve, so a LogC3 table on a clip shot at
+/// another EI gets slightly different codes than the camera gave it.
+fn lut_signal(frame: &Frame, input: ColourHint) -> Option<Signal> {
+    let (Some(to), Some(gamut)) = (input.transfer, input.gamut) else {
+        return None;
+    };
+    let into = |from: Gamut| (from != gamut).then(|| to_f32(&gamut::convert(from, gamut)));
+    match &frame.image {
+        Decoded::Mosaic { camera_to_xyz, .. } => {
+            let matrix = match camera_to_xyz {
+                Some(m) => {
+                    let d65 = gamut::primaries(Gamut::Rec709).w;
+                    Some(to_f32(&gamut::mul(
+                        &gamut::xyz_to(gamut, d65),
+                        &camera_xyz(m),
+                    )))
+                }
+                None => frame.hint.gamut.and_then(into),
+            };
+            Some(Signal::Encode { matrix, log: to })
+        }
+        Decoded::Rgb16 {
+            transfer, gamut: g, ..
+        } => match transfer {
+            t if *t == to && *g == gamut => Some(Signal::AsIs),
+            Transfer::Linear => Some(Signal::Encode {
+                matrix: into(*g),
+                log: to,
+            }),
+            t if curves::native_gamut(*t).is_some() => Some(Signal::Recode {
+                from: *t,
+                matrix: into(*g),
+                to,
+            }),
+            _ => None,
+        },
+        Decoded::Ycbcr { .. } => (frame.hint == input).then_some(Signal::AsIs),
+        Decoded::Display8 { .. } => None,
     }
 }
 

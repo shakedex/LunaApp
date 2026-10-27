@@ -426,6 +426,10 @@ pub struct EmbeddedLut {
     pub size: usize,
     /// `size³` RGB rows of little-endian `f32`, red fastest (`.cube` order).
     pub data: Vec<u8>,
+    /// The camera signal the table takes (S-Log3 in S-Gamut3.Cine, LogC4 in
+    /// AWG4, ...). Unset: the signal as decoded.
+    #[serde(default)]
+    pub input: ColourHint,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

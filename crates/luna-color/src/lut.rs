@@ -6,6 +6,8 @@
 
 use std::fmt;
 
+use luna_formats::ColourHint;
+
 /// A 1D or 3D LUT with its input domain.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Lut {
@@ -15,6 +17,8 @@ pub struct Lut {
     rows: Vec<f32>,
     min: [f32; 3],
     max: [f32; 3],
+    /// The camera signal the table takes; unset for the signal as decoded.
+    input: ColourHint,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -139,7 +143,19 @@ impl Lut {
             rows,
             min,
             max,
+            input: ColourHint::default(),
         })
+    }
+
+    /// The same table, fed the camera signal in `input`'s transfer and gamut
+    /// (a camera's own LUT: S-Log3 in S-Gamut3.Cine, LogC4 in AWG4, ...).
+    pub fn with_input(self, input: ColourHint) -> Lut {
+        Lut { input, ..self }
+    }
+
+    /// The camera signal the table takes; unset for the signal as decoded.
+    pub fn input(&self) -> ColourHint {
+        self.input
     }
 
     /// The table's output for `rgb`; input outside the domain is clamped.

@@ -35,7 +35,7 @@ luna-cli report <SOURCE>... [options]
 | `--theme <light\|dark>` | |
 | `--colour <rec709\|none\|lut>` | Thumbnail colour: Rec.709, the camera's log as recorded, or a LUT |
 | `--lut <PATH>` | A `.cube` LUT for every thumbnail (sets `--colour lut`) |
-| `--camera-look` | Use the LUT a clip carries, where the camera applied one (Blackmagic RAW) |
+| `--camera-look` | Use the look a clip carries: Blackmagic RAW (when the camera applied its LUT), Sony VENICE 2 and BURANO, ARRI ALEXA 35 and ALEXA Mini LF |
 | `--problems` | Print clip warnings, the "Need attention" count and unreadable files in the report |
 | `--json` | Print the result as JSON (`luna-cli` only) |
 

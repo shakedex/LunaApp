@@ -792,6 +792,74 @@ fn identity_lut_equals_camera_log() {
 }
 
 #[test]
+fn camera_lut_gets_its_own_log_from_another_log() {
+    // A Mini LF table (LogC3 in AWG3) on a frame decoded to LogC4 in AWG4:
+    // grey reaches the table at LogC3's grey code.
+    let code = (curves::encode(Transfer::LogC4, 0.18) * 65535.0).round() as u16;
+    let frame = rgb16(64, 36, [code; 3], Transfer::LogC4, Gamut::ArriWideGamut4);
+    let lut = identity_lut(33).with_input(hint(Some(Transfer::LogC3), Some(Gamut::ArriWideGamut3)));
+    let out = render_with(&frame, 32, None, Colour::Lut(&lut));
+    assert_eq!(out.applied, Applied::Lut);
+    let want = (curves::encode(Transfer::LogC3, 0.18) * 255.0).round() as u8;
+    assert_flat(&out.image, want, 1, "LogC4 grey as LogC3");
+}
+
+#[test]
+fn camera_lut_in_the_frames_own_log_gets_it_as_is() {
+    let code = (curves::encode(Transfer::LogC4, 0.18) * 65535.0).round() as u16;
+    let frame = rgb16(64, 36, [code; 3], Transfer::LogC4, Gamut::ArriWideGamut4);
+    let plain = identity_lut(17);
+    let named = plain
+        .clone()
+        .with_input(hint(Some(Transfer::LogC4), Some(Gamut::ArriWideGamut4)));
+    let a = render_with(&frame, 32, None, Colour::Lut(&plain));
+    let b = render_with(&frame, 32, None, Colour::Lut(&named));
+    assert_eq!(a.image, b.image);
+}
+
+#[test]
+fn camera_lut_on_raw_gets_its_gamut() {
+    // X-OCN with Sony's table (S-Log3 in S-Gamut3.Cine): a pure S-Gamut3.Cine
+    // red stays a pure red at the table's input.
+    let g = Gamut::SGamut3Cine;
+    let v = raw_grey(mosaic::clip_stops_above_grey(Some(g)));
+    let mut frame = mosaic_frame(
+        16,
+        16,
+        Cfa::Rggb,
+        [v, 0, 0],
+        hint(Some(Transfer::Linear), Some(Gamut::SGamut3)),
+    );
+    let npm = gamut::rgb_to_xyz(&gamut::primaries(g));
+    let m: Vec<f32> = npm.iter().flatten().map(|&v| v as f32).collect();
+    if let Decoded::Mosaic { camera_to_xyz, .. } = &mut frame.image {
+        *camera_to_xyz = Some(m.try_into().unwrap());
+    }
+    let lut = identity_lut(33).with_input(hint(Some(Transfer::SLog3), Some(g)));
+    let out = render_with(&frame, 8, None, Colour::Lut(&lut));
+    let black = (curves::encode(Transfer::SLog3, 0.0) * 255.0).round() as u8;
+    for px in all_pixels(&out.image) {
+        assert!(px[0] > px[1] + 50, "red leads: {px:?}");
+        assert!(
+            px[1].abs_diff(black) <= 1 && px[2].abs_diff(black) <= 1,
+            "{px:?}"
+        );
+    }
+}
+
+#[test]
+fn camera_lut_on_video_with_other_tags_gets_the_usual_signal() {
+    let lut = identity_lut(17);
+    let named = lut
+        .clone()
+        .with_input(hint(Some(Transfer::LogC4), Some(Gamut::ArriWideGamut4)));
+    let frame = slog3_ycbcr();
+    let a = render_with(&frame, 32, None, Colour::Lut(&lut));
+    let b = render_with(&frame, 32, None, Colour::Lut(&named));
+    assert_eq!(a.image, b.image);
+}
+
+#[test]
 fn lut_applies_to_a_rec709_tagged_clip() {
     // A recorder file tagged Rec.709 (really log): the LUT still applies.
     let mut rows = Vec::new();

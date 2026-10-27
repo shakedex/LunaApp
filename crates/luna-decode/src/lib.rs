@@ -16,6 +16,7 @@ mod arri_decoder;
 mod braw_sdk;
 mod crm_raw;
 mod h264;
+mod looks;
 #[cfg(windows)]
 mod mf;
 #[cfg(windows)]
@@ -31,6 +32,7 @@ mod util;
 mod vendor;
 mod xocn_raw;
 
+pub use looks::embedded_look;
 pub use vendor::vendor_probe;
 
 /// The colour filter array layout of a mosaic, naming the top-left 2×2.

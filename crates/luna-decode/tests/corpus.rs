@@ -6,7 +6,7 @@
 mod common;
 
 use common::{corpus, files, probe};
-use luna_decode::{Cfa, DecodeError, Decoded, Frame, decode_frames, vendor_probe};
+use luna_decode::{Cfa, DecodeError, Decoded, Frame, decode_frames, embedded_look, vendor_probe};
 use luna_formats::{Codec, Container, FrameIndex, Gamut, PictureLayout, ProResProfile, Transfer};
 
 fn mosaic_size(f: &Frame) -> (u32, u32) {
@@ -51,6 +51,57 @@ fn xocn(rel: &str, expect_width: u32) {
             unreachable!()
         };
         assert!(mosaic_mean(f) > black as f64, "{rel}: picture is black");
+    }
+}
+
+/// The look Sony and ARRI cameras embed in MXF, with the signal it takes.
+#[test]
+fn embedded_looks() {
+    let cases = [
+        (
+            "P_CAM/VENICE 2 8K 1.8x Anamorphic.mxf",
+            Some((
+                "SL3SG3CtoTealOR_709.cube",
+                33,
+                Transfer::SLog3,
+                Gamut::SGamut3Cine,
+            )),
+        ),
+        (
+            "T_CAM/DW0001C014_251020_123457_c1I7H-arricore.mxf",
+            Some((
+                "5110 Nature.alf4",
+                65,
+                Transfer::LogC4,
+                Gamut::ArriWideGamut4,
+            )),
+        ),
+        (
+            "A_CAM/A001/A0001C027_251020_135413_p1I7H.mxf",
+            Some(("Default.ALF4", 65, Transfer::LogC4, Gamut::ArriWideGamut4)),
+        ),
+        (
+            "F_CAM/F003/F003C004_190925_MN99.mxf",
+            Some(("ARRI 709", 33, Transfer::LogC3, Gamut::ArriWideGamut3)),
+        ),
+        // Name only, per frame: no table.
+        ("BURANO/BURANO XOCN LT Clip 2.mxf", None),
+    ];
+    for (rel, want) in cases {
+        let Some(path) = corpus(rel) else { continue };
+        let got = embedded_look(&files(Container::Mxf, &path));
+        let Some((name, size, transfer, gamut)) = want else {
+            assert!(got.is_none(), "{rel}");
+            continue;
+        };
+        let e = got.unwrap_or_else(|| panic!("{rel}: no look"));
+        assert_eq!((e.name.as_str(), e.size), (name, size), "{rel}");
+        assert_eq!(e.data.len(), size * size * size * 12, "{rel}");
+        assert_eq!(
+            (e.input.transfer, e.input.gamut),
+            (Some(transfer), Some(gamut)),
+            "{rel}"
+        );
     }
 }
 
