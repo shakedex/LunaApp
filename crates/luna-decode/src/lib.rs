@@ -313,7 +313,7 @@ fn backend_for(clip: &ClipFiles, probe: &Probe) -> Backend {
         (Codec::Redcode | Codec::NRaw | Codec::R3dNe, _) | (_, Container::R3d | Container::Nev) => {
             Backend::R3d
         }
-        (Codec::ArriRaw | Codec::ArriCore, _) => Backend::Arri,
+        (Codec::ArriRaw | Codec::ArriRawHde | Codec::ArriCore, _) => Backend::Arri,
         (Codec::ProRes(_), Container::Mxf | Container::QuickTime) => Backend::ProRes,
         (Codec::ProResRaw, Container::QuickTime) => Backend::ProResRaw,
         (Codec::H264, Container::Mxf) => Backend::H264,
@@ -475,6 +475,7 @@ mod tests {
         let mov = clip(Container::QuickTime, "a.mov");
         assert_eq!(backend_for(&mxf, &probe(Codec::XOcn)), Backend::XOcn);
         assert_eq!(backend_for(&mxf, &probe(Codec::ArriRaw)), Backend::Arri);
+        assert_eq!(backend_for(&mxf, &probe(Codec::ArriRawHde)), Backend::Arri);
         assert_eq!(backend_for(&mxf, &probe(Codec::ArriCore)), Backend::Arri);
         assert_eq!(
             backend_for(&mxf, &probe(Codec::ProRes(ProResProfile::Hq))),

@@ -637,3 +637,47 @@ fn proresraw_atomos_through_ffmpeg() {
         assert!(mosaic_mean(&f) > *black as f64 + 50.0, "picture is black");
     }
 }
+
+/// ARRIRAW HDE (Codex, SMPTE RDD 51) through the ARRI decoder: HDE in MXF
+/// and a `.arx` frame sequence, from Luna's own probe.
+#[test]
+fn arriraw_hde_through_the_verified_decoder() {
+    let mxf = "../new_cameras/minilf/F004C007_190925_MN99-hde.mxf";
+    let arx_dir = "../new_cameras/minilf/F004C028_190925_MN99-arx";
+    let mut clips = Vec::new();
+    if let Some(p) = corpus(mxf) {
+        clips.push(files(Container::Mxf, &p));
+    }
+    if let Some(dir) = corpus(arx_dir) {
+        let mut frames: Vec<_> = std::fs::read_dir(&dir)
+            .unwrap()
+            .map(|e| e.unwrap().path())
+            .filter(|p| p.extension().is_some_and(|e| e == "arx"))
+            .collect();
+        frames.sort();
+        let mut c = files(Container::AriFrame, &frames[0]);
+        c.segments = frames[1..].to_vec();
+        clips.push(c);
+    }
+    for clip in clips {
+        let p = luna_formats::probe(&clip).unwrap();
+        assert_eq!(p.codec, Codec::ArriRawHde);
+        let n = p.meta.frame_count.unwrap();
+        for r in decode_frames(&clip, &p, &[0, n / 2, n - 1], 640) {
+            let f = r.unwrap_or_else(|e| panic!("{}: {e}", clip.main.display()));
+            let Decoded::Rgb16 {
+                width, ref data, ..
+            } = f.image
+            else {
+                panic!("expected LogC4 RGB")
+            };
+            assert!(width >= 640);
+            let mut g: Vec<u16> = data.iter().skip(1).step_by(3).copied().collect();
+            g.sort_unstable();
+            assert!(
+                g[g.len() * 19 / 20] - g[g.len() / 20] > 8_000,
+                "flat picture"
+            );
+        }
+    }
+}
