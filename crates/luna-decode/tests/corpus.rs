@@ -107,6 +107,16 @@ fn crm_c400() {
     );
 }
 
+/// Codec version 0x100, the older Cinema RAW Light layout.
+#[test]
+fn crm_c200() {
+    crm(
+        "../new_cameras/canonc200/canon c200 A024C598_200924N6_CANON.CRM",
+        (2048, 1080),
+        "Canon EOS C200",
+    );
+}
+
 #[test]
 fn braw_cinema_camera_6k() {
     let Some(path) = corpus("D_CAM/D001/D001_09150935_C013.braw") else {

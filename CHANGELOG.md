@@ -10,7 +10,7 @@ both. Each release names the `shakedex/luna-decoders` commit it pins.
 
 ## Unreleased
 
-Decoders: luna-decoders `630dd10`.
+Decoders: luna-decoders `8822d47`.
 
 - **New:** ARRIRAW HDE (Codex High Density Encoding, SMPTE RDD 51) from the ALEXA 35 and
   ALEXA Mini LF, in MXF and as `.arx` frame sequences. Bit-exact against the ARRIRAW of
@@ -29,8 +29,8 @@ Decoders: luna-decoders `630dd10`.
   name. Dates from it are the camera's local time.
 - **Fixed:** Avid OP-Atom MXF was reported as damaged, and its sound-track files showed
   up as clips; they now list under other files.
-- **Fixed:** Canon EOS C200 Cinema RAW Light was reported as damaged; it is now an
-  unsupported codec version.
+- **New:** Canon EOS C200 Cinema RAW Light: thumbnails, with exposure and colour checked
+  against Canon's own development.
 - **Changed:** a CinemaDNG sequence is one clip that says "CinemaDNG isn't supported yet",
   instead of "No camera clips in this folder". DNG stills stay other files.
 - **Changed:** a reel shared by two folders names the source folder by its own name
