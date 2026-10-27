@@ -20,6 +20,7 @@
 
 mod curves;
 mod gamut;
+mod lut;
 mod mosaic;
 mod scale;
 mod tone;
@@ -27,6 +28,8 @@ mod ycbcr;
 
 #[cfg(test)]
 mod tests;
+
+pub use lut::{Lut, LutError};
 
 use luna_decode::{Decoded, Frame};
 use luna_formats::{Gamut, Transfer};
