@@ -454,7 +454,8 @@ fn fx6_xavc_intra() {
         p.meta,
         ClipMeta {
             slate: Default::default(),
-            recording_date: Some("2021-01-24 15:50:43 UTC".into()),
+            // local time from the NonRealTimeMeta XML in the header (+01:00)
+            recording_date: Some("2021-01-24 16:50:43".into()),
             start_timecode: tc(210_394, 50),
             frame_rate: fps(50, 1),
             frame_count: Some(886),

@@ -275,6 +275,15 @@ pub(crate) fn probe_source<R: Read + Seek>(
             _ => {}
         }
     }
+    // Sony also writes its NonRealTimeMeta XML into the header metadata; use
+    // it when no sidecar came with the clip (the FX9 carries it this way).
+    let sony_sidecar = sidecars.iter().any(|(k, _)| *k == SidecarKind::SonyXml);
+    if !sony_sidecar && let Some(x) = embedded_sony_xml(&md).and_then(|t| sidecar::parse_sony(&t)) {
+        let before = v.values();
+        sony_xml_meta(&x, &mut v);
+        v.credit(&before, SONY_XML_EMBEDDED, &mut sources);
+        blocks.push((SONY_XML_EMBEDDED.into(), true));
+    }
     merge(&mut meta, v, vendor, &st, &mut sources);
     let base = |f: &str| match f {
         "frame_rate" => "picture track EditRate",
@@ -365,6 +374,17 @@ const ARRI_HEADER: &str = "ARRI legacy camera header";
 const ARRI_FRAME: &str = "ARRI frame metadata element (first frame)";
 const RDD18: &str = "RDD 18 ANC (first frame)";
 const SONY_XML: &str = "Sony XML sidecar";
+const SONY_XML_EMBEDDED: &str = "Sony XML in the header metadata";
+
+/// The NonRealTimeMeta document a Sony camera keeps in a header set.
+fn embedded_sony_xml(md: &metadata::Metadata) -> Option<String> {
+    md.sets
+        .iter()
+        .flat_map(|s| s.items.iter())
+        .map(|i| i.value.as_slice())
+        .find(|v| v.starts_with(b"<?xml") && v.windows(15).any(|w| w == b"NonRealTimeMeta"))
+        .and_then(|v| String::from_utf8(v.to_vec()).ok())
+}
 const CANON_XML: &str = "Canon XML sidecar";
 
 /// Logs how a sidecar that didn't parse begins.
@@ -839,12 +859,10 @@ fn sony_xml_meta(x: &sidecar::SonyXml, v: &mut Vendor) {
             );
         }
     }
-    set(
-        &mut v.lens,
-        x.lens
-            .clone()
-            .filter(|l| !l.eq_ignore_ascii_case("unknown")),
-    );
+    let known = |l: &Option<String>| l.clone().filter(|l| !l.eq_ignore_ascii_case("unknown"));
+    set(&mut v.lens, known(&x.lens));
+    // The lens's own name wins over its identifier code.
+    set(&mut v.lens, known(&x.lens_model));
     set(&mut v.focal, x.focal_mm.and_then(display::focal));
     set(
         &mut v.stop,

@@ -18,7 +18,10 @@ pub(crate) struct SonyXml {
     pub iris_t: Option<f64>,
     pub iris_f: Option<f64>,
     pub focal_mm: Option<f64>,
+    /// `LensAttributes`: the lens's identifier code (cine lenses record no name).
     pub lens: Option<String>,
+    /// `<Lens modelName>`: the lens name, when the lens reports one.
+    pub lens_model: Option<String>,
     pub exposure_index: Option<String>,
     pub iso: Option<String>,
     pub nd: Option<String>,
@@ -111,6 +114,7 @@ pub(crate) fn parse_sony(xml: &str) -> Option<SonyXml> {
                     .and_then(|v| sony_ltc(v, fps));
             }
             "CreationDate" => x.creation = attr(n, "value"),
+            "Lens" => x.lens_model = attr(n, "modelName"),
             "VideoLayout" => {
                 x.width = n.attribute("pixel").and_then(|s| s.parse().ok());
                 x.height = n
@@ -218,6 +222,7 @@ mod tests {
   </LtcChangeTable>
   <CreationDate value="2020-11-02T01:39:05Z"/>
   <Device manufacturer="Sony" modelName="MPC-3610" serialNo="0010658"/>
+  <Lens modelName="FE 50mm F1.4 ZA"/>
   <VideoFormat><VideoLayout pixel="6048" numOfVerticalLine="4032"/></VideoFormat>
   <AcquisitionRecord>
     <Group name="LensUnitMetadataSet">
@@ -243,6 +248,8 @@ mod tests {
         assert_eq!(x.width, Some(6048));
         assert_eq!(x.iris_t, Some(7.77));
         assert_eq!(x.focal_mm, Some(86.0));
+        assert_eq!(x.lens.as_deref(), Some("F08000183"));
+        assert_eq!(x.lens_model.as_deref(), Some("FE 50mm F1.4 ZA"));
         assert_eq!(x.shutter_angle, Some(180.0));
         assert_eq!(x.capture_gamma.as_deref(), Some("scene-linear"));
         assert!(parse_sony("<x/>").is_none());
