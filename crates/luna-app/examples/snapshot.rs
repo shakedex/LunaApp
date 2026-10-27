@@ -194,6 +194,9 @@ fn main() {
         state.set_can_save(true);
         state.set_show_credits(credits);
         state.set_copy_to_source(true);
+        state.set_colour(2);
+        state.set_lut_name("Show_LogC4_to_Rec709_v3.cube".into());
+        state.set_camera_look(true);
         state.set_credits(ModelRc::new(VecModel::from(vec![
             Component {
                 name: "Slint".into(),

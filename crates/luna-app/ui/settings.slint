@@ -35,6 +35,11 @@ export global SettingsState {
     in property <bool> report-dark;
     in property <bool> copy-to-source;
     in property <bool> show-problems;
+    // 0 Rec.709, 1 None, 2 LUT.
+    in property <int> colour;
+    in property <string> lut-name;
+    in property <string> lut-error;
+    in property <bool> camera-look;
     in property <string> save-error;
     in property <[Component]> credits;
     // Luna's version, and whether this build can update itself (packaged
@@ -59,6 +64,9 @@ export global SettingsState {
     callback set-report-dark(bool);
     callback set-copy-to-source(bool);
     callback set-show-problems(bool);
+    callback set-colour(int);
+    callback pick-lut();
+    callback set-camera-look(bool);
 }
 
 component Rule inherits Rectangle {
@@ -257,12 +265,76 @@ export component SettingsView inherits Rectangle {
                                 y: (parent.height - self.height) / 2;
                                 width: 160px;
                                 label: "Report theme";
-                                first: "Light";
-                                second: "Dark";
-                                second-selected: SettingsState.report-dark;
-                                changed(d) => {
-                                    SettingsState.set-report-dark(d);
+                                options: ["Light", "Dark"];
+                                selected: SettingsState.report-dark ? 1 : 0;
+                                changed(i) => {
+                                    SettingsState.set-report-dark(i == 1);
                                 }
+                            }
+                        }
+                    }
+
+                    Row {
+                        label: "Colour";
+                        HorizontalLayout {
+                            alignment: start;
+                            Segmented {
+                                y: (parent.height - self.height) / 2;
+                                width: 220px;
+                                label: "Thumbnail colour";
+                                options: ["Rec.709", "None", "LUT"];
+                                selected: SettingsState.colour;
+                                changed(i) => {
+                                    SettingsState.set-colour(i);
+                                }
+                            }
+                        }
+                    }
+
+                    if SettingsState.colour == 2: Row {
+                        label: "LUT";
+                        Rectangle {
+                            border-radius: Theme.radius;
+                            background: Theme.field;
+                            border-width: 1px;
+                            border-color: Theme.line-strong;
+                            HorizontalLayout {
+                                padding: 5px;
+                                padding-left: 12px;
+                                spacing: 8px;
+                                Text {
+                                    text: SettingsState.lut-name;
+                                    color: Theme.text;
+                                    vertical-alignment: center;
+                                    overflow: elide;
+                                    horizontal-stretch: 1;
+                                }
+
+                                LunaButton {
+                                    text: "Choose";
+                                    icon: @image-url("icons/folder-open.svg");
+                                    clicked => {
+                                        SettingsState.pick-lut();
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if SettingsState.colour == 2 && SettingsState.lut-error != "": HorizontalLayout {
+                        padding-left: 90px;
+                        ErrorLine {
+                            text: SettingsState.lut-error;
+                        }
+                    }
+
+                    HorizontalLayout {
+                        padding-left: 90px;
+                        Checkbox {
+                            text: "Camera look";
+                            checked: SettingsState.camera-look;
+                            toggled(on) => {
+                                SettingsState.set-camera-look(on);
                             }
                         }
                     }

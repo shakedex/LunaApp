@@ -31,6 +31,8 @@ Decoders: luna-decoders `8822d47`.
 - **Changed:** Luna checks for updates every time it opens, not only once a day.
 - **Changed:** Sony VENICE lenses are named from their /i serial (for example "Cooke
   S7/i 85mm") instead of showing the serial.
+- **Fixed:** Switching "Also save on the source drive" or "Show problems in reports" and
+  then saving other Settings edits switched it back.
 - **Fixed:** Sony VENICE X-OCN XT clips had blown-out thumbnails.
 - **Fixed:** Atomos Ninja V ProRes RAW failed on every frame. (Windows)
 - **Fixed:** ARRIRAW HDE in MXF was read as plain ARRIRAW and failed.

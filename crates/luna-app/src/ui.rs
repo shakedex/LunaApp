@@ -10,8 +10,8 @@ use std::rc::{Rc, Weak};
 use std::sync::{Arc, Mutex};
 
 use luna_core::run::RunRequest;
-use luna_core::settings::ReportTheme;
 use luna_core::settings::Settings;
+use luna_core::settings::{ReportTheme, ThumbnailColour};
 use slint::winit_030::winit::event::WindowEvent;
 use slint::winit_030::{EventResult, WinitWindowAccessor};
 use slint::{ComponentHandle, ModelRc, SharedString, VecModel};
@@ -453,6 +453,64 @@ impl App {
             .set_copy_to_source(self.settings.borrow().copy_to_source);
     }
 
+    /// The thumbnail colour saves at once, like the report theme.
+    fn set_colour(&self, index: i32) {
+        let colour = match index {
+            1 => ThumbnailColour::AsRecorded,
+            2 => ThumbnailColour::Lut,
+            _ => ThumbnailColour::Rec709,
+        };
+        self.save_now("thumbnail colour", |s| s.colour = colour);
+    }
+
+    fn set_camera_look(&self, on: bool) {
+        self.save_now("camera look", |s| s.camera_look = on);
+    }
+
+    fn pick_lut(self: &Rc<Self>) {
+        let dialog = rfd::AsyncFileDialog::new().add_filter("LUT (.cube)", &["cube"]);
+        self.run_dialog(self.main.window(), dialog, true, |app, path| {
+            let mut candidate = app.settings.borrow().clone();
+            match candidate.set_lut(&path) {
+                Ok(()) => {
+                    app.settings_state().set_lut_error(SharedString::new());
+                    app.save_now("LUT", |s| s.lut = candidate.lut.clone());
+                }
+                Err(e) => app.settings_state().set_lut_error(e.into()),
+            }
+        });
+    }
+
+    /// Saves one setting at once and shows what was stored.
+    fn save_now(&self, what: &str, change: impl FnOnce(&mut Settings)) {
+        let mut settings = self.settings.borrow().clone();
+        change(&mut settings);
+        match self.store.save(&settings) {
+            Ok(()) => *self.settings.borrow_mut() = settings,
+            Err(e) => tracing::error!("Couldn't save the {what}: {e}"),
+        }
+        self.fill_colour();
+    }
+
+    fn fill_colour(&self) {
+        let s = self.settings_state();
+        let settings = self.settings.borrow();
+        s.set_colour(match settings.colour {
+            ThumbnailColour::Rec709 => 0,
+            ThumbnailColour::AsRecorded => 1,
+            ThumbnailColour::Lut => 2,
+        });
+        s.set_lut_name(
+            settings
+                .lut
+                .as_deref()
+                .map(file_name)
+                .unwrap_or_default()
+                .into(),
+        );
+        s.set_camera_look(settings.camera_look);
+    }
+
     /// Problems in reports save at once, like the source-drive copy.
     fn set_show_problems(&self, on: bool) {
         let mut settings = self.settings.borrow().clone();
@@ -727,6 +785,18 @@ impl App {
             let f = with_app(self, |app, on: bool| app.set_show_problems(on));
             move |on| f(on)
         });
+        s.on_set_colour({
+            let f = with_app(self, |app, i: i32| app.set_colour(i));
+            move |i| f(i)
+        });
+        s.on_set_camera_look({
+            let f = with_app(self, |app, on: bool| app.set_camera_look(on));
+            move |on| f(on)
+        });
+        s.on_pick_lut({
+            let f = unit(App::pick_lut);
+            move || f(())
+        });
         s.on_label_edited({
             let f = with_app(self, |app, (i, t): (i32, SharedString)| {
                 app.editor.borrow_mut().set_label(i as usize, &t);
@@ -805,6 +875,8 @@ impl App {
         s.set_report_dark(self.settings.borrow().report_theme == ReportTheme::Dark);
         s.set_copy_to_source(self.settings.borrow().copy_to_source);
         s.set_show_problems(self.settings.borrow().show_problems);
+        s.set_lut_error(SharedString::new());
+        self.fill_colour();
         self.fill_logo();
         self.fill_fields();
         self.refresh_dirty();
@@ -882,12 +954,7 @@ impl App {
     }
 
     fn save_settings(&self) {
-        // The theme is saved the moment it's switched, not with this draft.
-        let theme = self.settings.borrow().report_theme;
-        let validated = self.editor.borrow().validated().map(|mut s| {
-            s.report_theme = theme;
-            s
-        });
+        let validated = self.editor.borrow().validated_over(&self.settings.borrow());
         let result = validated.and_then(|s| self.store.save(&s).map(|()| s));
         match result {
             Ok(saved) => {
