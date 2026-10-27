@@ -29,8 +29,11 @@ installer needs [Inno Setup](https://jrsoftware.org/isdl.php).
 
 ## Releasing
 
-1. Write the release's description in `packaging/release-notes/<version>.md`
-   and commit it.
+1. In [`CHANGELOG.md`](CHANGELOG.md), turn **Unreleased** into the version's
+   heading (date, tag, decoders commit) and start a new, empty **Unreleased**.
+   Do the same in luna-decoders' `CHANGELOG.md`. Then write the release's
+   description for users in `packaging/release-notes/<version>.md`, from those
+   entries, and commit it.
 2. On Windows, from a clean `master`: `cargo xtask release`. This leaves
    a release commit, a `v<version>` tag and the Windows installer in `dist/`.
    Nothing is pushed.

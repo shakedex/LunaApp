@@ -30,6 +30,8 @@ pub enum Container {
     Nev,
     /// One frame of an ARRIRAW `.ari` / `.arx` frame sequence.
     AriFrame,
+    /// One frame of a CinemaDNG sequence. Recognised, not decoded.
+    DngFrame,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]

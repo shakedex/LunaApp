@@ -25,6 +25,9 @@ pub fn probe(clip: &ClipFiles) -> Result<Probe, FormatError> {
         Container::QuickTime => qt::probe(clip),
         Container::Mxf => mxf::probe(clip),
         Container::AriFrame => ari::probe(clip),
+        Container::DngFrame => Err(FormatError::Unsupported(
+            "CinemaDNG isn't supported yet".into(),
+        )),
         other => Err(FormatError::Unsupported(format!(
             "{other:?} is not read by luna-formats"
         ))),

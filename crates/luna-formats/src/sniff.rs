@@ -59,6 +59,12 @@ fn classify(path: &Path, head: &[u8]) -> (Sniffed, String) {
             format!("{} at byte 4", String::from_utf8_lossy(&head[4..8])),
         );
     }
+    if ext == "dng" && is_cinema_dng(head) {
+        return (
+            Sniffed::CameraOriginal(Container::DngFrame),
+            "DNG with CinemaDNG TimeCodes/FrameRate tags".into(),
+        );
+    }
     if let Some(c) = quicktime(head, &ext) {
         let brand = (&head[4..8] == b"ftyp")
             .then(|| head.get(8..12))
@@ -87,6 +93,41 @@ fn classify(path: &Path, head: &[u8]) -> (Sniffed, String) {
         ),
         None => (Sniffed::Other, "no known signature".into()),
     }
+}
+
+/// A DNG frame of a CinemaDNG sequence: a TIFF whose first IFD has the
+/// CinemaDNG TimeCodes (0xC763) or FrameRate (0xC764) tag. A DNG still has
+/// neither and stays `Other`.
+fn is_cinema_dng(head: &[u8]) -> bool {
+    let be = match head.get(..4) {
+        Some([b'M', b'M', 0, 42]) => true,
+        Some([b'I', b'I', 42, 0]) => false,
+        _ => return false,
+    };
+    let u16_at = |o: usize| {
+        head.get(o..o + 2).map(|b| {
+            let b = [b[0], b[1]];
+            if be {
+                u16::from_be_bytes(b)
+            } else {
+                u16::from_le_bytes(b)
+            }
+        })
+    };
+    let Some(ifd) = head.get(4..8).map(|b| {
+        let b = [b[0], b[1], b[2], b[3]];
+        (if be {
+            u32::from_be_bytes(b)
+        } else {
+            u32::from_le_bytes(b)
+        }) as usize
+    }) else {
+        return false;
+    };
+    let Some(n) = u16_at(ifd) else { return false };
+    (0..n as usize)
+        .map_while(|i| u16_at(ifd + 2 + 12 * i))
+        .any(|tag| tag == 0xC763 || tag == 0xC764)
 }
 
 /// `Some` when the head is an atom structure: a camera original, or `Other`
@@ -358,6 +399,17 @@ mod tests {
             s("f.0000001.arx", &arx),
             Sniffed::CameraOriginal(Container::AriFrame)
         );
+        // CinemaDNG: a big-endian TIFF whose IFD has the FrameRate tag; a DNG still doesn't
+        let mut dng = vec![b'M', b'M', 0, 42, 0, 0, 0, 8, 0, 2, 0x01, 0x00];
+        dng.extend([0u8; 10]);
+        dng.extend([0xC7, 0x64]);
+        dng.extend([0u8; 10]);
+        assert_eq!(
+            s("A001_C001_R00001.dng", &dng),
+            Sniffed::CameraOriginal(Container::DngFrame)
+        );
+        dng[22] = 0x01;
+        assert_eq!(s("IMG_0001.dng", &dng), Sniffed::Other);
         // ARRI in a QuickTime ftyp's compatible brands is not an .ari frame.
         let mov = ftyp(b"qt  ", &[b"qt  ", b"ARRI"]);
         assert_eq!(

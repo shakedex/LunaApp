@@ -262,7 +262,7 @@ fn assemble(mut files: Vec<(PathBuf, Sniffed)>) -> (Vec<ClipFiles>, Vec<PathBuf>
             Sniffed::CameraOriginal(container) => {
                 let numbered = match container {
                     Container::R3d => r3d_segment(&path),
-                    Container::AriFrame => ari_frame(&path),
+                    Container::AriFrame | Container::DngFrame => ari_frame(&path),
                     _ => None,
                 };
                 match numbered {
@@ -342,7 +342,7 @@ fn clip_names(clip: &ClipFiles) -> Vec<String> {
     let mut names = vec![stem(&clip.main).to_lowercase()];
     let base = match clip.container {
         Container::R3d => r3d_segment(&clip.main).map(|(b, ..)| b),
-        Container::AriFrame => {
+        Container::AriFrame | Container::DngFrame => {
             ari_frame(&clip.main).map(|(b, ..)| b.trim_end_matches(['.', '_', '-']).to_string())
         }
         _ => None,

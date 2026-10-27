@@ -29,6 +29,7 @@ fn expected(name: &str) -> Sniffed {
         "r3d" => O(R3d),
         "nev" => O(Nev),
         "ari" | "arx" => O(AriFrame),
+        "dng" => O(DngFrame),
         "ale" => S(SidecarKind::Ale),
         "rmd" => S(SidecarKind::RedRmd),
         "sidecar" => S(SidecarKind::BrawSidecar),
