@@ -4,6 +4,7 @@
 //! Only KLV headers and metadata are read; essence is located, never loaded.
 
 pub(crate) mod arri;
+mod cooke;
 pub(crate) mod display;
 mod index;
 pub(crate) mod klv;
@@ -314,6 +315,15 @@ pub(crate) fn probe_source<R: Read + Seek>(
         blocks.push((SONY_XML_EMBEDDED.into(), true));
     }
     merge(&mut meta, v, vendor, &st, &mut sources);
+    // Sony names cine lenses only by their /i serial.
+    if vendor == Make::Sony
+        && let Some(name) = meta
+            .lens
+            .as_deref()
+            .and_then(|l| cooke::lens_name(l, pixel_aspect(&pic)))
+    {
+        meta.lens = Some(name);
+    }
     let base = |f: &str| match f {
         "frame_rate" => "picture track EditRate",
         "frame_count" => "picture track Duration, descriptor ContainerDuration, essence",

@@ -20,6 +20,8 @@ Decoders: luna-decoders `8822d47`.
 - **New:** Sony XAVC H Intra (HEVC in MXF) from the BURANO.
 - **New:** `.ari` and `.arx` frame sequences are one clip each, with timecode, recording
   date, lens, T-stop, ND, white balance and EI from the camera header.
+- **Changed:** Sony VENICE lenses are named from their /i serial (for example "Cooke
+  S7/i 85mm") instead of showing the serial.
 - **Fixed:** Sony VENICE X-OCN XT clips had blown-out thumbnails.
 - **Fixed:** Atomos Ninja V ProRes RAW failed on every frame. (Windows)
 - **Fixed:** ARRIRAW HDE in MXF was read as plain ARRIRAW and failed.

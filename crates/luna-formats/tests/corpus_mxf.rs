@@ -421,7 +421,7 @@ fn venice2_xocn_anamorphic_truncated() {
             camera_make: s("Sony"),
             camera_model: s("VENICE 2"),
             camera_serial: s("0010119"),
-            lens: s("7085.2501"),
+            lens: s("Cooke Anamorphic/i Full Frame Plus 85mm"),
             focal_length: s("85 mm"),
             stop: s("T2.8"),
             iso: s("1250"),
