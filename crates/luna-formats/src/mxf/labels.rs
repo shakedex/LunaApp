@@ -45,6 +45,11 @@ pub(crate) fn codec(coding: Option<&Ul>, container: Option<&Ul>, element: Option
         if at(c, 8, &[0x04, 0x01, 0x02, 0x02, 0x01]) && matches!(c.0[13], 0x31 | 0x32) {
             return Codec::H264;
         }
+        // HEVC: 04 01 02 02 01 45, as Sony BURANO writes for XAVC H Intra (the
+        // essence reads as HEVC Range Extensions 4:2:2 10-bit)
+        if at(c, 8, &[0x04, 0x01, 0x02, 0x02, 0x01, 0x45]) {
+            return Codec::Hevc;
+        }
     }
     if let Some(c) = container.filter(|c| c.0[..4] == SMPTE) {
         // ST 2071-2/RDD 54 ARRIRAW and ARRICORE generic-container mappings.
@@ -177,6 +182,8 @@ mod tests {
         assert_eq!(codec(Some(&xocn), None, None), Codec::XOcn);
         let avc = ul("060e2b340401010a0401020201323001");
         assert_eq!(codec(Some(&avc), None, None), Codec::H264);
+        let hevc = ul("060e2b340401010d0401020201452001");
+        assert_eq!(codec(Some(&hevc), None, None), Codec::Hevc);
         let raw = ul("060e2b340401010d0401020102010103");
         let cont = ul("060e2b340401010d0d01030102220100");
         assert_eq!(codec(Some(&raw), Some(&cont), None), Codec::ArriRaw);

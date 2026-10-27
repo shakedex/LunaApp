@@ -404,6 +404,48 @@ fn hevc_422_decodes_when_the_hevc_extension_offers_it() {
     }
 }
 
+/// Sony XAVC H Intra (HEVC RExt 4:2:2 10-bit, 8K) from MXF through the
+/// platform decoder, from the real probe's frame index. The clip sits beside
+/// the CAMERA folder.
+#[cfg(windows)]
+#[test]
+fn hevc_xavc_h_intra_mxf() {
+    let rel = "../new_cameras/burano/8.6K XAVC H-I HQ SCENE 4.MXF";
+    let Some(path) = corpus(rel) else {
+        return;
+    };
+    let clip = files(Container::Mxf, &path);
+    let p = luna_formats::probe(&clip).unwrap();
+    assert_eq!(p.codec, Codec::Hevc);
+    let n = p.meta.frame_count.unwrap();
+    for r in decode_frames(&clip, &p, &[0, n / 2, n - 1], 640) {
+        let f = match r {
+            Ok(f) => f,
+            Err(DecodeError::Unsupported(m)) => return eprintln!("HEVC unsupported here: {m}"),
+            Err(e) => panic!("{e}"),
+        };
+        let Decoded::Ycbcr {
+            width,
+            height,
+            chroma_width,
+            chroma_height,
+            bits,
+            ref y,
+            ..
+        } = f.image
+        else {
+            panic!("expected ycbcr")
+        };
+        assert_eq!(
+            (width, height, chroma_width, chroma_height, bits),
+            (8192, 4320, 4096, 4320, 10)
+        );
+        let mean = y.iter().map(|&v| v as f64).sum::<f64>() / y.len() as f64;
+        let var = y.iter().map(|&v| (v as f64 - mean).powi(2)).sum::<f64>() / y.len() as f64;
+        assert!(var > 10.0, "flat picture");
+    }
+}
+
 #[test]
 fn prores_frames_reach_the_decoder() {
     let Some(path) = corpus("M_CAM/M001/M001C001_161207_R00H.mov") else {

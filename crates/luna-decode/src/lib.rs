@@ -16,6 +16,8 @@ mod crm_raw;
 mod h264;
 #[cfg(windows)]
 mod mf;
+#[cfg(windows)]
+mod mf_es;
 mod mosaic;
 #[cfg(target_os = "macos")]
 mod platform_macos;
@@ -240,6 +242,7 @@ pub fn decode_frames(
             Backend::ProRes => prores::decode(clip, probe, positions, min_width),
             Backend::ProResRaw => proresraw_decode(clip, probe, positions, min_width),
             Backend::H264 => h264::decode(clip, probe, positions, min_width),
+            Backend::PlatformEs => platform_es_decode(clip, probe, positions, min_width),
             Backend::Platform => with_h264_fallback(
                 clip,
                 probe,
@@ -279,6 +282,8 @@ enum Backend {
     ProResRaw,
     H264,
     Platform,
+    /// HEVC elementary frames from MXF, through the platform decoder.
+    PlatformEs,
     None,
 }
 
@@ -294,6 +299,7 @@ impl Backend {
             Backend::ProResRaw => "ProRes RAW",
             Backend::H264 => "H.264",
             Backend::Platform => "platform video",
+            Backend::PlatformEs => "platform HEVC",
             Backend::None => "no",
         }
     }
@@ -312,6 +318,7 @@ fn backend_for(clip: &ClipFiles, probe: &Probe) -> Backend {
         (Codec::ProResRaw, Container::QuickTime) => Backend::ProResRaw,
         (Codec::H264, Container::Mxf) => Backend::H264,
         (Codec::H264 | Codec::Hevc, Container::QuickTime) => Backend::Platform,
+        (Codec::Hevc, Container::Mxf) => Backend::PlatformEs,
         _ => Backend::None,
     }
 }
@@ -374,6 +381,29 @@ fn proresraw_decode(
     util::all_err(
         positions.len(),
         DecodeError::Unsupported("ProRes RAW isn't supported on this platform yet".into()),
+    )
+}
+
+#[cfg(windows)]
+fn platform_es_decode(
+    clip: &ClipFiles,
+    probe: &Probe,
+    positions: &[u64],
+    min_width: u32,
+) -> Vec<Result<Frame, DecodeError>> {
+    mf_es::decode(clip, probe, positions, min_width)
+}
+
+#[cfg(not(windows))]
+fn platform_es_decode(
+    _clip: &ClipFiles,
+    _probe: &Probe,
+    positions: &[u64],
+    _min_width: u32,
+) -> Vec<Result<Frame, DecodeError>> {
+    util::all_err(
+        positions.len(),
+        DecodeError::Unsupported("HEVC in MXF isn't supported on this platform yet".into()),
     )
 }
 
@@ -457,6 +487,7 @@ mod tests {
         assert_eq!(backend_for(&mov, &probe(Codec::H264)), Backend::Platform);
         assert_eq!(backend_for(&mov, &probe(Codec::Hevc)), Backend::Platform);
         assert_eq!(backend_for(&mxf, &probe(Codec::H264)), Backend::H264);
+        assert_eq!(backend_for(&mxf, &probe(Codec::Hevc)), Backend::PlatformEs);
         assert_eq!(
             backend_for(&mov, &probe(Codec::ProResRaw)),
             Backend::ProResRaw

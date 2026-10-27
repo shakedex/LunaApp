@@ -54,12 +54,12 @@ pub(crate) fn decode(
 }
 
 /// COM on this thread (multithreaded apartment), undone on drop.
-struct Com {
+pub(crate) struct Com {
     uninit: bool,
 }
 
 impl Com {
-    fn init() -> Result<Com, DecodeError> {
+    pub(crate) fn init() -> Result<Com, DecodeError> {
         // SAFETY: plain COM initialisation for this thread.
         let hr = unsafe { CoInitializeEx(None, COINIT_MULTITHREADED) };
         if hr == RPC_E_CHANGED_MODE {
@@ -81,10 +81,10 @@ impl Drop for Com {
     }
 }
 
-struct MfStartup;
+pub(crate) struct MfStartup;
 
 impl MfStartup {
-    fn init() -> Result<MfStartup, DecodeError> {
+    pub(crate) fn init() -> Result<MfStartup, DecodeError> {
         // SAFETY: balanced by MFShutdown on drop.
         unsafe { MFStartup(MF_VERSION, MFSTARTUP_NOSOCKET) }
             .map_err(|e| DecodeError::Failed(format!("Could not start Media Foundation: {e}")))?;
@@ -101,7 +101,7 @@ impl Drop for MfStartup {
 
 /// What the reader outputs after negotiation.
 #[derive(Debug, Clone, Copy)]
-struct Output {
+pub(crate) struct Output {
     format: Format,
     /// Coded frame size (buffer layout).
     width: u32,
@@ -321,60 +321,62 @@ impl Reader {
     }
 
     fn to_frame(&self, sample: &IMFSample) -> Result<Frame, DecodeError> {
-        let o = self.out;
-        let fail = |e: windows::core::Error| {
-            DecodeError::Failed(format!("Could not read the decoded frame: {e}"))
-        };
-        // SAFETY: the buffer is locked while we copy and unlocked after.
-        unsafe {
-            let buf = sample.ConvertToContiguousBuffer().map_err(fail)?;
-            let min_pitch = o.format.min_pitch(o.width);
-            if let Ok(b2) = buf.cast::<IMF2DBuffer>() {
-                let mut scan0 = std::ptr::null_mut();
-                let mut pitch = 0i32;
-                b2.Lock2D(&mut scan0, &mut pitch).map_err(fail)?;
-                let r = if pitch <= 0 || (pitch as usize) < min_pitch || scan0.is_null() {
-                    Err(DecodeError::Failed(
-                        "Bottom-up or empty decoded frame".into(),
-                    ))
-                } else {
-                    let len = o.format.buffer_len(pitch as usize, o.height);
-                    let bytes = std::slice::from_raw_parts(scan0 as *const u8, len);
-                    Ok(copy_planes(bytes, pitch as usize, &o))
-                };
-                let _ = b2.Unlock2D();
-                return r.map(|image| Frame {
-                    image,
-                    hint: self.hint,
-                });
-            }
-            let mut ptr = std::ptr::null_mut();
-            let mut cur = 0u32;
-            buf.Lock(&mut ptr, None, Some(&mut cur)).map_err(fail)?;
-            let pitch = o
-                .stride
-                .filter(|s| *s > 0 && *s as usize >= min_pitch)
-                .map(|s| s as usize)
-                .unwrap_or(min_pitch);
-            let need = o.format.buffer_len(pitch, o.height);
-            let r = if ptr.is_null() || (cur as usize) < need {
-                Err(DecodeError::Failed("The decoded frame is short".into()))
+        sample_image(sample, &self.out).map(|image| Frame {
+            image,
+            hint: self.hint,
+        })
+    }
+}
+
+/// Copies a decoded sample's buffer into planar samples.
+pub(crate) fn sample_image(sample: &IMFSample, o: &Output) -> Result<Decoded, DecodeError> {
+    let o = *o;
+    let fail = |e: windows::core::Error| {
+        DecodeError::Failed(format!("Could not read the decoded frame: {e}"))
+    };
+    // SAFETY: the buffer is locked while we copy and unlocked after.
+    unsafe {
+        let buf = sample.ConvertToContiguousBuffer().map_err(fail)?;
+        let min_pitch = o.format.min_pitch(o.width);
+        if let Ok(b2) = buf.cast::<IMF2DBuffer>() {
+            let mut scan0 = std::ptr::null_mut();
+            let mut pitch = 0i32;
+            b2.Lock2D(&mut scan0, &mut pitch).map_err(fail)?;
+            let r = if pitch <= 0 || (pitch as usize) < min_pitch || scan0.is_null() {
+                Err(DecodeError::Failed(
+                    "Bottom-up or empty decoded frame".into(),
+                ))
             } else {
-                let bytes = std::slice::from_raw_parts(ptr as *const u8, need);
-                Ok(copy_planes(bytes, pitch, &o))
+                let len = o.format.buffer_len(pitch as usize, o.height);
+                let bytes = std::slice::from_raw_parts(scan0 as *const u8, len);
+                Ok(copy_planes(bytes, pitch as usize, &o))
             };
-            let _ = buf.Unlock();
-            r.map(|image| Frame {
-                image,
-                hint: self.hint,
-            })
+            let _ = b2.Unlock2D();
+            return r;
         }
+        let mut ptr = std::ptr::null_mut();
+        let mut cur = 0u32;
+        buf.Lock(&mut ptr, None, Some(&mut cur)).map_err(fail)?;
+        let pitch = o
+            .stride
+            .filter(|s| *s > 0 && *s as usize >= min_pitch)
+            .map(|s| s as usize)
+            .unwrap_or(min_pitch);
+        let need = o.format.buffer_len(pitch, o.height);
+        let r = if ptr.is_null() || (cur as usize) < need {
+            Err(DecodeError::Failed("The decoded frame is short".into()))
+        } else {
+            let bytes = std::slice::from_raw_parts(ptr as *const u8, need);
+            Ok(copy_planes(bytes, pitch, &o))
+        };
+        let _ = buf.Unlock();
+        r
     }
 }
 
 /// The decoder output layouts we read.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Format {
+pub(crate) enum Format {
     /// 8-bit 4:2:0: Y plane, then interleaved CbCr at half height.
     Nv12,
     /// 10-bit 4:2:0 as NV12 with 16-bit samples (value in the top 10 bits).
@@ -386,7 +388,7 @@ enum Format {
 }
 
 impl Format {
-    fn from_subtype(sub: &GUID) -> Option<Format> {
+    pub(crate) fn from_subtype(sub: &GUID) -> Option<Format> {
         // Y210 / P210 FourCCs in the standard video subtype GUID.
         const Y210: GUID = GUID::from_u128(0x30313259_0000_0010_8000_00aa00389b71);
         const P210: GUID = GUID::from_u128(0x30313250_0000_0010_8000_00aa00389b71);
@@ -484,11 +486,19 @@ fn copy_planes(bytes: &[u8], pitch: usize, o: &Output) -> Decoded {
 
 /// Reads the negotiated output format.
 unsafe fn output(reader: &IMFSourceReader) -> Result<Output, DecodeError> {
+    // SAFETY: plain COM call.
+    let mt = unsafe { reader.GetCurrentMediaType(VIDEO) }
+        .map_err(|e| DecodeError::Failed(format!("Media Foundation output format: {e}")))?;
+    // SAFETY: plain COM calls on a live media type.
+    unsafe { output_of(&mt) }
+}
+
+/// The layout a decoder output media type describes.
+pub(crate) unsafe fn output_of(mt: &IMFMediaType) -> Result<Output, DecodeError> {
     let fail = |e: windows::core::Error| {
         DecodeError::Failed(format!("Media Foundation output format: {e}"))
     };
     unsafe {
-        let mt = reader.GetCurrentMediaType(VIDEO).map_err(fail)?;
         let sub = mt.GetGUID(&MF_MT_SUBTYPE).map_err(fail)?;
         let Some(format) = Format::from_subtype(&sub) else {
             return Err(DecodeError::Failed(format!(
@@ -556,7 +566,7 @@ fn ratio_attr(mt: &IMFMediaType, key: &GUID) -> Option<f64> {
 }
 
 /// The clip's colour hint, filled from the stream's own signalling.
-fn hint_for(probe: &Probe, native: &IMFMediaType) -> ColourHint {
+pub(crate) fn hint_for(probe: &Probe, native: &IMFMediaType) -> ColourHint {
     let mut hint = probe.meta.colour;
     // SAFETY: plain COM calls.
     unsafe {
@@ -618,7 +628,7 @@ fn profile_label(codec: &Codec, native: &IMFMediaType) -> String {
     }
 }
 
-fn unsupported(label: &str) -> DecodeError {
+pub(crate) fn unsupported(label: &str) -> DecodeError {
     DecodeError::Unsupported(format!(
         "{label} isn't supported by this computer's decoders"
     ))
