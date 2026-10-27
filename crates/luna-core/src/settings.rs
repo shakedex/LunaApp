@@ -85,6 +85,21 @@ impl Settings {
             .set_logo(self, source)
     }
 
+    /// Checks that `path` is a usable `.cube` LUT and keeps a reference to it
+    /// where it is. The error is a sentence for the UI.
+    pub fn set_lut(&mut self, path: &Path) -> Result<(), String> {
+        let name = path.file_name().map_or_else(
+            || path.display().to_string(),
+            |n| n.to_string_lossy().into_owned(),
+        );
+        let text = std::fs::read_to_string(path)
+            .map_err(|e| format!("The LUT {name} can't be read: {e}"))?;
+        luna_color::Lut::parse_cube(&text)
+            .map_err(|e| format!("The LUT {name} can't be used: {e}"))?;
+        self.lut = Some(path.to_path_buf());
+        Ok(())
+    }
+
     /// Removes the logo from the platform config folder.
     pub fn clear_logo(&mut self) {
         match SettingsStore::platform() {
@@ -292,6 +307,40 @@ mod tests {
             lut: Some(PathBuf::from("/luts/show.cube")),
             camera_look: true,
         }
+    }
+
+    #[test]
+    fn set_lut_rejects_a_bad_cube() {
+        let t = tempfile::tempdir().unwrap();
+        let bad = t.path().join("bad.cube");
+        std::fs::write(
+            &bad,
+            "LUT_3D_SIZE 2
+0 0 0
+",
+        )
+        .unwrap();
+        let mut s = Settings::default();
+        let err = s.set_lut(&bad).unwrap_err();
+        assert!(err.contains("bad.cube"), "{err}");
+        assert_eq!(s.lut, None);
+    }
+
+    #[test]
+    fn set_lut_keeps_a_good_cube() {
+        let t = tempfile::tempdir().unwrap();
+        let good = t.path().join("show.cube");
+        std::fs::write(
+            &good,
+            "LUT_1D_SIZE 2
+0 0 0
+1 1 1
+",
+        )
+        .unwrap();
+        let mut s = Settings::default();
+        s.set_lut(&good).unwrap();
+        assert_eq!(s.lut.as_deref(), Some(good.as_path()));
     }
 
     #[test]

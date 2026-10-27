@@ -20,6 +20,9 @@ Decoders: luna-decoders `8822d47`.
 - **New:** Sony XAVC H Intra (HEVC in MXF) from the BURANO.
 - **New:** `.ari` and `.arx` frame sequences are one clip each, with timecode, recording
   date, lens, T-stop, ND, white balance and EI from the camera header.
+- **New:** Thumbnail colour in Settings: Rec.709 (as before), None (the picture as the
+  camera recorded it) or a `.cube` LUT on every clip. The report names what was applied.
+  `luna report --colour rec709|none|lut` and `--lut <file>` do the same for one run.
 - **New:** "Show problems in reports" in Settings, off by default. Off, reports leave out
   clip warnings, the "Need attention" count and unreadable files; the app and the logs
   still show them. `luna report --problems` prints them for one run.

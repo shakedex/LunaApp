@@ -3770,6 +3770,7 @@ dependencies = [
  "dirs",
  "dunce",
  "jiff",
+ "luna-color",
  "luna-formats",
  "luna-report",
  "luna-worker",

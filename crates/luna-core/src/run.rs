@@ -105,6 +105,8 @@ pub enum RunError {
     Workers(String),
     Report(String),
     Output(String),
+    /// The chosen LUT is missing or can't be used; a full sentence.
+    Lut(String),
     /// The camera filter matched none of the cameras found.
     NoSuchCamera {
         asked: Vec<String>,
@@ -120,6 +122,7 @@ impl std::fmt::Display for RunError {
             RunError::Workers(m) => write!(f, "Luna couldn't start reading clips: {m}"),
             RunError::Report(m) => write!(f, "The report couldn't be made: {m}"),
             RunError::Output(m) => write!(f, "The report couldn't be saved: {m}"),
+            RunError::Lut(m) => f.write_str(m),
             RunError::NoSuchCamera { asked, found } => write!(
                 f,
                 "No camera matches {}. Cameras found: {}",
@@ -256,6 +259,7 @@ fn run_inner(
     cancel: &AtomicBool,
 ) -> Result<RunOutcome, RunError> {
     let started = Instant::now();
+    check_lut(&req.settings)?;
     log_header(req, workers);
     let settings = &req.settings;
     let roots = source_roots(&req.sources)?;
@@ -673,6 +677,17 @@ fn failed(index: usize, warning: &str, tile: &str) -> ClipResult {
     }
 }
 
+/// Stops a LUT run before any work when its LUT can't be used.
+fn check_lut(settings: &Settings) -> Result<(), RunError> {
+    if settings.colour != ThumbnailColour::Lut {
+        return Ok(());
+    }
+    let Some(path) = &settings.lut else {
+        return Err(RunError::Lut("No LUT is chosen in Settings".into()));
+    };
+    settings.clone().set_lut(path).map_err(RunError::Lut)
+}
+
 fn colour_job(settings: &Settings) -> ColourJob {
     ColourJob {
         colour: settings.colour,
@@ -740,5 +755,36 @@ pub fn summary(report: &Report) -> String {
         (n, 0) => format!("{n} clips, no problems"),
         (1, _) => "The clip needs attention".into(),
         (n, p) => format!("{p} of {n} clips need attention"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn run_stops_when_the_lut_is_missing() {
+        let settings = Settings {
+            colour: ThumbnailColour::Lut,
+            lut: Some(PathBuf::from("D:/nowhere/show.cube")),
+            ..Settings::default()
+        };
+        let err = check_lut(&settings).unwrap_err();
+        assert!(matches!(err, RunError::Lut(_)));
+        assert!(err.to_string().contains("show.cube"), "{err}");
+    }
+
+    #[test]
+    fn lut_choice_without_a_file_is_an_error() {
+        let settings = Settings {
+            colour: ThumbnailColour::Lut,
+            ..Settings::default()
+        };
+        assert!(check_lut(&settings).is_err());
+    }
+
+    #[test]
+    fn other_choices_need_no_lut() {
+        assert!(check_lut(&Settings::default()).is_ok());
     }
 }
