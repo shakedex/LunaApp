@@ -3,13 +3,14 @@
 //! ARRI's look tables (ALEXA 35, ALEXA Mini LF) through `arri-look`. Both
 //! crates were checked against the makers' own software.
 
-use luna_formats::{ClipFiles, ColourHint, Container, EmbeddedLut, Gamut, Transfer};
+use luna_formats::{ClipFiles, ColourHint, Container, EmbeddedLut, Gamut, Probe, Transfer};
 
 use crate::util::{self, failed};
 
 /// The clip's embedded look, or `None` when it has none or isn't MXF. A look
-/// that can't be read is logged and left out. Never panics.
-pub fn embedded_look(clip: &ClipFiles) -> Option<EmbeddedLut> {
+/// that can't be read is logged and left out. `probe` gives the exposure index
+/// an ARRI LogC3 table is fed at. Never panics.
+pub fn embedded_look(clip: &ClipFiles, probe: &Probe) -> Option<EmbeddedLut> {
     if clip.container != Container::Mxf {
         return None;
     }
@@ -18,7 +19,14 @@ pub fn embedded_look(clip: &ClipFiles) -> Option<EmbeddedLut> {
         if let Some(look) = sony_look::read(path).map_err(failed)? {
             return Ok(from_sony(look));
         }
-        Ok(arri_look::read(path).map_err(failed)?.map(from_arri))
+        let ei = probe
+            .meta
+            .iso
+            .as_deref()
+            .and_then(|s| s.trim().parse().ok());
+        Ok(arri_look::read(path)
+            .map_err(failed)?
+            .map(|look| from_arri(look, ei)))
     });
     read.unwrap_or_else(|e| {
         tracing::warn!("embedded look ignored: {e}");
@@ -45,13 +53,15 @@ fn from_sony(look: sony_look::Look) -> Option<EmbeddedLut> {
             transfer: Some(Transfer::SLog3),
             gamut: Some(Gamut::SGamut3Cine),
         },
+        exposure_index: None,
     })
 }
 
-fn from_arri(look: arri_look::Look) -> EmbeddedLut {
-    let input = match look.input {
-        arri_look::Input::LogC4 => (Transfer::LogC4, Gamut::ArriWideGamut4),
-        arri_look::Input::LogC3 => (Transfer::LogC3, Gamut::ArriWideGamut3),
+/// `ei`: the clip's exposure index. Mini LF tables take LogC3 at that EI.
+fn from_arri(look: arri_look::Look, ei: Option<u32>) -> EmbeddedLut {
+    let (input, exposure_index) = match look.input {
+        arri_look::Input::LogC4 => ((Transfer::LogC4, Gamut::ArriWideGamut4), None),
+        arri_look::Input::LogC3 => ((Transfer::LogC3, Gamut::ArriWideGamut3), ei),
     };
     EmbeddedLut {
         // The camera's own display table (what its monitor output showed).
@@ -62,6 +72,7 @@ fn from_arri(look: arri_look::Look) -> EmbeddedLut {
             transfer: Some(input.0),
             gamut: Some(input.1),
         },
+        exposure_index,
     }
 }
 

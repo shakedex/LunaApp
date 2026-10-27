@@ -76,6 +76,7 @@ fn braw_embedded_lut(md: &braw::Metadata) -> Option<EmbeddedLut> {
         size,
         data: blue_fastest_to_cube(data, size),
         input: ColourHint::default(),
+        exposure_index: None,
     })
 }
 

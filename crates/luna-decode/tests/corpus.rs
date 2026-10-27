@@ -89,7 +89,9 @@ fn embedded_looks() {
     ];
     for (rel, want) in cases {
         let Some(path) = corpus(rel) else { continue };
-        let got = embedded_look(&files(Container::Mxf, &path));
+        let clip = files(Container::Mxf, &path);
+        let probe = luna_formats::probe(&clip).unwrap_or_else(|e| panic!("{rel}: {e}"));
+        let got = embedded_look(&clip, &probe);
         let Some((name, size, transfer, gamut)) = want else {
             assert!(got.is_none(), "{rel}");
             continue;
@@ -102,6 +104,9 @@ fn embedded_looks() {
             (Some(transfer), Some(gamut)),
             "{rel}"
         );
+        // ARRI LogC3 tables take LogC3 at the clip's EI; the corpus clips are EI 800.
+        let ei = (transfer == Transfer::LogC3).then_some(800);
+        assert_eq!(e.exposure_index, ei, "{rel}");
     }
 }
 

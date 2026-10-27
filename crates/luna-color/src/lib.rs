@@ -301,7 +301,7 @@ pub fn render_with(
     let (look, applied) = match (colour, signal) {
         (Colour::CameraLog, Some(s)) => (Look::Signal(s, None), Applied::CameraLog),
         (Colour::Lut(lut), Some(s)) => {
-            let s = lut_signal(frame, lut.input()).unwrap_or(s);
+            let s = lut_signal(frame, lut.input(), lut.exposure_index()).unwrap_or(s);
             (Look::Signal(s, Some(lut)), Applied::Lut)
         }
         _ => (look, Applied::Rec709),
@@ -374,11 +374,12 @@ enum Signal {
         log: Transfer,
     },
     /// One camera log curve → scene-linear, through the matrix when given,
-    /// → another log curve.
+    /// → another log curve (LogC3 at `ei` when given).
     Recode {
         from: Transfer,
         matrix: Option<[[f32; 3]; 3]>,
         to: Transfer,
+        ei: Option<u32>,
     },
 }
 
@@ -390,10 +391,21 @@ impl Signal {
                 let lin = matrix.as_ref().map_or(px, |m| mat(m, px));
                 lin.map(|v| curves::encode(*log, v.max(0.0) as f64) as f32)
             }
-            Signal::Recode { from, matrix, to } => {
+            Signal::Recode {
+                from,
+                matrix,
+                to,
+                ei,
+            } => {
                 let lin = px.map(|v| curves::decode(*from, v as f64) as f32);
                 let lin = matrix.as_ref().map_or(lin, |m| mat(m, lin));
-                lin.map(|v| curves::encode(*to, v.max(0.0) as f64) as f32)
+                lin.map(|v| {
+                    let v = v.max(0.0) as f64;
+                    match (to, ei) {
+                        (Transfer::LogC3, Some(ei)) => curves::encode_logc3_at(*ei, v) as f32,
+                        _ => curves::encode(*to, v) as f32,
+                    }
+                })
             }
         }
     }
@@ -404,9 +416,9 @@ impl Signal {
 /// the frame can't be re-encoded (video whose tags differ, display pictures):
 /// those get the usual camera signal.
 ///
-/// ARRI LogC3 here is the EI 800 curve, so a LogC3 table on a clip shot at
-/// another EI gets slightly different codes than the camera gave it.
-fn lut_signal(frame: &Frame, input: ColourHint) -> Option<Signal> {
+/// A LogC3 table gets LogC3 at the LUT's exposure index when it has one
+/// (ARRI's curve differs per EI), else at EI 800.
+fn lut_signal(frame: &Frame, input: ColourHint, ei: Option<u32>) -> Option<Signal> {
     let (Some(to), Some(gamut)) = (input.transfer, input.gamut) else {
         return None;
     };
@@ -437,6 +449,7 @@ fn lut_signal(frame: &Frame, input: ColourHint) -> Option<Signal> {
                 from: *t,
                 matrix: into(*g),
                 to,
+                ei,
             }),
             _ => None,
         },

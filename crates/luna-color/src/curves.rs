@@ -110,6 +110,68 @@ mod logc3 {
     }
 }
 
+/// ARRI LogC3 at the exposure index the clip was shot at: scene-linear
+/// (18% grey = 0.18) → code value.
+///
+/// Source: ARRI, "ALEXA Log C Curve – Usage in VFX" (2017), table of
+/// parameters for conversion between Log C values and exposure values, EI 160
+/// to 1600. Checked against ARRI Reference Tool's LogC3 renders of an ALEXA
+/// Mini LF clip: within 0.6 of 65535 codes at every EI in the table.
+///
+/// Other EIs use the table's parameters fitted as quadratics in
+/// `log2(EI / 800)` (every parameter is smooth in it; residuals ≤ 2.4e-5).
+/// ARRI publishes no formula above EI 1600, where the camera adds a highlight
+/// roll-off; the fit matches ARRI Reference Tool at EI 2000, 2560 and 3200
+/// within 3 codes of 65535 up to Log C 0.8, and runs up to 0.4 % high above
+/// 0.85, where the roll-off is.
+pub fn encode_logc3_at(ei: u32, x: f64) -> f64 {
+    let [cut, a, b, c, d, e, f] = logc3_ei::params(ei);
+    if x > cut {
+        c * (a * x + b).log10() + d
+    } else {
+        e * x + f
+    }
+}
+
+mod logc3_ei {
+    /// EI → cut, a, b, c, d, e, f, as ARRI prints them.
+    #[rustfmt::skip]
+    pub(super) const TABLE: [(u32, [f64; 7]); 11] = [
+        (160, [0.005561, 5.555556, 0.080216, 0.269036, 0.381991, 5.842037, 0.092778]),
+        (200, [0.006208, 5.555556, 0.076621, 0.266007, 0.382478, 5.776265, 0.092782]),
+        (250, [0.006871, 5.555556, 0.072941, 0.262978, 0.382966, 5.710494, 0.092786]),
+        (320, [0.007622, 5.555556, 0.068768, 0.259627, 0.383508, 5.637732, 0.092791]),
+        (400, [0.008318, 5.555556, 0.064901, 0.256598, 0.383999, 5.571960, 0.092795]),
+        (500, [0.009031, 5.555556, 0.060939, 0.253569, 0.384493, 5.506188, 0.092800]),
+        (640, [0.009840, 5.555556, 0.056443, 0.250219, 0.385040, 5.433426, 0.092805]),
+        (800, [0.010591, 5.555556, 0.052272, 0.247190, 0.385537, 5.367655, 0.092809]),
+        (1000, [0.011361, 5.555556, 0.047996, 0.244161, 0.386036, 5.301883, 0.092814]),
+        (1280, [0.012235, 5.555556, 0.043137, 0.240810, 0.386590, 5.229121, 0.092819]),
+        (1600, [0.013047, 5.555556, 0.038625, 0.237781, 0.387093, 5.163350, 0.092824]),
+    ];
+
+    /// Each parameter as `q·x² + l·x + k` with `x = log2(EI / 800)`, least
+    /// squares over [`TABLE`] (`a` is constant).
+    pub(super) const FIT: [[f64; 3]; 7] = [
+        [8.503813826e-05, 2.363413979e-03, 1.059428719e-02],
+        [0.0, 0.0, 5.555556],
+        [-4.732560796e-04, -1.313173140e-02, 5.225394378e-02],
+        [4.723145827e-08, -9.408526274e-03, 2.471896946e-01],
+        [8.423566092e-06, 1.546691320e-03, 3.855374431e-01],
+        [1.125101059e-07, -2.043050951e-01, 5.367654715e+00],
+        [3.477833976e-07, 1.432503570e-05, 9.280926783e-02],
+    ];
+
+    pub fn params(ei: u32) -> [f64; 7] {
+        if let Some((_, p)) = TABLE.iter().find(|(e, _)| *e == ei) {
+            return *p;
+        }
+        // ARRI cameras offer EI 160 to 3200.
+        let x = (ei.clamp(160, 3200) as f64 / 800.0).log2();
+        FIT.map(|[q, l, k]| (q * x + l) * x + k)
+    }
+}
+
 /// ARRI LogC4 (ALEXA 35).
 /// Source: ARRI, "ARRI LogC4 Logarithmic Color Space – Specification" (2022),
 /// encoding and decoding functions.
@@ -495,6 +557,63 @@ mod tests {
     fn logc3_black_and_known_points() {
         // EI 800 parameters: linear 0 encodes to f = 0.092809.
         assert!(close(encode(Transfer::LogC3, 0.0), 0.092809, 1e-6));
+    }
+
+    const ARRI_EIS: [u32; 14] = [
+        160, 200, 250, 320, 400, 500, 640, 800, 1000, 1280, 1600, 2000, 2560, 3200,
+    ];
+
+    #[test]
+    fn logc3_at_ei_800_is_the_reference_curve() {
+        for x in [0.0, 0.001, 0.01, 0.18, 1.0, 10.0] {
+            assert_eq!(encode_logc3_at(800, x), encode(Transfer::LogC3, x), "{x}");
+        }
+    }
+
+    #[test]
+    fn logc3_at_every_ei_keeps_grey_and_black() {
+        // ARRI: every EI maps 18% grey to Log C 0.391 (400/1023), and black to
+        // 0.0928.
+        for ei in ARRI_EIS {
+            assert!(
+                close(encode_logc3_at(ei, 0.18), 400.0 / 1023.0, 1e-3),
+                "EI {ei} grey"
+            );
+            assert!(
+                close(encode_logc3_at(ei, 0.0), 0.0928, 1e-4),
+                "EI {ei} black"
+            );
+        }
+    }
+
+    #[test]
+    fn logc3_at_higher_ei_holds_more_highlight() {
+        // Lower EI: the same exposure sits higher, so whites reach clip sooner.
+        let white = |ei| encode_logc3_at(ei, 4.0);
+        for pair in ARRI_EIS.windows(2) {
+            assert!(white(pair[0]) > white(pair[1]), "EI {pair:?}");
+        }
+    }
+
+    #[test]
+    fn logc3_fit_matches_arris_table() {
+        // EIs between ARRI's rows use the fit; it lands on the rows themselves
+        // within a few 16-bit codes.
+        for (ei, _) in logc3_ei::TABLE {
+            let fit = |x: f64| {
+                let lx = (ei as f64 / 800.0).log2();
+                let p = logc3_ei::FIT.map(|[q, l, k]| (q * lx + l) * lx + k);
+                if x > p[0] {
+                    p[3] * (p[1] * x + p[2]).log10() + p[4]
+                } else {
+                    p[5] * x + p[6]
+                }
+            };
+            for x in [0.001, 0.05, 0.18, 1.0, 8.0] {
+                let d = (fit(x) - encode_logc3_at(ei, x)).abs() * 65535.0;
+                assert!(d < 4.0, "EI {ei} at {x}: {d} codes");
+            }
+        }
     }
 
     #[test]

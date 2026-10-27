@@ -430,6 +430,10 @@ pub struct EmbeddedLut {
     /// AWG4, ...). Unset: the signal as decoded.
     #[serde(default)]
     pub input: ColourHint,
+    /// The exposure index a LogC3 input is encoded at (ARRI's LogC3 curve
+    /// differs per EI); EI 800 when unset.
+    #[serde(default)]
+    pub exposure_index: Option<u32>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

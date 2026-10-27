@@ -19,6 +19,8 @@ pub struct Lut {
     max: [f32; 3],
     /// The camera signal the table takes; unset for the signal as decoded.
     input: ColourHint,
+    /// The exposure index a LogC3 input is encoded at (EI 800 when unset).
+    exposure_index: Option<u32>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -144,6 +146,7 @@ impl Lut {
             min,
             max,
             input: ColourHint::default(),
+            exposure_index: None,
         })
     }
 
@@ -156,6 +159,20 @@ impl Lut {
     /// The camera signal the table takes; unset for the signal as decoded.
     pub fn input(&self) -> ColourHint {
         self.input
+    }
+
+    /// The same table, its LogC3 input encoded at exposure index `ei` (ARRI's
+    /// LogC3 curve differs per EI).
+    pub fn with_exposure_index(self, ei: Option<u32>) -> Lut {
+        Lut {
+            exposure_index: ei,
+            ..self
+        }
+    }
+
+    /// The exposure index a LogC3 input is encoded at; EI 800 when `None`.
+    pub fn exposure_index(&self) -> Option<u32> {
+        self.exposure_index
     }
 
     /// The table's output for `rgb`; input outside the domain is clamped.

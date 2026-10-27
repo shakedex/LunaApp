@@ -208,7 +208,7 @@ pub fn run_job(job: &ClipJob) -> ClipResult {
     log_meta(&probe.meta);
     // Sony and ARRI looks sit in the MXF header; read them only when used.
     if job.colour.camera_look && probe.embedded_lut.is_none() {
-        probe.embedded_lut = luna_decode::embedded_look(files);
+        probe.embedded_lut = luna_decode::embedded_look(files, &probe);
     }
 
     let inset = probe
@@ -306,7 +306,10 @@ fn choose(job: &ColourJob, embedded: Option<&EmbeddedLut>, warnings: &mut Vec<St
         match Lut::from_table_3d(e.size, rows) {
             Ok(lut) => {
                 return Choice::Lut {
-                    lut: Arc::new(lut.with_input(e.input)),
+                    lut: Arc::new(
+                        lut.with_input(e.input)
+                            .with_exposure_index(e.exposure_index),
+                    ),
                     name: e.name.clone(),
                 };
             }
@@ -497,6 +500,7 @@ mod tests {
             size: 2,
             data: rows.iter().flat_map(|v| v.to_le_bytes()).collect(),
             input: ColourHint::default(),
+            exposure_index: None,
         }
     }
 
@@ -547,6 +551,7 @@ mod tests {
             size: 0,
             data: vec![],
             input: ColourHint::default(),
+            exposure_index: None,
         };
         let c = choose(
             &job(ThumbnailColour::Rec709, true),

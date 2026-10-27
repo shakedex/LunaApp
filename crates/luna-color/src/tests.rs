@@ -805,6 +805,22 @@ fn camera_lut_gets_its_own_log_from_another_log() {
 }
 
 #[test]
+fn camera_lut_gets_logc3_at_the_clips_ei() {
+    // A Mini LF shot at EI 3200: a bright grey reaches the table where ARRI's
+    // EI 3200 curve puts it, not where EI 800 would.
+    let code = (curves::encode(Transfer::LogC4, 4.0) * 65535.0).round() as u16;
+    let frame = rgb16(64, 36, [code; 3], Transfer::LogC4, Gamut::ArriWideGamut4);
+    let lut = identity_lut(33)
+        .with_input(hint(Some(Transfer::LogC3), Some(Gamut::ArriWideGamut3)))
+        .with_exposure_index(Some(3200));
+    let out = render_with(&frame, 32, None, Colour::Lut(&lut));
+    let want = (curves::encode_logc3_at(3200, 4.0) * 255.0).round() as u8;
+    let at_800 = (curves::encode(Transfer::LogC3, 4.0) * 255.0).round() as u8;
+    assert!(want.abs_diff(at_800) > 4, "EIs must differ here");
+    assert_flat(&out.image, want, 1, "LogC3 at EI 3200");
+}
+
+#[test]
 fn camera_lut_in_the_frames_own_log_gets_it_as_is() {
     let code = (curves::encode(Transfer::LogC4, 0.18) * 65535.0).round() as u16;
     let frame = rgb16(64, 36, [code; 3], Transfer::LogC4, Gamut::ArriWideGamut4);
