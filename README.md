@@ -45,7 +45,7 @@ camera and reel, with its metadata and a strip of three stills.
 | **Paper or dark** | PDF, HTML and CSV, in the Paper or Dark theme |
 | **Drop the whole drive** | A day's worth of cards in one go, sorted by camera and reel |
 | **Your logo, your fields** | Company logo and your own production fields on every page |
-| **Stills that look right** | Raw and log frames converted to Rec.709 for the thumbnails |
+| **Rec.709, log or your LUT** | Thumbnails in Rec.709, as the camera recorded them, or through your `.cube` LUT. Blackmagic RAW clips can use the LUT they carry |
 | **Script it** | `luna-cli` makes reports from a terminal or a script, and over MCP for AI agents ([guide](automation/README.md)) |
 
 ## Formats

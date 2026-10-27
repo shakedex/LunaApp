@@ -89,7 +89,11 @@ export const copy = {
       { icon: "file", title: "Paper or dark", text: "PDF, HTML and CSV, in the Paper or Dark theme." },
       { icon: "drives", title: "Drop the whole drive", text: "A day's worth of cards in one go, sorted by camera and reel." },
       { icon: "card", title: "Your logo, your fields", text: "Company logo and your own production fields on every page." },
-      { icon: "image", title: "Stills that look right", text: "Raw and log frames are converted to Rec.709 for the thumbnails." },
+      {
+        icon: "palette",
+        title: "Rec.709, log or your LUT",
+        text: "Thumbnails in Rec.709, as the camera recorded them, or through your .cube LUT. Blackmagic RAW clips can use the LUT they carry.",
+      },
       { icon: "desktop", title: "Windows and macOS, free", text: "Every format reads on both. MIT licence." },
     ],
   },
