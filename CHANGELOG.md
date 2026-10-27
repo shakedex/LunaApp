@@ -24,8 +24,9 @@ Decoders: luna-decoders `8822d47`.
   camera recorded it) or a `.cube` LUT on every clip, with the last five LUTs one click away. The report names
   what was applied.
   `luna report --colour rec709|none|lut` and `--lut <file>` do the same for one run.
-- **New:** "Camera look" in Settings: Blackmagic RAW clips that carry a LUT use it for
-  their thumbnails (`--camera-look` on the command line).
+- **New:** "Camera look" in Settings: Blackmagic RAW clips recorded with "Apply LUT in
+  File" use their LUT for the thumbnails, as DaVinci Resolve does (`--camera-look` on the
+  command line).
 - **New:** "Show problems in reports" in Settings, off by default. Off, reports leave out
   clip warnings, the "Need attention" count and unreadable files; the app and the logs
   still show them. `luna report --problems` prints them for one run.

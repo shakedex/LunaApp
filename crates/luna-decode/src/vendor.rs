@@ -36,9 +36,12 @@ fn to_format(e: DecodeError) -> FormatError {
 /// The 3D LUT a Blackmagic camera embedded in the clip: `size³` RGB rows of
 /// little-endian `f32`, stored blue fastest (checked on a Rec.709 LUT from a
 /// Pocket 6K Pro: full red only lands on red output in that order), reordered
-/// here to `.cube` order. Applied whatever `post_3dlut_mode` says: the mode
-/// only sets what post tools do by default.
+/// here to `.cube` order. Used only when `post_3dlut_mode` is `Embedded`
+/// (the camera's "Apply LUT in File"), as DaVinci Resolve does.
 fn braw_embedded_lut(md: &braw::Metadata) -> Option<EmbeddedLut> {
+    if md.text("post_3dlut_mode").as_deref() != Some("Embedded") {
+        return None;
+    }
     let size = md.uint("post_3dlut_embedded_size")? as usize;
     let Some(braw::Value::Array(braw::Array::U8(data))) = md.get("post_3dlut_embedded_data") else {
         return None;
@@ -694,7 +697,12 @@ mod braw_lut_tests {
     }
 
     fn md(name: &str, size: u16, data: Vec<u8>) -> Metadata {
+        md_mode("Embedded", name, size, data)
+    }
+
+    fn md_mode(mode: &str, name: &str, size: u16, data: Vec<u8>) -> Metadata {
         Metadata(vec![
+            ("post_3dlut_mode".into(), BValue::String(mode.into())),
             (
                 "post_3dlut_embedded_name".into(),
                 BValue::String(name.into()),
@@ -745,6 +753,16 @@ mod braw_lut_tests {
             }
         }
         assert_eq!(rows, cube);
+    }
+
+    #[test]
+    fn a_lut_the_clip_has_switched_off_is_not_used() {
+        // As Resolve: the LUT only applies when the clip's mode says Embedded.
+        let values = vec![0.5f32; 24];
+        let off = md_mode("Disabled", "Show.cube", 2, table_bytes(&values));
+        assert!(braw_embedded_lut(&off).is_none());
+        let sidecar = md_mode("Sidecar", "Show.cube", 2, table_bytes(&values));
+        assert!(braw_embedded_lut(&sidecar).is_none());
     }
 
     #[test]
