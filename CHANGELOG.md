@@ -23,6 +23,8 @@ Decoders: luna-decoders `8822d47`.
 - **New:** Thumbnail colour in Settings: Rec.709 (as before), None (the picture as the
   camera recorded it) or a `.cube` LUT on every clip. The report names what was applied.
   `luna report --colour rec709|none|lut` and `--lut <file>` do the same for one run.
+- **New:** "Camera look" in Settings: Blackmagic RAW clips that carry a LUT use it for
+  their thumbnails (`--camera-look` on the command line).
 - **New:** "Show problems in reports" in Settings, off by default. Off, reports leave out
   clip warnings, the "Need attention" count and unreadable files; the app and the logs
   still show them. `luna report --problems` prints them for one run.

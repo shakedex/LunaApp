@@ -394,6 +394,20 @@ pub struct Probe {
     pub codec_config: Option<Vec<u8>>,
     /// Things the parser noticed but could not settle, for the report's clip warnings.
     pub warnings: Vec<String>,
+    /// A LUT the camera recorded in the clip, for "camera look".
+    #[serde(default)]
+    pub embedded_lut: Option<EmbeddedLut>,
+}
+
+/// A LUT a camera recorded in its clip.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EmbeddedLut {
+    /// Its file name as the camera recorded it, e.g. "Show.cube".
+    pub name: String,
+    /// Points per side of the 3D table; 0 when only the decoder can apply it.
+    pub size: usize,
+    /// `size³` RGB rows of little-endian `f32`, red fastest (`.cube` order).
+    pub data: Vec<u8>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

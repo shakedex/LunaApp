@@ -86,6 +86,7 @@ pub(crate) fn probe(clip: &ClipFiles) -> Result<Probe, FormatError> {
         },
         codec_config: None,
         warnings: Vec::new(),
+        embedded_lut: None,
     })
 }
 

@@ -404,6 +404,7 @@ pub(crate) fn probe_source<R: Read + Seek>(
         layout,
         codec_config: None,
         warnings,
+        embedded_lut: None,
     })
 }
 

@@ -3,7 +3,7 @@
 //! Nikon N-RAW (the R3D add-on). `luna-formats` handles everything else.
 
 use luna_formats::{
-    Audio, ClipFiles, ClipMeta, Codec, ColourHint, Container, FormatError, FrameIndex,
+    Audio, ClipFiles, ClipMeta, Codec, ColourHint, Container, EmbeddedLut, FormatError, FrameIndex,
     PictureLayout, Probe, Rational, Timecode,
 };
 
@@ -33,6 +33,47 @@ fn to_format(e: DecodeError) -> FormatError {
     }
 }
 
+/// The 3D LUT a Blackmagic camera embedded in the clip: `size³` RGB rows of
+/// little-endian `f32`, stored blue fastest (checked on a Rec.709 LUT from a
+/// Pocket 6K Pro: full red only lands on red output in that order), reordered
+/// here to `.cube` order. Applied whatever `post_3dlut_mode` says: the mode
+/// only sets what post tools do by default.
+fn braw_embedded_lut(md: &braw::Metadata) -> Option<EmbeddedLut> {
+    let size = md.uint("post_3dlut_embedded_size")? as usize;
+    let Some(braw::Value::Array(braw::Array::U8(data))) = md.get("post_3dlut_embedded_data") else {
+        return None;
+    };
+    if size < 2 || data.len() != size * size * size * 3 * 4 {
+        tracing::warn!(
+            size,
+            bytes = data.len(),
+            "embedded LUT has the wrong size, ignored"
+        );
+        return None;
+    }
+    Some(EmbeddedLut {
+        name: md
+            .text("post_3dlut_embedded_name")
+            .unwrap_or_else(|| "Embedded LUT".into()),
+        size,
+        data: blue_fastest_to_cube(data, size),
+    })
+}
+
+/// Reorders `n³` 12-byte rows from blue-fastest to red-fastest.
+fn blue_fastest_to_cube(data: &[u8], n: usize) -> Vec<u8> {
+    let mut out = Vec::with_capacity(data.len());
+    for b in 0..n {
+        for g in 0..n {
+            for r in 0..n {
+                let i = ((r * n + g) * n + b) * 12;
+                out.extend_from_slice(&data[i..i + 12]);
+            }
+        }
+    }
+    out
+}
+
 fn probe_of(codec: Codec, meta: ClipMeta, layout: PictureLayout) -> Probe {
     Probe {
         codec,
@@ -41,6 +82,7 @@ fn probe_of(codec: Codec, meta: ClipMeta, layout: PictureLayout) -> Probe {
         layout,
         codec_config: None,
         warnings: Vec::new(),
+        embedded_lut: None,
     }
 }
 
@@ -168,7 +210,9 @@ fn probe_braw(clip: &ClipFiles) -> Result<Probe, FormatError> {
         raw_bits: None,
         pixel_aspect: None,
     };
-    Ok(probe_of(Codec::Braw, meta, layout))
+    let mut probe = probe_of(Codec::Braw, meta, layout);
+    probe.embedded_lut = braw_embedded_lut(c.raw_metadata());
+    Ok(probe)
 }
 
 /// "f2.8" → "f/2.8"; T-stops and anything else pass through.
@@ -637,5 +681,79 @@ mod uuid_tests {
         ));
         assert!(!super::looks_like_uuid("273102000359"));
         assert!(!super::looks_like_uuid("1b4dda73-ef34-4cfc-909f"));
+    }
+}
+
+#[cfg(test)]
+mod braw_lut_tests {
+    use super::*;
+    use braw::{Array, Metadata, Value as BValue};
+
+    fn table_bytes(values: &[f32]) -> Vec<u8> {
+        values.iter().flat_map(|v| v.to_le_bytes()).collect()
+    }
+
+    fn md(name: &str, size: u16, data: Vec<u8>) -> Metadata {
+        Metadata(vec![
+            (
+                "post_3dlut_embedded_name".into(),
+                BValue::String(name.into()),
+            ),
+            ("post_3dlut_embedded_size".into(), BValue::U16(size)),
+            (
+                "post_3dlut_embedded_data".into(),
+                BValue::Array(Array::U8(data)),
+            ),
+        ])
+    }
+
+    #[test]
+    fn embedded_lut_from_braw_bytes() {
+        let values: Vec<f32> = (0..24).map(|i| i as f32 / 23.0).collect();
+        let lut = braw_embedded_lut(&md("Show.cube", 2, table_bytes(&values))).unwrap();
+        assert_eq!(lut.name, "Show.cube");
+        assert_eq!(lut.size, 2);
+        assert_eq!(lut.data.len(), values.len() * 4);
+    }
+
+    #[test]
+    fn blackmagic_blue_fastest_rows_become_red_fastest() {
+        // Blackmagic stores blue fastest: row index = (r·n + g)·n + b. A
+        // table whose output names its input (r, g, b) must come out in .cube
+        // order, where row index = (b·n + g)·n + r.
+        let n = 2;
+        let mut bm = Vec::new();
+        for r in 0..n {
+            for g in 0..n {
+                for b in 0..n {
+                    bm.extend([r as f32, g as f32, b as f32]);
+                }
+            }
+        }
+        let lut = braw_embedded_lut(&md("Show.cube", n as u16, table_bytes(&bm))).unwrap();
+        let rows: Vec<f32> = lut
+            .data
+            .chunks(4)
+            .map(|b| f32::from_le_bytes(b.try_into().unwrap()))
+            .collect();
+        let mut cube = Vec::new();
+        for b in 0..n {
+            for g in 0..n {
+                for r in 0..n {
+                    cube.extend([r as f32, g as f32, b as f32]);
+                }
+            }
+        }
+        assert_eq!(rows, cube);
+    }
+
+    #[test]
+    fn wrong_length_embedded_lut_is_ignored() {
+        assert!(braw_embedded_lut(&md("Show.cube", 2, vec![0; 95])).is_none());
+    }
+
+    #[test]
+    fn no_embedded_lut_is_none() {
+        assert!(braw_embedded_lut(&Metadata(vec![])).is_none());
     }
 }
