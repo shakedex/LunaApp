@@ -12,7 +12,7 @@ mod sniff;
 mod trace;
 mod types;
 
-pub use mxf::arriraw_image_offset;
+pub use mxf::{arriraw_image_offset, is_sound_only};
 pub use sniff::{SNIFF_LEN, sniff};
 pub use types::*;
 

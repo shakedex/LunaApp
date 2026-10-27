@@ -101,6 +101,22 @@ impl Klv {
 /// Reads the key and length at `off`. The value may run past the end of the
 /// file; callers decide whether a truncated value is fatal (see [`Klv::end`]).
 pub(crate) fn read_klv<R: Read + Seek>(r: &mut Reader<R>, off: u64) -> Result<Klv, FormatError> {
+    let k = read_any_klv(r, off)?;
+    if !k.key.is_smpte() {
+        return Err(FormatError::Corrupt(format!(
+            "no SMPTE key at offset {off}"
+        )));
+    }
+    Ok(k)
+}
+
+/// [`read_klv`] for any 16-byte key. Avid writes header sets whose keys are
+/// AAF class IDs, not SMPTE labels; inside the header metadata's byte range
+/// they are skipped by length.
+pub(crate) fn read_any_klv<R: Read + Seek>(
+    r: &mut Reader<R>,
+    off: u64,
+) -> Result<Klv, FormatError> {
     let head = r.peek(off, 25)?;
     if head.len() < 17 {
         return Err(FormatError::Corrupt(format!(
@@ -108,11 +124,6 @@ pub(crate) fn read_klv<R: Read + Seek>(r: &mut Reader<R>, off: u64) -> Result<Kl
         )));
     }
     let key = Ul::from_slice(head).expect("16 bytes");
-    if !key.is_smpte() {
-        return Err(FormatError::Corrupt(format!(
-            "no SMPTE key at offset {off}"
-        )));
-    }
     let (len, used) = ber(&head[16..])
         .ok_or_else(|| FormatError::Corrupt(format!("bad BER length at offset {off}")))?;
     Ok(Klv {

@@ -391,7 +391,13 @@ fn read_dir(dir: &Path) -> io::Result<std::fs::ReadDir> {
 fn sniff(path: &Path) -> io::Result<Sniffed> {
     #[cfg(test)]
     hook::check(path)?;
-    luna_formats::sniff_path(path)
+    match luna_formats::sniff_path(path)? {
+        // One sound track of an OP-Atom clip: its picture is a file of its own.
+        Sniffed::CameraOriginal(Container::Mxf) if luna_formats::is_sound_only(path) => {
+            Ok(Sniffed::Other)
+        }
+        s => Ok(s),
+    }
 }
 
 /// Test-only stand-in for OS permissions, which are awkward to set up on Windows.

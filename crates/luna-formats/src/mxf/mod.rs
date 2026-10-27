@@ -72,6 +72,35 @@ pub fn arriraw_image_offset(frame_len: u64, width: u32, height: u32, bits: u8) -
     frame_len.checked_sub(image)
 }
 
+/// Whether an MXF file holds sound and no picture: one track of an OP-Atom
+/// clip (Avid, Panasonic P2), whose picture is in a file of its own. Reads
+/// only the partitions and the first readable header metadata.
+pub fn is_sound_only(path: &std::path::Path) -> bool {
+    let Ok(f) = std::fs::File::open(path) else {
+        return false;
+    };
+    let Ok(mut r) = Reader::new(f) else {
+        return false;
+    };
+    let Ok(parts) = partition::find_partitions(&mut r) else {
+        return false;
+    };
+    let mut cands: Vec<&Partition> = parts
+        .list
+        .iter()
+        .filter(|p| p.header_byte_count > 0)
+        .collect();
+    cands.sort_by_key(|p| std::cmp::Reverse((p.metadata_rank(), p.offset)));
+    let Some(md) = cands
+        .iter()
+        .find_map(|p| metadata::read_metadata(&mut r, p).ok())
+    else {
+        return false;
+    };
+    let st = structure::resolve(&md);
+    st.picture.is_none() && st.picture_track_number.is_none() && st.audio.is_some()
+}
+
 /// The probe of an already-open MXF source, with sidecar texts.
 pub(crate) fn probe_source<R: Read + Seek>(
     src: R,

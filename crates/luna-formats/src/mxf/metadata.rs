@@ -4,7 +4,7 @@
 use std::collections::HashMap;
 use std::io::{Read, Seek};
 
-use super::klv::{PRIMER, Ul, ber, is_fill, is_local_set, is_partition, read_klv, ul};
+use super::klv::{PRIMER, Ul, ber, is_fill, is_local_set, is_partition, read_any_klv, ul};
 use super::partition::{Partition, metadata_start};
 use super::reader::Reader;
 use crate::types::FormatError;
@@ -192,8 +192,21 @@ pub(crate) fn read_metadata<R: Read + Seek>(
     let mut off = start;
     while off < end && md.sets.len() < MAX_SETS {
         // A damaged or cut-short tail keeps what was read before it.
-        let k = match read_klv(r, off) {
-            Ok(k) if k.end() <= r.len() => k,
+        let k = match read_any_klv(r, off) {
+            Ok(k) if !k.key.is_smpte() && k.end() <= end => {
+                off = k.end(); // an Avid (AAF-keyed) set
+                continue;
+            }
+            Ok(k) if k.key.is_smpte() && k.end() <= r.len() => k,
+            Ok(_) | Err(_) if !md.sets.is_empty() => {
+                md.truncated = Some(off);
+                break;
+            }
+            Ok(k) if !k.key.is_smpte() => {
+                return Err(FormatError::Corrupt(format!(
+                    "no SMPTE key at offset {off}"
+                )));
+            }
             Ok(_) | Err(_) if !md.sets.is_empty() => {
                 md.truncated = Some(off);
                 break;
