@@ -120,6 +120,8 @@ pub struct Clip {
     /// One entry per strip position, in strip order.
     pub thumbnails: Vec<Thumbnail>,
     pub warnings: Vec<String>,
+    /// How the thumbnails were coloured, when it isn't plain Rec.709.
+    pub colour: Option<String>,
 }
 
 impl Clip {

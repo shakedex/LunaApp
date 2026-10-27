@@ -41,6 +41,7 @@ fn an_unreadable_clip_still_answers_with_reasons() {
         },
         strip: 3,
         thumb_width: 640,
+        colour: Default::default(),
     });
     assert_eq!(result.id, 9);
     assert_eq!(result.bytes, 18);
@@ -63,6 +64,7 @@ fn header_slice(name: &str) -> ClipJob {
         },
         strip: 3,
         thumb_width: 640,
+        colour: Default::default(),
     }
 }
 
@@ -127,6 +129,7 @@ fn an_unreadable_clip_logs_the_probe_error() {
             },
             strip: 3,
             thumb_width: 640,
+            colour: Default::default(),
         })
     });
     assert!(

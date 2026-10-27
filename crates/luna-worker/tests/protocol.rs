@@ -15,6 +15,7 @@ fn job() -> Request {
         },
         strip: 3,
         thumb_width: 640,
+        colour: Default::default(),
     })
 }
 
@@ -41,6 +42,7 @@ fn results_carry_images_and_reasons() {
         bytes: 42,
         thumbnails: vec![Ok(vec![0xFF, 0xD8, 0xFF]), Err("No decoder".into())],
         warnings: vec!["w".into()],
+        colour: None,
     };
     let mut buf = Vec::new();
     write_message(&mut buf, &result).unwrap();

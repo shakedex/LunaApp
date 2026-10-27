@@ -184,6 +184,7 @@ mod tests {
             bytes: 1000,
             thumbnails: vec![],
             warnings: vec![],
+            colour: None,
         }))
     }
 

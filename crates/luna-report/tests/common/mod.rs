@@ -40,6 +40,7 @@ pub fn full_clip(file_name: &str) -> Clip {
         reel_source: IdentitySource::FileName,
         thumbnails: vec![Thumbnail::from_jpeg(THUMB_JPEG.to_vec()); 3],
         warnings: vec![],
+        colour: None,
     }
 }
 
@@ -59,6 +60,7 @@ pub fn bare_clip(file_name: &str) -> Clip {
             3
         ],
         warnings: vec!["Could not be decoded".into()],
+        colour: None,
     }
 }
 

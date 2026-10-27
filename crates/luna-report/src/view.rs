@@ -216,6 +216,17 @@ fn clip_view(
     if let Some(slate) = slate(f) {
         optics.push(cell("Slate", Some(slate)));
     }
+    let mut rest = vec![
+        cell("ISO/EI", f.iso.clone()),
+        cell("Shutter", f.shutter.clone()),
+        cell("WB", f.white_balance.clone()),
+        cell("ND", f.nd.clone()),
+        cell("Audio", f.audio.clone()),
+        cell("File size", f.file_size.map(format_bytes)),
+    ];
+    if let Some(colour) = &clip.colour {
+        rest.push(cell("Colour", Some(colour.clone())));
+    }
 
     ClipView {
         name: f.file_name.clone(),
@@ -230,14 +241,7 @@ fn clip_view(
                 cell("Codec", f.codec.clone()),
             ],
             optics,
-            vec![
-                cell("ISO/EI", f.iso.clone()),
-                cell("Shutter", f.shutter.clone()),
-                cell("WB", f.white_balance.clone()),
-                cell("ND", f.nd.clone()),
-                cell("Audio", f.audio.clone()),
-                cell("File size", f.file_size.map(format_bytes)),
-            ],
+            rest,
         ],
         thumbs: clip
             .thumbnails

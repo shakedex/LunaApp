@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 
 use luna_report::Logo;
 pub use luna_report::ReportTheme;
+pub use luna_worker::ThumbnailColour;
 use serde::{Deserialize, Serialize};
 
 const FILE: &str = "settings.toml";
@@ -28,6 +29,11 @@ pub struct Settings {
     pub copy_to_source: bool,
     /// Prints clip warnings and unreadable files in the report.
     pub show_problems: bool,
+    pub colour: ThumbnailColour,
+    /// The `.cube` file for [`ThumbnailColour::Lut`], where the user keeps it.
+    pub lut: Option<PathBuf>,
+    /// Use the LUT a clip carries, when it has one.
+    pub camera_look: bool,
 }
 
 impl Default for Settings {
@@ -42,6 +48,9 @@ impl Default for Settings {
             report_theme: ReportTheme::Light,
             copy_to_source: false,
             show_problems: false,
+            colour: ThumbnailColour::Rec709,
+            lut: None,
+            camera_look: false,
         }
     }
 }
@@ -112,6 +121,10 @@ struct SettingsFile {
     report_theme: ReportTheme,
     copy_to_source: bool,
     show_problems: bool,
+    colour: ThumbnailColour,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    lut: Option<PathBuf>,
+    camera_look: bool,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]
@@ -171,6 +184,9 @@ impl SettingsStore {
             report_theme: file.report_theme,
             copy_to_source: file.copy_to_source,
             show_problems: file.show_problems,
+            colour: file.colour,
+            lut: file.lut,
+            camera_look: file.camera_look,
         }
     }
 
@@ -201,6 +217,9 @@ impl SettingsStore {
             report_theme: settings.report_theme,
             copy_to_source: settings.copy_to_source,
             show_problems: settings.show_problems,
+            colour: settings.colour,
+            lut: settings.lut.clone(),
+            camera_look: settings.camera_look,
         };
         let text = toml::to_string(&file).map_err(io::Error::other)?;
         let tmp = self.dir.join(format!("{FILE}.tmp"));
@@ -269,7 +288,26 @@ mod tests {
             report_theme: ReportTheme::Dark,
             copy_to_source: true,
             show_problems: true,
+            colour: ThumbnailColour::Lut,
+            lut: Some(PathBuf::from("/luts/show.cube")),
+            camera_look: true,
         }
+    }
+
+    #[test]
+    fn a_file_without_colour_loads_rec709() {
+        let (_t, store) = store();
+        std::fs::create_dir_all(store.dir()).unwrap();
+        std::fs::write(
+            store.file(),
+            "production = \"X\"
+",
+        )
+        .unwrap();
+        let s = store.load();
+        assert_eq!(s.colour, ThumbnailColour::Rec709);
+        assert_eq!(s.lut, None);
+        assert!(!s.camera_look);
     }
 
     #[test]

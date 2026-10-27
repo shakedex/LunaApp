@@ -7,7 +7,7 @@ use std::time::{Duration, Instant};
 
 use luna_report::{Camera, Card, Clip, CustomField, Header, Logo, Report, Thumbnail};
 use luna_worker::pool::{JobOutcome, PoolConfig, PoolError, run_pool};
-use luna_worker::{ClipJob, ClipResult};
+use luna_worker::{ClipJob, ClipResult, ColourJob};
 
 use crate::assemble::{
     OutputFiles, clip_fields, copy_drives, output_folder, thumbnails, write_outputs,
@@ -15,7 +15,7 @@ use crate::assemble::{
 use crate::identity::resolve_identity;
 use crate::scan::{Scan, outermost, scan_roots};
 use crate::select::CameraFilter;
-use crate::settings::Settings;
+use crate::settings::{Settings, ThumbnailColour};
 
 /// Thumbnails per clip: first, middle, last.
 pub const STRIP: u32 = 3;
@@ -299,7 +299,10 @@ fn run_inner(
             problems: c.1,
         });
     };
-    let done = run_jobs(&scanned, &selected, STRIP, workers, cancel, &on_done)?;
+    let colour = colour_job(&req.settings);
+    let done = run_jobs(
+        &scanned, &selected, STRIP, &colour, workers, cancel, &on_done,
+    )?;
     let tally = Tally::of(&done);
     let outcomes = merge_outcomes(probed, done, &selected);
     if cancel.load(Ordering::SeqCst) {
@@ -395,6 +398,7 @@ fn run_jobs(
     scanned: &Scan,
     indices: &[usize],
     strip: u32,
+    colour: &ColourJob,
     workers: &WorkerSpec,
     cancel: &AtomicBool,
     on_done: &(dyn Fn(u64, &JobOutcome) + Sync),
@@ -406,6 +410,7 @@ fn run_jobs(
             files: scanned.clips[i].clone(),
             strip,
             thumb_width: THUMB_WIDTH,
+            colour: colour.clone(),
         })
         .collect();
     let config = PoolConfig {
@@ -438,7 +443,8 @@ pub(crate) fn probe_all(
         progress(Progress::Probed { done: *d, total });
     };
     let all: Vec<usize> = (0..total).collect();
-    let done = run_jobs(scanned, &all, 0, workers, cancel, &on_done)?;
+    let colour = ColourJob::default();
+    let done = run_jobs(scanned, &all, 0, &colour, workers, cancel, &on_done)?;
     if cancel.load(Ordering::SeqCst) {
         return Err(RunError::Cancelled);
     }
@@ -580,6 +586,7 @@ pub fn build_report(
         .collect();
     let groups = resolve_identity(roots, &identity_input);
 
+    let plain = colour_job(settings).is_plain();
     let cameras = groups
         .into_iter()
         .filter_map(|mut camera| {
@@ -626,6 +633,7 @@ pub fn build_report(
                                 reel_source: id.reel_source,
                                 thumbnails: thumbs,
                                 warnings: r.warnings.clone(),
+                                colour: r.colour.clone().filter(|_| !plain),
                             }
                         })
                         .collect(),
@@ -661,7 +669,41 @@ fn failed(index: usize, warning: &str, tile: &str) -> ClipResult {
         bytes: 0,
         thumbnails: vec![Err(tile.to_owned()); STRIP as usize],
         warnings: vec![warning.to_owned()],
+        colour: None,
     }
+}
+
+fn colour_job(settings: &Settings) -> ColourJob {
+    ColourJob {
+        colour: settings.colour,
+        lut: settings.lut.clone(),
+        camera_look: settings.camera_look,
+    }
+}
+
+/// The header's Colour field; `None` for plain Rec.709.
+fn colour_field(settings: &Settings) -> Option<CustomField> {
+    if colour_job(settings).is_plain() {
+        return None;
+    }
+    let base = match (settings.colour, &settings.lut) {
+        (ThumbnailColour::Rec709, _) => "Rec.709".to_owned(),
+        (ThumbnailColour::AsRecorded, _) => "None".to_owned(),
+        (ThumbnailColour::Lut, Some(p)) => p.file_name().map_or_else(
+            || p.display().to_string(),
+            |n| n.to_string_lossy().into_owned(),
+        ),
+        (ThumbnailColour::Lut, None) => "LUT".to_owned(),
+    };
+    let value = if settings.camera_look {
+        format!("{base} + camera LUT")
+    } else {
+        base
+    };
+    Some(CustomField {
+        label: "Colour".into(),
+        value,
+    })
 }
 
 fn header(settings: &Settings) -> Header {
@@ -684,6 +726,7 @@ fn header(settings: &Settings) -> Header {
                 label: label.clone(),
                 value: value.clone(),
             })
+            .chain(colour_field(settings))
             .collect(),
     }
 }
