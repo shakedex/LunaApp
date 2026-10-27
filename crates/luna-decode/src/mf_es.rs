@@ -16,6 +16,7 @@ use luna_formats::{ClipFiles, FrameIndex, Probe};
 use windows::Win32::Media::MediaFoundation::*;
 use windows::Win32::System::Com::CoTaskMemFree;
 
+use crate::annexb::{has_irap, profile_label};
 use crate::mf::{self, Com, MfStartup, Output};
 use crate::util;
 use crate::{DecodeError, Frame};
@@ -268,54 +269,4 @@ fn negotiate(mft: &IMFTransform, label: &str) -> Result<Output, DecodeError> {
         }
     }
     Err(mf::unsupported(label))
-}
-
-/// NAL unit types in an Annex B access unit (start codes `00 00 01`).
-fn nal_types(au: &[u8]) -> impl Iterator<Item = u8> + '_ {
-    au.windows(4)
-        .filter(|w| w[..3] == [0, 0, 1])
-        .map(|w| (w[3] >> 1) & 0x3f)
-}
-
-/// Whether the access unit holds an IRAP (IDR, CRA or BLA) picture.
-fn has_irap(au: &[u8]) -> bool {
-    nal_types(au).any(|t| (16..=23).contains(&t))
-}
-
-/// "HEVC 4:2:2 (Range Extensions)" etc. from the SPS profile, for messages.
-fn profile_label(au: &[u8]) -> Option<String> {
-    let at = au
-        .windows(4)
-        .position(|w| w[..3] == [0, 0, 1] && (w[3] >> 1) & 0x3f == 33)?;
-    // NAL header (2 bytes), then vps id / sub-layers / nesting (1 byte), then
-    // profile_space(2) tier(1) profile_idc(5).
-    let p = *au.get(at + 3 + 3)? & 0x1f;
-    let name = match p {
-        1 => "Main",
-        2 => "Main 10",
-        4 => "4:2:2 (Range Extensions)",
-        _ => return Some("This HEVC profile".into()),
-    };
-    Some(format!("HEVC {name}"))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn finds_irap_and_profile() {
-        // AUD, VPS, SPS (profile byte 0x24: high tier, RExt), IDR_W_RADL
-        let au = [
-            0, 0, 0, 1, 0x46, 0x01, 0x10, 0, 0, 0, 1, 0x40, 0x01, 0x0c, 0, 0, 0, 1, 0x42, 0x01,
-            0x01, 0x24, 0, 0, 0, 1, 0x26, 0x01, 0xaf,
-        ];
-        assert!(has_irap(&au));
-        assert_eq!(
-            profile_label(&au).as_deref(),
-            Some("HEVC 4:2:2 (Range Extensions)")
-        );
-        // a trailing (TRAIL_R) picture only
-        assert!(!has_irap(&[0, 0, 1, 0x02, 0x01, 0xaf]));
-    }
 }

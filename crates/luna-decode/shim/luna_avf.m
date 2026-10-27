@@ -64,6 +64,29 @@ static void set_err(char *err, size_t len, NSString *what, NSError *e) {
 
 static uint8_t code(int value) { return value > 0 && value < 256 ? (uint8_t)value : 2; }
 
+// Fills the colour fields of `info` from a format description and returns its
+// avcC / hvcC record body, if it carries one.
+static NSData *describe(CMFormatDescriptionRef fd, luna_avf_info *info) {
+    info->transfer = info->primaries = 2;
+    if (!fd) return nil;
+    CFTypeRef v = CMFormatDescriptionGetExtension(fd, kCMFormatDescriptionExtension_TransferFunction);
+    if (v && CFGetTypeID(v) == CFStringGetTypeID())
+        info->transfer = code(CVTransferFunctionGetIntegerCodePointForString((CFStringRef)v));
+    v = CMFormatDescriptionGetExtension(fd, kCMFormatDescriptionExtension_ColorPrimaries);
+    if (v && CFGetTypeID(v) == CFStringGetTypeID())
+        info->primaries = code(CVColorPrimariesGetIntegerCodePointForString((CFStringRef)v));
+    v = CMFormatDescriptionGetExtension(fd, kCMFormatDescriptionExtension_FullRangeVideo);
+    info->full_range = v && CFGetTypeID(v) == CFBooleanGetTypeID() && CFBooleanGetValue((CFBooleanRef)v);
+    CFTypeRef atoms = CMFormatDescriptionGetExtension(fd, kCMFormatDescriptionExtension_SampleDescriptionExtensionAtoms);
+    if (atoms && CFGetTypeID(atoms) == CFDictionaryGetTypeID()) {
+        NSDictionary *d = (__bridge NSDictionary *)atoms;
+        id c = d[@"avcC"] ?: d[@"hvcC"];
+        if ([c isKindOfClass:[NSArray class]]) c = [c firstObject];
+        if ([c isKindOfClass:[NSData class]]) return c;
+    }
+    return nil;
+}
+
 void *luna_avf_open(const char *path, luna_avf_info *info, char *err, size_t err_len) {
     // ProRes RAW's decoder is one of the professional video workflow decoders,
     // which a process has to opt into.
@@ -103,25 +126,7 @@ void *luna_avf_open(const char *path, luna_avf_info *info, char *err, size_t err
         info->fps = track.nominalFrameRate;
         info->start = CMTimeGetSeconds(track.timeRange.start);
         info->duration = CMTimeGetSeconds(track.timeRange.duration);
-        info->transfer = info->primaries = 2;
-        CMFormatDescriptionRef fd = (__bridge CMFormatDescriptionRef)track.formatDescriptions.firstObject;
-        if (fd) {
-            CFTypeRef v = CMFormatDescriptionGetExtension(fd, kCMFormatDescriptionExtension_TransferFunction);
-            if (v && CFGetTypeID(v) == CFStringGetTypeID())
-                info->transfer = code(CVTransferFunctionGetIntegerCodePointForString((CFStringRef)v));
-            v = CMFormatDescriptionGetExtension(fd, kCMFormatDescriptionExtension_ColorPrimaries);
-            if (v && CFGetTypeID(v) == CFStringGetTypeID())
-                info->primaries = code(CVColorPrimariesGetIntegerCodePointForString((CFStringRef)v));
-            v = CMFormatDescriptionGetExtension(fd, kCMFormatDescriptionExtension_FullRangeVideo);
-            info->full_range = v && CFGetTypeID(v) == CFBooleanGetTypeID() && CFBooleanGetValue((CFBooleanRef)v);
-            CFTypeRef atoms = CMFormatDescriptionGetExtension(fd, kCMFormatDescriptionExtension_SampleDescriptionExtensionAtoms);
-            if (atoms && CFGetTypeID(atoms) == CFDictionaryGetTypeID()) {
-                NSDictionary *d = (__bridge NSDictionary *)atoms;
-                id c = d[@"avcC"] ?: d[@"hvcC"];
-                if ([c isKindOfClass:[NSArray class]]) c = [c firstObject];
-                if ([c isKindOfClass:[NSData class]]) r.config = c;
-            }
-        }
+        r.config = describe((__bridge CMFormatDescriptionRef)track.formatDescriptions.firstObject, info);
         info->config = r.config.bytes;
         info->config_len = r.config.length;
         return (__bridge_retained void *)r;
@@ -181,41 +186,47 @@ static int read_frame(LunaAvfReader *r, double seconds, uint32_t pixel_format, C
     }
 }
 
+// Locks a decoded bi-planar buffer into `*out`, taking over the caller's
+// reference; on failure the buffer is released.
+static int lock_image(CVPixelBufferRef pb, luna_avf_image *out, char *err, size_t err_len) {
+    if (!CVPixelBufferIsPlanar(pb) || CVPixelBufferGetPlaneCount(pb) != 2 ||
+        CVPixelBufferLockBaseAddress(pb, kCVPixelBufferLock_ReadOnly) != kCVReturnSuccess) {
+        CFRelease(pb);
+        set_err(err, err_len, @"The decoder returned an unexpected frame layout", nil);
+        return LUNA_AVF_FAILED;
+    }
+    memset(out, 0, sizeof *out);
+    out->pixel_format = CVPixelBufferGetPixelFormatType(pb);
+    out->width = (uint32_t)CVPixelBufferGetWidth(pb);
+    out->height = (uint32_t)CVPixelBufferGetHeight(pb);
+    CGRect clean = CVImageBufferGetCleanRect(pb);
+    out->crop_x = (uint32_t)clean.origin.x;
+    out->crop_y = (uint32_t)clean.origin.y;
+    out->crop_w = (uint32_t)clean.size.width;
+    out->crop_h = (uint32_t)clean.size.height;
+    for (size_t p = 0; p < 2; p++) {
+        out->planes[p] = CVPixelBufferGetBaseAddressOfPlane(pb, p);
+        out->bytes_per_row[p] = CVPixelBufferGetBytesPerRowOfPlane(pb, p);
+        out->plane_height[p] = CVPixelBufferGetHeightOfPlane(pb, p);
+    }
+    out->matrix = 2;
+    CFTypeRef m = CVBufferCopyAttachment(pb, kCVImageBufferYCbCrMatrixKey, NULL);
+    if (m) {
+        if (CFGetTypeID(m) == CFStringGetTypeID())
+            out->matrix = code(CVYCbCrMatrixGetIntegerCodePointForString((CFStringRef)m));
+        CFRelease(m);
+    }
+    out->handle = pb;
+    return LUNA_AVF_OK;
+}
+
 int luna_avf_frame(void *reader, double seconds, uint32_t pixel_format, luna_avf_image *out,
                    char *err, size_t err_len) {
     @autoreleasepool {
         CVPixelBufferRef pb = NULL;
         int rc = read_frame((__bridge LunaAvfReader *)reader, seconds, pixel_format, &pb, err, err_len);
         if (rc != LUNA_AVF_OK) return rc;
-        if (!CVPixelBufferIsPlanar(pb) || CVPixelBufferGetPlaneCount(pb) != 2 ||
-            CVPixelBufferLockBaseAddress(pb, kCVPixelBufferLock_ReadOnly) != kCVReturnSuccess) {
-            CFRelease(pb);
-            set_err(err, err_len, @"AVFoundation returned an unexpected frame layout", nil);
-            return LUNA_AVF_FAILED;
-        }
-        memset(out, 0, sizeof *out);
-        out->pixel_format = CVPixelBufferGetPixelFormatType(pb);
-        out->width = (uint32_t)CVPixelBufferGetWidth(pb);
-        out->height = (uint32_t)CVPixelBufferGetHeight(pb);
-        CGRect clean = CVImageBufferGetCleanRect(pb);
-        out->crop_x = (uint32_t)clean.origin.x;
-        out->crop_y = (uint32_t)clean.origin.y;
-        out->crop_w = (uint32_t)clean.size.width;
-        out->crop_h = (uint32_t)clean.size.height;
-        for (size_t p = 0; p < 2; p++) {
-            out->planes[p] = CVPixelBufferGetBaseAddressOfPlane(pb, p);
-            out->bytes_per_row[p] = CVPixelBufferGetBytesPerRowOfPlane(pb, p);
-            out->plane_height[p] = CVPixelBufferGetHeightOfPlane(pb, p);
-        }
-        out->matrix = 2;
-        CFTypeRef m = CVBufferCopyAttachment(pb, kCVImageBufferYCbCrMatrixKey, NULL);
-        if (m) {
-            if (CFGetTypeID(m) == CFStringGetTypeID())
-                out->matrix = code(CVYCbCrMatrixGetIntegerCodePointForString((CFStringRef)m));
-            CFRelease(m);
-        }
-        out->handle = pb;
-        return LUNA_AVF_OK;
+        return lock_image(pb, out, err, err_len);
     }
 }
 
@@ -280,4 +291,109 @@ void luna_avf_image_release(luna_avf_image *image) {
 
 void luna_avf_close(void *reader) {
     if (reader) CFRelease(reader);
+}
+
+// HEVC elementary streams (XAVC H in MXF, which AVFoundation can't open)
+// straight through VideoToolbox. The caller hands over the stream's VPS, SPS
+// and PPS, then each frame as 4-byte length-prefixed NAL units; every frame is
+// decoded on its own, synchronously.
+
+@interface LunaVtHevc : NSObject
+@property(nonatomic, assign) CMVideoFormatDescriptionRef format;
+@property(nonatomic, assign) VTDecompressionSessionRef session;
+@property(nonatomic, assign) uint32_t pixelFormat;
+@property(nonatomic, strong) NSData *config;
+@end
+@implementation LunaVtHevc
+- (void)dropSession {
+    if (!_session) return;
+    VTDecompressionSessionInvalidate(_session);
+    CFRelease(_session);
+    _session = NULL;
+}
+- (void)dealloc {
+    [self dropSession];
+    if (_format) CFRelease(_format);
+}
+@end
+
+void *luna_vt_hevc_open(const uint8_t *const *params, const size_t *sizes, size_t count, luna_avf_info *info,
+                        char *err, size_t err_len) {
+    @autoreleasepool {
+        CMVideoFormatDescriptionRef fd = NULL;
+        OSStatus s = CMVideoFormatDescriptionCreateFromHEVCParameterSets(kCFAllocatorDefault, count, params, sizes,
+                                                                         4, NULL, &fd);
+        if (s != noErr) {
+            set_err(err, err_len,
+                    [NSString stringWithFormat:@"VideoToolbox could not read the HEVC parameter sets (%d)", (int)s],
+                    nil);
+            return NULL;
+        }
+        LunaVtHevc *d = [LunaVtHevc new];
+        d.format = fd;
+        memset(info, 0, sizeof *info);
+        d.config = describe(fd, info);
+        info->config = d.config.bytes;
+        info->config_len = d.config.length;
+        return (__bridge_retained void *)d;
+    }
+}
+
+// LUNA_AVF_UNSUPPORTED: VideoToolbox has no decoder for the stream, or refused
+// the frame.
+int luna_vt_hevc_frame(void *decoder, uint32_t pixel_format, const uint8_t *data, size_t len,
+                       luna_avf_image *out, char *err, size_t err_len) {
+    @autoreleasepool {
+        LunaVtHevc *d = (__bridge LunaVtHevc *)decoder;
+        if (!d.session || d.pixelFormat != pixel_format) {
+            [d dropSession];
+            NSDictionary *attrs = @{(id)kCVPixelBufferPixelFormatTypeKey: @(pixel_format)};
+            VTDecompressionSessionRef session = NULL;
+            OSStatus s = VTDecompressionSessionCreate(kCFAllocatorDefault, d.format, NULL,
+                                                      (__bridge CFDictionaryRef)attrs, NULL, &session);
+            if (s != noErr) {
+                set_err(err, err_len,
+                        [NSString stringWithFormat:@"VideoToolbox has no decoder for this stream (%d)", (int)s], nil);
+                return LUNA_AVF_UNSUPPORTED;
+            }
+            d.session = session;
+            d.pixelFormat = pixel_format;
+        }
+        CMBlockBufferRef block = NULL;
+        OSStatus s = CMBlockBufferCreateWithMemoryBlock(kCFAllocatorDefault, NULL, len, kCFAllocatorDefault, NULL, 0,
+                                                        len, kCMBlockBufferAssureMemoryNowFlag, &block);
+        if (s == noErr) s = CMBlockBufferReplaceDataBytes(data, block, 0, len);
+        CMSampleBufferRef sample = NULL;
+        if (s == noErr) s = CMSampleBufferCreateReady(kCFAllocatorDefault, block, d.format, 1, 0, NULL, 1, &len, &sample);
+        if (block) CFRelease(block);
+        if (s != noErr) {
+            set_err(err, err_len, [NSString stringWithFormat:@"Could not hand the frame to VideoToolbox (%d)", (int)s],
+                    nil);
+            return LUNA_AVF_FAILED;
+        }
+        __block CVPixelBufferRef image = NULL;
+        __block OSStatus decoded = noErr;
+        VTDecodeInfoFlags flags = 0;
+        s = VTDecompressionSessionDecodeFrameWithOutputHandler(
+            d.session, sample, 0, &flags,
+            ^(OSStatus status, __unused VTDecodeInfoFlags f, CVImageBufferRef ib, __unused CMTime pts,
+              __unused CMTime duration) {
+              decoded = status;
+              if (status == noErr && ib && !image) image = (CVPixelBufferRef)CFRetain(ib);
+            });
+        VTDecompressionSessionWaitForAsynchronousFrames(d.session);
+        CFRelease(sample);
+        if (s == noErr) s = decoded;
+        if (s != noErr || !image) {
+            if (image) CFRelease(image);
+            set_err(err, err_len, [NSString stringWithFormat:@"VideoToolbox could not decode the frame (%d)", (int)s],
+                    nil);
+            return LUNA_AVF_UNSUPPORTED;
+        }
+        return lock_image(image, out, err, err_len);
+    }
+}
+
+void luna_vt_hevc_close(void *decoder) {
+    if (decoder) CFRelease(decoder);
 }

@@ -8,6 +8,8 @@
 //! - Video comes back as the decoder's native bi-planar Y′CbCr (no colour
 //!   conversion). The format follows the stream's `avcC` / `hvcC` record: 8- or
 //!   10-bit, 4:2:0, 4:2:2 or 4:4:4, video or full range.
+//! - HEVC in MXF (XAVC H), which AVFoundation can't open, goes straight to a
+//!   VideoToolbox session, one self-contained access unit per frame.
 //! - ProRes RAW comes back as the 16-bit sensor mosaic (`bp16`), binned to
 //!   thumbnail scale. It carries Apple's raw-conversion metadata: black and white
 //!   levels, white balance, the camera → XYZ matrix and the gain.
@@ -19,6 +21,7 @@ use std::ffi::{CString, c_char, c_void};
 
 use luna_formats::{ClipFiles, Codec, ColourHint, FrameIndex, Probe, Transfer};
 
+use crate::annexb;
 use crate::mosaic::{self, Rect};
 use crate::util;
 use crate::{Cfa, DecodeError, Decoded, Frame};
@@ -96,6 +99,24 @@ unsafe extern "C" {
     ) -> i32;
     fn luna_avf_raw_release(raw: *mut Raw);
     fn luna_avf_close(reader: *mut c_void);
+    fn luna_vt_hevc_open(
+        params: *const *const u8,
+        sizes: *const usize,
+        count: usize,
+        info: *mut Info,
+        err: *mut c_char,
+        len: usize,
+    ) -> *mut c_void;
+    fn luna_vt_hevc_frame(
+        decoder: *mut c_void,
+        pixel_format: u32,
+        data: *const u8,
+        len: usize,
+        out: *mut Image,
+        err: *mut c_char,
+        len: usize,
+    ) -> i32;
+    fn luna_vt_hevc_close(decoder: *mut c_void);
 }
 
 pub(crate) fn decode(
@@ -265,31 +286,195 @@ impl Reader {
         // A quarter frame in, so rounding never lands on the frame before.
         let seconds = self.start + (frame as f64 + 0.25) / self.fps;
         let mut err = [0 as c_char; 512];
-        match call(self.raw, seconds, &mut err) {
-            OK => {}
-            UNSUPPORTED if !self.decoded_any => {
-                let e = DecodeError::Unsupported(format!(
-                    "{} isn't supported by this Mac's decoders ({})",
-                    self.label,
-                    message(&err)
-                ));
-                self.broken = Some(e.clone());
-                return Err(e);
-            }
-            NOT_FOUND => {
-                return Err(DecodeError::Failed(format!(
-                    "Frame {frame} could not be found"
-                )));
-            }
-            _ => {
-                return Err(DecodeError::Failed(format!(
-                    "Could not decode frame {frame}: {}",
-                    message(&err)
-                )));
-            }
+        let rc = call(self.raw, seconds, &mut err);
+        let r = status(rc, &err, frame, self.label, self.decoded_any);
+        if let Err(e @ DecodeError::Unsupported(_)) = &r {
+            self.broken = Some(e.clone());
         }
+        r?;
         self.decoded_any = true;
         Ok(())
+    }
+}
+
+/// A shim status as a result. A stream the decoder refuses before any frame
+/// has decoded is unsupported; after that, a refusal is a failed frame.
+fn status(
+    rc: i32,
+    err: &[c_char],
+    frame: u64,
+    label: &str,
+    decoded_any: bool,
+) -> Result<(), DecodeError> {
+    match rc {
+        OK => Ok(()),
+        UNSUPPORTED if !decoded_any => Err(DecodeError::Unsupported(format!(
+            "{label} isn't supported by this Mac's decoders ({})",
+            message(err)
+        ))),
+        NOT_FOUND => Err(DecodeError::Failed(format!(
+            "Frame {frame} could not be found"
+        ))),
+        _ => Err(DecodeError::Failed(format!(
+            "Could not decode frame {frame}: {}",
+            message(err)
+        ))),
+    }
+}
+
+/// HEVC in MXF (Sony XAVC H Intra). Each indexed frame is a self-contained
+/// Annex B access unit (AUD, VPS, SPS, PPS, slices): its parameter sets
+/// describe the stream to VideoToolbox, and its other NAL units go in as one
+/// length-prefixed sample. Only intra-coded frames are decoded.
+pub(crate) fn decode_es(
+    clip: &ClipFiles,
+    probe: &Probe,
+    positions: &[u64],
+    _min_width: u32,
+) -> Vec<Result<Frame, DecodeError>> {
+    let FrameIndex::Ranges(ranges) = &probe.frames else {
+        return util::all_err(
+            positions.len(),
+            DecodeError::Failed("HEVC frames were not indexed".into()),
+        );
+    };
+    let mut label = "This HEVC stream".to_string();
+    let mut decoder: Option<EsDecoder> = None;
+    let mut decoded_any = false;
+    let mut broken: Option<DecodeError> = None;
+    util::per_frame("HEVC", positions, ranges.len() as u64, |i| {
+        if let Some(e) = &broken {
+            return Err(e.clone());
+        }
+        let r = ranges[i as usize];
+        let au = util::read_range(&clip.main, r.offset, r.len)?;
+        if let Some(l) = annexb::profile_label(&au) {
+            label = l;
+        }
+        if !annexb::has_irap(&au) {
+            return Err(DecodeError::Unsupported(
+                "Long-GOP HEVC in MXF isn't supported yet".into(),
+            ));
+        }
+        let nals = annexb::nal_units(&au);
+        let params: Vec<&[u8]> = nals
+            .iter()
+            .filter(|n| (32..=34).contains(&annexb::nal_type(n)))
+            .copied()
+            .collect();
+        if !params.is_empty() && decoder.as_ref().is_none_or(|d| d.params != params) {
+            decoder = Some(EsDecoder::open(&params, probe)?);
+        }
+        let Some(d) = decoder.as_mut() else {
+            return Err(DecodeError::Failed(format!(
+                "Frame {i} has no HEVC parameter sets"
+            )));
+        };
+        // Parameter sets and the access unit delimiter stay out of the sample.
+        let mut sample = Vec::with_capacity(au.len() + 4 * nals.len());
+        for n in nals
+            .iter()
+            .filter(|n| !(32..=35).contains(&annexb::nal_type(n)))
+        {
+            sample.extend_from_slice(&(n.len() as u32).to_be_bytes());
+            sample.extend_from_slice(n);
+        }
+        let r = d.frame(&sample, i, &label, decoded_any);
+        match &r {
+            Ok(_) => decoded_any = true,
+            Err(e @ DecodeError::Unsupported(_)) => broken = Some(e.clone()),
+            Err(_) => {}
+        }
+        r
+    })
+}
+
+struct EsDecoder {
+    raw: *mut c_void,
+    /// The VPS, SPS and PPS the session was opened with.
+    params: Vec<Vec<u8>>,
+    pixel_format: u32,
+    hint: ColourHint,
+}
+
+impl Drop for EsDecoder {
+    fn drop(&mut self) {
+        // SAFETY: `raw` came from luna_vt_hevc_open and is closed once.
+        unsafe { luna_vt_hevc_close(self.raw) }
+    }
+}
+
+impl EsDecoder {
+    fn open(params: &[&[u8]], probe: &Probe) -> Result<EsDecoder, DecodeError> {
+        let ptrs: Vec<*const u8> = params.iter().map(|p| p.as_ptr()).collect();
+        let sizes: Vec<usize> = params.iter().map(|p| p.len()).collect();
+        let mut err = [0 as c_char; 512];
+        // SAFETY: zeroed is a valid Info (null config pointer, zero length).
+        let mut info: Info = unsafe { std::mem::zeroed() };
+        // SAFETY: `ptrs` and `sizes` describe `params.len()` live slices; out
+        // pointers to live locals.
+        let raw = unsafe {
+            luna_vt_hevc_open(
+                ptrs.as_ptr(),
+                sizes.as_ptr(),
+                params.len(),
+                &mut info,
+                err.as_mut_ptr(),
+                err.len(),
+            )
+        };
+        if raw.is_null() {
+            return Err(DecodeError::Failed(message(&err)));
+        }
+        let config = if info.config.is_null() {
+            &[][..]
+        } else {
+            // SAFETY: the shim keeps the record alive until luna_vt_hevc_close.
+            unsafe { std::slice::from_raw_parts(info.config, info.config_len) }
+        };
+        let (chroma, bits) = stream_format(true, config);
+        let mut hint = probe.meta.colour;
+        hint.transfer = hint.transfer.or(util::transfer_for(info.transfer));
+        hint.gamut = hint.gamut.or(util::gamut_for(info.primaries));
+        Ok(EsDecoder {
+            raw,
+            params: params.iter().map(|p| p.to_vec()).collect(),
+            pixel_format: pixel_format(chroma, bits, info.full_range == 1),
+            hint,
+        })
+    }
+
+    fn frame(
+        &mut self,
+        sample: &[u8],
+        frame: u64,
+        label: &str,
+        decoded_any: bool,
+    ) -> Result<Frame, DecodeError> {
+        // SAFETY: zeroed is a valid empty Image (null planes and handle).
+        let mut image: Image = unsafe { std::mem::zeroed() };
+        let mut err = [0 as c_char; 512];
+        // SAFETY: live decoder, `sample` is a live slice, out pointers to live
+        // locals.
+        let rc = unsafe {
+            luna_vt_hevc_frame(
+                self.raw,
+                self.pixel_format,
+                sample.as_ptr(),
+                sample.len(),
+                &mut image,
+                err.as_mut_ptr(),
+                err.len(),
+            )
+        };
+        status(rc, &err, frame, label, decoded_any)?;
+        let decoded = copy_image(&image);
+        // SAFETY: releases the buffer the shim locked for us, once.
+        unsafe { luna_avf_image_release(&mut image) };
+        decoded.map(|image| Frame {
+            image,
+            hint: self.hint,
+        })
     }
 }
 

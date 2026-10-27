@@ -10,6 +10,8 @@
 
 use luna_formats::{ClipFiles, Codec, ColourHint, Container, Gamut, Probe, Transfer};
 
+#[cfg(any(windows, target_os = "macos"))]
+mod annexb;
 mod arri_decoder;
 mod braw_sdk;
 mod crm_raw;
@@ -394,7 +396,17 @@ fn platform_es_decode(
     mf_es::decode(clip, probe, positions, min_width)
 }
 
-#[cfg(not(windows))]
+#[cfg(target_os = "macos")]
+fn platform_es_decode(
+    clip: &ClipFiles,
+    probe: &Probe,
+    positions: &[u64],
+    min_width: u32,
+) -> Vec<Result<Frame, DecodeError>> {
+    platform_macos::decode_es(clip, probe, positions, min_width)
+}
+
+#[cfg(not(any(windows, target_os = "macos")))]
 fn platform_es_decode(
     _clip: &ClipFiles,
     _probe: &Probe,
