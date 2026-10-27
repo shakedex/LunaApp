@@ -147,13 +147,7 @@ pub(crate) fn is_picture(k: &Ul, track_number: Option<u32>) -> bool {
     }
     match track_number {
         Some(t) if t != 0 => k.0[12..16] == t.to_be_bytes(),
-        // SMPTE (0d) or Avid (0e 04) generic-container picture items
-        _ => {
-            matches!(
-                k.0[8..12],
-                [0x0d, 0x01, 0x03, 0x01] | [0x0e, 0x04, 0x03, 0x01]
-            ) && matches!(k.0[12], 0x05 | 0x15)
-        }
+        _ => k.0[8..12] == [0x0d, 0x01, 0x03, 0x01] && matches!(k.0[12], 0x05 | 0x15),
     }
 }
 
@@ -251,8 +245,8 @@ fn from_cbe<R: Read + Seek>(
         first_unit.saturating_add(eubc),
         t.track_number,
     )?;
-    // Clip-wrapped with a constant edit unit (Avid DNxHD OP-Atom): the one
-    // element holds the frames back to back.
+    // Clip-wrapped with a constant edit unit: the one element holds the
+    // frames back to back.
     if k0.len > eubc && k0.len % eubc == 0 && k0.end() <= r.len() {
         let n = (k0.len / eubc).min(want);
         tracing::debug!(

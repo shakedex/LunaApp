@@ -48,10 +48,6 @@ pub(crate) fn codec(coding: Option<&Ul>, container: Option<&Ul>, element: Option
         if at(c, 8, &[0x0f, 0x01, 0x02, 0x02, 0x01, 0x01, 0x01]) {
             return Codec::ArriRaw;
         }
-        // VC-3 / DNxHD: ST 2019-4 (04 01 02 02 03 02 xx)
-        if at(c, 8, &[0x04, 0x01, 0x02, 0x02, 0x03, 0x02]) {
-            return Codec::Other("DNxHD".into());
-        }
         // ARRICORE (ARRI-registered, …04 01 02 02 03 0a …)
         if at(c, 8, &[0x04, 0x01, 0x02, 0x02, 0x03, 0x0a]) {
             return Codec::ArriCore;
@@ -69,12 +65,6 @@ pub(crate) fn codec(coding: Option<&Ul>, container: Option<&Ul>, element: Option
         if at(c, 8, &[0x04, 0x01, 0x02, 0x02, 0x01, 0x45]) {
             return Codec::Hevc;
         }
-    }
-    // Avid's private DNxHD coding label: 0e 04 02 01 02 04 xx
-    if let Some(c) = coding.filter(|c| c.0[..4] == SMPTE)
-        && at(c, 8, &[0x0e, 0x04, 0x02, 0x01, 0x02, 0x04])
-    {
-        return Codec::Other("DNxHD".into());
     }
     if let Some(c) = container.filter(|c| c.0[..4] == SMPTE) {
         // ST 2071-2/RDD 54 ARRIRAW and ARRICORE generic-container mappings.
