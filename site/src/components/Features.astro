@@ -55,6 +55,7 @@ const f = copy.features;
       }
     </ul>
     <p class="note">{f.note.text} <a href={`${REPO_URL}/issues`}>{f.note.link}</a></p>
+    {f.notes.map((n) => <p class="note more">{n}</p>)}
   </div>
 </section>
 
@@ -136,6 +137,9 @@ const f = copy.features;
     font-size: 13.5px;
     color: var(--quiet);
     max-width: none;
+  }
+  .note.more {
+    margin-top: 4px;
   }
   .note a {
     color: var(--text);

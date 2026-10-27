@@ -75,6 +75,8 @@ export const copy = {
   features: {
     title: "Features",
     note: { text: "* New formats and codecs arrive with updates. Missing one?", link: "Ask on GitHub" },
+    /** Numbered notes under the * note: which cameras a feature covers. */
+    notes: ["¹ Camera Look: Blackmagic RAW."],
     script: {
       title: "Script it",
       text: "Make reports from a terminal or a script, or let AI agents make them over MCP.",
@@ -92,7 +94,7 @@ export const copy = {
       {
         icon: "palette",
         title: "Rec.709, log or your LUT",
-        text: "Thumbnails in Rec.709, as the camera recorded them, or through your .cube LUT. Blackmagic RAW clips can use the LUT they carry.",
+        text: "RAW to Rec.709, bring your own LUT, or use the embedded LUT with Camera Look on supported cameras.¹",
       },
       { icon: "desktop", title: "Windows and macOS, free", text: "Every format reads on both. MIT licence." },
     ],
