@@ -683,7 +683,9 @@ fn check_lut(settings: &Settings) -> Result<(), RunError> {
         return Ok(());
     }
     let Some(path) = &settings.lut else {
-        return Err(RunError::Lut("No LUT is chosen in Settings".into()));
+        return Err(RunError::Lut(
+            "No LUT is chosen: choose one in Settings, or pass --lut <file>".into(),
+        ));
     };
     settings.clone().set_lut(path).map_err(RunError::Lut)
 }
@@ -780,7 +782,8 @@ mod tests {
             colour: ThumbnailColour::Lut,
             ..Settings::default()
         };
-        assert!(check_lut(&settings).is_err());
+        let err = check_lut(&settings).unwrap_err().to_string();
+        assert!(err.contains("--lut"), "{err}");
     }
 
     #[test]

@@ -18,6 +18,7 @@ Decoders: luna-decoders `8822d47`.
 - **New:** ALEXA Mini LF and ALEXA Mini ARRIRAW in MXF: thumbnails, with colour measured
   against ARRI's own software.
 - **New:** Sony XAVC H Intra (HEVC in MXF) from the BURANO.
+- **New:** Blackmagic RAW scene and take from the camera's slate, in the Slate field.
 - **New:** `.ari` and `.arx` frame sequences are one clip each, with timecode, recording
   date, lens, T-stop, ND, white balance and EI from the camera header.
 - **New:** Thumbnail colour in Settings: Rec.709 (as before), None (the picture as the

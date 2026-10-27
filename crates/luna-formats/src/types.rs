@@ -241,6 +241,24 @@ pub enum Transfer {
     Linear,
 }
 
+impl Transfer {
+    /// The gamut a camera log curve is recorded in; `None` for display and
+    /// linear transfers.
+    pub fn native_gamut(self) -> Option<Gamut> {
+        Some(match self {
+            Transfer::LogC3 => Gamut::ArriWideGamut3,
+            Transfer::LogC4 => Gamut::ArriWideGamut4,
+            Transfer::SLog3 => Gamut::SGamut3Cine,
+            Transfer::CanonLog2 | Transfer::CanonLog3 => Gamut::CinemaGamut,
+            Transfer::VLog => Gamut::VGamut,
+            Transfer::DLog => Gamut::DGamut,
+            Transfer::BmdFilmGen5 => Gamut::BmdWideGamutGen5,
+            Transfer::Log3G10 => Gamut::RedWideGamutRgb,
+            Transfer::Rec709 | Transfer::Hlg | Transfer::Pq | Transfer::Linear => return None,
+        })
+    }
+}
+
 /// Colour primaries a picture was recorded with.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Gamut {

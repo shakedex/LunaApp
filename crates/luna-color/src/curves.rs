@@ -57,17 +57,7 @@ pub fn encode(t: Transfer, x: f64) -> f64 {
 /// The gamut a camera log curve is recorded in; `None` for display and
 /// linear transfers.
 pub fn native_gamut(t: Transfer) -> Option<Gamut> {
-    Some(match t {
-        Transfer::LogC3 => Gamut::ArriWideGamut3,
-        Transfer::LogC4 => Gamut::ArriWideGamut4,
-        Transfer::SLog3 => Gamut::SGamut3Cine,
-        Transfer::CanonLog2 | Transfer::CanonLog3 => Gamut::CinemaGamut,
-        Transfer::VLog => Gamut::VGamut,
-        Transfer::DLog => Gamut::DGamut,
-        Transfer::BmdFilmGen5 => Gamut::BmdWideGamutGen5,
-        Transfer::Log3G10 => Gamut::RedWideGamutRgb,
-        Transfer::Rec709 | Transfer::Hlg | Transfer::Pq | Transfer::Linear => return None,
-    })
+    t.native_gamut()
 }
 
 /// The log curve a camera gamut is recorded with (Canon: Canon Log 2, the

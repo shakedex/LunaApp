@@ -4,7 +4,7 @@
 
 use luna_formats::{
     Audio, ClipFiles, ClipMeta, Codec, ColourHint, Container, EmbeddedLut, FormatError, FrameIndex,
-    PictureLayout, Probe, Rational, Timecode,
+    PictureLayout, Probe, Rational, Slate, Timecode,
 };
 
 use crate::r3d::{self, Value};
@@ -30,6 +30,21 @@ fn to_format(e: DecodeError) -> FormatError {
     match e {
         DecodeError::Unsupported(m) => FormatError::Unsupported(m),
         DecodeError::Failed(m) => FormatError::Corrupt(m),
+    }
+}
+
+/// Scene, shot and take as the camera's slate recorded them. Blackmagic's
+/// "None" shot type and empty fields count as not set.
+fn braw_slate(md: &braw::Metadata) -> Slate {
+    let field = |key: &str| {
+        md.text(key)
+            .map(|v| v.trim().to_owned())
+            .filter(|v| !v.is_empty() && v != "None")
+    };
+    Slate {
+        scene: field("scene"),
+        shot: None,
+        take: field("take"),
     }
 }
 
@@ -182,7 +197,7 @@ fn probe_braw(clip: &ClipFiles) -> Result<Probe, FormatError> {
         .as_deref()
         .and_then(|t| parse_timecode(t, frame_rate));
     let meta = ClipMeta {
-        slate: Default::default(),
+        slate: braw_slate(c.raw_metadata()),
         recording_date: info.date_recorded.as_deref().map(exif_date),
         start_timecode,
         frame_rate,
@@ -753,6 +768,28 @@ mod braw_lut_tests {
             }
         }
         assert_eq!(rows, cube);
+    }
+
+    #[test]
+    fn braw_slate_reads_scene_and_take() {
+        let md = Metadata(vec![
+            ("scene".into(), BValue::String("12A".into())),
+            ("take".into(), BValue::String("3".into())),
+            ("shot_type".into(), BValue::String("None".into())),
+        ]);
+        let slate = braw_slate(&md);
+        assert_eq!(slate.scene.as_deref(), Some("12A"));
+        assert_eq!(slate.take.as_deref(), Some("3"));
+        assert_eq!(slate.shot, None);
+    }
+
+    #[test]
+    fn braw_slate_without_fields_is_empty() {
+        let slate = braw_slate(&Metadata(vec![(
+            "scene".into(),
+            BValue::String(" ".into()),
+        )]));
+        assert_eq!(slate, luna_formats::Slate::default());
     }
 
     #[test]

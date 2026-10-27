@@ -12,7 +12,7 @@
 use std::path::PathBuf;
 use std::sync::OnceLock;
 
-use luna_formats::{ClipFiles, ColourHint, FrameIndex, Probe, Transfer};
+use luna_formats::{ClipFiles, ColourHint, FrameIndex, Gamut, Probe, Transfer};
 use proresraw_ffmpeg as prr;
 
 use crate::mosaic::{self, Rect};
@@ -95,8 +95,24 @@ pub(crate) fn decode(
             }
             other => DecodeError::Failed(other.to_string()),
         })?;
-        to_frame(raw, header, min_width)
+        let mut frame = to_frame(raw, header, min_width)?;
+        frame.hint = frame_hint(probe.meta.colour);
+        Ok(frame)
     })
+}
+
+/// What the frames are, given what the clip's metadata says: linear camera
+/// RGB, in the camera's own gamut when the clip names it or its log curve
+/// (DJI records D-Log). The camera matrix, when present, still carries the
+/// Rec.709 rendering.
+fn frame_hint(meta: ColourHint) -> ColourHint {
+    ColourHint {
+        transfer: Some(Transfer::Linear),
+        gamut: meta
+            .gamut
+            .filter(|g| !matches!(g, Gamut::Rec709 | Gamut::Rec2020))
+            .or_else(|| meta.transfer.and_then(Transfer::native_gamut)),
+    }
 }
 
 fn to_frame(
@@ -186,6 +202,24 @@ mod tests {
         assert_eq!(wb, Some([2.0, 1.0, 1.5]));
         assert!(camera_to_xyz.is_some());
         assert_eq!(f.hint.transfer, Some(Transfer::Linear));
+    }
+
+    #[test]
+    fn a_d_log_clip_gets_d_gamut() {
+        // DJI ProRes RAW says D-Log in its metadata; the frames then carry
+        // D-Gamut so None and LUTs get the camera's own log.
+        let meta = ColourHint {
+            transfer: Some(Transfer::DLog),
+            gamut: None,
+        };
+        let hint = frame_hint(meta);
+        assert_eq!(hint.transfer, Some(Transfer::Linear));
+        assert_eq!(hint.gamut, Some(Gamut::DGamut));
+    }
+
+    #[test]
+    fn an_untagged_clip_keeps_no_gamut() {
+        assert_eq!(frame_hint(ColourHint::default()), HINT);
     }
 
     #[test]
