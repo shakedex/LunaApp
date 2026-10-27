@@ -64,6 +64,8 @@ pub enum Codec {
     ProResRaw,
     XOcn,
     ArriRaw,
+    /// ARRIRAW in Codex High Density Encoding (lossless).
+    ArriRawHde,
     ArriCore,
     H264,
     Hevc,
@@ -106,6 +108,7 @@ impl Codec {
             Codec::ProResRaw => "ProRes RAW".into(),
             Codec::XOcn => "X-OCN".into(),
             Codec::ArriRaw => "ARRIRAW".into(),
+            Codec::ArriRawHde => "ARRIRAW HDE".into(),
             Codec::ArriCore => "ARRICORE".into(),
             Codec::H264 => "H.264".into(),
             Codec::Hevc => "H.265/HEVC".into(),

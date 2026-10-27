@@ -75,8 +75,20 @@ pub fn resolve_identity(
     // The camera body behind each entry of `cameras`, when the metadata names one.
     let mut bodies: Vec<(String, Option<Body>)> = Vec::new();
     let mut pending: Vec<(String, Option<Body>, CardGroup)> = Vec::new();
+    // How a folder reads after a reel shared by two folders: the root itself
+    // goes by its own name, not `.`.
+    let mut folder_labels: HashMap<String, String> = HashMap::new();
     for (dir, evs) in folders {
         let folder = display_path(&outer, &dir);
+        folder_labels
+            .entry(folder.clone())
+            .or_insert_with(|| match folder.as_str() {
+                "." => dir
+                    .file_name()
+                    .map(|n| n.to_string_lossy().into_owned())
+                    .unwrap_or_else(|| folder.clone()),
+                _ => folder.clone(),
+            });
         for bucket in split_by_embedded_reel(evs) {
             let camera = strongest(bucket.iter().map(|e| &e.camera));
             let reel = strongest(bucket.iter().map(|e| &e.reel));
@@ -105,7 +117,7 @@ pub fn resolve_identity(
     name_bodies(&mut cameras, &bodies);
 
     for cam in &mut cameras {
-        disambiguate_reels(&mut cam.cards);
+        disambiguate_reels(&mut cam.cards, &folder_labels);
         cam.cards
             .sort_by(|a, b| natural_cmp(&a.reel, &b.reel).then_with(|| a.folder.cmp(&b.folder)));
     }
@@ -559,14 +571,15 @@ fn own_or_card(own: &Claim, card: &Claim) -> IdentitySource {
     }
 }
 
-fn disambiguate_reels(cards: &mut [CardGroup]) {
+fn disambiguate_reels(cards: &mut [CardGroup], labels: &HashMap<String, String>) {
     let mut seen: HashMap<String, usize> = HashMap::new();
     for c in cards.iter() {
         *seen.entry(c.reel.to_lowercase()).or_default() += 1;
     }
     for c in cards.iter_mut() {
         if seen[&c.reel.to_lowercase()] > 1 {
-            c.reel = format!("{} ({})", c.reel, c.folder);
+            let label = labels.get(&c.folder).unwrap_or(&c.folder);
+            c.reel = format!("{} ({label})", c.reel);
         }
     }
 }

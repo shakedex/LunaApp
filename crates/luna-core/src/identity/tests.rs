@@ -385,6 +385,19 @@ fn same_reel_from_different_folders_stays_apart_and_says_where() {
 }
 
 #[test]
+fn a_shared_reel_at_the_root_reads_as_the_roots_name() {
+    let clips: Vec<(ClipFiles, Option<&ClipMeta>)> = vec![
+        (clip(&at("A0001C027_251020_135413_p1I7H.mxf")), None),
+        (clip(&at("sub/A0001C028_251020_135413_p1I7H.mxf")), None),
+    ];
+    let g = resolve_identity(&[root()], &clips);
+    let reels: Vec<_> = g[0].cards.iter().map(|c| c.reel.as_str()).collect();
+    assert_eq!(reels, ["A0001 (drive)", "A0001 (sub)"]);
+    let folders: Vec<_> = g[0].cards.iter().map(|c| c.folder.as_str()).collect();
+    assert_eq!(folders, [".", "sub"]);
+}
+
+#[test]
 fn clips_order_by_recording_start_then_file_name() {
     let tc = |frames| Timecode {
         frames,

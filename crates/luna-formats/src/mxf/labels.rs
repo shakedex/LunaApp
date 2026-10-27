@@ -12,6 +12,21 @@ fn at(u: &Ul, from: usize, bytes: &[u8]) -> bool {
 /// Codec from the picture essence coding label, the essence container label
 /// and the picture element key, in that order of trust.
 pub(crate) fn codec(coding: Option<&Ul>, container: Option<&Ul>, element: Option<&Ul>) -> Codec {
+    // ARRIRAW HDE before plain ARRIRAW (they share the element key): coding
+    // 04 01 02 01 02 01 02 xx (ARRIRAW has 01 there), container ST 2071-2
+    // mapping 02 22 02 (ALEXA 35) or ARRI's pre-standard 0f 01 02 01 01 01 02
+    // (ALEXA Mini LF).
+    let hde_coding = coding.is_some_and(|c| {
+        c.0[..4] == SMPTE && at(c, 8, &[0x04, 0x01, 0x02, 0x01, 0x02, 0x01, 0x02])
+    });
+    let hde_container = container.is_some_and(|c| {
+        c.0[..4] == SMPTE
+            && (at(c, 8, &[0x0d, 0x01, 0x03, 0x01, 0x02, 0x22, 0x02])
+                || at(c, 8, &[0x0f, 0x01, 0x02, 0x01, 0x01, 0x01, 0x02]))
+    });
+    if hde_coding || hde_container {
+        return Codec::ArriRawHde;
+    }
     if let Some(c) = coding.filter(|c| c.0[..4] == SMPTE) {
         // RDD 36/44 ProRes: 04 01 02 02 03 06 pp
         if at(c, 8, &[0x04, 0x01, 0x02, 0x02, 0x03, 0x06]) {
@@ -191,6 +206,20 @@ mod tests {
         assert_eq!(codec(Some(&core), None, None), Codec::ArriCore);
         let mini_lf = ul("060e2b340401010d0f01020201010100");
         assert_eq!(codec(Some(&mini_lf), None, None), Codec::ArriRaw);
+        // HDE: ALEXA 35 and Mini LF labels
+        let hde35 = ul("060e2b340401010d0401020102010202");
+        let hde35_cont = ul("060e2b340401010d0d01030102220200");
+        assert_eq!(
+            codec(Some(&hde35), Some(&hde35_cont), None),
+            Codec::ArriRawHde
+        );
+        let hde_lf = ul("060e2b340401010d0401020102010203");
+        let hde_lf_cont = ul("060e2b340401010d0f01020101010200");
+        assert_eq!(
+            codec(Some(&hde_lf), Some(&hde_lf_cont), None),
+            Codec::ArriRawHde
+        );
+        assert_eq!(codec(None, Some(&hde_lf_cont), None), Codec::ArriRawHde);
     }
 
     #[test]

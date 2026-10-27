@@ -5,6 +5,7 @@
 //! - [`probe`] reads one assembled clip: its metadata, its codec, and where its
 //!   coded frames sit, for the decoders that read frames from our index.
 
+mod ari;
 mod mxf;
 mod qt;
 mod sniff;
@@ -23,6 +24,7 @@ pub fn probe(clip: &ClipFiles) -> Result<Probe, FormatError> {
     match clip.container {
         Container::QuickTime => qt::probe(clip),
         Container::Mxf => mxf::probe(clip),
+        Container::AriFrame => ari::probe(clip),
         other => Err(FormatError::Unsupported(format!(
             "{other:?} is not read by luna-formats"
         ))),

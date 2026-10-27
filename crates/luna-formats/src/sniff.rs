@@ -46,6 +46,13 @@ fn classify(path: &Path, head: &[u8]) -> (Sniffed, String) {
             "ARRI 12345678 magic".into(),
         );
     }
+    // Codex `.arx` (ARRIRAW HDE): the same header behind its own magic.
+    if head.len() >= 8 && &head[..4] == b"CDXA" && head[4..8] == [0x12, 0x34, 0x56, 0x78] {
+        return (
+            Sniffed::CameraOriginal(Container::AriFrame),
+            "CDXA 12345678 magic".into(),
+        );
+    }
     if head.len() >= 8 && (&head[4..8] == b"RED1" || &head[4..8] == b"RED2") {
         return (
             Sniffed::CameraOriginal(Container::R3d),
@@ -343,6 +350,12 @@ mod tests {
         head.extend_from_slice(&[0x12, 0x34, 0x56, 0x78, 0, 0, 0, 0]);
         assert_eq!(
             s("f.0000001.ari", &head),
+            Sniffed::CameraOriginal(Container::AriFrame)
+        );
+        let mut arx = b"CDXA".to_vec();
+        arx.extend_from_slice(&[0x12, 0x34, 0x56, 0x78, 0, 0, 0, 0]);
+        assert_eq!(
+            s("f.0000001.arx", &arx),
             Sniffed::CameraOriginal(Container::AriFrame)
         );
         // ARRI in a QuickTime ftyp's compatible brands is not an .ari frame.

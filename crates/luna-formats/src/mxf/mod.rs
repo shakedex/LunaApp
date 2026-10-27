@@ -3,8 +3,8 @@
 //!
 //! Only KLV headers and metadata are read; essence is located, never loaded.
 
-mod arri;
-mod display;
+pub(crate) mod arri;
+pub(crate) mod display;
 mod index;
 pub(crate) mod klv;
 pub(crate) mod labels;
