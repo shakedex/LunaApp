@@ -10,7 +10,9 @@ both. Each release names the `shakedex/luna-decoders` commit it pins.
 
 ## Unreleased
 
-Decoders: luna-decoders `8822d47`.
+## 2026.10.3 — 2026-10-27
+
+Tag `v2026.10.3`. Decoders: luna-decoders `8822d47`.
 
 - **New:** ARRIRAW HDE (Codex High Density Encoding, SMPTE RDD 51) from the ALEXA 35 and
   ALEXA Mini LF, in MXF and as `.arx` frame sequences. Bit-exact against the ARRIRAW of
@@ -22,9 +24,9 @@ Decoders: luna-decoders `8822d47`.
 - **New:** `.ari` and `.arx` frame sequences are one clip each, with timecode, recording
   date, lens, T-stop, ND, white balance and EI from the camera header.
 - **New:** Thumbnail colour in Settings: Rec.709 (as before), None (the picture as the
-  camera recorded it) or a `.cube` LUT on every clip, with the last five LUTs one click away. The report names
-  what was applied.
-  `luna report --colour rec709|none|lut` and `--lut <file>` do the same for one run.
+  camera recorded it) or a `.cube` LUT on every clip, with the last five LUTs one click
+  away. The report names what was applied. `luna report --colour rec709|none|lut` and
+  `--lut <file>` do the same for one run.
 - **New:** "Camera look" in Settings: Blackmagic RAW clips recorded with "Apply LUT in
   File" use their LUT for the thumbnails, as DaVinci Resolve does (`--camera-look` on the
   command line).
