@@ -36,9 +36,10 @@
 #set par(leading: 0.42em, spacing: 0.6em)
 
 // The reel at the top of a page, for the running header: one that opens the
-// page, else the one continuing from earlier pages.
+// page, else the one continuing from earlier pages. End-matter headings count
+// too, so Other files doesn't carry the last reel's name.
 #let reel-on(page) = {
-  let reels = query(heading.where(level: 2))
+  let reels = query(heading.where(level: 2).or(heading.where(level: 3)))
   let opening = reels.filter(r => {
     let p = r.location().position()
     p.page == page and p.y < 40mm
@@ -67,7 +68,7 @@
         text(weight: "medium", fill: ink, d.title),
         {
           let reel = reel-on(page)
-          let cam = if reel != none { camera-of(reel) } else { none }
+          let cam = if reel != none and reel.level == 2 { camera-of(reel) } else { none }
           if cam != none { cam.body }
           if cam != none and reel != none { h(8pt) }
           if reel != none { reel.body }

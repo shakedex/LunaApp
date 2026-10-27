@@ -10,6 +10,9 @@ both. Each release names the `shakedex/luna-decoders` commit it pins.
 
 ## Unreleased
 
+- **Fixed:** PDF pages that only list Other files or Unreadable no longer carry the last
+  camera and reel in the page header.
+
 ## 2026.10.3 — 2026-10-27
 
 Tag `v2026.10.3`. Decoders: luna-decoders `8822d47`.

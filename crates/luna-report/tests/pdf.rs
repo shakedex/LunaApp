@@ -131,6 +131,31 @@ fn large_report_compiles() {
 }
 
 #[test]
+fn end_matter_pages_drop_the_last_reel_from_the_header() {
+    let mut report = sample_report();
+    report.not_included = (0..200)
+        .map(|n| format!("B001/sidecar_{n:03}.ale"))
+        .collect();
+    let i = inspect_pdf(&report).unwrap();
+    assert!(i.pages > 2, "the list should spill onto its own page");
+    let last = i.pages - 1;
+    let header: Vec<&str> = i
+        .runs
+        .iter()
+        .filter(|r| r.page == last)
+        .map(|r| r.text.as_str())
+        .collect();
+    assert!(
+        !header.iter().any(|t| t.contains("Reel B001")),
+        "{header:?}"
+    );
+    assert!(
+        header.iter().any(|t| t.contains("Other files")),
+        "{header:?}"
+    );
+}
+
+#[test]
 fn dark_theme_compiles() {
     let mut r = sample_report();
     r.theme = luna_report::ReportTheme::Dark;
