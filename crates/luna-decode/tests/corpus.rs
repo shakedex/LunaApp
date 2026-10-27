@@ -570,3 +570,70 @@ fn proresraw_ronin4d_through_ffmpeg() {
         assert!(mean > *black as f64 + 50.0 && mean < 2000.0, "mean {mean}");
     }
 }
+
+/// ALEV III ARRIRAW in MXF (ALEXA Mini LF GBRG, ALEXA Mini BGGR) from the real
+/// probe through the verified decoder. The clips sit beside the CAMERA folder.
+#[test]
+fn arriraw_alev3_mxf_through_the_verified_decoder() {
+    for rel in [
+        "../new_cameras/minilf/F004C007_190925_MN99-arriraw.mxf",
+        "../new_cameras/mini/arriraw/M002C005_161207_R00H.mxf",
+    ] {
+        let Some(path) = corpus(rel) else {
+            continue;
+        };
+        let clip = files(Container::Mxf, &path);
+        let p = luna_formats::probe(&clip).unwrap();
+        assert_eq!(p.codec, Codec::ArriRaw, "{rel}");
+        let n = p.meta.frame_count.unwrap();
+        for r in decode_frames(&clip, &p, &[0, n / 2, n - 1], 640) {
+            let f = r.unwrap_or_else(|e| panic!("{rel}: {e}"));
+            let Decoded::Rgb16 {
+                width,
+                transfer,
+                gamut,
+                ref data,
+                ..
+            } = f.image
+            else {
+                panic!("expected LogC4 RGB")
+            };
+            assert!(width >= 640, "{rel}: {width}");
+            assert_eq!((transfer, gamut), (Transfer::LogC4, Gamut::ArriWideGamut4));
+            let mut g: Vec<u16> = data.iter().skip(1).step_by(3).copied().collect();
+            g.sort_unstable();
+            let (lo, hi) = (g[g.len() / 20], g[g.len() * 19 / 20]);
+            assert!(
+                hi - lo > 8_000 && hi < 64_000,
+                "{rel}: flat or clipped {lo} {hi}"
+            );
+        }
+    }
+}
+
+/// Atomos Ninja V ProRes RAW: coded 3872x2192, which FFmpeg only decodes with
+/// its own cropping off.
+#[cfg(windows)]
+#[test]
+fn proresraw_atomos_through_ffmpeg() {
+    let Some(path) = corpus("../new_cameras/atomos/FILMPLUS-ProResRaw-NinjaV-FX6.proresrawhq.MOV")
+    else {
+        return;
+    };
+    let ranges = common::mov_video_ranges(&path).unwrap();
+    assert_eq!(ranges.len(), 651);
+    let n = ranges.len() as u64;
+    let p = probe(
+        Codec::ProResRaw,
+        FrameIndex::Ranges(ranges),
+        Default::default(),
+    );
+    let clip = files(Container::QuickTime, &path);
+    for r in decode_frames(&clip, &p, &[0, n / 2, n - 1], 640) {
+        let f = r.unwrap();
+        let Decoded::Mosaic { black, .. } = &f.image else {
+            unreachable!()
+        };
+        assert!(mosaic_mean(&f) > *black as f64 + 50.0, "picture is black");
+    }
+}
