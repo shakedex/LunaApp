@@ -2,9 +2,9 @@
 //! time from the bundled-library folder. A development build has neither
 //! library, so it never checks for updates.
 //!
-//! Both libraries check GitHub once a day, show their own update window when
-//! they find a newer version, and verify its ed25519 signature before
-//! installing.
+//! Both libraries check GitHub at every launch and then once a day, show their
+//! own update window when they find a newer version, and verify its ed25519
+//! signature before installing.
 
 use std::sync::{Mutex, OnceLock};
 
@@ -20,7 +20,7 @@ pub const FEED_URL: &str = if cfg!(target_os = "macos") {
     "https://github.com/shakedex/LunaApp/releases/latest/download/appcast-windows.xml"
 };
 
-/// Seconds between automatic checks.
+/// Seconds between automatic checks while Luna stays open.
 pub const CHECK_INTERVAL: u32 = 86_400;
 
 /// What the update library tells Luna.

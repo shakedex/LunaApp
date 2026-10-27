@@ -67,6 +67,14 @@ impl WinSparkle {
             set(b"win_sparkle_set_shutdown_request_callback\0", shutdown)?;
             self.sym::<SetIntCallback>(b"win_sparkle_set_can_shutdown_callback\0")?(can_shutdown);
             self.sym::<VoidFn>(b"win_sparkle_init\0")?();
+            // WinSparkle checks at init only when a day has passed since its
+            // last check; otherwise Luna checks now, so a release is found at
+            // the next launch.
+            let last =
+                self.sym::<unsafe extern "C" fn() -> i64>(b"win_sparkle_get_last_check_time\0")?();
+            if !check_due(last, now(), CHECK_INTERVAL) {
+                self.sym::<VoidFn>(b"win_sparkle_check_update_without_ui\0")?();
+            }
         }
         Ok(())
     }
@@ -101,6 +109,18 @@ fn dll_path() -> Option<PathBuf> {
     Some(exe.parent()?.join("lib").join("WinSparkle.dll"))
 }
 
+/// Whether WinSparkle's own schedule checks at init. `last` is -1 before the
+/// first check.
+fn check_due(last: i64, now: i64, interval: u32) -> bool {
+    last < 0 || now >= last + i64::from(interval)
+}
+
+fn now() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs() as i64)
+}
+
 fn wide(s: &str) -> Vec<u16> {
     s.encode_utf16().chain(std::iter::once(0)).collect()
 }
@@ -129,6 +149,13 @@ unsafe extern "C" fn can_shutdown() -> c_int {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn launch_check_only_between_scheduled_checks() {
+        assert!(check_due(-1, 1_000, 86_400));
+        assert!(check_due(0, 86_400, 86_400));
+        assert!(!check_due(100_000, 100_600, 86_400));
+    }
 
     #[test]
     fn wide_strings_end_in_nul() {

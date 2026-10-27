@@ -51,7 +51,14 @@ int luna_sparkle_start(const char *framework_path, luna_sparkle_cb cb) {
         SEL init = NSSelectorFromString(@"initWithStartingUpdater:updaterDelegate:userDriverDelegate:");
         id (*send)(id, SEL, BOOL, id, id) = (id (*)(id, SEL, BOOL, id, id))objc_msgSend;
         g_controller = send([controller alloc], init, YES, g_delegate, nil);
-        return g_controller ? 1 : 0;
+        if (!g_controller) return 0;
+        // Sparkle's schedule checks once a day; check at every launch too.
+        // Sparkle ignores this while its own check is running.
+        id (*get)(id, SEL) = (id (*)(id, SEL))objc_msgSend;
+        id updater = get(g_controller, NSSelectorFromString(@"updater"));
+        void (*check)(id, SEL) = (void (*)(id, SEL))objc_msgSend;
+        check(updater, NSSelectorFromString(@"checkForUpdatesInBackground"));
+        return 1;
     }
 }
 

@@ -20,6 +20,7 @@ Decoders: luna-decoders `8822d47`.
 - **New:** Sony XAVC H Intra (HEVC in MXF) from the BURANO.
 - **New:** `.ari` and `.arx` frame sequences are one clip each, with timecode, recording
   date, lens, T-stop, ND, white balance and EI from the camera header.
+- **Changed:** Luna checks for updates every time it opens, not only once a day.
 - **Changed:** Sony VENICE lenses are named from their /i serial (for example "Cooke
   S7/i 85mm") instead of showing the serial.
 - **Fixed:** Sony VENICE X-OCN XT clips had blown-out thumbnails.
