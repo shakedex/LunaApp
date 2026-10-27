@@ -219,7 +219,16 @@ fn alexa35_arricore() {
     assert!(p.warnings.is_empty(), "{:?}", p.warnings);
 }
 
-fn mini_lf(lens: &str, focal: &str, wb: &str, date: &str, tc_frames: u64, count: u64) -> ClipMeta {
+/// Serial and ND as ARRI's `art-cmd export` reads them for these clips.
+fn mini_lf(
+    lens: &str,
+    focal: &str,
+    wb: &str,
+    nd: &str,
+    date: &str,
+    tc_frames: u64,
+    count: u64,
+) -> ClipMeta {
     ClipMeta {
         slate: Default::default(),
         recording_date: s(date),
@@ -230,14 +239,14 @@ fn mini_lf(lens: &str, focal: &str, wb: &str, date: &str, tc_frames: u64, count:
         height: Some(2160),
         camera_make: s("ARRI"),
         camera_model: s("ALEXA Mini LF"),
-        camera_serial: None,
+        camera_serial: s("30141"),
         lens: s(lens),
         focal_length: s(focal),
         stop: None,
         iso: s("800"),
         shutter: s("172.8°"),
         white_balance: s(wb),
-        nd: None,
+        nd: s(nd),
         sensor_fps: fps(24, 1),
         audio: pcm(5),
         embedded_reel: s("F003MN99"),
@@ -255,6 +264,7 @@ fn alexa_mini_lf_prores_4444() {
                 "Zeiss CZ.2 70-200 01",
                 "200 mm",
                 "5600 K",
+                "1.2",
                 "2019-09-25 10:00:20",
                 61_579,
                 251,
@@ -268,6 +278,7 @@ fn alexa_mini_lf_prores_4444() {
                 "ARRI SP47 T1.8",
                 "47 mm",
                 "6490 K",
+                "1.2",
                 "2019-09-25 10:18:07",
                 87_186,
                 338,
@@ -282,6 +293,7 @@ fn alexa_mini_lf_prores_4444() {
                 "Zeiss MA100 T1.9",
                 "100 mm",
                 "6490 K",
+                "1.8",
                 "2019-09-25 10:34:23",
                 110_619,
                 247,

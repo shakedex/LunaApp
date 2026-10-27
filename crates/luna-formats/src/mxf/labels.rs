@@ -29,6 +29,10 @@ pub(crate) fn codec(coding: Option<&Ul>, container: Option<&Ul>, element: Option
             }
             return Codec::Other("ProRes".into());
         }
+        // ARRI's pre-standard ARRIRAW label (ALEXA Mini LF, 2019): 0f 01 02 02 01 01 01
+        if at(c, 8, &[0x0f, 0x01, 0x02, 0x02, 0x01, 0x01, 0x01]) {
+            return Codec::ArriRaw;
+        }
         // ARRICORE (ARRI-registered, …04 01 02 02 03 0a …)
         if at(c, 8, &[0x04, 0x01, 0x02, 0x02, 0x03, 0x0a]) {
             return Codec::ArriCore;
@@ -178,6 +182,8 @@ mod tests {
         assert_eq!(codec(Some(&raw), Some(&cont), None), Codec::ArriRaw);
         let core = ul("060e2b340401010d04010202030a0101");
         assert_eq!(codec(Some(&core), None, None), Codec::ArriCore);
+        let mini_lf = ul("060e2b340401010d0f01020201010100");
+        assert_eq!(codec(Some(&mini_lf), None, None), Codec::ArriRaw);
     }
 
     #[test]

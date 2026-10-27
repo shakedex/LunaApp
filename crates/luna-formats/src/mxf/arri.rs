@@ -157,6 +157,9 @@ pub(crate) struct LegacyHeader {
     pub lens_model: Option<String>,
     pub reel_name: Option<String>,
     pub clip_name: Option<String>,
+    pub camera_serial: Option<u32>,
+    /// ND density × 1000.
+    pub nd_1000: Option<u16>,
 }
 
 const LEGACY_MAGIC: [u8; 8] = [b'A', b'R', b'R', b'I', 0x12, 0x34, 0x56, 0x78];
@@ -174,6 +177,8 @@ pub(crate) fn legacy_header(md: &Metadata) -> Option<LegacyHeader> {
 
 /// Offsets in the 4 KiB header (relative to `ARRI`), identified against an
 /// ALEXA Mini LF clip whose JSON-era counterparts and clip name confirm them.
+/// Serial (0x170) and ND (0x38a) were matched against ARRI's `art-cmd` export
+/// of an ALEXA Mini LF ARRIRAW clip.
 pub(crate) fn parse_legacy(h: &[u8]) -> LegacyHeader {
     let u32_at = |o: usize| {
         h.get(o..o + 4)
@@ -205,6 +210,11 @@ pub(crate) fn parse_legacy(h: &[u8]) -> LegacyHeader {
         lens_model: str_at(0x398, 32),
         reel_name: str_at(0x4f8, 32),
         clip_name: str_at(0x698, 32),
+        camera_serial: u32_at(0x170),
+        nd_1000: h
+            .get(0x38a..0x38c)
+            .map(|b| u16::from_le_bytes([b[0], b[1]]))
+            .filter(|&n| n != u16::MAX),
     }
 }
 
@@ -262,5 +272,16 @@ mod tests {
         let l = parse_legacy(&h);
         assert_eq!(l.exposure_index, Some(800));
         assert_eq!(l.lens_model, None);
+        assert_eq!((l.camera_serial, l.nd_1000), (None, None));
+    }
+
+    #[test]
+    fn legacy_header_serial_and_nd() {
+        let mut h = LEGACY_MAGIC.to_vec();
+        h.resize(0x1000, 0xff);
+        h[0x170..0x174].copy_from_slice(&30141u32.to_le_bytes());
+        h[0x38a..0x38c].copy_from_slice(&600u16.to_le_bytes());
+        let l = parse_legacy(&h);
+        assert_eq!((l.camera_serial, l.nd_1000), (Some(30141), Some(600)));
     }
 }

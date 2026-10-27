@@ -140,6 +140,11 @@ pub(crate) fn is_picture(k: &Ul, track_number: Option<u32>) -> bool {
     if !is_essence_element(k) {
         return false;
     }
+    // ARRI's pre-standard ARRIRAW element (ALEXA Mini LF, 2019): its track
+    // bytes (01 01 01 00) don't match the descriptor's track number.
+    if k.0[8..15] == [0x0f, 0x01, 0x03, 0x01, 0x01, 0x01, 0x01] {
+        return true;
+    }
     match track_number {
         Some(t) if t != 0 => k.0[12..16] == t.to_be_bytes(),
         _ => k.0[8..12] == [0x0d, 0x01, 0x03, 0x01] && matches!(k.0[12], 0x05 | 0x15),

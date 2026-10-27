@@ -650,9 +650,15 @@ fn arri_meta(
             l.camera_model
                 .map(|m| m.strip_prefix("ARRI ").unwrap_or(&m).to_string()),
         );
+        set(&mut v.serial, l.camera_serial.map(|s| s.to_string()));
         set(&mut v.lens, l.lens_model);
         set(&mut v.reel, l.reel_name);
         set(&mut v.camera_id, l.camera_index);
+        set(
+            &mut v.nd,
+            l.nd_1000
+                .and_then(|n| display::nd_density(n as f64 / 1000.0)),
+        );
         set(
             &mut v.sensor_fps,
             l.sensor_fps_1000.and_then(|f| Rational::reduced(f, 1000)),
