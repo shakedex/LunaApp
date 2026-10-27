@@ -407,7 +407,7 @@ fn hevc_422_decodes_when_the_hevc_extension_offers_it() {
 /// Sony XAVC H Intra (HEVC RExt 4:2:2 10-bit, 8K) from MXF through the
 /// platform decoder, from the real probe's frame index. The clip sits beside
 /// the CAMERA folder.
-#[cfg(windows)]
+#[cfg(any(windows, target_os = "macos"))]
 #[test]
 fn hevc_xavc_h_intra_mxf() {
     let rel = "../new_cameras/burano/8.6K XAVC H-I HQ SCENE 4.MXF";
