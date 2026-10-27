@@ -306,7 +306,7 @@ checksum = "d3fb67a6e08acf24fdeccbac2cb6ac4305825bd1f117462e0e6f2f193345ad56"
 [[package]]
 name = "arri"
 version = "0.1.0"
-source = "git+https://github.com/shakedex/luna-decoders?rev=d8d0c215be0eeba96bd56c1a76ca7a67411fb7e0#d8d0c215be0eeba96bd56c1a76ca7a67411fb7e0"
+source = "git+https://github.com/shakedex/luna-decoders?rev=79e006c7782a0a401f9a2c1736911adff96a9ee7#79e006c7782a0a401f9a2c1736911adff96a9ee7"
 dependencies = [
  "oxideav-jpegxs",
  "tracing",
@@ -747,7 +747,7 @@ dependencies = [
 [[package]]
 name = "braw"
 version = "0.1.0"
-source = "git+https://github.com/shakedex/luna-decoders?rev=d8d0c215be0eeba96bd56c1a76ca7a67411fb7e0#d8d0c215be0eeba96bd56c1a76ca7a67411fb7e0"
+source = "git+https://github.com/shakedex/luna-decoders?rev=79e006c7782a0a401f9a2c1736911adff96a9ee7#79e006c7782a0a401f9a2c1736911adff96a9ee7"
 dependencies = [
  "cc",
  "tracing",
@@ -1231,7 +1231,7 @@ checksum = "790eea4361631c5e7d22598ecd5723ff611904e3344ce8720784c93e3d83d40b"
 [[package]]
 name = "crm"
 version = "0.1.0"
-source = "git+https://github.com/shakedex/luna-decoders?rev=d8d0c215be0eeba96bd56c1a76ca7a67411fb7e0#d8d0c215be0eeba96bd56c1a76ca7a67411fb7e0"
+source = "git+https://github.com/shakedex/luna-decoders?rev=79e006c7782a0a401f9a2c1736911adff96a9ee7#79e006c7782a0a401f9a2c1736911adff96a9ee7"
 dependencies = [
  "tracing",
 ]
@@ -5013,7 +5013,7 @@ checksum = "3d595e54a326bc53c1c197b32d295e14b169e3cfeaa8dc82b529f947fba6bcf5"
 [[package]]
 name = "proresraw-ffmpeg"
 version = "0.1.0"
-source = "git+https://github.com/shakedex/luna-decoders?rev=d8d0c215be0eeba96bd56c1a76ca7a67411fb7e0#d8d0c215be0eeba96bd56c1a76ca7a67411fb7e0"
+source = "git+https://github.com/shakedex/luna-decoders?rev=79e006c7782a0a401f9a2c1736911adff96a9ee7#79e006c7782a0a401f9a2c1736911adff96a9ee7"
 dependencies = [
  "libloading 0.9.0",
  "tracing",
@@ -8348,7 +8348,7 @@ checksum = "9440ea3e5aeabb0ac63af70daf835274065238cdd0cec83418f417eae38bacee"
 [[package]]
 name = "xocn"
 version = "0.1.0"
-source = "git+https://github.com/shakedex/luna-decoders?rev=d8d0c215be0eeba96bd56c1a76ca7a67411fb7e0#d8d0c215be0eeba96bd56c1a76ca7a67411fb7e0"
+source = "git+https://github.com/shakedex/luna-decoders?rev=79e006c7782a0a401f9a2c1736911adff96a9ee7#79e006c7782a0a401f9a2c1736911adff96a9ee7"
 dependencies = [
  "tracing",
 ]
