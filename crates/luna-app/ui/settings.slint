@@ -34,6 +34,7 @@ export global SettingsState {
     in property <bool> can-save;
     in property <bool> report-dark;
     in property <bool> copy-to-source;
+    in property <bool> show-problems;
     in property <string> save-error;
     in property <[Component]> credits;
     // Luna's version, and whether this build can update itself (packaged
@@ -57,6 +58,7 @@ export global SettingsState {
     callback cancel();
     callback set-report-dark(bool);
     callback set-copy-to-source(bool);
+    callback set-show-problems(bool);
 }
 
 component Rule inherits Rectangle {
@@ -302,6 +304,17 @@ export component SettingsView inherits Rectangle {
                             checked: SettingsState.copy-to-source;
                             toggled(on) => {
                                 SettingsState.set-copy-to-source(on);
+                            }
+                        }
+                    }
+
+                    HorizontalLayout {
+                        padding-left: 90px;
+                        Checkbox {
+                            text: "Show problems in reports";
+                            checked: SettingsState.show-problems;
+                            toggled(on) => {
+                                SettingsState.set-show-problems(on);
                             }
                         }
                     }

@@ -72,6 +72,7 @@ pub fn empty_report() -> Report {
         cameras: vec![],
         not_included: vec![],
         unreadable: vec![],
+        show_problems: true,
     }
 }
 

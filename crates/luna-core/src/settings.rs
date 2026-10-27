@@ -26,6 +26,8 @@ pub struct Settings {
     pub report_theme: ReportTheme,
     /// Also writes each report to `Luna` at the root of the source drive.
     pub copy_to_source: bool,
+    /// Prints clip warnings and unreadable files in the report.
+    pub show_problems: bool,
 }
 
 impl Default for Settings {
@@ -39,6 +41,7 @@ impl Default for Settings {
             output_dir: default_output_dir(),
             report_theme: ReportTheme::Light,
             copy_to_source: false,
+            show_problems: false,
         }
     }
 }
@@ -108,6 +111,7 @@ struct SettingsFile {
     custom: Vec<CustomEntry>,
     report_theme: ReportTheme,
     copy_to_source: bool,
+    show_problems: bool,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]
@@ -166,6 +170,7 @@ impl SettingsStore {
                 .unwrap_or_else(default_output_dir),
             report_theme: file.report_theme,
             copy_to_source: file.copy_to_source,
+            show_problems: file.show_problems,
         }
     }
 
@@ -195,6 +200,7 @@ impl SettingsStore {
                 .collect(),
             report_theme: settings.report_theme,
             copy_to_source: settings.copy_to_source,
+            show_problems: settings.show_problems,
         };
         let text = toml::to_string(&file).map_err(io::Error::other)?;
         let tmp = self.dir.join(format!("{FILE}.tmp"));
@@ -262,6 +268,7 @@ mod tests {
             output_dir: PathBuf::from("/reports/here"),
             report_theme: ReportTheme::Dark,
             copy_to_source: true,
+            show_problems: true,
         }
     }
 

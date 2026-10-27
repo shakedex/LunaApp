@@ -646,6 +646,7 @@ pub fn build_report(
         cameras,
         not_included: scanned.not_included,
         unreadable: scanned.unreadable,
+        show_problems: settings.show_problems,
     }
 }
 

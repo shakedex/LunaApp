@@ -453,6 +453,18 @@ impl App {
             .set_copy_to_source(self.settings.borrow().copy_to_source);
     }
 
+    /// Problems in reports save at once, like the source-drive copy.
+    fn set_show_problems(&self, on: bool) {
+        let mut settings = self.settings.borrow().clone();
+        settings.show_problems = on;
+        match self.store.save(&settings) {
+            Ok(()) => *self.settings.borrow_mut() = settings,
+            Err(e) => tracing::error!("Couldn't save the problems setting: {e}"),
+        }
+        self.settings_state()
+            .set_show_problems(self.settings.borrow().show_problems);
+    }
+
     fn window_event(&self, event: &WindowEvent) {
         let accepts = self.flow.lock().expect("flow lock").accepts_source();
         match event {
@@ -711,6 +723,10 @@ impl App {
             let f = with_app(self, |app, on: bool| app.set_copy_to_source(on));
             move |on| f(on)
         });
+        s.on_set_show_problems({
+            let f = with_app(self, |app, on: bool| app.set_show_problems(on));
+            move |on| f(on)
+        });
         s.on_label_edited({
             let f = with_app(self, |app, (i, t): (i32, SharedString)| {
                 app.editor.borrow_mut().set_label(i as usize, &t);
@@ -788,6 +804,7 @@ impl App {
         }
         s.set_report_dark(self.settings.borrow().report_theme == ReportTheme::Dark);
         s.set_copy_to_source(self.settings.borrow().copy_to_source);
+        s.set_show_problems(self.settings.borrow().show_problems);
         self.fill_logo();
         self.fill_fields();
         self.refresh_dirty();

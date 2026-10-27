@@ -27,6 +27,7 @@ pub(crate) struct View {
     pub generated_at: String,
     pub luna_version: String,
     pub totals: Totals,
+    pub show_problems: bool,
     pub total_size: String,
     pub cameras: Vec<CameraView>,
     pub not_included: Vec<String>,
@@ -122,7 +123,7 @@ pub(crate) fn build(report: &Report, image_ref: &mut dyn FnMut(ImageRef) -> Stri
                 cards: camera
                     .cards
                     .iter()
-                    .map(|card| card_view(card, image_ref))
+                    .map(|card| card_view(card, report.show_problems, image_ref))
                     .collect(),
             }
         })
@@ -147,12 +148,14 @@ pub(crate) fn build(report: &Report, image_ref: &mut dyn FnMut(ImageRef) -> Stri
         generated_at: report.generated_at.clone(),
         luna_version: report.luna_version.clone(),
         totals,
+        show_problems: report.show_problems,
         total_size: format_bytes(totals.bytes),
         cameras,
         not_included: report.not_included.clone(),
         unreadable: report
             .unreadable
             .iter()
+            .filter(|_| report.show_problems)
             .map(|u| UnreadableView {
                 kind: u.kind.label(),
                 path: u.path.clone(),
@@ -162,7 +165,11 @@ pub(crate) fn build(report: &Report, image_ref: &mut dyn FnMut(ImageRef) -> Stri
     }
 }
 
-fn card_view(card: &Card, image_ref: &mut dyn FnMut(ImageRef) -> String) -> CardView {
+fn card_view(
+    card: &Card,
+    show_problems: bool,
+    image_ref: &mut dyn FnMut(ImageRef) -> String,
+) -> CardView {
     CardView {
         reel: card.reel.clone(),
         summary: format!(
@@ -173,12 +180,16 @@ fn card_view(card: &Card, image_ref: &mut dyn FnMut(ImageRef) -> String) -> Card
         clips: card
             .clips
             .iter()
-            .map(|clip| clip_view(clip, image_ref))
+            .map(|clip| clip_view(clip, show_problems, image_ref))
             .collect(),
     }
 }
 
-fn clip_view(clip: &Clip, image_ref: &mut dyn FnMut(ImageRef) -> String) -> ClipView {
+fn clip_view(
+    clip: &Clip,
+    show_problems: bool,
+    image_ref: &mut dyn FnMut(ImageRef) -> String,
+) -> ClipView {
     let f = &clip.fields;
     let off_speed = is_off_speed(f);
     let fps = match (&f.fps, &f.sensor_fps) {
@@ -239,8 +250,12 @@ fn clip_view(clip: &Clip, image_ref: &mut dyn FnMut(ImageRef) -> String) -> Clip
             })
             .collect(),
         identity: guessed_identity(clip),
-        warnings: warnings(clip),
-        problem: clip.has_problems(),
+        warnings: if show_problems {
+            warnings(clip)
+        } else {
+            Vec::new()
+        },
+        problem: show_problems && clip.has_problems(),
         off_speed,
     }
 }

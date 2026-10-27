@@ -140,3 +140,27 @@ fn slate_shows_only_when_the_file_has_it() {
     );
     assert_eq!(h.matches("<dt>Slate</dt>").count(), 3);
 }
+
+#[test]
+fn hidden_problems_leave_the_report() {
+    let mut r = sample_report();
+    r.show_problems = false;
+    let h = html(&r);
+    for gone in [
+        "Need attention",
+        "Could not be decoded",
+        "Worker crashed while decoding",
+        "Unreadable",
+        "Access denied",
+        "class=\"clip problem\"",
+    ] {
+        assert!(!h.contains(gone), "still has {gone:?}");
+    }
+    for kept in [
+        "No image",
+        "Reel named from the file name",
+        "A001/notes.txt",
+    ] {
+        assert!(h.contains(kept), "missing {kept:?}");
+    }
+}

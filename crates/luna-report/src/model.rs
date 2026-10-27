@@ -95,6 +95,9 @@ pub struct Report {
     /// Paths relative to the source root.
     pub not_included: Vec<String>,
     pub unreadable: Vec<Unreadable>,
+    /// Prints warnings, the "Need attention" count and unreadable files.
+    /// Off, they stay in the logs and the app.
+    pub show_problems: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

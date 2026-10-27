@@ -568,6 +568,7 @@ fn sample_report(frames_dir: &Path, logo: Vec<u8>) -> Report {
         ],
         not_included: vec![],
         unreadable: vec![],
+        show_problems: false,
     }
 }
 

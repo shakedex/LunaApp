@@ -136,3 +136,19 @@ fn dark_theme_compiles() {
     r.theme = luna_report::ReportTheme::Dark;
     assert!(write_pdf(&r).unwrap().starts_with(b"%PDF-"));
 }
+
+#[test]
+fn hidden_problems_leave_the_pdf() {
+    let mut r = sample_report();
+    r.show_problems = false;
+    let i = inspect_pdf(&r).unwrap();
+    for gone in [
+        "Need attention",
+        "Could not be decoded",
+        "Unreadable",
+        "Access denied",
+    ] {
+        assert!(!i.text.contains(gone), "still has {gone:?}");
+    }
+    assert!(i.text.contains("A001/notes.txt"));
+}

@@ -148,7 +148,7 @@
   <div class="stat"><strong>{{ v.totals.cards }}</strong><span>{% if v.totals.cards == 1 %}Card{% else %}Cards{% endif %}</span></div>
   <div class="stat"><strong>{{ v.totals.clips }}</strong><span>{% if v.totals.clips == 1 %}Clip{% else %}Clips{% endif %}</span></div>
   <div class="stat"><strong>{{ v.total_size }}</strong><span>Data</span></div>
-  <div class="stat{% if v.totals.clips_with_problems > 0 %} problem{% endif %}"><strong>{{ v.totals.clips_with_problems }}</strong><span>Need attention</span></div>
+  {% if v.show_problems %}<div class="stat{% if v.totals.clips_with_problems > 0 %} problem{% endif %}"><strong>{{ v.totals.clips_with_problems }}</strong><span>Need attention</span></div>{% endif %}
   <div class="stat source"><strong>{{ v.source_root }}</strong><span>Source</span></div>
 </section>
 

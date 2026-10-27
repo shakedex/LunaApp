@@ -261,6 +261,7 @@ fn every_report_warning_has_a_warn_line() {
         "--output",
         s(out_dir.path()),
         "--json",
+        "--problems",
     ]);
     // The JSON output only counts problems; the warnings are in the HTML report.
     let html = std::fs::read_to_string(json(&out)["files"]["html"].as_str().unwrap()).unwrap();

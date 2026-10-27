@@ -66,6 +66,9 @@ pub struct ReportArgs {
     pub name: Option<String>,
     #[arg(long, value_enum)]
     pub theme: Option<Theme>,
+    /// Print clip warnings and unreadable files in the report.
+    #[arg(long)]
+    pub problems: bool,
     /// Print the result as JSON.
     #[arg(long)]
     pub json: bool,
@@ -130,6 +133,7 @@ impl ReportArgs {
                 Theme::Dark => ReportTheme::Dark,
             };
         }
+        settings.show_problems |= self.problems;
         Ok(RunRequest {
             sources: self.sources,
             cameras: self.cameras,
@@ -232,8 +236,20 @@ mod tests {
     #[test]
     fn parses_full_command_line() {
         let cli = Cli::try_parse_from([
-            "luna", "report", "E:/A", "F:/B", "--camera", "A", "--theme", "dark", "--json",
-            "--name", "A Cam", "--output", "D:/Out",
+            "luna",
+            "report",
+            "E:/A",
+            "F:/B",
+            "--camera",
+            "A",
+            "--theme",
+            "dark",
+            "--json",
+            "--name",
+            "A Cam",
+            "--output",
+            "D:/Out",
+            "--problems",
         ])
         .unwrap();
         let Command::Report(a) = cli.command else {
@@ -245,6 +261,7 @@ mod tests {
         assert!(a.json);
         let req = a.into_request(&Settings::default()).unwrap();
         assert_eq!(req.settings.report_theme, ReportTheme::Dark);
+        assert!(req.settings.show_problems);
         assert_eq!(req.name.as_deref(), Some("A Cam"));
         assert_eq!(req.settings.output_dir, std::path::PathBuf::from("D:/Out"));
         assert_eq!(req.cameras, ["A"]);

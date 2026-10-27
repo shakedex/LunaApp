@@ -52,6 +52,9 @@ pub struct StartParams {
     pub name: Option<String>,
     /// "light" or "dark".
     pub theme: Option<String>,
+    /// Print clip warnings and unreadable files in the report (default: the user's setting).
+    #[serde(default)]
+    pub problems: bool,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -148,6 +151,7 @@ result."
             output: p.output.map(PathBuf::from),
             name: p.name,
             theme,
+            problems: p.problems,
             json: true,
         };
         match args.into_request(&Settings::load()) {

@@ -156,22 +156,27 @@
   linebreak()
   text(size: 6.8pt, fill: graphite, label)
 }
+#let stats = (
+  stat(str(d.totals.cameras), if d.totals.cameras == 1 { "Camera" } else { "Cameras" }),
+  stat(str(d.totals.cards), if d.totals.cards == 1 { "Card" } else { "Cards" }),
+  stat(str(d.totals.clips), if d.totals.clips == 1 { "Clip" } else { "Clips" }),
+  stat(d.total_size, "Data"),
+)
+#if d.show_problems {
+  stats.push(stat(
+    str(d.totals.clips_with_problems),
+    "Need attention",
+    tone: if d.totals.clips_with_problems > 0 { problem } else { ink },
+  ))
+}
 #block(
   width: 100%,
   stroke: (top: 0.8pt + ink, bottom: 0.5pt + hairline),
   inset: (y: 6pt),
   grid(
-    columns: (auto, auto, auto, auto, auto, 1fr),
+    columns: (auto,) * stats.len() + (1fr,),
     column-gutter: 22pt,
-    stat(str(d.totals.cameras), if d.totals.cameras == 1 { "Camera" } else { "Cameras" }),
-    stat(str(d.totals.cards), if d.totals.cards == 1 { "Card" } else { "Cards" }),
-    stat(str(d.totals.clips), if d.totals.clips == 1 { "Clip" } else { "Clips" }),
-    stat(d.total_size, "Data"),
-    stat(
-      str(d.totals.clips_with_problems),
-      "Need attention",
-      tone: if d.totals.clips_with_problems > 0 { problem } else { ink },
-    ),
+    ..stats,
     align(right, {
       text(weight: "medium", d.source_root)
       linebreak()
