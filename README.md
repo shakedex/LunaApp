@@ -86,6 +86,14 @@ report is also written to `Luna\<report name>\` at the root of the source
 drive (`D:\Luna\…`, `/Volumes/<drive>/Luna/…`), unless the report destination
 is already on that drive.
 
+Clip warnings and unreadable files stay out of the report unless **Show problems
+in reports** is on; the results screen and the run logs always list them.
+
+**Colour** in Settings sets the thumbnails: Rec.709, None (the camera's log as
+recorded) or a `.cube` LUT, with the last five LUTs in its menu. **Camera look**
+uses the LUT a Blackmagic RAW clip was recorded with when the camera applied it
+("Apply LUT in File").
+
 ## Development
 
 Building Luna, releasing and the repo layout are in

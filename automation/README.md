@@ -33,6 +33,10 @@ luna-cli report <SOURCE>... [options]
 | `--output <DIR>` | Folder the report folder is written into |
 | `--name <TEXT>` | Report folder name (default: production name and run date) |
 | `--theme <light\|dark>` | |
+| `--colour <rec709\|none\|lut>` | Thumbnail colour: Rec.709, the camera's log as recorded, or a LUT |
+| `--lut <PATH>` | A `.cube` LUT for every thumbnail (sets `--colour lut`) |
+| `--camera-look` | Use the LUT a clip carries, where the camera applied one (Blackmagic RAW) |
+| `--problems` | Print clip warnings, the "Need attention" count and unreadable files in the report |
 | `--json` | Print the result as JSON (`luna-cli` only) |
 
 Options apply to that run only; saved Settings are never changed. Anything not
@@ -63,7 +67,7 @@ On failure: `{"ok": false, "error": "…", "code": 3}`, and no files are written
 | 1 | Report written, some clips need attention |
 | 2 | Bad arguments |
 | 3 | A source folder can't be read |
-| 4 | Report failed (output not writable, workers failed, no matching camera) |
+| 4 | Report failed (output not writable, workers failed, no matching camera, LUT can't be read) |
 | 5 | Cancelled (Ctrl+C) |
 
 ## `inspect`
