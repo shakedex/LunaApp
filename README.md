@@ -41,10 +41,10 @@ camera and reel, with its metadata and a strip of three stills.
 
 | | |
 | --- | --- |
-| **Every raw, read natively** | ARRIRAW, ARRICORE, X-OCN, R3D, BRAW, Cinema RAW Light, N-RAW, ProRes RAW and more |
+| **Popular camera formats** | ARRIRAW, ARRICORE, X-OCN, R3D, BRAW, Cinema RAW Light, N-RAW, ProRes RAW and more |
 | **Paper or dark** | PDF, HTML and CSV, in the Paper or Dark theme |
-| **Drop the whole drive** | A day's worth of cards in one go, sorted by camera and reel |
-| **Your logo, your fields** | Company logo and your own production fields on every page |
+| **Smart Sorting** | Drop a whole drive. Every card is sorted by camera and reel from the clips themselves |
+| **Your Branding** | Logo, production, company and your own fields like shoot day or location |
 | **Rec.709, log or your LUT** | RAW to Rec.709, bring your own LUT, or use the embedded LUT with Camera Look on supported cameras¹ |
 | **Script it** | `luna-cli` makes reports from a terminal or a script, and over MCP for AI agents ([guide](automation/README.md)) |
 

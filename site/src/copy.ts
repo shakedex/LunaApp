@@ -74,8 +74,7 @@ export const copy = {
 
   features: {
     title: "Features",
-    note: { text: "* New formats and codecs arrive with updates. Missing one?", link: "Ask on GitHub" },
-    /** Numbered notes under the * note: which cameras a feature covers. */
+    /** Numbered notes under the grid: which cameras a feature covers. */
     notes: ["¹ Camera Look: Blackmagic RAW."],
     script: {
       title: "Script it",
@@ -85,18 +84,26 @@ export const copy = {
     items: [
       {
         icon: "aperture",
-        title: "Every raw, read natively",
-        text: "ARRIRAW, ARRICORE, X-OCN, R3D, BRAW, Cinema RAW Light, N-RAW, ProRes RAW and more*",
+        title: "Popular camera formats",
+        text: "ARRIRAW, ARRICORE, X-OCN, R3D, BRAW, Cinema RAW Light, N-RAW, ProRes RAW and more",
       },
       { icon: "file", title: "Paper or dark", text: "PDF, HTML and CSV, in the Paper or Dark theme." },
-      { icon: "drives", title: "Drop the whole drive", text: "A day's worth of cards in one go, sorted by camera and reel." },
-      { icon: "card", title: "Your logo, your fields", text: "Company logo and your own production fields on every page." },
+      {
+        icon: "drives",
+        title: "Smart Sorting",
+        text: "Drop a whole drive. Every card is sorted by camera and reel from the clips themselves.",
+      },
+      {
+        icon: "card",
+        title: "Your Branding",
+        text: "Logo, production, company and your own fields like shoot day or location.",
+      },
       {
         icon: "palette",
         title: "Rec.709, log or your LUT",
         text: "RAW to Rec.709, bring your own LUT, or use the embedded LUT with Camera Look on supported cameras.¹",
       },
-      { icon: "desktop", title: "Windows and macOS, free", text: "Every format reads on both. MIT licence." },
+      { icon: "desktop", title: "Works on Windows and macOS", text: "Free forever, no subscriptions." },
     ],
   },
 

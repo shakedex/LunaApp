@@ -1,5 +1,5 @@
 ---
-import { copy, REPO_URL } from "../copy";
+import { copy } from "../copy";
 import terminal from "@phosphor-icons/core/assets/regular/terminal-window.svg?raw";
 import aperture from "@phosphor-icons/core/assets/regular/aperture.svg?raw";
 import file from "@phosphor-icons/core/assets/regular/file-text.svg?raw";
@@ -54,8 +54,7 @@ const f = copy.features;
         ))
       }
     </ul>
-    <p class="note">{f.note.text} <a href={`${REPO_URL}/issues`}>{f.note.link}</a></p>
-    {f.notes.map((n) => <p class="note more">{n}</p>)}
+    {f.notes.map((n) => <p class="note">{n}</p>)}
   </div>
 </section>
 
@@ -138,17 +137,8 @@ const f = copy.features;
     color: var(--quiet);
     max-width: none;
   }
-  .note.more {
+  .note + .note {
     margin-top: 4px;
-  }
-  .note a {
-    color: var(--text);
-    text-decoration: underline;
-    text-decoration-color: var(--line-strong);
-    text-underline-offset: 4px;
-  }
-  .note a:hover {
-    text-decoration-color: var(--text);
   }
 
   /* The wide cell: the commands themselves, as typed. */
