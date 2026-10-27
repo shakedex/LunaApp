@@ -10,7 +10,7 @@
 //! Maths is in `f64`; the renderer samples these into tables, so speed here
 //! does not matter.
 
-use luna_formats::Transfer;
+use luna_formats::{Gamut, Transfer};
 
 /// Code value (full-range fraction) → scene-linear, 18% grey = 0.18.
 ///
@@ -36,7 +36,6 @@ pub fn decode(t: Transfer, code: f64) -> f64 {
 }
 
 /// Scene-linear (18% grey = 0.18) → code value; the inverse of [`decode`].
-#[cfg_attr(not(test), allow(dead_code))]
 pub fn encode(t: Transfer, x: f64) -> f64 {
     match t {
         Transfer::LogC3 => logc3::encode(x),
@@ -53,6 +52,38 @@ pub fn encode(t: Transfer, x: f64) -> f64 {
         Transfer::Pq => pq_inverse_eotf(x / PQ_NITS_TO_SCENE),
         Transfer::Linear => x,
     }
+}
+
+/// The gamut a camera log curve is recorded in; `None` for display and
+/// linear transfers.
+pub fn native_gamut(t: Transfer) -> Option<Gamut> {
+    Some(match t {
+        Transfer::LogC3 => Gamut::ArriWideGamut3,
+        Transfer::LogC4 => Gamut::ArriWideGamut4,
+        Transfer::SLog3 => Gamut::SGamut3Cine,
+        Transfer::CanonLog2 | Transfer::CanonLog3 => Gamut::CinemaGamut,
+        Transfer::VLog => Gamut::VGamut,
+        Transfer::DLog => Gamut::DGamut,
+        Transfer::BmdFilmGen5 => Gamut::BmdWideGamutGen5,
+        Transfer::Log3G10 => Gamut::RedWideGamutRgb,
+        Transfer::Rec709 | Transfer::Hlg | Transfer::Pq | Transfer::Linear => return None,
+    })
+}
+
+/// The log curve a camera gamut is recorded with (Canon: Canon Log 2, the
+/// curve Canon develops its raw to); `None` for display gamuts.
+pub fn native_log(g: Gamut) -> Option<Transfer> {
+    Some(match g {
+        Gamut::ArriWideGamut3 => Transfer::LogC3,
+        Gamut::ArriWideGamut4 => Transfer::LogC4,
+        Gamut::SGamut3 | Gamut::SGamut3Cine => Transfer::SLog3,
+        Gamut::CinemaGamut => Transfer::CanonLog2,
+        Gamut::VGamut => Transfer::VLog,
+        Gamut::DGamut => Transfer::DLog,
+        Gamut::BmdWideGamutGen5 => Transfer::BmdFilmGen5,
+        Gamut::RedWideGamutRgb => Transfer::Log3G10,
+        Gamut::Rec709 | Gamut::Rec2020 => return None,
+    })
 }
 
 /// The scene-linear value a code value stands for; the renderer's entry point.

@@ -51,6 +51,28 @@ pub struct Rendered {
     pub image: Rgb8,
     /// True when the frame's transfer function was unknown and it is shown as decoded.
     pub transform_unknown: bool,
+    /// What was actually applied; [`Applied::Rec709`] when the camera signal
+    /// couldn't be worked out for a non-Rec.709 choice.
+    pub applied: Applied,
+}
+
+/// How a thumbnail is coloured.
+#[derive(Debug, Clone, Copy)]
+pub enum Colour<'a> {
+    /// Luna's own rendering to Rec.709.
+    Rec709,
+    /// The camera's own signal (its log curve in its gamut), shown as is.
+    CameraLog,
+    /// The camera signal through a LUT whose output is Rec.709 signal.
+    Lut(&'a Lut),
+}
+
+/// What [`render_with`] applied.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Applied {
+    Rec709,
+    CameraLog,
+    Lut,
 }
 
 /// JPEG quality for report thumbnails.
@@ -138,6 +160,26 @@ pub fn luma_stats(image: &Rgb8) -> LumaStats {
 ///
 /// A frame whose buffers are shorter than its size promises renders black.
 pub fn render(frame: &Frame, max_width: u32, pixel_aspect: Option<(u32, u32)>) -> Rendered {
+    render_with(frame, max_width, pixel_aspect, Colour::Rec709)
+}
+
+/// [`render`] with a colour choice. The camera signal for [`Colour::CameraLog`]
+/// and [`Colour::Lut`], per input:
+/// - `Ycbcr`: a camera log curve → its full-range code values; anything else
+///   as decoded.
+/// - `Rgb16`: as decoded, except `Linear` in a camera gamut, which is encoded
+///   with that gamut's log curve.
+/// - `Mosaic`: linear camera RGB in its native gamut (through `camera_to_xyz`
+///   when given), encoded with the native log curve.
+/// - `Display8`: as is.
+///
+/// A raw frame whose native gamut isn't known falls back to Rec.709.
+pub fn render_with(
+    frame: &Frame,
+    max_width: u32,
+    pixel_aspect: Option<(u32, u32)>,
+    colour: Colour,
+) -> Rendered {
     let (w, h) = match &frame.image {
         Decoded::Mosaic { width, height, .. }
         | Decoded::Rgb16 { width, height, .. }
@@ -147,7 +189,7 @@ pub fn render(frame: &Frame, max_width: u32, pixel_aspect: Option<(u32, u32)>) -
     let (tw, th) = scale::fit(w, h, max_width, pixel_aspect);
     let (tw, th) = (tw as usize, th as usize);
 
-    let (img, look, transform_unknown) = match &frame.image {
+    let (img, look, transform_unknown, signal) = match &frame.image {
         Decoded::Mosaic {
             width,
             height,
@@ -184,7 +226,19 @@ pub fn render(frame: &Frame, max_width: u32, pixel_aspect: Option<(u32, u32)>) -
                 decode: None,
                 matrix: to_f32(&matrix),
             };
-            (img, look, false)
+            let native = frame
+                .hint
+                .gamut
+                .or_else(|| frame.hint.transfer.and_then(curves::native_gamut));
+            let signal = native.and_then(|g| {
+                let log = curves::native_log(g)?;
+                let matrix = camera_to_xyz.as_ref().map(|m| {
+                    let d65 = gamut::primaries(Gamut::Rec709).w;
+                    to_f32(&gamut::mul(&gamut::xyz_to(g, d65), &camera_xyz(m)))
+                });
+                Some(Signal::Encode { matrix, log })
+            });
+            (img, look, false, signal)
         }
         Decoded::Rgb16 {
             width,
@@ -194,7 +248,14 @@ pub fn render(frame: &Frame, max_width: u32, pixel_aspect: Option<(u32, u32)>) -
             gamut,
         } => {
             let img = reduce_interleaved(data, *width, *height, tw, th, 1.0 / 65535.0);
-            (img, Look::new(Some(*transfer), Some(*gamut), |c| c), false)
+            let signal = match transfer {
+                Transfer::Linear => {
+                    curves::native_log(*gamut).map(|log| Signal::Encode { matrix: None, log })
+                }
+                _ => Some(Signal::AsIs),
+            };
+            let look = Look::new(Some(*transfer), Some(*gamut), |c| c);
+            (img, look, false, signal)
         }
         Decoded::Display8 {
             width,
@@ -202,7 +263,7 @@ pub fn render(frame: &Frame, max_width: u32, pixel_aspect: Option<(u32, u32)>) -
             data,
         } => {
             let img = reduce_interleaved(data, *width, *height, tw, th, 1.0 / 255.0);
-            (img, Look::Passthrough, false)
+            (img, Look::Passthrough, false, Some(Signal::AsIs))
         }
         Decoded::Ycbcr {
             width,
@@ -231,9 +292,18 @@ pub fn render(frame: &Frame, max_width: u32, pixel_aspect: Option<(u32, u32)>) -
             let img = planes.is_complete().then(|| planes.reduce_to_rgb(tw, th));
             let to_code = ycbcr::signal_to_code(*bits, *full_range);
             let hint = frame.hint;
-            let look = Look::new(hint.transfer, hint.gamut, to_code);
-            (img, look, hint.transfer.is_none())
+            let look = Look::new(hint.transfer, hint.gamut, &to_code);
+            let signal = match hint.transfer.and_then(curves::native_gamut) {
+                Some(_) => Signal::Code(Box::new(to_code)),
+                None => Signal::AsIs,
+            };
+            (img, look, hint.transfer.is_none(), Some(signal))
         }
+    };
+    let (look, applied) = match (colour, signal) {
+        (Colour::CameraLog, Some(s)) => (Look::Signal(s, None), Applied::CameraLog),
+        (Colour::Lut(lut), Some(s)) => (Look::Signal(s, Some(lut)), Applied::Lut),
+        _ => (look, Applied::Rec709),
     };
 
     let image = match img {
@@ -253,6 +323,7 @@ pub fn render(frame: &Frame, max_width: u32, pixel_aspect: Option<(u32, u32)>) -
     Rendered {
         image,
         transform_unknown,
+        applied,
     }
 }
 
@@ -278,13 +349,43 @@ pub fn encode_jpeg(image: &Rgb8) -> Vec<u8> {
 /// The matrix is assumed to apply to white-balanced camera RGB, so camera
 /// white (1,1,1) lands on D65 white.
 fn camera_matrix(m: &[f32; 9]) -> Mat3 {
-    let cam = [
+    let d65 = gamut::primaries(Gamut::Rec709).w;
+    gamut::mul(&gamut::xyz_to_rec709(d65), &camera_xyz(m))
+}
+
+fn camera_xyz(m: &[f32; 9]) -> Mat3 {
+    [
         [m[0] as f64, m[1] as f64, m[2] as f64],
         [m[3] as f64, m[4] as f64, m[5] as f64],
         [m[6] as f64, m[7] as f64, m[8] as f64],
-    ];
-    let d65 = gamut::primaries(Gamut::Rec709).w;
-    gamut::mul(&gamut::xyz_to_rec709(d65), &cam)
+    ]
+}
+
+/// How resampled values become the camera's own signal.
+enum Signal {
+    /// They already are.
+    AsIs,
+    /// Video values → the camera's full-range code values.
+    Code(Box<dyn Fn(f32) -> f32>),
+    /// Scene-linear (converted to the native gamut first when a matrix is
+    /// given) → the native log curve.
+    Encode {
+        matrix: Option<[[f32; 3]; 3]>,
+        log: Transfer,
+    },
+}
+
+impl Signal {
+    fn of(&self, px: [f32; 3]) -> [f32; 3] {
+        match self {
+            Signal::AsIs => px,
+            Signal::Code(to_code) => px.map(to_code),
+            Signal::Encode { matrix, log } => {
+                let lin = matrix.as_ref().map_or(px, |m| mat(m, px));
+                lin.map(|v| curves::encode(*log, v.max(0.0) as f64) as f32)
+            }
+        }
+    }
 }
 
 fn to_f32(m: &Mat3) -> [[f32; 3]; 3] {
@@ -364,7 +465,7 @@ impl CodeToLinear {
 }
 
 /// How the resampled picture becomes display code values.
-enum Look {
+enum Look<'a> {
     /// Values are display signal already (Rec.709, or unknown transfer).
     Passthrough,
     /// Display signal in a wider container: linearise (BT.1886), convert to
@@ -375,9 +476,11 @@ enum Look {
         decode: Option<CodeToLinear>,
         matrix: [[f32; 3]; 3],
     },
+    /// The camera's own signal, through a LUT when given.
+    Signal(Signal, Option<&'a Lut>),
 }
 
-impl Look {
+impl Look<'_> {
     /// The look for a picture whose values are `transfer`-coded in `gamut`.
     /// `to_code` maps the picture's values to full-range code fractions for
     /// camera log curves (legal-range video carries the camera's codes as-is).
@@ -406,6 +509,8 @@ impl Look {
             Look::DisplayGamut(_) => "display gamut",
             Look::Scene { decode: None, .. } => "scene linear",
             Look::Scene { .. } => "scene curve",
+            Look::Signal(_, None) => "camera signal",
+            Look::Signal(_, Some(_)) => "camera signal + LUT",
         }
     }
 
@@ -429,6 +534,15 @@ impl Look {
                     }
                     let rgb = tone::gamut_clip(mat(matrix, lin));
                     data.extend(rgb.map(|v| tone::to_u8(lut.signal(v))));
+                }
+            }
+            Look::Signal(signal, lut) => {
+                for px in img.data.as_chunks::<3>().0 {
+                    let mut v = signal.of([px[0], px[1], px[2]]);
+                    if let Some(lut) = lut {
+                        v = lut.apply(v);
+                    }
+                    data.extend(v.map(tone::to_u8));
                 }
             }
         }

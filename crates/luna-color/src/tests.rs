@@ -3,7 +3,10 @@
 use luna_decode::{Cfa, Decoded, Frame, YcbcrMatrix};
 use luna_formats::{ColourHint, Gamut, Transfer};
 
-use crate::{LumaStats, Rgb8, curves, encode_jpeg, gamut, luma_stats, mosaic, render, rotate};
+use crate::{
+    Applied, Colour, LumaStats, Lut, Rgb8, curves, encode_jpeg, gamut, luma_stats, mosaic, render,
+    render_with, rotate,
+};
 
 /// Where 18% grey must land on every camera: 0.42 signal → code 107.
 const GREY: u8 = 107;
@@ -637,4 +640,173 @@ fn rotate_turns_clockwise() {
     assert_eq!((r270.width, r270.height), (2, 3));
     assert_eq!(grey(&r270), vec![3, 6, 2, 5, 1, 4]);
     assert_eq!(rotate(&img, 0), img);
+}
+
+fn identity_lut(size: usize) -> Lut {
+    let n = (size - 1) as f32;
+    let mut rows = Vec::new();
+    for b in 0..size {
+        for g in 0..size {
+            for r in 0..size {
+                rows.extend([r as f32 / n, g as f32 / n, b as f32 / n]);
+            }
+        }
+    }
+    Lut::from_table_3d(size, rows).unwrap()
+}
+
+fn slog3_ycbcr() -> Frame {
+    ycbcr_flat(
+        64,
+        36,
+        420,
+        false,
+        hint(Some(Transfer::SLog3), Some(Gamut::SGamut3Cine)),
+    )
+}
+
+#[test]
+fn rec709_choice_is_unchanged() {
+    let frame = slog3_ycbcr();
+    let out = render_with(&frame, 32, None, Colour::Rec709);
+    assert_eq!(out.applied, Applied::Rec709);
+    assert_eq!(out.image, render(&frame, 32, None).image);
+    assert_flat(
+        &out.image,
+        render(&frame, 32, None).image.data[0],
+        0,
+        "rec709",
+    );
+}
+
+#[test]
+fn camera_log_ycbcr_shows_codes() {
+    let out = render_with(&slog3_ycbcr(), 32, None, Colour::CameraLog);
+    assert_eq!(out.applied, Applied::CameraLog);
+    let want = (420.0f32 / 1023.0 * 255.0).round() as u8;
+    assert_flat(&out.image, want, 1, "S-Log3 codes");
+}
+
+#[test]
+fn camera_log_rgb16_log_is_shown_as_is() {
+    let code = (curves::encode(Transfer::Log3G10, 0.18) * 65535.0).round() as u16;
+    let frame = rgb16(64, 36, [code; 3], Transfer::Log3G10, Gamut::RedWideGamutRgb);
+    let out = render_with(&frame, 32, None, Colour::CameraLog);
+    assert_eq!(out.applied, Applied::CameraLog);
+    let want = (code as f32 / 65535.0 * 255.0).round() as u8;
+    assert_flat(&out.image, want, 1, "Log3G10");
+}
+
+#[test]
+fn camera_log_mosaic_encodes_native_log() {
+    let g = Gamut::ArriWideGamut3;
+    let v = raw_grey(mosaic::clip_stops_above_grey(Some(g)));
+    let frame = mosaic_frame(
+        64,
+        36,
+        Cfa::Rggb,
+        [v; 3],
+        hint(Some(Transfer::Linear), Some(g)),
+    );
+    let out = render_with(&frame, 16, None, Colour::CameraLog);
+    assert_eq!(out.applied, Applied::CameraLog);
+    let want = (curves::encode(Transfer::LogC3, 0.18) * 255.0).round() as u8;
+    assert_flat(&out.image, want, 1, "AWG3 grey in LogC3");
+}
+
+#[test]
+fn camera_log_mosaic_with_a_matrix_lands_in_the_native_gamut() {
+    // Canon raw with a Cinema Gamut camera matrix: grey stays grey in Canon Log 2.
+    let g = Gamut::CinemaGamut;
+    let v = raw_grey(mosaic::clip_stops_above_grey(Some(g)));
+    let mut frame = mosaic_frame(
+        16,
+        16,
+        Cfa::Rggb,
+        [v; 3],
+        hint(Some(Transfer::Linear), Some(g)),
+    );
+    let npm = gamut::rgb_to_xyz(&gamut::primaries(g));
+    let m: Vec<f32> = npm.iter().flatten().map(|&v| v as f32).collect();
+    if let Decoded::Mosaic { camera_to_xyz, .. } = &mut frame.image {
+        *camera_to_xyz = Some(m.try_into().unwrap());
+    }
+    let out = render_with(&frame, 8, None, Colour::CameraLog);
+    let want = (curves::encode(Transfer::CanonLog2, 0.18) * 255.0).round() as u8;
+    assert_flat(&out.image, want, 1, "Cinema Gamut grey in Canon Log 2");
+}
+
+#[test]
+fn camera_log_without_native_gamut_falls_back() {
+    let v = raw_grey(6.0);
+    let frame = mosaic_frame(
+        64,
+        36,
+        Cfa::Rggb,
+        [v; 3],
+        hint(Some(Transfer::Linear), None),
+    );
+    let out = render_with(&frame, 16, None, Colour::CameraLog);
+    assert_eq!(out.applied, Applied::Rec709);
+    assert_eq!(out.image, render(&frame, 16, None).image);
+}
+
+#[test]
+fn identity_lut_equals_camera_log() {
+    let lut = identity_lut(17);
+    let frame = slog3_ycbcr();
+    let log = render_with(&frame, 32, None, Colour::CameraLog);
+    let out = render_with(&frame, 32, None, Colour::Lut(&lut));
+    assert_eq!(out.applied, Applied::Lut);
+    for (a, b) in out.image.data.iter().zip(&log.image.data) {
+        assert!(a.abs_diff(*b) <= 1, "{a} vs {b}");
+    }
+}
+
+#[test]
+fn lut_applies_to_a_rec709_tagged_clip() {
+    // A recorder file tagged Rec.709 (really log): the LUT still applies.
+    let mut rows = Vec::new();
+    for b in 0..2 {
+        for g in 0..2 {
+            for r in 0..2 {
+                rows.extend([1.0 - r as f32, 1.0 - g as f32, 1.0 - b as f32]);
+            }
+        }
+    }
+    let invert = Lut::from_table_3d(2, rows).unwrap();
+    let frame = ycbcr_flat(
+        64,
+        36,
+        940,
+        false,
+        hint(Some(Transfer::Rec709), Some(Gamut::Rec709)),
+    );
+    let out = render_with(&frame, 32, None, Colour::Lut(&invert));
+    assert_eq!(out.applied, Applied::Lut);
+    assert_flat(&out.image, 0, 1, "white inverted");
+}
+
+#[test]
+fn log_and_gamut_pairs_round_trip() {
+    for (t, g) in CAMERAS {
+        assert!(curves::native_gamut(t).is_some(), "{t:?}");
+        if t != Transfer::CanonLog3 {
+            assert_eq!(
+                curves::native_log(curves::native_gamut(t).unwrap()),
+                Some(t)
+            );
+        }
+        assert!(curves::native_log(g).is_some(), "{g:?}");
+    }
+    for t in [
+        Transfer::Rec709,
+        Transfer::Hlg,
+        Transfer::Pq,
+        Transfer::Linear,
+    ] {
+        assert_eq!(curves::native_gamut(t), None);
+    }
+    assert_eq!(curves::native_log(Gamut::Rec709), None);
+    assert_eq!(curves::native_log(Gamut::Rec2020), None);
 }

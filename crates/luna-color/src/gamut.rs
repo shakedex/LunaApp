@@ -153,6 +153,17 @@ pub fn xyz_to_rec709(w: (f64, f64)) -> Mat3 {
     }
 }
 
+/// XYZ (at white `w`) → linear RGB in `g`, adapting to `g`'s white when `w` differs.
+pub fn xyz_to(g: Gamut, w: (f64, f64)) -> Mat3 {
+    let p = primaries(g);
+    let to_rgb = invert(&rgb_to_xyz(&p));
+    if same_white(w, p.w) {
+        to_rgb
+    } else {
+        mul(&to_rgb, &bradford(w, p.w))
+    }
+}
+
 /// Linear RGB in `g` → linear Rec.709 (D65).
 pub fn to_rec709(g: Gamut) -> Mat3 {
     let p = primaries(g);
