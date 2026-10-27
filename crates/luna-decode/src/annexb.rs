@@ -30,16 +30,11 @@ pub(crate) fn nal_type(nal: &[u8]) -> u8 {
     (nal[0] >> 1) & 0x3f
 }
 
-/// NAL unit types in an Annex B access unit (start codes `00 00 01`).
-fn nal_types(au: &[u8]) -> impl Iterator<Item = u8> + '_ {
-    au.windows(4)
-        .filter(|w| w[..3] == [0, 0, 1])
-        .map(|w| (w[3] >> 1) & 0x3f)
-}
-
 /// Whether the access unit holds an IRAP (IDR, CRA or BLA) picture.
 pub(crate) fn has_irap(au: &[u8]) -> bool {
-    nal_types(au).any(|t| (16..=23).contains(&t))
+    nal_units(au)
+        .iter()
+        .any(|n| (16..=23).contains(&nal_type(n)))
 }
 
 /// "HEVC 4:2:2 (Range Extensions)" etc. from the SPS profile, for messages.
