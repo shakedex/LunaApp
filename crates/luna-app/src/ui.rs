@@ -474,7 +474,10 @@ impl App {
             match candidate.set_lut(&path) {
                 Ok(()) => {
                     app.settings_state().set_lut_error(SharedString::new());
-                    app.save_now("LUT", |s| s.lut = candidate.lut.clone());
+                    app.save_now("LUT", |s| {
+                        s.lut = candidate.lut.clone();
+                        s.recent_luts = candidate.recent_luts.clone();
+                    });
                 }
                 Err(e) => app.settings_state().set_lut_error(e.into()),
             }
@@ -509,6 +512,37 @@ impl App {
                 .into(),
         );
         s.set_camera_look(settings.camera_look);
+        let names: Vec<SharedString> = settings
+            .recent_luts
+            .iter()
+            .map(|p| file_name(p).into())
+            .collect();
+        s.set_recent_luts(ModelRc::new(VecModel::from(names)));
+        let current = settings
+            .lut
+            .as_ref()
+            .and_then(|l| settings.recent_luts.iter().position(|p| p == l));
+        s.set_recent_current(current.map_or(-1, |i| i as i32));
+    }
+
+    fn pick_recent_lut(&self, index: i32) {
+        let Some(path) = usize::try_from(index)
+            .ok()
+            .and_then(|i| self.settings.borrow().recent_luts.get(i).cloned())
+        else {
+            return;
+        };
+        let mut candidate = self.settings.borrow().clone();
+        match candidate.set_lut(&path) {
+            Ok(()) => {
+                self.settings_state().set_lut_error(SharedString::new());
+                self.save_now("LUT", |s| {
+                    s.lut = candidate.lut.clone();
+                    s.recent_luts = candidate.recent_luts.clone();
+                });
+            }
+            Err(e) => self.settings_state().set_lut_error(e.into()),
+        }
     }
 
     /// Problems in reports save at once, like the source-drive copy.
@@ -796,6 +830,10 @@ impl App {
         s.on_pick_lut({
             let f = unit(App::pick_lut);
             move || f(())
+        });
+        s.on_pick_recent_lut({
+            let f = with_app(self, |app, i: i32| app.pick_recent_lut(i));
+            move |i| f(i)
         });
         s.on_label_edited({
             let f = with_app(self, |app, (i, t): (i32, SharedString)| {

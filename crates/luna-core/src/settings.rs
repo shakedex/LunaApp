@@ -34,7 +34,12 @@ pub struct Settings {
     pub lut: Option<PathBuf>,
     /// Use the LUT a clip carries, when it has one.
     pub camera_look: bool,
+    /// LUTs chosen before, newest first, at most [`RECENT_LUTS`].
+    pub recent_luts: Vec<PathBuf>,
 }
+
+/// How many LUTs Settings remembers for quick picking.
+pub const RECENT_LUTS: usize = 5;
 
 impl Default for Settings {
     fn default() -> Self {
@@ -51,6 +56,7 @@ impl Default for Settings {
             colour: ThumbnailColour::Rec709,
             lut: None,
             camera_look: false,
+            recent_luts: Vec::new(),
         }
     }
 }
@@ -97,6 +103,9 @@ impl Settings {
         luna_color::Lut::parse_cube(&text)
             .map_err(|e| format!("The LUT {name} can't be used: {e}"))?;
         self.lut = Some(path.to_path_buf());
+        self.recent_luts.retain(|p| p != path);
+        self.recent_luts.insert(0, path.to_path_buf());
+        self.recent_luts.truncate(RECENT_LUTS);
         Ok(())
     }
 
@@ -140,6 +149,7 @@ struct SettingsFile {
     #[serde(skip_serializing_if = "Option::is_none")]
     lut: Option<PathBuf>,
     camera_look: bool,
+    recent_luts: Vec<PathBuf>,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]
@@ -202,6 +212,11 @@ impl SettingsStore {
             colour: file.colour,
             lut: file.lut,
             camera_look: file.camera_look,
+            recent_luts: file
+                .recent_luts
+                .into_iter()
+                .filter(|p| p.is_file())
+                .collect(),
         }
     }
 
@@ -235,6 +250,7 @@ impl SettingsStore {
             colour: settings.colour,
             lut: settings.lut.clone(),
             camera_look: settings.camera_look,
+            recent_luts: settings.recent_luts.clone(),
         };
         let text = toml::to_string(&file).map_err(io::Error::other)?;
         let tmp = self.dir.join(format!("{FILE}.tmp"));
@@ -306,6 +322,7 @@ mod tests {
             colour: ThumbnailColour::Lut,
             lut: Some(PathBuf::from("/luts/show.cube")),
             camera_look: true,
+            recent_luts: vec![],
         }
     }
 
@@ -324,6 +341,45 @@ mod tests {
         let err = s.set_lut(&bad).unwrap_err();
         assert!(err.contains("bad.cube"), "{err}");
         assert_eq!(s.lut, None);
+    }
+
+    fn cube(dir: &Path, name: &str) -> PathBuf {
+        let p = dir.join(name);
+        std::fs::write(
+            &p,
+            "LUT_1D_SIZE 2
+0 0 0
+1 1 1
+",
+        )
+        .unwrap();
+        p
+    }
+
+    #[test]
+    fn set_lut_remembers_recent_luts_newest_first() {
+        let t = tempfile::tempdir().unwrap();
+        let mut s = Settings::default();
+        let names = ["a.cube", "b.cube", "c.cube", "d.cube", "e.cube", "f.cube"];
+        let paths: Vec<_> = names.iter().map(|n| cube(t.path(), n)).collect();
+        for p in &paths {
+            s.set_lut(p).unwrap();
+        }
+        s.set_lut(&paths[2]).unwrap();
+        let want: Vec<_> = [2, 5, 4, 3, 1].iter().map(|&i| paths[i].clone()).collect();
+        assert_eq!(s.recent_luts, want);
+    }
+
+    #[test]
+    fn recent_luts_round_trip_and_skip_missing_files() {
+        let (t, store) = store();
+        let kept = cube(t.path(), "kept.cube");
+        let s = Settings {
+            recent_luts: vec![kept.clone(), t.path().join("gone.cube")],
+            ..Settings::default()
+        };
+        store.save(&s).unwrap();
+        assert_eq!(store.load().recent_luts, vec![kept]);
     }
 
     #[test]

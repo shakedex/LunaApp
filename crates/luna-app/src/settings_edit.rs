@@ -98,6 +98,7 @@ impl SettingsEditor {
             colour: current.colour,
             lut: current.lut.clone(),
             camera_look: current.camera_look,
+            recent_luts: current.recent_luts.clone(),
             ..s
         })
     }
@@ -126,6 +127,7 @@ mod tests {
             colour: ThumbnailColour::Lut,
             lut: Some("D:/show.cube".into()),
             camera_look: true,
+            recent_luts: vec!["D:/show.cube".into(), "D:/old.cube".into()],
             ..Settings::default()
         };
         let s = ed.validated_over(&current).unwrap();
@@ -134,6 +136,7 @@ mod tests {
         assert!(s.copy_to_source && s.show_problems && s.camera_look);
         assert_eq!(s.colour, ThumbnailColour::Lut);
         assert_eq!(s.lut, current.lut);
+        assert_eq!(s.recent_luts, current.recent_luts);
     }
 
     fn with_fields(fields: &[(&str, &str)]) -> SettingsEditor {

@@ -21,7 +21,8 @@ Decoders: luna-decoders `8822d47`.
 - **New:** `.ari` and `.arx` frame sequences are one clip each, with timecode, recording
   date, lens, T-stop, ND, white balance and EI from the camera header.
 - **New:** Thumbnail colour in Settings: Rec.709 (as before), None (the picture as the
-  camera recorded it) or a `.cube` LUT on every clip. The report names what was applied.
+  camera recorded it) or a `.cube` LUT on every clip, with the last five LUTs one click away. The report names
+  what was applied.
   `luna report --colour rec709|none|lut` and `--lut <file>` do the same for one run.
 - **New:** "Camera look" in Settings: Blackmagic RAW clips that carry a LUT use it for
   their thumbnails (`--camera-look` on the command line).

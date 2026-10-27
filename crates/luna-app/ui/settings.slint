@@ -38,6 +38,9 @@ export global SettingsState {
     // 0 Rec.709, 1 None, 2 LUT.
     in property <int> colour;
     in property <string> lut-name;
+    // Recent LUT file names, newest first; the chosen one is marked.
+    in property <[string]> recent-luts;
+    in property <int> recent-current: -1;
     in property <string> lut-error;
     in property <bool> camera-look;
     in property <string> save-error;
@@ -66,6 +69,7 @@ export global SettingsState {
     callback set-show-problems(bool);
     callback set-colour(int);
     callback pick-lut();
+    callback pick-recent-lut(int);
     callback set-camera-look(bool);
 }
 
@@ -293,11 +297,18 @@ export component SettingsView inherits Rectangle {
 
                     if SettingsState.colour == 2: Row {
                         label: "LUT";
-                        Rectangle {
+                        lut-field := Rectangle {
                             border-radius: Theme.radius;
                             background: Theme.field;
                             border-width: 1px;
-                            border-color: Theme.line-strong;
+                            border-color: field-ta.has-hover ? Theme.text-faint : Theme.line-strong;
+                            field-ta := TouchArea {
+                                mouse-cursor: pointer;
+                                clicked => {
+                                    lut-menu.show();
+                                }
+                            }
+
                             HorizontalLayout {
                                 padding: 5px;
                                 padding-left: 12px;
@@ -312,9 +323,105 @@ export component SettingsView inherits Rectangle {
 
                                 LunaButton {
                                     text: "Choose";
-                                    icon: @image-url("icons/folder-open.svg");
+                                    icon: @image-url("icons/caret-down.svg");
                                     clicked => {
-                                        SettingsState.pick-lut();
+                                        lut-menu.show();
+                                    }
+                                }
+                            }
+
+                            lut-menu := PopupWindow {
+                                x: 0;
+                                y: lut-field.height + 4px;
+                                width: lut-field.width;
+                                Rectangle {
+                                    border-radius: Theme.radius;
+                                    background: Theme.raised;
+                                    border-width: 1px;
+                                    border-color: Theme.line-strong;
+                                    drop-shadow-blur: 12px;
+                                    drop-shadow-color: #00000080;
+                                    VerticalLayout {
+                                        padding: 4px;
+                                        spacing: 2px;
+                                        for name[i] in SettingsState.recent-luts: Rectangle {
+                                            height: 30px;
+                                            border-radius: Theme.radius - 2px;
+                                            background: recent-ta.has-hover ? Theme.raised-hover : transparent;
+                                            accessible-role: button;
+                                            accessible-label: name;
+                                            accessible-action-default => {
+                                                SettingsState.pick-recent-lut(i);
+                                            }
+                                            HorizontalLayout {
+                                                padding-left: 8px;
+                                                padding-right: 8px;
+                                                spacing: 8px;
+                                                Icon {
+                                                    y: (parent.height - self.height) / 2;
+                                                    width: 14px;
+                                                    height: 14px;
+                                                    source: @image-url("icons/check.svg");
+                                                    tint: i == SettingsState.recent-current ? Theme.text : transparent;
+                                                }
+
+                                                Text {
+                                                    text: name;
+                                                    color: Theme.text;
+                                                    vertical-alignment: center;
+                                                    overflow: elide;
+                                                    horizontal-stretch: 1;
+                                                }
+                                            }
+
+                                            recent-ta := TouchArea {
+                                                mouse-cursor: pointer;
+                                                clicked => {
+                                                    SettingsState.pick-recent-lut(i);
+                                                }
+                                            }
+                                        }
+                                        if SettingsState.recent-luts.length > 0: Rectangle {
+                                            height: 1px;
+                                            background: Theme.line;
+                                        }
+                                        Rectangle {
+                                            height: 30px;
+                                            border-radius: Theme.radius - 2px;
+                                            background: choose-ta.has-hover ? Theme.raised-hover : transparent;
+                                            accessible-role: button;
+                                            accessible-label: "Choose…";
+                                            accessible-action-default => {
+                                                SettingsState.pick-lut();
+                                            }
+                                            HorizontalLayout {
+                                                padding-left: 8px;
+                                                padding-right: 8px;
+                                                spacing: 8px;
+                                                Icon {
+                                                    y: (parent.height - self.height) / 2;
+                                                    width: 14px;
+                                                    height: 14px;
+                                                    source: @image-url("icons/folder-open.svg");
+                                                    
+                                                }
+
+                                                Text {
+                                                    text: "Choose…";
+                                                    color: Theme.text;
+                                                    vertical-alignment: center;
+                                                    overflow: elide;
+                                                    horizontal-stretch: 1;
+                                                }
+                                            }
+
+                                            choose-ta := TouchArea {
+                                                mouse-cursor: pointer;
+                                                clicked => {
+                                                    SettingsState.pick-lut();
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }
