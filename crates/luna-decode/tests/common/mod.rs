@@ -40,6 +40,7 @@ pub fn probe(codec: Codec, frames: FrameIndex, layout: PictureLayout) -> Probe {
         layout,
         codec_config: None,
         warnings: vec![],
+        embedded_lut: None,
     }
 }
 

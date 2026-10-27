@@ -5,8 +5,8 @@ use luna_core::scan::Scan;
 use luna_core::settings::Settings;
 use luna_formats::{ClipFiles, ClipMeta, Container};
 use luna_report::{Thumbnail, Unreadable, UnreadableKind};
-use luna_worker::ClipResult;
 use luna_worker::pool::JobOutcome;
+use luna_worker::{ClipResult, ThumbnailColour};
 
 const THUMB: &[u8] = include_bytes!("../../luna-report/tests/fixtures/thumb.jpg");
 
@@ -30,6 +30,7 @@ fn read(id: u64, thumbs: Vec<Result<Vec<u8>, String>>) -> JobOutcome {
         bytes: 1000,
         thumbnails: thumbs,
         warnings: vec![],
+        colour: None,
     }))
 }
 
@@ -187,6 +188,7 @@ fn probed_body(id: u64, model: &str) -> JobOutcome {
         bytes: 1000,
         thumbnails: vec![],
         warnings: vec![],
+        colour: None,
     }))
 }
 
@@ -217,4 +219,96 @@ fn filtered_clip_that_fails_to_decode_stays_in_its_camera() {
     assert!(clip.has_problems());
     assert_eq!(clip.fields.camera_model.as_deref(), Some("EOS C70"));
     assert!(clip.warnings.iter().any(|w| w.contains("crashed")));
+}
+
+fn with_colour(id: u64, colour: &str) -> JobOutcome {
+    let JobOutcome::Done(mut r) = read(id, vec![Ok(THUMB.to_vec())]) else {
+        unreachable!()
+    };
+    r.colour = Some(colour.into());
+    JobOutcome::Done(r)
+}
+
+#[test]
+fn colour_choice_is_named_in_the_header_and_clips() {
+    let mut s = settings();
+    s.colour = ThumbnailColour::Lut;
+    s.lut = Some(PathBuf::from("D:/LUTs/show.cube"));
+    s.camera_look = true;
+    let outcomes = vec![
+        with_colour(0, "show.cube"),
+        with_colour(1, "BLURRED_B_CAMERA_BM.cube"),
+        with_colour(2, "Rec.709"),
+    ];
+    let r = build_report(
+        &[PathBuf::from("D:/Shoot")],
+        &s,
+        scan(),
+        outcomes,
+        "now",
+        None,
+    );
+    let colour = r
+        .header
+        .custom
+        .iter()
+        .find(|f| f.label == "Colour")
+        .unwrap();
+    assert_eq!(colour.value, "show.cube + camera LUT");
+    let clips: Vec<_> = r
+        .cameras
+        .iter()
+        .flat_map(|c| &c.cards)
+        .flat_map(|c| &c.clips)
+        .map(|c| c.colour.as_deref())
+        .collect();
+    assert_eq!(
+        clips,
+        [
+            Some("show.cube"),
+            Some("BLURRED_B_CAMERA_BM.cube"),
+            Some("Rec.709")
+        ]
+    );
+}
+
+#[test]
+fn rec709_reports_no_colour() {
+    let outcomes = vec![
+        with_colour(0, "Rec.709"),
+        with_colour(1, "Rec.709"),
+        with_colour(2, "Rec.709"),
+    ];
+    let r = build_report(
+        &[PathBuf::from("D:/Shoot")],
+        &settings(),
+        scan(),
+        outcomes,
+        "now",
+        None,
+    );
+    assert!(r.header.custom.iter().all(|f| f.label != "Colour"));
+    assert!(r.cameras[0].cards[0].clips[0].colour.is_none());
+}
+
+#[test]
+fn none_choice_is_named_none() {
+    let mut s = settings();
+    s.colour = ThumbnailColour::AsRecorded;
+    let outcomes = vec![read(0, vec![]), read(1, vec![]), read(2, vec![])];
+    let r = build_report(
+        &[PathBuf::from("D:/Shoot")],
+        &s,
+        scan(),
+        outcomes,
+        "now",
+        None,
+    );
+    let colour = r
+        .header
+        .custom
+        .iter()
+        .find(|f| f.label == "Colour")
+        .unwrap();
+    assert_eq!(colour.value, "None");
 }

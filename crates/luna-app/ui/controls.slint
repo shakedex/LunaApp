@@ -236,11 +236,10 @@ export component TextField {
 
 // Two mutually exclusive options, e.g. Light / Dark.
 export component Segmented {
-    in property <string> first;
-    in property <string> second;
-    in property <bool> second-selected;
+    in property <[string]> options;
+    in property <int> selected;
     in property <string> label;
-    callback changed(bool);
+    callback changed(int);
 
     accessible-role: tab-list;
     accessible-label: root.label;
@@ -256,8 +255,8 @@ export component Segmented {
     HorizontalLayout {
         padding: 3px;
         spacing: 2px;
-        for option[i] in [root.first, root.second]: Rectangle {
-            property <bool> selected: (i == 1) == root.second-selected;
+        for option[i] in root.options: Rectangle {
+            property <bool> selected: i == root.selected;
             horizontal-stretch: 1;
             border-radius: Theme.radius - 2px;
             background: self.selected ? Theme.raised-hover : seg-ta.has-hover ? Theme.raised : transparent;
@@ -265,7 +264,7 @@ export component Segmented {
             accessible-label: option;
             accessible-item-selected: self.selected;
             accessible-action-default => {
-                root.changed(i == 1);
+                root.changed(i);
             }
             Text {
                 text: option;
@@ -276,7 +275,7 @@ export component Segmented {
             seg-ta := TouchArea {
                 mouse-cursor: pointer;
                 clicked => {
-                    root.changed(i == 1);
+                    root.changed(i);
                 }
             }
         }

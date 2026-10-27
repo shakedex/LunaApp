@@ -20,12 +20,21 @@ Decoders: luna-decoders `8822d47`.
 - **New:** Sony XAVC H Intra (HEVC in MXF) from the BURANO.
 - **New:** `.ari` and `.arx` frame sequences are one clip each, with timecode, recording
   date, lens, T-stop, ND, white balance and EI from the camera header.
+- **New:** Thumbnail colour in Settings: Rec.709 (as before), None (the picture as the
+  camera recorded it) or a `.cube` LUT on every clip, with the last five LUTs one click away. The report names
+  what was applied.
+  `luna report --colour rec709|none|lut` and `--lut <file>` do the same for one run.
+- **New:** "Camera look" in Settings: Blackmagic RAW clips recorded with "Apply LUT in
+  File" use their LUT for the thumbnails, as DaVinci Resolve does (`--camera-look` on the
+  command line).
 - **New:** "Show problems in reports" in Settings, off by default. Off, reports leave out
   clip warnings, the "Need attention" count and unreadable files; the app and the logs
   still show them. `luna report --problems` prints them for one run.
 - **Changed:** Luna checks for updates every time it opens, not only once a day.
 - **Changed:** Sony VENICE lenses are named from their /i serial (for example "Cooke
   S7/i 85mm") instead of showing the serial.
+- **Fixed:** Switching "Also save on the source drive" or "Show problems in reports" and
+  then saving other Settings edits switched it back.
 - **Fixed:** Sony VENICE X-OCN XT clips had blown-out thumbnails.
 - **Fixed:** Atomos Ninja V ProRes RAW failed on every frame. (Windows)
 - **Fixed:** ARRIRAW HDE in MXF was read as plain ARRIRAW and failed.

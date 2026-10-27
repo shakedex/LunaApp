@@ -87,6 +87,22 @@ impl SettingsEditor {
         Ok(s)
     }
 
+    /// [`Self::validated`], with the settings that save the moment they're
+    /// switched (theme, source-drive copy, problems, colour) taken from
+    /// `current`, so saving the draft never undoes them.
+    pub fn validated_over(&self, current: &Settings) -> Result<Settings, String> {
+        self.validated().map(|s| Settings {
+            report_theme: current.report_theme,
+            copy_to_source: current.copy_to_source,
+            show_problems: current.show_problems,
+            colour: current.colour,
+            lut: current.lut.clone(),
+            camera_look: current.camera_look,
+            recent_luts: current.recent_luts.clone(),
+            ..s
+        })
+    }
+
     /// Records `saved` (what the store accepted) as the new baseline.
     pub fn mark_saved(&mut self, saved: Settings) {
         self.draft = saved.clone();
@@ -97,6 +113,31 @@ impl SettingsEditor {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn save_keeps_what_was_switched_while_editing() {
+        use luna_core::settings::{ReportTheme, ThumbnailColour};
+        let mut ed = SettingsEditor::new(Settings::default());
+        ed.draft_mut().production = "Night Shift".into();
+        // Switched (and saved) while the draft was open.
+        let current = Settings {
+            report_theme: ReportTheme::Dark,
+            copy_to_source: true,
+            show_problems: true,
+            colour: ThumbnailColour::Lut,
+            lut: Some("D:/show.cube".into()),
+            camera_look: true,
+            recent_luts: vec!["D:/show.cube".into(), "D:/old.cube".into()],
+            ..Settings::default()
+        };
+        let s = ed.validated_over(&current).unwrap();
+        assert_eq!(s.production, "Night Shift");
+        assert_eq!(s.report_theme, ReportTheme::Dark);
+        assert!(s.copy_to_source && s.show_problems && s.camera_look);
+        assert_eq!(s.colour, ThumbnailColour::Lut);
+        assert_eq!(s.lut, current.lut);
+        assert_eq!(s.recent_luts, current.recent_luts);
+    }
 
     fn with_fields(fields: &[(&str, &str)]) -> SettingsEditor {
         SettingsEditor::new(Settings {

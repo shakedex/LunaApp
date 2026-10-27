@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 
 use luna_report::Logo;
 pub use luna_report::ReportTheme;
+pub use luna_worker::ThumbnailColour;
 use serde::{Deserialize, Serialize};
 
 const FILE: &str = "settings.toml";
@@ -28,7 +29,17 @@ pub struct Settings {
     pub copy_to_source: bool,
     /// Prints clip warnings and unreadable files in the report.
     pub show_problems: bool,
+    pub colour: ThumbnailColour,
+    /// The `.cube` file for [`ThumbnailColour::Lut`], where the user keeps it.
+    pub lut: Option<PathBuf>,
+    /// Use the LUT a clip carries, when it has one.
+    pub camera_look: bool,
+    /// LUTs chosen before, newest first, at most [`RECENT_LUTS`].
+    pub recent_luts: Vec<PathBuf>,
 }
+
+/// How many LUTs Settings remembers for quick picking.
+pub const RECENT_LUTS: usize = 5;
 
 impl Default for Settings {
     fn default() -> Self {
@@ -42,6 +53,10 @@ impl Default for Settings {
             report_theme: ReportTheme::Light,
             copy_to_source: false,
             show_problems: false,
+            colour: ThumbnailColour::Rec709,
+            lut: None,
+            camera_look: false,
+            recent_luts: Vec::new(),
         }
     }
 }
@@ -74,6 +89,24 @@ impl Settings {
         platform_store()
             .map_err(|e| e.to_string())?
             .set_logo(self, source)
+    }
+
+    /// Checks that `path` is a usable `.cube` LUT and keeps a reference to it
+    /// where it is. The error is a sentence for the UI.
+    pub fn set_lut(&mut self, path: &Path) -> Result<(), String> {
+        let name = path.file_name().map_or_else(
+            || path.display().to_string(),
+            |n| n.to_string_lossy().into_owned(),
+        );
+        let text = std::fs::read_to_string(path)
+            .map_err(|e| format!("The LUT {name} can't be read: {e}"))?;
+        luna_color::Lut::parse_cube(&text)
+            .map_err(|e| format!("The LUT {name} can't be used: {e}"))?;
+        self.lut = Some(path.to_path_buf());
+        self.recent_luts.retain(|p| p != path);
+        self.recent_luts.insert(0, path.to_path_buf());
+        self.recent_luts.truncate(RECENT_LUTS);
+        Ok(())
     }
 
     /// Removes the logo from the platform config folder.
@@ -112,6 +145,11 @@ struct SettingsFile {
     report_theme: ReportTheme,
     copy_to_source: bool,
     show_problems: bool,
+    colour: ThumbnailColour,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    lut: Option<PathBuf>,
+    camera_look: bool,
+    recent_luts: Vec<PathBuf>,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]
@@ -171,6 +209,11 @@ impl SettingsStore {
             report_theme: file.report_theme,
             copy_to_source: file.copy_to_source,
             show_problems: file.show_problems,
+            colour: file.colour,
+            lut: file.lut,
+            camera_look: file.camera_look,
+            // Kept even when a drive is away; picking one says if it is missing.
+            recent_luts: file.recent_luts,
         }
     }
 
@@ -201,6 +244,10 @@ impl SettingsStore {
             report_theme: settings.report_theme,
             copy_to_source: settings.copy_to_source,
             show_problems: settings.show_problems,
+            colour: settings.colour,
+            lut: settings.lut.clone(),
+            camera_look: settings.camera_look,
+            recent_luts: settings.recent_luts.clone(),
         };
         let text = toml::to_string(&file).map_err(io::Error::other)?;
         let tmp = self.dir.join(format!("{FILE}.tmp"));
@@ -269,7 +316,102 @@ mod tests {
             report_theme: ReportTheme::Dark,
             copy_to_source: true,
             show_problems: true,
+            colour: ThumbnailColour::Lut,
+            lut: Some(PathBuf::from("/luts/show.cube")),
+            camera_look: true,
+            recent_luts: vec![],
         }
+    }
+
+    #[test]
+    fn set_lut_rejects_a_bad_cube() {
+        let t = tempfile::tempdir().unwrap();
+        let bad = t.path().join("bad.cube");
+        std::fs::write(
+            &bad,
+            "LUT_3D_SIZE 2
+0 0 0
+",
+        )
+        .unwrap();
+        let mut s = Settings::default();
+        let err = s.set_lut(&bad).unwrap_err();
+        assert!(err.contains("bad.cube"), "{err}");
+        assert_eq!(s.lut, None);
+    }
+
+    fn cube(dir: &Path, name: &str) -> PathBuf {
+        let p = dir.join(name);
+        std::fs::write(
+            &p,
+            "LUT_1D_SIZE 2
+0 0 0
+1 1 1
+",
+        )
+        .unwrap();
+        p
+    }
+
+    #[test]
+    fn set_lut_remembers_recent_luts_newest_first() {
+        let t = tempfile::tempdir().unwrap();
+        let mut s = Settings::default();
+        let names = ["a.cube", "b.cube", "c.cube", "d.cube", "e.cube", "f.cube"];
+        let paths: Vec<_> = names.iter().map(|n| cube(t.path(), n)).collect();
+        for p in &paths {
+            s.set_lut(p).unwrap();
+        }
+        s.set_lut(&paths[2]).unwrap();
+        let want: Vec<_> = [2, 5, 4, 3, 1].iter().map(|&i| paths[i].clone()).collect();
+        assert_eq!(s.recent_luts, want);
+    }
+
+    #[test]
+    fn recent_luts_round_trip_even_when_a_drive_is_away() {
+        // A LUT on a shuttle drive that isn't mounted stays on the list.
+        let (t, store) = store();
+        let kept = cube(t.path(), "kept.cube");
+        let away = t.path().join("away.cube");
+        let s = Settings {
+            recent_luts: vec![kept.clone(), away.clone()],
+            ..Settings::default()
+        };
+        store.save(&s).unwrap();
+        assert_eq!(store.load().recent_luts, vec![kept, away]);
+    }
+
+    #[test]
+    fn set_lut_keeps_a_good_cube() {
+        let t = tempfile::tempdir().unwrap();
+        let good = t.path().join("show.cube");
+        std::fs::write(
+            &good,
+            "LUT_1D_SIZE 2
+0 0 0
+1 1 1
+",
+        )
+        .unwrap();
+        let mut s = Settings::default();
+        s.set_lut(&good).unwrap();
+        assert_eq!(s.lut.as_deref(), Some(good.as_path()));
+    }
+
+    #[test]
+    fn a_file_without_colour_loads_rec709() {
+        let (_t, store) = store();
+        std::fs::create_dir_all(store.dir()).unwrap();
+        std::fs::write(
+            store.file(),
+            "production = \"X\"
+",
+        )
+        .unwrap();
+        let s = store.load();
+        assert_eq!(s.colour, ThumbnailColour::Rec709);
+        assert_eq!(s.lut, None);
+        assert!(!s.camera_look);
     }
 
     #[test]

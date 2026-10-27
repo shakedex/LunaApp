@@ -478,6 +478,7 @@ mod tests {
             layout: PictureLayout::default(),
             codec_config: None,
             warnings: vec![],
+            embedded_lut: None,
         }
     }
 

@@ -164,3 +164,16 @@ fn hidden_problems_leave_the_report() {
         assert!(h.contains(kept), "missing {kept:?}");
     }
 }
+
+#[test]
+fn clip_colour_cell_shows_when_set() {
+    let mut r = sample_report();
+    r.cameras[0].cards[0].clips[0].colour = Some("show.cube".into());
+    let h = html(&r);
+    assert!(h.contains("<dt>Colour</dt><dd>show.cube</dd>"), "{h}");
+}
+
+#[test]
+fn no_colour_cell_without_one() {
+    assert!(!html(&sample_report()).contains("<dt>Colour</dt>"));
+}

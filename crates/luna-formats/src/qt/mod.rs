@@ -281,6 +281,7 @@ pub(crate) fn probe_source(src: &dyn Source) -> Result<Probe, FormatError> {
         layout,
         codec_config,
         warnings,
+        embedded_lut: None,
     })
 }
 

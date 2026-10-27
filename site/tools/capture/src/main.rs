@@ -467,6 +467,7 @@ fn clip(frames_dir: &Path, t: &Take, cam: &Cam) -> Clip {
         reel_source: IdentitySource::Metadata,
         thumbnails,
         warnings: vec![],
+        colour: None,
     }
 }
 

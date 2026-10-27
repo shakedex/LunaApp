@@ -152,6 +152,9 @@ result."
             name: p.name,
             theme,
             problems: p.problems,
+            colour: None,
+            lut: None,
+            camera_look: false,
             json: true,
         };
         match args.into_request(&Settings::load()) {

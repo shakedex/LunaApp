@@ -108,6 +108,7 @@ fn crash_is_logged_under_its_clip_after_the_workers_last_lines() {
         },
         strip: 3,
         thumb_width: 640,
+        colour: Default::default(),
     };
     let out = run_pool(&config, vec![job], &AtomicBool::new(false), &|_, _| {}).unwrap();
     assert_eq!(out[0].1, JobOutcome::Crashed);

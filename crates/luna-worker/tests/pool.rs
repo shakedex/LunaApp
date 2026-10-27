@@ -28,6 +28,7 @@ fn job(id: u64, name: &str) -> ClipJob {
         },
         strip: 3,
         thumb_width: 640,
+        colour: Default::default(),
     }
 }
 

@@ -13,7 +13,7 @@ use slint::platform::software_renderer::{
     MinimalSoftwareWindow, PremultipliedRgbaColor, RepaintBufferType,
 };
 use slint::platform::{Platform, WindowAdapter};
-use slint::{ComponentHandle, ModelRc, PhysicalSize, PlatformError, VecModel};
+use slint::{ComponentHandle, ModelRc, PhysicalSize, PlatformError, SharedString, VecModel};
 
 /// Hands out a fresh software window for each component; the last one made is
 /// the one drawn.
@@ -194,6 +194,14 @@ fn main() {
         state.set_can_save(true);
         state.set_show_credits(credits);
         state.set_copy_to_source(true);
+        state.set_colour(2);
+        state.set_lut_name("Show_LogC4_to_Rec709_v3.cube".into());
+        state.set_camera_look(true);
+        state.set_recent_luts(ModelRc::new(VecModel::from(vec![
+            SharedString::from("Show_LogC4_to_Rec709_v3.cube"),
+            SharedString::from("Night_Ext_v2.cube"),
+        ])));
+        state.set_recent_current(0);
         state.set_credits(ModelRc::new(VecModel::from(vec![
             Component {
                 name: "Slint".into(),

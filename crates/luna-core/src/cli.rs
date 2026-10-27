@@ -7,7 +7,7 @@ use clap::{Args, Parser, Subcommand, ValueEnum};
 use luna_report::Logo;
 
 use crate::run::RunRequest;
-use crate::settings::{ReportTheme, Settings};
+use crate::settings::{ReportTheme, Settings, ThumbnailColour};
 
 #[derive(Debug, Parser)]
 #[command(name = "luna", version, about = "Camera reports from camera originals")]
@@ -32,6 +32,13 @@ pub enum Command {
 pub enum Theme {
     Light,
     Dark,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum ColourArg {
+    Rec709,
+    None,
+    Lut,
 }
 
 #[derive(Debug, Clone, Default, Args)]
@@ -69,6 +76,15 @@ pub struct ReportArgs {
     /// Print clip warnings and unreadable files in the report.
     #[arg(long)]
     pub problems: bool,
+    /// Thumbnail colour: rec709, none (as the camera recorded it) or lut.
+    #[arg(long, value_enum)]
+    pub colour: Option<ColourArg>,
+    /// A .cube LUT for every thumbnail (sets --colour lut).
+    #[arg(long, value_name = "PATH")]
+    pub lut: Option<PathBuf>,
+    /// Use the LUT a clip carries, when it has one.
+    #[arg(long)]
+    pub camera_look: bool,
     /// Print the result as JSON.
     #[arg(long)]
     pub json: bool,
@@ -134,6 +150,18 @@ impl ReportArgs {
             };
         }
         settings.show_problems |= self.problems;
+        if let Some(lut) = self.lut {
+            settings.lut = Some(lut);
+            settings.colour = ThumbnailColour::Lut;
+        }
+        if let Some(colour) = self.colour {
+            settings.colour = match colour {
+                ColourArg::Rec709 => ThumbnailColour::Rec709,
+                ColourArg::None => ThumbnailColour::AsRecorded,
+                ColourArg::Lut => ThumbnailColour::Lut,
+            };
+        }
+        settings.camera_look |= self.camera_look;
         Ok(RunRequest {
             sources: self.sources,
             cameras: self.cameras,
@@ -250,6 +278,9 @@ mod tests {
             "--output",
             "D:/Out",
             "--problems",
+            "--lut",
+            "D:/show.cube",
+            "--camera-look",
         ])
         .unwrap();
         let Command::Report(a) = cli.command else {
@@ -262,9 +293,25 @@ mod tests {
         let req = a.into_request(&Settings::default()).unwrap();
         assert_eq!(req.settings.report_theme, ReportTheme::Dark);
         assert!(req.settings.show_problems);
+        assert_eq!(req.settings.colour, ThumbnailColour::Lut);
+        assert_eq!(
+            req.settings.lut,
+            Some(std::path::PathBuf::from("D:/show.cube"))
+        );
+        assert!(req.settings.camera_look);
         assert_eq!(req.name.as_deref(), Some("A Cam"));
         assert_eq!(req.settings.output_dir, std::path::PathBuf::from("D:/Out"));
         assert_eq!(req.cameras, ["A"]);
+    }
+
+    #[test]
+    fn colour_none_parses() {
+        let cli = Cli::try_parse_from(["luna", "report", "E:/A", "--colour", "none"]).unwrap();
+        let Command::Report(a) = cli.command else {
+            panic!("report expected")
+        };
+        let req = a.into_request(&Settings::default()).unwrap();
+        assert_eq!(req.settings.colour, ThumbnailColour::AsRecorded);
     }
 
     #[test]

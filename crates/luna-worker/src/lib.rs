@@ -7,9 +7,12 @@
 pub mod pool;
 pub mod protocol;
 
-use luna_color::{LumaStats, NEAR_BLACK_MAX};
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
+
+use luna_color::{Applied, Colour, LumaStats, Lut, NEAR_BLACK_MAX};
 use luna_decode::Frame;
-use luna_formats::{ClipFiles, ClipMeta, Codec};
+use luna_formats::{ClipFiles, ClipMeta, Codec, EmbeddedLut};
 use serde::{Deserialize, Serialize};
 use tracing::Level;
 
@@ -28,6 +31,39 @@ pub struct ClipJob {
     pub strip: u32,
     /// Thumbnail width in pixels (spec: about 640).
     pub thumb_width: u32,
+    pub colour: ColourJob,
+}
+
+/// How thumbnails are coloured (Settings → Colour).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ThumbnailColour {
+    /// Luna's own rendering.
+    #[default]
+    #[serde(rename = "rec709")]
+    Rec709,
+    /// The camera's own signal, shown as is ("None" in the app).
+    #[serde(rename = "none")]
+    AsRecorded,
+    /// One LUT on every clip.
+    #[serde(rename = "lut")]
+    Lut,
+}
+
+/// The colour settings a job carries.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ColourJob {
+    pub colour: ThumbnailColour,
+    /// The `.cube` file for [`ThumbnailColour::Lut`].
+    pub lut: Option<PathBuf>,
+    /// Use the LUT a clip carries, when it has one.
+    pub camera_look: bool,
+}
+
+impl ColourJob {
+    /// Plain Rec.709: nothing to say in the report.
+    pub fn is_plain(&self) -> bool {
+        self.colour == ThumbnailColour::Rec709 && !self.camera_look
+    }
 }
 
 /// Worker → core.
@@ -42,6 +78,9 @@ pub struct ClipResult {
     /// One entry per strip position: JPEG bytes, or the reason there's no image.
     pub thumbnails: Vec<Result<Vec<u8>, String>>,
     pub warnings: Vec<String>,
+    /// What the thumbnails got ("Rec.709", "None" or a LUT's name); `None`
+    /// when the job asked for plain Rec.709 or no frame was rendered.
+    pub colour: Option<String>,
 }
 
 /// The worker process loop: jobs on stdin, results on stdout, until Shutdown or EOF.
@@ -72,6 +111,7 @@ pub fn worker_main() {
                 job.strip as usize
             ],
             warnings: vec!["Luna hit an internal error reading this clip".into()],
+            colour: None,
         });
         if protocol::write_message(&mut output, &result).is_err() {
             break;
@@ -151,6 +191,7 @@ pub fn run_job(job: &ClipJob) -> ClipResult {
                 bytes,
                 thumbnails: vec![Err(reason.clone()); strip],
                 warnings: vec![reason],
+                colour: None,
             };
         }
     };
@@ -177,20 +218,29 @@ pub fn run_job(job: &ClipJob) -> ClipResult {
         .map(|n| strip_positions(n, job.strip, inset))
         .unwrap_or_default();
     tracing::debug!(positions = ?positions, inset, "strip");
+    let mut applied = None;
     let thumbnails = if positions.is_empty() {
         no_thumbnails(probe.meta.frame_count, job.strip)
     } else {
         let aspect = probe.layout.pixel_aspect.map(|r| (r.num, r.den));
         let turn = probe.layout.rotation;
         let mut unknown_transform = false;
+        let choice = choose(&job.colour, probe.embedded_lut.as_ref(), &mut warnings);
+        let (colour, lut_name) = match &choice {
+            Choice::Rec709 => (Colour::Rec709, None),
+            Choice::CameraLog => (Colour::CameraLog, None),
+            Choice::Lut { lut, name } => (Colour::Lut(lut), Some(name.clone())),
+        };
+        tracing::debug!(choice = %choice.describe(), "colour");
         let thumbs = luna_decode::decode_frames(files, &probe, &positions, job.thumb_width)
             .into_iter()
             .zip(&positions)
             .map(|(frame, &position)| match frame {
                 Ok(frame) => {
-                    let (jpeg, unknown) =
-                        thumbnail(&frame, position, job.thumb_width, aspect, turn);
+                    let (jpeg, unknown, got) =
+                        thumbnail(&frame, position, job.thumb_width, aspect, turn, colour);
                     unknown_transform |= unknown;
+                    applied = Some(colour_label(got, lut_name.as_deref()));
                     Ok(jpeg)
                 }
                 Err(e) => {
@@ -214,7 +264,103 @@ pub fn run_job(job: &ClipJob) -> ClipResult {
         bytes,
         thumbnails,
         warnings,
+        colour: applied.filter(|_| !job.colour.is_plain()),
     }
+}
+
+/// What a clip's thumbnails are coloured with.
+enum Choice {
+    Rec709,
+    CameraLog,
+    Lut { lut: Arc<Lut>, name: String },
+}
+
+impl Choice {
+    fn describe(&self) -> &str {
+        match self {
+            Choice::Rec709 => "Rec.709",
+            Choice::CameraLog => "camera signal",
+            Choice::Lut { name, .. } => name,
+        }
+    }
+}
+
+/// The clip's own LUT when camera look is on and it carries a table, else
+/// the job's choice. A chosen LUT that can't be read falls back to Rec.709
+/// with a warning.
+fn choose(job: &ColourJob, embedded: Option<&EmbeddedLut>, warnings: &mut Vec<String>) -> Choice {
+    if job.camera_look
+        && let Some(e) = embedded.filter(|e| e.size > 0)
+    {
+        let rows = e
+            .data
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .map(|b| f32::from_le_bytes(*b))
+            .collect();
+        match Lut::from_table_3d(e.size, rows) {
+            Ok(lut) => {
+                return Choice::Lut {
+                    lut: Arc::new(lut),
+                    name: e.name.clone(),
+                };
+            }
+            Err(err) => tracing::warn!("embedded LUT {} ignored: {err}", e.name),
+        }
+    }
+    match (job.colour, &job.lut) {
+        (ThumbnailColour::Rec709, _) => Choice::Rec709,
+        (ThumbnailColour::AsRecorded, _) => Choice::CameraLog,
+        (ThumbnailColour::Lut, Some(path)) => match load_lut(path) {
+            Ok(lut) => Choice::Lut {
+                lut,
+                name: file_name(path),
+            },
+            Err(e) => {
+                let w = format!("The LUT {} can't be read: {e}", file_name(path));
+                tracing::warn!("warning: {w}");
+                warnings.push(w);
+                Choice::Rec709
+            }
+        },
+        (ThumbnailColour::Lut, None) => Choice::Rec709,
+    }
+}
+
+/// The report's name for what a thumbnail got.
+fn colour_label(applied: Applied, lut_name: Option<&str>) -> String {
+    match (applied, lut_name) {
+        (Applied::Rec709, _) => "Rec.709".into(),
+        (Applied::CameraLog, _) => "None".into(),
+        (Applied::Lut, Some(name)) => name.into(),
+        (Applied::Lut, None) => "LUT".into(),
+    }
+}
+
+fn file_name(path: &Path) -> String {
+    path.file_name().map_or_else(
+        || path.display().to_string(),
+        |n| n.to_string_lossy().into_owned(),
+    )
+}
+
+/// The LUT at `path`, parsed once per worker process.
+fn load_lut(path: &Path) -> Result<Arc<Lut>, String> {
+    type Cached = Option<(PathBuf, Result<Arc<Lut>, String>)>;
+    static CACHE: Mutex<Cached> = Mutex::new(None);
+    let mut cache = CACHE.lock().unwrap_or_else(|e| e.into_inner());
+    if let Some((p, lut)) = cache.as_ref()
+        && p == path
+    {
+        return lut.clone();
+    }
+    let lut = std::fs::read_to_string(path)
+        .map_err(|e| e.to_string())
+        .and_then(|text| Lut::parse_cube(&text).map_err(|e| e.to_string()))
+        .map(Arc::new);
+    *cache = Some((path.to_path_buf(), lut.clone()));
+    lut
 }
 
 /// The strip when no frame can be picked, with the reason logged. A probe-only
@@ -282,9 +428,10 @@ fn thumbnail(
     width: u32,
     aspect: Option<(u32, u32)>,
     rotation: u16,
-) -> (Vec<u8>, bool) {
+    colour: Colour,
+) -> (Vec<u8>, bool, Applied) {
     let start = std::time::Instant::now();
-    let mut rendered = luna_color::render(frame, width, aspect);
+    let mut rendered = luna_color::render_with(frame, width, aspect, colour);
     rendered.image = luna_color::rotate(&rendered.image, rotation);
     let render_ms = start.elapsed().as_secs_f64() * 1000.0;
     let stats = luna_color::luma_stats(&rendered.image);
@@ -313,7 +460,11 @@ fn thumbnail(
             "{fields}"
         );
     }
-    (luna_color::encode_jpeg(&rendered.image), unknown)
+    (
+        luna_color::encode_jpeg(&rendered.image),
+        unknown,
+        rendered.applied,
+    )
 }
 
 /// WARN for a thumbnail that looks black, DEBUG otherwise.
@@ -334,6 +485,78 @@ mod tests {
     use super::*;
     use luna_decode::Decoded;
     use luna_formats::ColourHint;
+
+    fn embedded(name: &str) -> EmbeddedLut {
+        let rows: Vec<f32> = (0..24).map(|i| (i % 3) as f32 / 2.0).collect();
+        EmbeddedLut {
+            name: name.into(),
+            size: 2,
+            data: rows.iter().flat_map(|v| v.to_le_bytes()).collect(),
+        }
+    }
+
+    fn job(colour: ThumbnailColour, camera_look: bool) -> ColourJob {
+        ColourJob {
+            colour,
+            lut: None,
+            camera_look,
+        }
+    }
+
+    #[test]
+    fn camera_look_with_an_embedded_lut_uses_it() {
+        let e = embedded("Show.cube");
+        let c = choose(
+            &job(ThumbnailColour::Rec709, true),
+            Some(&e),
+            &mut Vec::new(),
+        );
+        assert!(matches!(c, Choice::Lut { ref name, .. } if name == "Show.cube"));
+    }
+
+    #[test]
+    fn camera_look_without_embedded_lut_uses_the_choice() {
+        let c = choose(
+            &job(ThumbnailColour::AsRecorded, true),
+            None,
+            &mut Vec::new(),
+        );
+        assert!(matches!(c, Choice::CameraLog));
+    }
+
+    #[test]
+    fn embedded_lut_is_ignored_without_camera_look() {
+        let e = embedded("Show.cube");
+        let c = choose(
+            &job(ThumbnailColour::Rec709, false),
+            Some(&e),
+            &mut Vec::new(),
+        );
+        assert!(matches!(c, Choice::Rec709));
+    }
+
+    #[test]
+    fn a_decoder_applied_embedded_lut_is_not_a_table() {
+        let e = EmbeddedLut {
+            name: "RED.cube".into(),
+            size: 0,
+            data: vec![],
+        };
+        let c = choose(
+            &job(ThumbnailColour::Rec709, true),
+            Some(&e),
+            &mut Vec::new(),
+        );
+        assert!(matches!(c, Choice::Rec709));
+    }
+
+    #[test]
+    fn labels_name_what_was_applied() {
+        use luna_color::Applied;
+        assert_eq!(colour_label(Applied::Rec709, Some("show.cube")), "Rec.709");
+        assert_eq!(colour_label(Applied::CameraLog, None), "None");
+        assert_eq!(colour_label(Applied::Lut, Some("show.cube")), "show.cube");
+    }
 
     fn display8(value: u8) -> Frame {
         Frame {
@@ -390,7 +613,8 @@ mod tests {
 
     #[test]
     fn black_thumbnail_logs_warn() {
-        let (jpeg, events) = collect::capture(|| thumbnail(&display8(0), 24, 640, None, 0));
+        let (jpeg, events) =
+            collect::capture(|| thumbnail(&display8(0), 24, 640, None, 0, Colour::Rec709));
         assert!(!jpeg.0.is_empty());
         let thumb: Vec<_> = events
             .iter()
@@ -409,7 +633,8 @@ mod tests {
             assert!(thumb[0].text.contains(field), "{field}: {thumb:?}");
         }
 
-        let (_, events) = collect::capture(|| thumbnail(&display8(128), 24, 640, None, 0));
+        let (_, events) =
+            collect::capture(|| thumbnail(&display8(128), 24, 640, None, 0, Colour::Rec709));
         assert!(
             events
                 .iter()

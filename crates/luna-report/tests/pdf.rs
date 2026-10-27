@@ -152,3 +152,15 @@ fn hidden_problems_leave_the_pdf() {
     }
     assert!(i.text.contains("A001/notes.txt"));
 }
+
+#[test]
+fn clip_colour_prints() {
+    let mut r = sample_report();
+    r.cameras[0].cards[0].clips[0].colour = Some("show.cube".into());
+    let i = inspect_pdf(&r).unwrap();
+    assert!(
+        i.text.contains("Colour") && i.text.contains("show.cube"),
+        "{}",
+        i.text
+    );
+}
