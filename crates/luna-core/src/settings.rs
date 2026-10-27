@@ -212,11 +212,8 @@ impl SettingsStore {
             colour: file.colour,
             lut: file.lut,
             camera_look: file.camera_look,
-            recent_luts: file
-                .recent_luts
-                .into_iter()
-                .filter(|p| p.is_file())
-                .collect(),
+            // Kept even when a drive is away; picking one says if it is missing.
+            recent_luts: file.recent_luts,
         }
     }
 
@@ -371,15 +368,17 @@ mod tests {
     }
 
     #[test]
-    fn recent_luts_round_trip_and_skip_missing_files() {
+    fn recent_luts_round_trip_even_when_a_drive_is_away() {
+        // A LUT on a shuttle drive that isn't mounted stays on the list.
         let (t, store) = store();
         let kept = cube(t.path(), "kept.cube");
+        let away = t.path().join("away.cube");
         let s = Settings {
-            recent_luts: vec![kept.clone(), t.path().join("gone.cube")],
+            recent_luts: vec![kept.clone(), away.clone()],
             ..Settings::default()
         };
         store.save(&s).unwrap();
-        assert_eq!(store.load().recent_luts, vec![kept]);
+        assert_eq!(store.load().recent_luts, vec![kept, away]);
     }
 
     #[test]

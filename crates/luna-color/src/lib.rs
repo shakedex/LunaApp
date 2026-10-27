@@ -165,8 +165,8 @@ pub fn render(frame: &Frame, max_width: u32, pixel_aspect: Option<(u32, u32)>) -
 
 /// [`render`] with a colour choice. The camera signal for [`Colour::CameraLog`]
 /// and [`Colour::Lut`], per input:
-/// - `Ycbcr`: a camera log curve → its full-range code values; anything else
-///   as decoded.
+/// - `Ycbcr`: as decoded, legal range expanded (64 → 0, 940 → 1 at 10 bits),
+///   whatever the clip's colour tag.
 /// - `Rgb16`: as decoded, except `Linear` in a camera gamut, which is encoded
 ///   with that gamut's log curve.
 /// - `Mosaic`: linear camera RGB in its native gamut (through `camera_to_xyz`
@@ -293,11 +293,9 @@ pub fn render_with(
             let to_code = ycbcr::signal_to_code(*bits, *full_range);
             let hint = frame.hint;
             let look = Look::new(hint.transfer, hint.gamut, &to_code);
-            let signal = match hint.transfer.and_then(curves::native_gamut) {
-                Some(_) => Signal::Code(Box::new(to_code)),
-                None => Signal::AsIs,
-            };
-            (img, look, hint.transfer.is_none(), Some(signal))
+            // Legal-range video reaches LUTs expanded, whatever its tag, as
+            // Resolve feeds .cube LUTs for video-level clips.
+            (img, look, hint.transfer.is_none(), Some(Signal::AsIs))
         }
     };
     let (look, applied) = match (colour, signal) {
@@ -322,7 +320,8 @@ pub fn render_with(
     };
     Rendered {
         image,
-        transform_unknown,
+        // Only Rec.709 needs the transfer; the other choices show the signal.
+        transform_unknown: transform_unknown && applied == Applied::Rec709,
         applied,
     }
 }
@@ -365,8 +364,6 @@ fn camera_xyz(m: &[f32; 9]) -> Mat3 {
 enum Signal {
     /// They already are.
     AsIs,
-    /// Video values → the camera's full-range code values.
-    Code(Box<dyn Fn(f32) -> f32>),
     /// Scene-linear (converted to the native gamut first when a matrix is
     /// given) → the native log curve.
     Encode {
@@ -379,7 +376,6 @@ impl Signal {
     fn of(&self, px: [f32; 3]) -> [f32; 3] {
         match self {
             Signal::AsIs => px,
-            Signal::Code(to_code) => px.map(to_code),
             Signal::Encode { matrix, log } => {
                 let lin = matrix.as_ref().map_or(px, |m| mat(m, px));
                 lin.map(|v| curves::encode(*log, v.max(0.0) as f64) as f32)

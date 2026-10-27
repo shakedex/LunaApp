@@ -681,10 +681,38 @@ fn rec709_choice_is_unchanged() {
 
 #[test]
 fn camera_log_ycbcr_shows_codes() {
+    // Legal-range video reaches LUTs expanded (64 -> 0, 940 -> 1), as
+    // Resolve feeds .cube LUTs for video-level clips.
     let out = render_with(&slog3_ycbcr(), 32, None, Colour::CameraLog);
     assert_eq!(out.applied, Applied::CameraLog);
-    let want = (420.0f32 / 1023.0 * 255.0).round() as u8;
+    let want = ((420.0f32 - 64.0) / 876.0 * 255.0).round() as u8;
     assert_flat(&out.image, want, 1, "S-Log3 codes");
+}
+
+#[test]
+fn lut_input_does_not_depend_on_the_colour_tag() {
+    // The same S-Log3 take, recorded in camera (tagged S-Log3) and on a
+    // recorder (tagged Rec.709), reaches the LUT at the same levels.
+    let lut = identity_lut(17);
+    let tagged = render_with(&slog3_ycbcr(), 32, None, Colour::Lut(&lut));
+    let recorder = ycbcr_flat(
+        64,
+        36,
+        420,
+        false,
+        hint(Some(Transfer::Rec709), Some(Gamut::Rec709)),
+    );
+    let untagged = render_with(&recorder, 32, None, Colour::Lut(&lut));
+    assert_eq!(tagged.image, untagged.image);
+}
+
+#[test]
+fn unknown_transform_is_only_flagged_for_rec709() {
+    let lut = identity_lut(17);
+    let frame = ycbcr_flat(64, 36, 420, false, hint(None, None));
+    assert!(render_with(&frame, 32, None, Colour::Rec709).transform_unknown);
+    assert!(!render_with(&frame, 32, None, Colour::Lut(&lut)).transform_unknown);
+    assert!(!render_with(&frame, 32, None, Colour::CameraLog).transform_unknown);
 }
 
 #[test]

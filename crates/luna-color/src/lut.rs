@@ -42,6 +42,7 @@ impl Lut {
         let mut shape = None;
         let (mut min, mut max) = ([0.0; 3], [1.0; 3]);
         let mut rows = Vec::new();
+        let text = text.strip_prefix('\u{feff}').unwrap_or(text);
         for (n, line) in text.lines().enumerate() {
             let line = line.trim();
             if line.is_empty() || line.starts_with('#') {
@@ -303,6 +304,12 @@ mod tests {
     fn wrong_row_count_is_an_error() {
         let err = Lut::parse_cube("LUT_3D_SIZE 2\n0 0 0\n1 1 1\n").unwrap_err();
         assert!(err.0.contains('8') && err.0.contains('2'), "{err}");
+    }
+
+    #[test]
+    fn a_byte_order_mark_is_ignored() {
+        let text = "\u{feff}LUT_1D_SIZE 2\n0 0 0\n1 1 1\n";
+        assert!(Lut::parse_cube(text).is_ok());
     }
 
     #[test]
