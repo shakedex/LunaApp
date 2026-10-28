@@ -100,9 +100,11 @@ pub fn run(
     if check_updates {
         app.start_updates();
     }
-    slint::run_event_loop_until_quit()?;
-    // Stop the update library before the window goes away.
+    let ended = slint::run_event_loop_until_quit();
+    // Stop the update library before the window goes away, even when the
+    // event loop failed.
     app.updater.borrow_mut().take();
+    ended?;
     Ok(())
 }
 
