@@ -22,3 +22,8 @@ proresraw-ffmpeg = { git = "https://github.com/shakedex/luna-decoders", rev = "6
 # The look Sony (VENICE 2, BURANO) and ARRI (ALEXA 35, Mini LF) cameras embed in MXF.
 sony-look = { git = "https://github.com/shakedex/luna-decoders", rev = "68ef86922ce50f710b872d645b79bee171efc59a" }
 arri-look = { git = "https://github.com/shakedex/luna-decoders", rev = "68ef86922ce50f710b872d645b79bee171efc59a" }
+
+# Dependencies build without debug info: most of what link.exe writes and reads
+# for each test binary. Luna's own crates keep it.
+[profile.dev.package."*"]
+debug = false
