@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
-use ed25519_dalek::{Signer, SigningKey};
+use ed25519_dalek::{Signature, Signer, SigningKey, Verifier, VerifyingKey};
 
 /// The update file an appcast points at.
 pub struct Enclosure {
@@ -102,6 +102,30 @@ pub fn new_key(path: &Path) -> Result<String, String> {
 /// Base64 ed25519 signature of `bytes`, the `sparkle:edSignature` format.
 pub fn sign(key: &SigningKey, bytes: &[u8]) -> String {
     STANDARD.encode(key.sign(bytes).to_bytes())
+}
+
+/// Checks that the feed's `sparkle:edSignature` signs `file` under the
+/// committed public key, as Sparkle and WinSparkle will.
+pub fn verify_feed(feed: &str, file: &[u8], public_key: &str) -> Result<(), String> {
+    let sig = feed
+        .split("sparkle:edSignature=\"")
+        .nth(1)
+        .and_then(|rest| rest.split('"').next())
+        .ok_or("the feed has no sparkle:edSignature")?;
+    let sig: [u8; 64] = STANDARD
+        .decode(sig)
+        .ok()
+        .and_then(|b| b.try_into().ok())
+        .ok_or("the feed's signature isn't 64 base64 bytes")?;
+    let key: [u8; 32] = STANDARD
+        .decode(public_key.trim())
+        .ok()
+        .and_then(|b| b.try_into().ok())
+        .ok_or("the public key isn't 32 base64 bytes")?;
+    VerifyingKey::from_bytes(&key)
+        .map_err(|e| format!("public key: {e}"))?
+        .verify(file, &Signature::from_bytes(&sig))
+        .map_err(|_| "the feed's signature doesn't match the file it points at".to_string())
 }
 
 /// A one-item Sparkle appcast for `version`.

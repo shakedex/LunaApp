@@ -393,7 +393,14 @@ fn release_files(version: &str) -> Result<Vec<PathBuf>> {
         )
     };
     let installer = require(installer).map_err(again)?;
-    feed_is_fresh(&installer, &feed).map_err(again)?;
+    // The feed signs the zip on macOS (what Sparkle installs), the setup on Windows.
+    let signed = if cfg!(target_os = "macos") {
+        require(dist.join(format!("Luna-{version}-macos.zip"))).map_err(again)?
+    } else {
+        installer.clone()
+    };
+    let public_key = read(&root().join("packaging/update-public-key.txt"))?;
+    feed_signs(&feed, &signed, &public_key).map_err(again)?;
     if cfg!(target_os = "macos") {
         run(Command::new("xcrun")
             .args(["stapler", "validate"])
@@ -402,26 +409,17 @@ fn release_files(version: &str) -> Result<Vec<PathBuf>> {
     }
     let mut files = vec![installer, feed];
     if cfg!(target_os = "macos") {
-        files.push(require(dist.join(format!("Luna-{version}-macos.zip"))).map_err(again)?);
+        files.push(signed);
     }
     Ok(files)
 }
 
-/// The feed must exist and be written after the installer it signs.
-fn feed_is_fresh(installer: &Path, feed: &Path) -> Result {
-    let modified = |p: &Path| {
-        fs::metadata(p)
-            .and_then(|m| m.modified())
-            .map_err(|_| format!("missing: {}", p.display()))
-    };
-    if modified(feed)? < modified(installer)? {
-        return Err(format!(
-            "{} is older than {}",
-            feed.display(),
-            installer.display()
-        ));
-    }
-    Ok(())
+/// The feed must exist and its signature must match the file it points at,
+/// or every user would be offered an update Luna then refuses.
+fn feed_signs(feed: &Path, file: &Path, public_key: &str) -> Result {
+    let xml = fs::read_to_string(feed).map_err(|_| format!("missing: {}", feed.display()))?;
+    let bytes = fs::read(file).map_err(|e| format!("{}: {e}", file.display()))?;
+    update::verify_feed(&xml, &bytes, public_key).map_err(|e| format!("{}: {e}", feed.display()))
 }
 
 /// Signs `file` and writes the one-release appcast that points at it on the
@@ -1134,27 +1132,38 @@ mod tests {
     }
 
     #[test]
-    fn publish_refuses_stale_or_missing_feed() {
+    fn publish_refuses_a_missing_or_mismatched_feed() {
+        use base64::Engine;
         let dir = std::env::temp_dir().join(format!("luna-feed-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
         let setup = dir.join("setup.exe");
         let feed = dir.join("appcast-windows.xml");
-        fs::write(&setup, "x").unwrap();
-        assert!(feed_is_fresh(&setup, &feed).is_err(), "missing feed");
-        fs::write(&feed, "x").unwrap();
-        assert!(feed_is_fresh(&setup, &feed).is_ok());
-        let later = std::time::SystemTime::now() + std::time::Duration::from_secs(60);
-        fs::File::options()
-            .write(true)
-            .open(&setup)
-            .unwrap()
-            .set_modified(later)
-            .unwrap();
+        let key = ed25519_dalek::SigningKey::from_bytes(&[7; 32]);
+        let public =
+            base64::engine::general_purpose::STANDARD.encode(key.verifying_key().to_bytes());
+        let feed_for = |bytes: &[u8]| {
+            update::appcast(
+                "2026.10.9",
+                "https://example.com/notes",
+                &update::Enclosure {
+                    url: "https://example.com/setup.exe".into(),
+                    length: bytes.len() as u64,
+                    signature: update::sign(&key, bytes),
+                    installer_arguments: None,
+                },
+            )
+        };
+        fs::write(&setup, "luna").unwrap();
+        assert!(feed_signs(&feed, &setup, &public).is_err(), "missing feed");
+        fs::write(&feed, feed_for(b"luna")).unwrap();
+        assert!(feed_signs(&feed, &setup, &public).is_ok());
+        fs::write(&setup, "rebuilt").unwrap();
         assert!(
-            feed_is_fresh(&setup, &feed).is_err(),
-            "installer newer than feed"
+            feed_signs(&feed, &setup, &public).is_err(),
+            "installer rebuilt after its feed"
         );
+        let _ = fs::remove_dir_all(&dir);
     }
 
     #[test]
