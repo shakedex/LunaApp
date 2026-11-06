@@ -15,9 +15,9 @@ Thumbs.db
 # Local-only working docs: branding, samples, plans/specs.
 # Kept on disk but not published to the remote.
 /docs/*
-# Shared between the machines: the lists of open Mac and Windows work.
-!/docs/macos.md
-!/docs/windows.md
+
+# Written into the working directory by an ARRI tool run from here
+TextureImage_log.txt
 
 # Packaged app, and the pinned downloads xtask bundles into it
 /dist/
