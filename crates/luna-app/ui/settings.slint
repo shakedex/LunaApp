@@ -17,7 +17,6 @@ export struct CustomField {
 export struct Component {
     name: string,
     licence: string,
-    role: string,
 }
 
 export global SettingsState {
@@ -142,13 +141,6 @@ component CreditsList inherits Card {
                         text: c.name;
                         font-weight: 600;
                         color: Theme.text;
-                        width: 150px;
-                        overflow: elide;
-                    }
-
-                    Text {
-                        text: c.role;
-                        color: Theme.text-muted;
                         horizontal-stretch: 1;
                         overflow: elide;
                     }

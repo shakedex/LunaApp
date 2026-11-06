@@ -189,12 +189,7 @@ pub(crate) fn frames<R: Read + Seek>(
                     duration = ?t.duration,
                     "index unusable: falling back to a KLV scan"
                 );
-                let mut f = scan(r, parts, sid, t);
-                f.warnings.insert(
-                    0,
-                    format!("Index table not usable ({why}); frames were located by scanning."),
-                );
-                return f;
+                return scan(r, parts, sid, t);
             }
         }
     }
@@ -387,7 +382,7 @@ fn scan<R: Read + Seek>(r: &mut Reader<R>, parts: &[Partition], sid: u32, t: &Ta
             body_sid = sid,
             "no essence partition: no partition to start the essence walk from"
         );
-        f.warnings.push("No essence partition was found.".into());
+        f.warnings.push("No picture frames were found.".into());
         return f;
     };
     let footer = parts

@@ -1,16 +1,14 @@
 # Changelog
 
-Every change that ships, kept as it lands. **Unreleased** collects what's on
-`master` since the last tag. At release time it becomes the next version's
-heading, and `packaging/release-notes/<version>.md` (the text users see) is
-written from it.
-
-Each entry: **New**, **Changed** or **Fixed**, then the platform when it isn't
-both. Each release names the `shakedex/luna-decoders` commit it pins.
-
 ## Unreleased
 
 Decoders: luna-decoders `4095c4b`.
+
+- **Changed:** MXF clips that are clip-wrapped or have an unusable index no longer need
+  attention; the run log still notes it.
+- **Changed:** "Camera named from the folder name" and the like print in the report only
+  with Show problems in reports on.
+- **Changed:** Credits list each component's name and licence.
 
 ## 2026.11.0 — 2026-11-06
 
@@ -19,8 +17,7 @@ Tag `v2026.11.0`. Decoders: luna-decoders `4095c4b`.
 - **New:** Camera look for Sony and ARRI: the LUT a VENICE 2 (X-OCN) or BURANO (XAVC) stored
   in the clip, and the look of an ALEXA 35 (ARRIRAW, ARRICORE, HDE, ProRes) or ALEXA Mini LF
   (ARRIRAW, HDE, ProRes) clip as the camera's monitor output showed it. The report names
-  the look ("5110 Nature.alf4", "SL3SG3CtoTealOR_709.cube"). Mini LF ARRIRAW reaches its look
-  in LogC3 at the EI it was shot at, as ARRI's software does.
+  the look ("5110 Nature.alf4", "SL3SG3CtoTealOR_709.cube").
 - **New:** Texture for ALEXA 35 clips (ProRes, ARRICORE, ARRIRAW, HDE), e.g. "K445 Default",
   in the report and as a CSV column.
 - **Fixed:** ALEXA 65 `.ari` thumbnail colour: red and blue were too strong and green too weak.
@@ -37,28 +34,25 @@ Tag `v2026.11.0`. Decoders: luna-decoders `4095c4b`.
 
 Tag `v2026.10.3`. Decoders: luna-decoders `8822d47`.
 
-- **New:** ARRIRAW HDE (Codex High Density Encoding, SMPTE RDD 51) from the ALEXA 35 and
-  ALEXA Mini LF, in MXF and as `.arx` frame sequences. Bit-exact against the ARRIRAW of
-  the same take.
-- **New:** ALEXA Mini LF and ALEXA Mini ARRIRAW in MXF: thumbnails, with colour measured
-  against ARRI's own software.
+- **New:** ARRIRAW HDE from the ALEXA 35 and ALEXA Mini LF, in MXF and as
+  `.arx` frame sequences.
+- **New:** ALEXA Mini LF and ALEXA Mini ARRIRAW in MXF: thumbnails.
 - **New:** Sony XAVC H Intra (HEVC in MXF) from the BURANO.
 - **New:** Blackmagic RAW scene and take from the camera's slate, in the Slate field.
 - **New:** `.ari` and `.arx` frame sequences are one clip each, with timecode, recording
   date, lens, T-stop, ND, white balance and EI from the camera header.
-- **New:** Thumbnail colour in Settings: Rec.709 (as before), None (the picture as the
-  camera recorded it) or a `.cube` LUT on every clip, with the last five LUTs one click
-  away. The report names what was applied. `luna report --colour rec709|none|lut` and
+- **New:** Thumbnail colour in Settings: Rec.709, None (the camera's log) or a `.cube`
+  LUT. The report names what was applied. `luna report --colour rec709|none|lut` and
   `--lut <file>` do the same for one run.
 - **New:** "Camera look" in Settings: Blackmagic RAW clips recorded with "Apply LUT in
-  File" use their LUT for the thumbnails, as DaVinci Resolve does (`--camera-look` on the
+  File" use their LUT for the thumbnails (`--camera-look` on the
   command line).
 - **New:** "Show problems in reports" in Settings, off by default. Off, reports leave out
   clip warnings, the "Need attention" count and unreadable files; the app and the logs
   still show them. `luna report --problems` prints them for one run.
 - **Changed:** Luna checks for updates every time it opens, not only once a day.
 - **Changed:** Sony VENICE lenses are named from their /i serial (for example "Cooke
-  S7/i 85mm") instead of showing the serial.
+  S7/i 85mm").
 - **Fixed:** Switching "Also save on the source drive" or "Show problems in reports" and
   then saving other Settings edits switched it back.
 - **Fixed:** Sony VENICE X-OCN XT clips had blown-out thumbnails.
@@ -66,12 +60,11 @@ Tag `v2026.10.3`. Decoders: luna-decoders `8822d47`.
 - **Fixed:** ARRIRAW HDE in MXF was read as plain ARRIRAW and failed.
 - **Fixed:** ALEXA Mini LF clips showed no camera serial or ND.
 - **Fixed:** Sony FX9 (and other clips without an `M01.xml`) showed "Sony" as the camera
-  and a code as the lens; the XML inside the MXF now gives the model, serial and lens
-  name. Dates from it are the camera's local time.
+  and a code as the lens; they now show the model, serial and lens
+  name.
 - **Fixed:** Avid OP-Atom MXF was reported as damaged, and its sound-track files showed
   up as clips; they now list under other files.
-- **New:** Canon EOS C200 Cinema RAW Light: thumbnails, with exposure and colour checked
-  against Canon's own development.
+- **New:** Canon EOS C200 Cinema RAW Light: thumbnails.
 - **Changed:** a CinemaDNG sequence is one clip that says "CinemaDNG isn't supported yet",
   instead of "No camera clips in this folder". DNG stills stay other files.
 - **Changed:** a reel shared by two folders names the source folder by its own name

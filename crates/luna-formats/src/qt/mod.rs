@@ -112,7 +112,7 @@ pub(crate) fn probe_source(src: &dyn Source) -> Result<Probe, FormatError> {
     };
     if moov_len > MAX_MOOV {
         return Err(FormatError::Unsupported(format!(
-            "The movie header is {moov_len} bytes, larger than any camera writes"
+            "The movie header is too large to read ({moov_len} bytes)"
         )));
     }
     let mut moov = vec![0u8; moov_len as usize];
@@ -145,7 +145,7 @@ pub(crate) fn probe_source(src: &dyn Source) -> Result<Probe, FormatError> {
             fields = 2,
             "interlaced: the sample entry's fiel atom says two fields"
         );
-        warnings.push("The picture is interlaced (two fields per frame).".into());
+        warnings.push("The picture is interlaced.".into());
     }
     let (width, height) = ve.clean.unwrap_or((ve.width, ve.height));
     let layout = PictureLayout {

@@ -258,7 +258,7 @@ fn clip_view(
                 },
             })
             .collect(),
-        identity: guessed_identity(clip),
+        identity: show_problems.then(|| guessed_identity(clip)).flatten(),
         warnings: if show_problems {
             warnings(clip)
         } else {
