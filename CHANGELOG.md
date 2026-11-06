@@ -12,6 +12,10 @@ both. Each release names the `shakedex/luna-decoders` commit it pins.
 
 Decoders: luna-decoders `4095c4b`.
 
+## 2026.11.0 — 2026-11-06
+
+Tag `v2026.11.0`. Decoders: luna-decoders `4095c4b`.
+
 - **New:** Camera look for Sony and ARRI: the LUT a VENICE 2 (X-OCN) or BURANO (XAVC) stored
   in the clip, and the look of an ALEXA 35 (ARRIRAW, ARRICORE, HDE, ProRes) or ALEXA Mini LF
   (ARRIRAW, HDE, ProRes) clip as the camera's monitor output showed it. The report names
