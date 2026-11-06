@@ -23,6 +23,8 @@ Decoders: luna-decoders `4095c4b`.
   Now matches ARRI Reference Tool.
 - **Fixed:** PDF pages that only list Other files or Unreadable no longer carry the last
   camera and reel in the page header.
+- **Fixed:** After `Luna report <folder>` and *Back*, *Create report* uses the fields and
+  settings changed in the window since launch. Options given on the command line still win.
 
 ## 2026.10.3 — 2026-10-27
 
