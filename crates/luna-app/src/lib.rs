@@ -1,13 +1,14 @@
 //! Luna's desktop window: the one-flow main window and its Settings view.
 //!
 //! Everything that can be tested without a window lives in plain modules
-//! (`flow`, `view`, `settings_edit`, `settings_store`, `backend`); `ui` binds
+//! (`flow`, `launch`, `view`, `settings_edit`, `settings_store`, `backend`); `ui` binds
 //! them to the Slint components in `ui/`.
 
 pub mod backdrop;
 pub mod backend;
 pub mod core_backend;
 pub mod flow;
+pub mod launch;
 #[cfg(target_os = "macos")]
 mod mac_menu;
 pub mod moon;

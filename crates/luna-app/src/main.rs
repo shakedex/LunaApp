@@ -8,9 +8,10 @@ use std::sync::Arc;
 use clap::Parser;
 use luna_app::backend::{FakeBackend, RunBackend};
 use luna_app::core_backend::{CoreBackend, PlatformSettingsStore};
+use luna_app::launch::LaunchRun;
 use luna_app::settings_store::{MemorySettingsStore, SettingsStore};
 use luna_core::cli::{Cli, Command};
-use luna_core::run::{RunRequest, WorkerSpec};
+use luna_core::run::WorkerSpec;
 use luna_log::Mode;
 
 fn main() -> ExitCode {
@@ -46,7 +47,7 @@ fn main() -> ExitCode {
         _ => Rc::new(MemorySettingsStore::default()),
     };
 
-    let preset = preset(&*store);
+    let preset = preset();
     // Only the real app updates itself; a simulated run (UI work) doesn't.
     match luna_app::ui::run(backend, store, !fake, preset) {
         Ok(()) => ExitCode::SUCCESS,
@@ -59,7 +60,7 @@ fn main() -> ExitCode {
 
 /// `Luna.exe report <folders…> [options]`: the run to start as the window
 /// opens. Errors become a sentence for the window; there is no console.
-fn preset(store: &dyn SettingsStore) -> Option<Result<RunRequest, String>> {
+fn preset() -> Option<Result<LaunchRun, String>> {
     let first = std::env::args().nth(1)?;
     if !matches!(first.as_str(), "report" | "inspect" | "mcp") {
         return None;
@@ -74,7 +75,7 @@ fn preset(store: &dyn SettingsStore) -> Option<Result<RunRequest, String>> {
         }
     };
     Some(match cli.command {
-        Command::Report(args) => args.into_request(&store.load()),
+        Command::Report(args) => Ok(LaunchRun::new(args)),
         Command::Inspect(_) | Command::Mcp => Err("Use luna-cli for inspect and mcp".into()),
     })
 }

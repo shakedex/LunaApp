@@ -19,6 +19,7 @@ use slint::{ComponentHandle, ModelRc, SharedString, VecModel};
 use crate::backdrop::{BackdropRenderer, Sky, place_moon};
 use crate::backend::{RunBackend, RunControl, RunEvent};
 use crate::flow::{Flow, FlowState, validate_source};
+use crate::launch::LaunchRun;
 use crate::moon::{MoonFrame, MoonRenderer};
 use crate::settings_edit::SettingsEditor;
 use crate::settings_store::SettingsStore;
@@ -41,7 +42,7 @@ pub fn run(
     backend: Arc<dyn RunBackend>,
     store: Rc<dyn SettingsStore>,
     check_updates: bool,
-    preset: Option<Result<RunRequest, String>>,
+    preset: Option<Result<LaunchRun, String>>,
 ) -> Result<(), slint::PlatformError> {
     select_backend()?;
 
@@ -90,7 +91,7 @@ pub fn run(
     });
     app.main.show()?;
     match preset {
-        Some(Ok(request)) => app.start_preset(request),
+        Some(Ok(launch)) => app.start_preset(launch),
         Some(Err(error)) => {
             app.flow.lock().expect("flow lock").pick_source(Err(error));
             app.render();
@@ -212,8 +213,9 @@ struct App {
     update: Cell<UpdateState>,
     /// The update library, in packaged builds.
     updater: RefCell<Option<luna_update::Updater>>,
-    /// The run handed over at launch; Retry on its source runs it again.
-    preset: RefCell<Option<RunRequest>>,
+    /// The run handed over at launch; Create report on its source runs it
+    /// again over the settings as they are then.
+    preset: RefCell<Option<LaunchRun>>,
 }
 
 /// The Moon's motion: it turns slowly, and its phase and dial ease toward the
@@ -592,24 +594,43 @@ impl App {
         let Some((run, source)) = self.flow.lock().expect("flow lock").start() else {
             return;
         };
-        let preset = self
+        let rerun = self
             .preset
             .borrow()
-            .clone()
-            .filter(|p| p.sources.first() == Some(&source));
-        let request =
-            preset.unwrap_or_else(|| RunRequest::folder(source, self.settings.borrow().clone()));
+            .as_ref()
+            .and_then(|p| p.request(&source, &self.settings.borrow()));
+        let request = match rerun {
+            Some(Ok(request)) => request,
+            Some(Err(error)) => {
+                self.flow
+                    .lock()
+                    .expect("flow lock")
+                    .apply(run, RunEvent::Failed(error));
+                self.render();
+                return;
+            }
+            None => RunRequest::folder(source, self.settings.borrow().clone()),
+        };
         self.launch(run, request);
     }
 
-    fn start_preset(self: &Rc<Self>, request: RunRequest) {
-        let Some(source) = request.sources.first().cloned() else {
+    fn start_preset(self: &Rc<Self>, launch: LaunchRun) {
+        let Some(source) = launch.source().map(Path::to_path_buf) else {
             return;
+        };
+        let request = match launch.request(&source, &self.settings.borrow()) {
+            Some(Ok(request)) => request,
+            Some(Err(error)) => {
+                self.flow.lock().expect("flow lock").pick_source(Err(error));
+                self.render();
+                return;
+            }
+            None => return,
         };
         let Some(run) = self.flow.lock().expect("flow lock").start_preset(source) else {
             return;
         };
-        *self.preset.borrow_mut() = Some(request.clone());
+        *self.preset.borrow_mut() = Some(launch);
         self.launch(run, request);
     }
 
