@@ -10,18 +10,18 @@ license = "MIT"
 [workspace.dependencies]
 # Private decoders, all in the private shakedex/luna-decoders repo, pinned to
 # the commit Luna was verified against. Cargo finds each crate by name.
-xocn = { git = "https://github.com/shakedex/luna-decoders", rev = "68ef86922ce50f710b872d645b79bee171efc59a" }
-crm = { git = "https://github.com/shakedex/luna-decoders", rev = "68ef86922ce50f710b872d645b79bee171efc59a" }
+xocn = { git = "https://github.com/shakedex/luna-decoders", rev = "4095c4ba1b1bdc8f7776f8f16e90b8b2e6018181" }
+crm = { git = "https://github.com/shakedex/luna-decoders", rev = "4095c4ba1b1bdc8f7776f8f16e90b8b2e6018181" }
 # `arricore` ships a JPEG XS decoder (patent-pooled codec) and `hde` the Codex
 # HDE decoder (SMPTE RDD 51, patent position unstated): drop a feature to turn
 # those thumbnails off.
-arri = { git = "https://github.com/shakedex/luna-decoders", rev = "68ef86922ce50f710b872d645b79bee171efc59a", features = ["arricore", "hde"] }
-braw = { git = "https://github.com/shakedex/luna-decoders", rev = "68ef86922ce50f710b872d645b79bee171efc59a" }
+arri = { git = "https://github.com/shakedex/luna-decoders", rev = "4095c4ba1b1bdc8f7776f8f16e90b8b2e6018181", features = ["arricore", "hde"] }
+braw = { git = "https://github.com/shakedex/luna-decoders", rev = "4095c4ba1b1bdc8f7776f8f16e90b8b2e6018181" }
 # FFmpeg's LGPL prores_raw decoder, loaded at run time from bundled DLLs (Windows).
-proresraw-ffmpeg = { git = "https://github.com/shakedex/luna-decoders", rev = "68ef86922ce50f710b872d645b79bee171efc59a" }
+proresraw-ffmpeg = { git = "https://github.com/shakedex/luna-decoders", rev = "4095c4ba1b1bdc8f7776f8f16e90b8b2e6018181" }
 # The look Sony (VENICE 2, BURANO) and ARRI (ALEXA 35, Mini LF) cameras embed in MXF.
-sony-look = { git = "https://github.com/shakedex/luna-decoders", rev = "68ef86922ce50f710b872d645b79bee171efc59a" }
-arri-look = { git = "https://github.com/shakedex/luna-decoders", rev = "68ef86922ce50f710b872d645b79bee171efc59a" }
+sony-look = { git = "https://github.com/shakedex/luna-decoders", rev = "4095c4ba1b1bdc8f7776f8f16e90b8b2e6018181" }
+arri-look = { git = "https://github.com/shakedex/luna-decoders", rev = "4095c4ba1b1bdc8f7776f8f16e90b8b2e6018181" }
 
 # Dependencies build without debug info: most of what link.exe writes and reads
 # for each test binary. Luna's own crates keep it.

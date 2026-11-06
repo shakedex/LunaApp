@@ -10,7 +10,7 @@ both. Each release names the `shakedex/luna-decoders` commit it pins.
 
 ## Unreleased
 
-Decoders: luna-decoders `68ef869`.
+Decoders: luna-decoders `4095c4b`.
 
 - **New:** Camera look for Sony and ARRI: the LUT a VENICE 2 (X-OCN) or BURANO (XAVC) stored
   in the clip, and the look of an ALEXA 35 (ARRIRAW, ARRICORE, HDE, ProRes) or ALEXA Mini LF
@@ -19,6 +19,8 @@ Decoders: luna-decoders `68ef869`.
   in LogC3 at the EI it was shot at, as ARRI's software does.
 - **New:** Texture for ALEXA 35 clips (ProRes, ARRICORE, ARRIRAW, HDE), e.g. "K445 Default",
   in the report and as a CSV column.
+- **Fixed:** ALEXA 65 `.ari` thumbnail colour: red and blue were too strong and green too weak.
+  Now matches ARRI Reference Tool.
 - **Fixed:** PDF pages that only list Other files or Unreadable no longer carry the last
   camera and reel in the page header.
 
