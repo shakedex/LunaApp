@@ -5,7 +5,7 @@ export const RELEASES_URL = `${REPO_URL}/releases`;
 export const LATEST_URL = `${RELEASES_URL}/latest`;
 
 /** The release the static page names before the live lookup fills in. */
-export const KNOWN_VERSION = "2026.10.0";
+export const KNOWN_VERSION = "2026.11.0";
 
 export const copy = {
   meta: {
@@ -75,7 +75,7 @@ export const copy = {
   features: {
     title: "Features",
     /** Numbered notes under the grid: which cameras a feature covers. */
-    notes: ["¹ Camera Look: Blackmagic RAW."],
+    notes: ["¹ Camera Look: Blackmagic RAW, Sony VENICE 2 and BURANO, ARRI ALEXA 35 and ALEXA Mini LF."],
     script: {
       title: "Script it",
       text: "Make reports from a terminal or a script, or let AI agents make them over MCP.",
@@ -91,7 +91,7 @@ export const copy = {
       {
         icon: "drives",
         title: "Smart Sorting",
-        text: "Drop a whole drive. Every card is sorted by camera and reel from the clips themselves.",
+        text: "Drop a whole drive. Every card is sorted by camera and reel.",
       },
       {
         icon: "card",
@@ -103,7 +103,7 @@ export const copy = {
         title: "Rec.709, log or your LUT",
         text: "RAW to Rec.709, bring your own LUT, or use the embedded LUT with Camera Look on supported cameras.¹",
       },
-      { icon: "desktop", title: "Works on Windows and macOS", text: "Free forever, no subscriptions." },
+      { icon: "desktop", title: "Works on Windows and macOS", text: "Free, MIT licence." },
     ],
   },
 

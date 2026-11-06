@@ -1132,32 +1132,19 @@ fn sync_fields(model: &VecModel<CustomField>, custom: &[(String, String)]) {
 
 fn credits() -> Vec<Component> {
     [
-        ("Slint", "Royalty-free 2.0", "User interface toolkit"),
-        ("Typst", "Apache-2.0", "Typesetting for the PDF report"),
-        (
-            "askama",
-            "MIT or Apache-2.0",
-            "Templates for the HTML report",
-        ),
-        ("rfd", "MIT", "Native file and folder dialogs"),
-        ("open", "MIT", "Opens reports in their default app"),
-        (
-            "IBM Plex Sans",
-            "OFL-1.1",
-            "Typeface of the app and the report",
-        ),
-        ("Phosphor Icons", "MIT", "Icons"),
-        (
-            "NASA CGI Moon Kit",
-            "NASA media",
-            "Lunar surface map, by NASA's Scientific Visualization Studio",
-        ),
+        ("Slint", "Royalty-free 2.0"),
+        ("Typst", "Apache-2.0"),
+        ("askama", "MIT or Apache-2.0"),
+        ("rfd", "MIT"),
+        ("open", "MIT"),
+        ("IBM Plex Sans", "OFL-1.1"),
+        ("Phosphor Icons", "MIT"),
+        ("NASA SVS CGI Moon Kit", "NASA media"),
     ]
     .into_iter()
-    .map(|(name, licence, role)| Component {
+    .map(|(name, licence)| Component {
         name: name.into(),
         licence: licence.into(),
-        role: role.into(),
     })
     .collect()
 }

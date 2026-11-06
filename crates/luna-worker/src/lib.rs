@@ -254,7 +254,7 @@ pub fn run_job(job: &ClipJob) -> ClipResult {
             })
             .collect();
         if unknown_transform {
-            let w = "Display transform unknown: thumbnails are shown as decoded";
+            let w = "The camera's colour space is unknown: thumbnails are not colour converted";
             tracing::warn!("warning: {w}");
             warnings.push(w.into());
         }

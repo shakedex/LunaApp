@@ -153,14 +153,11 @@ fn hidden_problems_leave_the_report() {
         "Unreadable",
         "Access denied",
         "class=\"clip problem\"",
+        "Reel named from the file name",
     ] {
         assert!(!h.contains(gone), "still has {gone:?}");
     }
-    for kept in [
-        "No image",
-        "Reel named from the file name",
-        "A001/notes.txt",
-    ] {
+    for kept in ["No image", "A001/notes.txt"] {
         assert!(h.contains(kept), "missing {kept:?}");
     }
 }

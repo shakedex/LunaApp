@@ -206,12 +206,10 @@ fn main() {
             Component {
                 name: "Slint".into(),
                 licence: "Royalty-free 2.0".into(),
-                role: "Window and controls".into(),
             },
             Component {
                 name: "Typst".into(),
                 licence: "Apache-2.0".into(),
-                role: "PDF typesetting".into(),
             },
         ])));
         m.set_settings_open(true);

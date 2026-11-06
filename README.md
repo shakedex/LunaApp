@@ -43,7 +43,7 @@ camera and reel, with its metadata and a strip of three stills.
 | --- | --- |
 | **Popular camera formats** | ARRIRAW, ARRICORE, X-OCN, R3D, BRAW, Cinema RAW Light, N-RAW, ProRes RAW and more |
 | **Paper or dark** | PDF, HTML and CSV, in the Paper or Dark theme |
-| **Smart Sorting** | Drop a whole drive. Every card is sorted by camera and reel from the clips themselves |
+| **Smart Sorting** | Drop a whole drive. Every card is sorted by camera and reel |
 | **Your Branding** | Logo, production, company and your own fields like shoot day or location |
 | **Rec.709, log or your LUT** | RAW to Rec.709, bring your own LUT, or use the embedded LUT with Camera Look on supported cameras¹ |
 | **Script it** | `luna-cli` makes reports from a terminal or a script, and over MCP for AI agents ([guide](automation/README.md)) |
@@ -63,8 +63,7 @@ camera and reel, with its metadata and a strip of three stills.
 | Apple             | ProRes, ProRes RAW                         |
 | Other cameras     | H.264, HEVC                                |
 
-Sidecars: Sony and Canon XML, RED RMD, Blackmagic RAW sidecars and ALE. Every
-format reads on both Windows and macOS. Missing one?
+Sidecars: Sony and Canon XML, RED RMD, Blackmagic RAW sidecars and ALE. Missing one?
 [Open an issue](https://github.com/shakedex/LunaApp/issues).
 
 ## Download
@@ -78,23 +77,7 @@ Both are on the [latest release](https://github.com/shakedex/LunaApp/releases/la
 Luna updates itself.
 
 The Windows installer is unsigned, so SmartScreen shows "Windows protected
-your PC": choose **More info**, then **Run anyway**. The macOS app is signed
-and notarized.
-
-With **Also save on the source drive** on in Settings (off by default), each
-report is also written to `Luna\<report name>\` at the root of the source
-drive (`D:\Luna\…`, `/Volumes/<drive>/Luna/…`), unless the report destination
-is already on that drive.
-
-Clip warnings and unreadable files stay out of the report unless **Show problems
-in reports** is on; the results screen and the run logs always list them.
-
-**Colour** in Settings sets the thumbnails: Rec.709, None (the camera's log as
-recorded) or a `.cube` LUT, with the last five LUTs in its menu. **Camera look**
-uses the look a clip was recorded with: the LUT of a Blackmagic RAW clip when the
-camera applied it ("Apply LUT in File"), the LUT a Sony VENICE 2 or BURANO stored
-in the clip, or the look of an ARRI ALEXA 35 or ALEXA Mini LF clip as the camera's
-monitor output showed it.
+your PC": choose **More info**, then **Run anyway**.
 
 ## Development
 

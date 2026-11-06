@@ -123,7 +123,7 @@ pub(crate) fn probe_source<R: Read + Seek>(
             file_len = r.len(),
             "no footer: no random index pack or footer partition reached"
         );
-        warnings.push("The file has no footer or partition index; it may be incomplete.".into());
+        warnings.push("The recording may not have been closed; it may be incomplete.".into());
     }
 
     // Header metadata: the most complete copy, falling back to others.
@@ -380,8 +380,6 @@ pub(crate) fn probe_source<R: Read + Seek>(
             duration = ?target.duration,
             "clip-wrapped: one picture element holds every frame"
         );
-        warnings
-            .push("The picture is clip-wrapped; frame positions are left to the decoder.".into());
         FrameIndex::DecoderOwned
     } else if frames.ranges.is_empty() {
         tracing::warn!(
