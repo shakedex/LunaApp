@@ -739,3 +739,26 @@ fn arri_legacy_header_from_mini_lf() {
     assert_eq!(l.reel_name.as_deref(), Some("F003MN99"));
     assert_eq!(l.clip_name.as_deref(), Some("F003C004_190925_MN99"));
 }
+
+/// The ALEXA 35 texture set as the camera writes it (ProRes clip; the local
+/// tags are per file, the ULs fixed).
+#[test]
+fn arri_texture_name() {
+    let primer = std::collections::HashMap::from([
+        (0x8019, ul("060e2b340101010e0e17010202010000")),
+        (0x8021, ul("060e2b340101010e0e17010204020000")),
+    ]);
+    let mut v = Vec::new();
+    for (tag, val) in [(0x8019u16, vec![1]), (0x8021, utf16("K445 Default.at1"))] {
+        v.extend(tag.to_be_bytes());
+        v.extend((val.len() as u16).to_be_bytes());
+        v.extend(val);
+    }
+    let set = super::metadata::parse_set(ul("060e2b34025301010e17010204000000"), &v, &primer);
+    assert_eq!(
+        super::arri::texture_name(&set).as_deref(),
+        Some("K445 Default")
+    );
+    let empty = super::metadata::parse_set(ul("060e2b34025301010e17010204000000"), &[], &primer);
+    assert_eq!(super::arri::texture_name(&empty), None);
+}

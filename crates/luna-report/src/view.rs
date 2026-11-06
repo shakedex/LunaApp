@@ -221,9 +221,14 @@ fn clip_view(
         cell("Shutter", f.shutter.clone()),
         cell("WB", f.white_balance.clone()),
         cell("ND", f.nd.clone()),
+    ];
+    if let Some(texture) = &f.texture {
+        rest.push(cell("Texture", Some(texture.clone())));
+    }
+    rest.extend([
         cell("Audio", f.audio.clone()),
         cell("File size", f.file_size.map(format_bytes)),
-    ];
+    ]);
     if let Some(colour) = &clip.colour {
         rest.push(cell("Colour", Some(colour.clone())));
     }

@@ -66,6 +66,7 @@ pub(crate) fn probe(clip: &ClipFiles) -> Result<Probe, FormatError> {
         audio: None,
         embedded_reel: l.reel_name,
         embedded_camera_id: l.camera_index,
+        texture: None,
         slate: Default::default(),
         // ALEV III cameras record ARRIRAW for LogC3 / AWG3.
         colour: ColourHint {

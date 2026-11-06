@@ -59,6 +59,7 @@ fn mini_lf_prores() {
     let p = fixture("minilf_prores_header.bin");
     assert_eq!(p.codec, Codec::ProRes(ProResProfile::P4444));
     assert_eq!(s(&p.meta.camera_model), Some("ALEXA Mini LF"));
+    assert_eq!(p.meta.texture, None);
     assert_eq!(p.meta.colour.transfer, Some(Transfer::LogC3));
     assert_eq!(p.meta.colour.gamut, Some(Gamut::ArriWideGamut3));
     assert_eq!(p.meta.start_timecode.unwrap().to_string(), "00:42:45:19");

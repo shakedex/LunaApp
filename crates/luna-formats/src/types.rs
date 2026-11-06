@@ -352,6 +352,8 @@ pub struct ClipMeta {
     pub embedded_reel: Option<String>,
     /// Camera letter or ID as the camera records it (e.g. "A").
     pub embedded_camera_id: Option<String>,
+    /// The camera's texture, e.g. "K445 Default" (ALEXA 35).
+    pub texture: Option<String>,
     /// Scene, shot and take as the recorder's slate entry records them.
     #[serde(default)]
     pub slate: Slate,

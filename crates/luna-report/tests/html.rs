@@ -177,3 +177,15 @@ fn clip_colour_cell_shows_when_set() {
 fn no_colour_cell_without_one() {
     assert!(!html(&sample_report()).contains("<dt>Colour</dt>"));
 }
+
+#[test]
+fn texture_shows_only_when_the_file_has_it() {
+    let h = html(&sample_report());
+    // The three full clips record a texture; the bare clip has none.
+    assert_eq!(
+        h.matches("<dt>Texture</dt><dd>K445 Default</dd>").count(),
+        3,
+        "{h}"
+    );
+    assert_eq!(h.matches("<dt>Texture</dt>").count(), 3);
+}

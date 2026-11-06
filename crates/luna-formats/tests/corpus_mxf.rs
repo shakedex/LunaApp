@@ -105,6 +105,7 @@ fn alexa35_prores_meta() -> ClipMeta {
         audio: pcm(2),
         embedded_reel: s("DW0001_1I7H"),
         embedded_camera_id: s("DW"),
+        texture: s("K445 Default"),
         colour: colour(Transfer::LogC4, Gamut::ArriWideGamut4),
     }
 }
@@ -161,6 +162,7 @@ fn alexa35_arriraw() {
             audio: pcm(2),
             embedded_reel: s("DW0001_1I7H"),
             embedded_camera_id: s("DW"),
+            texture: s("K445 Default"),
             colour: colour(Transfer::LogC4, Gamut::ArriWideGamut4),
         }
     );
@@ -208,6 +210,7 @@ fn alexa35_arricore() {
             audio: pcm(2),
             embedded_reel: s("DW0001_1I7H"),
             embedded_camera_id: s("DW"),
+            texture: s("K445 Default"),
             colour: colour(Transfer::LogC4, Gamut::ArriWideGamut4),
         }
     );
@@ -251,6 +254,7 @@ fn mini_lf(
         audio: pcm(5),
         embedded_reel: s("F003MN99"),
         embedded_camera_id: s("F"),
+        texture: None,
         colour: colour(Transfer::LogC3, Gamut::ArriWideGamut3),
     }
 }
@@ -347,6 +351,7 @@ fn burano_xocn_with_xml() {
             audio: pcm(4),
             embedded_reel: None,
             embedded_camera_id: None,
+            texture: None,
             colour: colour(Transfer::Linear, Gamut::SGamut3Cine),
         }
     );
@@ -391,6 +396,7 @@ fn venice_xocn_with_xml() {
             audio: pcm(4),
             embedded_reel: None,
             embedded_camera_id: None,
+            texture: None,
             colour: colour(Transfer::Linear, Gamut::SGamut3Cine),
         }
     );
@@ -432,6 +438,7 @@ fn venice2_xocn_anamorphic_truncated() {
             audio: pcm(4),
             embedded_reel: None,
             embedded_camera_id: None,
+            texture: None,
             colour: colour(Transfer::Linear, Gamut::SGamut3Cine),
         }
     );
@@ -475,6 +482,7 @@ fn fx6_xavc_intra() {
             audio: pcm(8),
             embedded_reel: None,
             embedded_camera_id: None,
+            texture: None,
             colour: colour(Transfer::SLog3, Gamut::SGamut3Cine),
         }
     );
@@ -516,6 +524,7 @@ fn canon_c50_xf_avc() {
             audio: pcm(4),
             embedded_reel: None,
             embedded_camera_id: None,
+            texture: None,
             // Canon's private transfer/primaries labels in the picture descriptor.
             colour: colour(Transfer::CanonLog2, Gamut::CinemaGamut),
         }

@@ -17,6 +17,8 @@ Decoders: luna-decoders `68ef869`.
   (ARRIRAW, HDE, ProRes) clip as the camera's monitor output showed it. The report names
   the look ("5110 Nature.alf4", "SL3SG3CtoTealOR_709.cube"). Mini LF ARRIRAW reaches its look
   in LogC3 at the EI it was shot at, as ARRI's software does.
+- **New:** Texture for ALEXA 35 clips (ProRes, ARRICORE, ARRIRAW, HDE), e.g. "K445 Default",
+  in the report and as a CSV column.
 - **Fixed:** PDF pages that only list Other files or Unreadable no longer carry the last
   camera and reel in the page header.
 

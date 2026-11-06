@@ -30,6 +30,7 @@ pub fn full_clip(file_name: &str) -> Clip {
             shutter: Some("180°".into()),
             white_balance: Some("5600 K".into()),
             nd: Some("0.6".into()),
+            texture: Some("K445 Default".into()),
             audio: Some("4 ch, 48 kHz, 24-bit".into()),
             file_size: Some(4_294_967_296),
             scene: Some("12".into()),

@@ -66,6 +66,7 @@ pub fn clip_fields(
     f.shutter = m.shutter.clone();
     f.white_balance = m.white_balance.clone();
     f.nd = m.nd.clone();
+    f.texture = m.texture.clone();
     f.audio = m.audio.map(|a| a.to_string());
     f
 }

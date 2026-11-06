@@ -91,6 +91,7 @@ fn arri(date: &str, lens: Option<String>, start: u64, frames: u64, w: u32, h: u3
         audio: audio(5, Some(24)),
         embedded_reel: s("M001R00H"),
         embedded_camera_id: s("M"),
+        texture: None,
         colour: colour(Transfer::LogC3, Some(Gamut::ArriWideGamut3)),
     }
 }

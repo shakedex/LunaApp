@@ -156,6 +156,7 @@ fn probe_crm(clip: &ClipFiles) -> Result<Probe, FormatError> {
         audio: None,
         embedded_reel: None,
         embedded_camera_id: None,
+        texture: None,
         // The file doesn't say which gamma/gamut the camera monitored in;
         // the frames are raw anyway.
         colour: ColourHint::default(),
@@ -221,6 +222,7 @@ fn probe_braw(clip: &ClipFiles) -> Result<Probe, FormatError> {
         audio: None,
         embedded_reel: info.reel_name.clone(),
         embedded_camera_id: info.camera_number.clone(),
+        texture: None,
         colour: braw_sdk::HINT,
     };
     let layout = PictureLayout {
@@ -363,6 +365,7 @@ fn probe_r3d(clip: &ClipFiles) -> Result<Probe, FormatError> {
         ),
         embedded_reel: text("reel_id_full"),
         embedded_camera_id: text("camera_id"),
+        texture: None,
         colour: r3d::HINT,
     };
     let pixel_aspect = float("pixel_aspect_ratio")

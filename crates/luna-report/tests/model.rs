@@ -29,8 +29,9 @@ fn display_values_follow_field_labels() {
     assert_eq!(values[0].as_deref(), Some("X.mxf"));
     assert_eq!(values[6].as_deref(), Some("50"), "sensor FPS follows FPS");
     assert_eq!(values[8].as_deref(), Some("ProRes 4444"));
-    assert_eq!(values[18].as_deref(), Some("4 ch, 48 kHz, 24-bit"));
-    assert_eq!(values[19].as_deref(), Some("4.29 GB"));
+    assert_eq!(values[18].as_deref(), Some("K445 Default"));
+    assert_eq!(values[19].as_deref(), Some("4 ch, 48 kHz, 24-bit"));
+    assert_eq!(values[20].as_deref(), Some("4.29 GB"));
 }
 
 #[test]

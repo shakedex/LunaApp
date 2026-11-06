@@ -11,7 +11,7 @@ use crate::logo::Logo;
 pub const MISSING: &str = "—";
 
 /// Per-clip columns, in report order.
-pub const FIELD_LABELS: [&str; 20] = [
+pub const FIELD_LABELS: [&str; 21] = [
     "File name",
     "Recording date",
     "TC in",
@@ -30,6 +30,7 @@ pub const FIELD_LABELS: [&str; 20] = [
     "Shutter",
     "WB",
     "ND",
+    "Texture",
     "Audio",
     "File size",
 ];
@@ -156,6 +157,8 @@ pub struct ClipFields {
     pub shutter: Option<String>,
     pub white_balance: Option<String>,
     pub nd: Option<String>,
+    /// The camera's texture, e.g. "K445 Default" (ALEXA 35).
+    pub texture: Option<String>,
     /// e.g. "4 ch, 48 kHz, 24-bit", or "None" for a clip without sound.
     pub audio: Option<String>,
     pub file_size: Option<u64>,
@@ -167,7 +170,7 @@ pub struct ClipFields {
 
 impl ClipFields {
     /// Values in [`FIELD_LABELS`] order. The file size is formatted with [`format_bytes`].
-    pub fn display_values(&self) -> [Option<String>; 20] {
+    pub fn display_values(&self) -> [Option<String>; 21] {
         [
             Some(self.file_name.clone()),
             self.recording_date.clone(),
@@ -187,6 +190,7 @@ impl ClipFields {
             self.shutter.clone(),
             self.white_balance.clone(),
             self.nd.clone(),
+            self.texture.clone(),
             self.audio.clone(),
             self.file_size.map(format_bytes),
         ]

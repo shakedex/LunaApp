@@ -617,6 +617,7 @@ struct Vendor {
     sensor_fps: Option<Rational>,
     reel: Option<String>,
     camera_id: Option<String>,
+    texture: Option<String>,
     start_tc: Option<Timecode>,
     /// A sidecar's "HH:MM:SS:FF", settled against the frame rate when merging.
     start_tc_text: Option<String>,
@@ -631,7 +632,7 @@ struct Vendor {
 impl Vendor {
     /// Each value under the `ClipMeta` field it feeds (`start_tc_text` and
     /// `utc_date` under their own names), for crediting sources.
-    fn values(&self) -> [(&'static str, String); 19] {
+    fn values(&self) -> [(&'static str, String); 20] {
         fn d(v: &dyn std::fmt::Debug) -> String {
             format!("{v:?}")
         }
@@ -649,6 +650,7 @@ impl Vendor {
             ("sensor_fps", d(&self.sensor_fps)),
             ("embedded_reel", d(&self.reel)),
             ("embedded_camera_id", d(&self.camera_id)),
+            ("texture", d(&self.texture)),
             ("start_timecode", d(&self.start_tc)),
             ("start_tc_text", d(&self.start_tc_text)),
             ("recording_date", d(&self.date)),
@@ -659,7 +661,7 @@ impl Vendor {
     }
 
     /// Credits `source` with every value that changed since `before`.
-    fn credit(&self, before: &[(&'static str, String); 19], source: &str, sources: &mut Sources) {
+    fn credit(&self, before: &[(&'static str, String); 20], source: &str, sources: &mut Sources) {
         for ((field, old), (_, new)) in before.iter().zip(self.values()) {
             if *old != new {
                 sources.set(field, source);
@@ -700,6 +702,10 @@ fn arri_meta(
     set(&mut v.reel, j("Slate Info", "reelName"));
     set(&mut v.camera_id, j("Slate Info", "cameraIndex"));
     v.credit(&before, ARRI_JSON, sources);
+
+    let before = v.values();
+    set(&mut v.texture, arri::texture(md));
+    v.credit(&before, "ARRI texture set", sources);
 
     let legacy = arri::legacy_header(md);
     blocks.push((ARRI_HEADER.into(), legacy.is_some()));
@@ -1016,6 +1022,7 @@ fn merge(m: &mut ClipMeta, v: Vendor, make: Make, st: &Structure, sources: &mut 
     m.sensor_fps = v.sensor_fps;
     m.embedded_reel = v.reel;
     m.embedded_camera_id = v.camera_id;
+    m.texture = v.texture;
     if m.start_timecode.is_some() {
         sources.set("start_timecode", "timecode track StartTimecode");
     } else {

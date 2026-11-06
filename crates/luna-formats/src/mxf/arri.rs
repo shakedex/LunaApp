@@ -9,7 +9,7 @@
 use std::collections::HashMap;
 
 use super::klv::{Ul, ber, ul};
-use super::metadata::Metadata;
+use super::metadata::{LocalSet, Metadata};
 
 const JSON_SET: [u8; 13] = [
     0x06, 0x0e, 0x2b, 0x34, 0x02, 0x53, 0x01, 0x01, 0x0e, 0x17, 0x01, 0x02, 0x10,
@@ -33,6 +33,28 @@ pub(crate) fn json_documents(md: &Metadata) -> HashMap<String, serde_json::Value
         }
     }
     out
+}
+
+const TEXTURE_SET: [u8; 13] = [
+    0x06, 0x0e, 0x2b, 0x34, 0x02, 0x53, 0x01, 0x01, 0x0e, 0x17, 0x01, 0x02, 0x04,
+];
+const TEXTURE_NAME: Ul = ul("060e2b340101010e0e17010204020000");
+
+/// The ALEXA 35 texture's name, e.g. "K445 Default" (its file, "K445
+/// Default.at1", without the extension). ProRes, ARRICORE, ARRIRAW and HDE
+/// clips all record it; raw ones carry it unapplied.
+pub(crate) fn texture(md: &Metadata) -> Option<String> {
+    md.with_key(&TEXTURE_SET).find_map(texture_name)
+}
+
+pub(crate) fn texture_name(s: &LocalSet) -> Option<String> {
+    let v = s
+        .items
+        .iter()
+        .find(|i| i.ul.is_some_and(|x| x.is(&TEXTURE_NAME)))?;
+    let name = utf16(&v.value);
+    let name = name.strip_suffix(".at1").unwrap_or(&name).trim();
+    (!name.is_empty()).then(|| name.to_string())
 }
 
 fn utf16(v: &[u8]) -> String {
