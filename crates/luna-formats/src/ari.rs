@@ -38,12 +38,14 @@ pub(crate) fn probe(clip: &ClipFiles) -> Result<Probe, FormatError> {
     let fps = l.sensor_fps_1000.and_then(|f| Rational::reduced(f, 1000));
     let mut files = vec![clip.main.clone()];
     files.extend(clip.segments.iter().cloned());
+    let start_tc = fps.and_then(|r| timecode(&h, r));
+    let (frame_count, warnings) = extent(&files, start_tc, fps);
     let meta = ClipMeta {
         recording_date: date(&h),
-        start_timecode: fps.and_then(|r| timecode(&h, r)),
+        start_timecode: start_tc,
         // Project rate: the sensor rate (the only sample records both alike).
         frame_rate: fps,
-        frame_count: Some(files.len() as u64),
+        frame_count: Some(frame_count),
         width: some(width),
         height: some(height),
         camera_make: Some("ARRI".into()),
@@ -86,9 +88,80 @@ pub(crate) fn probe(clip: &ClipFiles) -> Result<Probe, FormatError> {
             rotation: 0,
         },
         codec_config: None,
-        warnings: Vec::new(),
+        warnings,
         embedded_lut: None,
     })
+}
+
+/// The clip's length in frames, from TC in to the last frame's own timecode (or
+/// its file number), and a warning naming any frames missing on disk.
+fn extent(
+    files: &[std::path::PathBuf],
+    start_tc: Option<Timecode>,
+    fps: Option<Rational>,
+) -> (u64, Vec<String>) {
+    let on_disk = files.len() as u64;
+    let numbers: Option<Vec<u64>> = files.iter().map(|f| frame_number(f)).collect();
+    let end_tc = files.last().filter(|_| files.len() > 1).and_then(|f| {
+        let mut h = vec![0u8; HEADER_LEN];
+        std::fs::File::open(f)
+            .and_then(|mut f| f.read_exact(&mut h))
+            .ok()?;
+        timecode(&h, fps?)
+    });
+    let span = match (start_tc, end_tc, &numbers) {
+        (Some(a), Some(b), _) if b.frames >= a.frames && b.base == a.base => {
+            b.frames - a.frames + 1
+        }
+        (_, _, Some(n)) if n.len() > 1 => n[n.len() - 1].saturating_sub(n[0]) + 1,
+        _ => on_disk,
+    }
+    .max(on_disk);
+    if span == on_disk {
+        return (span, Vec::new());
+    }
+    let width = files
+        .first()
+        .and_then(|f| f.file_stem())
+        .map(|s| {
+            s.to_string_lossy()
+                .bytes()
+                .rev()
+                .take_while(u8::is_ascii_digit)
+                .count()
+        })
+        .unwrap_or(0);
+    let mut ranges: Vec<String> = numbers
+        .unwrap_or_default()
+        .windows(2)
+        .filter(|w| w[1] > w[0] + 1)
+        .map(|w| match (w[0] + 1, w[1] - 1) {
+            (a, b) if a == b => format!("{a:0width$}"),
+            (a, b) => format!("{a:0width$}–{b:0width$}"),
+        })
+        .collect();
+    if ranges.len() > 3 {
+        let more = ranges.len() - 3;
+        ranges.truncate(3);
+        ranges.push(format!("{more} more"));
+    }
+    let missing = span - on_disk;
+    let warning = if ranges.is_empty() {
+        format!("Frames missing from the sequence: {missing} of {span}")
+    } else {
+        format!(
+            "Frames missing from the sequence: {} ({missing} of {span})",
+            ranges.join(", ")
+        )
+    };
+    (span, vec![warning])
+}
+
+/// The frame number at the end of a frame file's name: `….0078471.ari` → 78471.
+fn frame_number(path: &std::path::Path) -> Option<u64> {
+    let stem = path.file_stem()?.to_string_lossy();
+    let digits = stem.bytes().rev().take_while(u8::is_ascii_digit).count();
+    stem[stem.len() - digits..].parse().ok()
 }
 
 fn bcd(b: u8) -> Option<u32> {
@@ -141,5 +214,75 @@ mod tests {
         h[0x1a8] = 0x99; // 99 frames at 24 fps is not a timecode
         assert!(timecode(&h, Rational { num: 24, den: 1 }).is_none());
         assert!(date(&[0xff; HEADER_LEN]).is_none());
+    }
+
+    /// A 24 fps `.ari` frame whose header timecode is `frames`.
+    fn frame(dir: &std::path::Path, number: u64, frames: u32) -> std::path::PathBuf {
+        let mut h = vec![0u8; HEADER_LEN + 16];
+        h[..8].copy_from_slice(b"ARRI4Vx");
+        h[0x14..0x18].copy_from_slice(&16u32.to_le_bytes());
+        h[0x18..0x1c].copy_from_slice(&16u32.to_le_bytes());
+        h[0x1a0..0x1a4].copy_from_slice(&24_000u32.to_le_bytes());
+        let bcd = |v: u32| (((v / 10) << 4) | (v % 10)) as u8;
+        let (f, s) = (frames % 24, frames / 24);
+        h[0x1a8..0x1ac].copy_from_slice(&[bcd(f), bcd(s % 60), bcd(s / 60 % 60), bcd(s / 3600)]);
+        let path = dir.join(format!("A001C001_120101_R1AB.{number:07}.ari"));
+        std::fs::write(&path, h).unwrap();
+        path
+    }
+
+    fn sequence(name: &str, numbers: &[u64]) -> ClipFiles {
+        let dir = std::env::temp_dir().join(format!("luna-ari-{}-{name}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let mut files: Vec<_> = numbers.iter().map(|&n| frame(&dir, n, n as u32)).collect();
+        let main = files.remove(0);
+        ClipFiles {
+            container: crate::types::Container::AriFrame,
+            main,
+            segments: files,
+            sidecars: vec![],
+        }
+    }
+
+    #[test]
+    fn whole_sequence_has_no_warning() {
+        let p = probe(&sequence("whole", &[100, 101, 102, 103])).unwrap();
+        assert_eq!(p.meta.frame_count, Some(4));
+        assert!(p.warnings.is_empty(), "{:?}", p.warnings);
+    }
+
+    #[test]
+    fn missing_frames_keep_the_span_and_are_named() {
+        let p = probe(&sequence("gap", &[100, 101, 102, 110, 111, 115])).unwrap();
+        // TC in 100, TC out 115: the take is 16 frames, 6 of them on disk.
+        assert_eq!(p.meta.start_timecode.unwrap().frames, 100);
+        assert_eq!(p.meta.frame_count, Some(16));
+        assert_eq!(
+            p.warnings,
+            ["Frames missing from the sequence: 0000103–0000109, 0000112–0000114 (10 of 16)"]
+        );
+        let FrameIndex::Files(f) = &p.frames else {
+            panic!("{:?}", p.frames)
+        };
+        assert_eq!(f.len(), 6);
+    }
+
+    #[test]
+    fn one_missing_frame_is_named_alone() {
+        let p = probe(&sequence("one", &[7, 9])).unwrap();
+        assert_eq!(p.meta.frame_count, Some(3));
+        assert_eq!(
+            p.warnings,
+            ["Frames missing from the sequence: 0000008 (1 of 3)"]
+        );
+    }
+
+    #[test]
+    fn many_gaps_list_three_and_count_the_rest() {
+        let p = probe(&sequence("many", &[0, 2, 4, 6, 8, 10])).unwrap();
+        assert_eq!(
+            p.warnings,
+            ["Frames missing from the sequence: 0000001, 0000003, 0000005, 2 more (5 of 11)"]
+        );
     }
 }

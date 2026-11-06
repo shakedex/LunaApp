@@ -21,6 +21,9 @@ Decoders: luna-decoders `4095c4b`.
   in the report and as a CSV column.
 - **Fixed:** ALEXA 65 `.ari` thumbnail colour: red and blue were too strong and green too weak.
   Now matches ARRI Reference Tool.
+- **Fixed:** `.ari` / `.arx` frame sequences with missing frames: TC out and duration come
+  from the last frame's own timecode, and the clip needs attention with the missing frame
+  ranges named.
 - **Fixed:** PDF pages that only list Other files or Unreadable no longer carry the last
   camera and reel in the page header.
 

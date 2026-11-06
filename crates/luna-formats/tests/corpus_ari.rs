@@ -43,6 +43,7 @@ fn alexa_mini_lf_arx_sequence() {
         ((3 * 3600 + 48 * 60 + 27) * 24 + 11, 24)
     );
     assert_eq!(m.frame_count, Some(180));
+    assert!(p.warnings.is_empty(), "{:?}", p.warnings);
     assert_eq!((m.width, m.height), (Some(3840), Some(2160)));
     assert_eq!(m.camera_model.as_deref(), Some("ALEXA Mini LF"));
     assert_eq!(m.camera_serial.as_deref(), Some("30141"));
@@ -56,6 +57,38 @@ fn alexa_mini_lf_arx_sequence() {
     assert_eq!(m.embedded_camera_id.as_deref(), Some("F"));
     assert_eq!(m.colour.transfer, Some(Transfer::LogC3));
     assert_eq!(m.colour.gamut, Some(Gamut::ArriWideGamut3));
+}
+
+/// The drive's copy of this ALEXA 65 take lacks frames 0078623–0078929.
+#[test]
+fn alexa_65_sequence_with_missing_frames() {
+    let Some(root) = new_cameras() else {
+        return;
+    };
+    let dir = root.join("alexa65/A003C025_150830_R0D0/6560x3100");
+    let mut frames: Vec<PathBuf> = std::fs::read_dir(&dir)
+        .unwrap()
+        .map(|e| e.unwrap().path())
+        .filter(|p| p.extension().is_some_and(|e| e == "ari"))
+        .collect();
+    frames.sort();
+    let p = probe(&ClipFiles {
+        container: Container::AriFrame,
+        main: frames[0].clone(),
+        segments: frames[1..].to_vec(),
+        sidecars: vec![],
+    })
+    .unwrap();
+    assert!(matches!(&p.frames, FrameIndex::Files(f) if f.len() == 173));
+    let tc = p.meta.start_timecode.unwrap();
+    assert_eq!(tc.to_string(), "00:54:29:15");
+    // TC in to the last frame's own timecode, 00:54:49:14.
+    assert_eq!(p.meta.frame_count, Some(480));
+    assert_eq!(tc.offset(479).to_string(), "00:54:49:14");
+    assert_eq!(
+        p.warnings,
+        ["Frames missing from the sequence: 0078623–0078929 (307 of 480)"]
+    );
 }
 
 #[test]
